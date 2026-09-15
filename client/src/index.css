@@ -48,6 +48,10 @@
     color-mix(in srgb, var(--bg), var(--fg) 8%)
   );
   --fg-secondary: light-dark(
+    color-mix(in srgb, var(--fg) 60%, transparent),
+    color-mix(in srgb, var(--fg) 56%, transparent)
+  );
+  --fg-tertiary: light-dark(
     color-mix(in srgb, var(--fg) 40%, transparent),
     color-mix(in srgb, var(--fg) 32%, transparent)
   );

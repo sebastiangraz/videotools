@@ -105,7 +105,7 @@ button,
   font-size: 10px;
   min-height: var(--quantize);
   &:focus-visible {
-    outline: 1px solid color-mix(in srgb, var(--fg) 20%, transparent);
+    outline: 1px solid var(--border);
     outline-offset: 2px;
   }
 }
@@ -133,7 +133,7 @@ button,
 }
 
 .sliderIndicator {
-  border-top: 1px solid color-mix(in srgb, var(--fg) 70%, transparent);
+  border-top: 1px solid var(--fg-secondary);
   position: relative;
   grid-area: 1 / 1;
 }
@@ -148,7 +148,7 @@ button,
 
   /* Focus lands on the visually hidden range input inside the thumb. */
   &:has(:focus-visible) {
-    outline: 1px solid color-mix(in srgb, var(--fg) 40%, transparent);
+    outline: 1px solid var(--fg-tertiary);
     outline-offset: 3px;
   }
 }
@@ -194,7 +194,7 @@ button,
   corner-shape: superellipse(1.45);
   font-size: 8.5px;
   letter-spacing: 0.05em;
-  color: color-mix(in srgb, var(--fg) 50%, transparent);
+  color: var(--fg-secondary);
 }
 
 .fileInput::file-selector-button {
@@ -240,7 +240,7 @@ button,
   font-size: 10px;
   text-decoration: none;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--fg) 55%, transparent);
+  color: var(--fg-secondary);
 
   &::before {
     border-top: 1px solid transparent;
@@ -258,7 +258,7 @@ button,
     position: relative;
     outline: none;
     &::before {
-      border-top: 1px solid color-mix(in srgb, var(--fg) 40%, transparent);
+      border-top: 1px solid var(--fg-tertiary);
     }
   }
 }
@@ -291,7 +291,7 @@ button,
   translate: 0 -50%;
   width: 0.7em;
   height: auto;
-  color: color-mix(in srgb, var(--fg) 55%, transparent);
+  color: var(--fg-secondary);
   pointer-events: none;
 }
 
@@ -371,7 +371,7 @@ button,
   letter-spacing: 0.05em;
   text-align: right;
   text-wrap: balance;
-  color: color-mix(in srgb, var(--fg) 70%, transparent);
+  color: var(--fg);
   background-color: var(--bg);
   outline: none;
   transition:
@@ -396,7 +396,7 @@ button,
   font-size: 8.5px;
   letter-spacing: 0.05em;
   text-wrap: balance;
-  color: color-mix(in srgb, var(--fg) 50%, transparent);
+  color: var(--fg-tertiary);
   outline: none;
   transition:
     opacity 150ms,
@@ -439,7 +439,7 @@ button,
   border: none;
   background-color: transparent;
   cursor: pointer;
-  color: color-mix(in srgb, var(--fg) 60%, transparent);
+  color: var(--fg-secondary);
   text-box: trim-both ex alphabetic;
   &:hover {
     color: var(--fg);
@@ -509,7 +509,7 @@ button,
   min-height: var(--quantize);
   font-feature-settings: "tnum" on;
   letter-spacing: 0.05em;
-  color: color-mix(in srgb, var(--fg) 50%, transparent);
+  color: var(--fg-secondary);
 }
 
 .button {
@@ -527,7 +527,7 @@ button,
   border: none;
   cursor: pointer;
   &:hover:not([aria-disabled="true"]) {
-    background-color: color-mix(in srgb, var(--fg) 70%, transparent);
+    background-color: var(--fg-secondary);
   }
 }
 
@@ -621,7 +621,7 @@ button,
   gap: 0.4em;
   font-size: 8.5px;
   letter-spacing: 0.05em;
-  color: var(--fg-secondary);
+  color: var(--fg-tertiary);
   text-decoration: none;
   white-space: nowrap;
   min-width: 0;
@@ -678,7 +678,7 @@ button,
 .themeSwitch {
   padding: 2px;
   font-variation-settings: "wght" 68;
-  color: color-mix(in srgb, var(--fg) 50%, transparent);
+  color: var(--fg-tertiary);
   font-family: var(--font-logo);
   font-size: 44px;
   text-box: trim-both cap alphabetic;
@@ -690,12 +690,12 @@ button,
     font-variation-settings 320ms ease,
     color 200ms ease;
   &:hover {
-    color: color-mix(in srgb, var(--fg) 80%, transparent);
+    color: var(--fg-secondary);
     font-variation-settings: "wght" 84;
   }
   &:focus-visible,
   &:has(input:focus-visible) {
-    outline: 1px solid color-mix(in srgb, var(--fg) 20%, transparent);
+    outline: 1px solid var(--border);
     outline-offset: 3px;
   }
 }
