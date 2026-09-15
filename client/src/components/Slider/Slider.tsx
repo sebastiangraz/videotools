@@ -12,6 +12,8 @@ const CENTERED_INDICATOR: CSSProperties = {
     "max(calc(var(--start-position) - 50%), calc(50% - var(--start-position)))",
 };
 
+const MINOR_TICKS = 61;
+
 // Single-thumb slider on Base UI's Slider with the label above the track.
 // `centered` anchors the fill at the track centre (for signed ranges),
 // `ticks` draws detent marks under the track, and `tickCount` is the major-tick count.
@@ -83,6 +85,11 @@ export const Slider = ({
           }
         >
           {control}
+          <div className={styles.minorTicks} aria-hidden="true">
+            {Array.from({ length: MINOR_TICKS }, (_, i) => (
+              <span key={i} className={styles.minorTick} />
+            ))}
+          </div>
           <div className={styles.majorTicks} aria-hidden="true">
             {Array.from({ length: tickCount + 1 }, (_, i) => (
               <span

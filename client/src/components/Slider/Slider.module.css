@@ -70,63 +70,18 @@
 .ticks {
   position: relative;
   width: 100%;
-  /* detents */
-  --minor-ticks: 60;
   --major-h: 6;
   --major-h-active: 10;
-  --minor-h: 4px;
+  --minor-h: 4;
+  /* Peak just under an active major so the hill reads against them */
+  --minor-peak: 8;
+  /* Half-width of the hill, as a fraction of the track */
+  --hill: 0.1;
   /* half the thumb (--thumb-size on .control) */
   --tick-inset: calc((11px / 2));
 }
 
-.ticks::before,
-.ticks::after {
-  content: "";
-  position: absolute;
-  left: var(--tick-inset);
-  right: var(--tick-inset);
-  bottom: calc(100% + 7px);
-  height: var(--minor-h);
-  pointer-events: none;
-  background-size: calc((100% - 1px) / var(--minor-ticks)) var(--minor-h);
-  background-repeat: repeat-x;
-}
-
-.ticks::before {
-  background-image: linear-gradient(
-    to right,
-    var(--border) 0 1px,
-    transparent 1px
-  );
-}
-
-/* Filled minor ticks, clipped to the thumb so whole ticks pop as the
-   value crosses them. --filled-steps is the nearest minor-tick index;
-   the extra 1px keeps that tick's stroke inside the clip. */
-.ticks::after {
-  --filled-steps: round(nearest, var(--fill-ratio) * var(--minor-ticks), 1);
-  --tick-pos: calc(var(--filled-steps) / var(--minor-ticks) * (100% - 1px));
-  /* Always include the origin tick so 0% still highlights the first mark. */
-  --tick-fill: calc(var(--tick-pos) + 1px);
-  background-image: linear-gradient(
-    to right,
-    var(--fg-tertiary) 0 1px,
-    transparent 1px
-  );
-  clip-path: inset(0 calc(100% - var(--tick-fill)) 0 0);
-}
-
-/* Signed sliders fill from the track centre out to the thumb. */
-.centeredTicks::after {
-  --center-steps: round(nearest, 0.5 * var(--minor-ticks), 1);
-  --center-pos: calc(var(--center-steps) / var(--minor-ticks) * (100% - 1px));
-  --center-fill: calc(var(--center-pos) + 1px * min(1, var(--center-steps)));
-  clip-path: inset(
-    0 calc(100% - max(var(--tick-fill), var(--center-fill))) 0
-      min(var(--tick-pos), var(--center-pos))
-  );
-}
-
+.minorTicks,
 .majorTicks {
   position: absolute;
   left: var(--tick-inset);
@@ -136,6 +91,49 @@
   display: flex;
   justify-content: space-between;
   pointer-events: none;
+}
+
+.majorTicks {
+  z-index: 1;
+}
+
+.minorTick {
+  width: 1px;
+  height: 100%;
+  transform-origin: bottom;
+  background-color: var(--border);
+  will-change: transform;
+  transform: scaleY(calc(var(--minor-h) / var(--major-h-active)));
+  transition:
+    transform 100ms ease,
+    background-color 200ms ease;
+}
+
+@supports (width: calc(sibling-index() * 1px)) {
+  .minorTick {
+    --pos: calc((sibling-index() - 1) / (sibling-count() - 1));
+    --dist: abs(calc(var(--pos) - var(--fill-ratio)));
+    --t: clamp(0, calc(1 - var(--dist) / var(--hill)), 1);
+    --s: calc((1 - cos(var(--t) * 180deg)) / 2);
+    --h: calc(var(--minor-h) + (var(--minor-peak) - var(--minor-h)) * var(--s));
+    /* 1 when this tick is in the filled span, else 0 */
+    --on: clamp(0, calc((var(--fill-ratio) - var(--pos)) * 1000 + 1), 1);
+    background-color: color-mix(
+      in srgb,
+      var(--fg-tertiary) calc(var(--on) * 100%),
+      var(--border)
+    );
+    transform: scaleY(calc(var(--h) / var(--major-h-active)));
+  }
+
+  .centeredTicks .minorTick {
+    --start: min(var(--fill-ratio), 0.5);
+    --end: max(var(--fill-ratio), 0.5);
+    --on: calc(
+      clamp(0, calc((var(--pos) - var(--start)) * 1000 + 1), 1) *
+        clamp(0, calc((var(--end) - var(--pos)) * 1000 + 1), 1)
+    );
+  }
 }
 
 .majorTick {
