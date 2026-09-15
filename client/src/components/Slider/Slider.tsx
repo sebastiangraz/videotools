@@ -64,8 +64,15 @@ export const Slider = ({
       <BaseSlider.Label className={styles.label}>{label}</BaseSlider.Label>
       {ticks ? (
         <div
-          className={styles.ticks}
-          style={{ "--major-ticks": tickCount } as CSSProperties}
+          className={
+            centered ? `${styles.ticks} ${styles.centeredTicks}` : styles.ticks
+          }
+          style={
+            {
+              "--major-ticks": tickCount,
+              "--fill-ratio": max === min ? 0 : (value - min) / (max - min),
+            } as CSSProperties
+          }
         >
           {control}
         </div>

@@ -77,18 +77,15 @@
   --tick-inset: calc((11px / 2));
 }
 
-.ticks::before {
+.ticks::before,
+.ticks::after {
   content: "";
   position: absolute;
   left: var(--tick-inset);
   right: var(--tick-inset);
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 7px);
   height: 6px;
-
   pointer-events: none;
-  background-image:
-    linear-gradient(to right, var(--fg-tertiary) 0 1px, transparent 1px),
-    linear-gradient(to right, var(--border) 0 1px, transparent 1px);
   background-size:
     calc((100% - 1px) / var(--major-ticks)) 6px,
     calc((100% - 1px) / var(--minor-ticks)) 4px;
@@ -96,4 +93,34 @@
     0 0,
     0 100%;
   background-repeat: repeat-x;
+}
+
+.ticks::before {
+  background-image:
+    linear-gradient(to right, var(--fg-tertiary) 0 1px, transparent 1px),
+    linear-gradient(to right, var(--border) 0 1px, transparent 1px);
+}
+
+/* Filled ticks: same marks in --fg, clipped to the thumb so whole ticks
+   pop as the value crosses them. --filled-steps is the nearest minor-tick
+   index; the extra 1px keeps that tick's stroke inside the clip. */
+.ticks::after {
+  --filled-steps: round(nearest, var(--fill-ratio) * var(--minor-ticks), 1);
+  --tick-pos: calc(var(--filled-steps) / var(--minor-ticks) * (100% - 1px));
+  --tick-fill: calc(var(--tick-pos) + 1px * min(1, var(--filled-steps)));
+  background-image:
+    linear-gradient(to right, var(--fg) 0 1px, transparent 1px),
+    linear-gradient(to right, var(--fg-tertiary) 0 1px, transparent 1px);
+  clip-path: inset(0 calc(100% - var(--tick-fill)) 0 0);
+}
+
+/* Signed sliders fill from the track centre out to the thumb. */
+.centeredTicks::after {
+  --center-steps: round(nearest, 0.5 * var(--minor-ticks), 1);
+  --center-pos: calc(var(--center-steps) / var(--minor-ticks) * (100% - 1px));
+  --center-fill: calc(var(--center-pos) + 1px * min(1, var(--center-steps)));
+  clip-path: inset(
+    0 calc(100% - max(var(--tick-fill), var(--center-fill))) 0
+      min(var(--tick-pos), var(--center-pos))
+  );
 }
