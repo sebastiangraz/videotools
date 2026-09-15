@@ -84,13 +84,16 @@ const Layout = () => {
                   side="bottom"
                   align="end"
                   sideOffset={centerOverAnchor}
+                  alignOffset={-2}
                   collisionAvoidance={{
                     side: "none",
                     align: "none",
                     fallbackAxisSide: "none",
                   }}
                 >
-                  <PreviewCard.Popup className={styles.previewCard}>
+                  <PreviewCard.Popup
+                    className={`${styles.previewCard} ${styles.previewCardDescription}`}
+                  >
                     {t.description}
                   </PreviewCard.Popup>
                 </PreviewCard.Positioner>

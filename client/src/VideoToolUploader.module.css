@@ -207,7 +207,7 @@ button {
   margin-block: 0.5em;
   padding: 2em 1em;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   font-size: 8.5px;
   letter-spacing: 0.05em;
@@ -336,7 +336,7 @@ button {
   padding: 0.5em;
   padding-right: 2.5em;
   padding-left: 1em;
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   min-height: 2rem;
   border: 1px solid var(--border);
@@ -377,7 +377,7 @@ button {
   font-size: 10px;
   color: currentColor;
   background-color: var(--bg-1);
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   box-shadow: var(--raised);
   outline: none;
@@ -388,7 +388,7 @@ button {
   align-items: center;
   gap: 0.25em;
   padding: 0.75em 0.75em 0.75em 0.5em;
-  border-radius: calc(0.5rem - 1px);
+  border-radius: max(calc(var(--radius) - 0.375rem), 1px);
   corner-shape: superellipse(1.45);
   outline: none;
   cursor: default;
@@ -426,13 +426,7 @@ button {
 .previewCard {
   box-sizing: border-box;
   max-width: 18rem;
-  padding: 0;
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-align: right;
-  text-wrap: balance;
-  color: var(--fg);
-  background-color: var(--bg);
+
   outline: none;
   transition:
     opacity 150ms,
@@ -443,6 +437,16 @@ button {
     opacity: 0;
     translate: 0 -0.25rem;
   }
+}
+
+.previewCardDescription {
+  padding: 2px;
+  color: var(--fg);
+  letter-spacing: 0.05em;
+  text-align: right;
+  text-wrap: balance;
+  font-size: 10px;
+  background-color: var(--bg);
 }
 
 .tooltipPositioner {
@@ -473,7 +477,7 @@ button {
   display: flex;
   align-items: stretch;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   min-height: 2rem;
@@ -484,7 +488,7 @@ button {
   min-width: 0;
   width: 100%;
   padding: 0.5em 0.75em;
-  border-radius: 0.25rem;
+  border-radius: max(calc(var(--radius) - 0.375rem), 1px);
   border: none;
   text-transform: none;
   font-feature-settings: "tnum" on;
@@ -518,30 +522,26 @@ button {
   }
 }
 
-.framePreviewError {
-  max-width: 14rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 9;
-  padding: 2em;
-  box-shadow: var(--raised);
-  border-radius: 0.75rem;
-  corner-shape: superellipse(1.45);
-  text-align: left;
-  text-wrap: balance;
-  margin: 0;
-}
-
 .framePreview {
-  display: block;
-  /* Fills the preview card popup, capped by its max-width */
+  display: flex;
   width: 14rem;
   max-width: 100%;
   box-shadow: var(--raised);
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
-  /* background-color: var(--bg-1); */
+  overflow: hidden;
+  background-color: var(--bg-1);
+}
+
+.framePreviewError {
+  font-size: 10px;
+  padding: 2em;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  text-align: left;
+  text-wrap: balance;
+  margin: 0;
 }
 
 .horizontal {
@@ -580,7 +580,7 @@ button {
   padding: 0 2em;
   min-height: 2.25rem;
   align-self: flex-start;
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--fg);
   color: var(--bg);
@@ -626,7 +626,7 @@ button {
 .errorBox {
   --error: light-dark(hsl(4, 55%, 40%), hsl(4, 65%, 74%));
   padding: 0.75em 1em;
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: color-mix(in srgb, var(--error) 6%, transparent);
   font-size: 8.5px;
@@ -743,7 +743,7 @@ button {
   font-size: 44px;
   text-box: trim-both cap alphabetic;
   text-decoration: none;
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   height: 1.25rem;
   corner-shape: superellipse(1.45);
   transition:

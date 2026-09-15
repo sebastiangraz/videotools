@@ -328,7 +328,7 @@ const FramePreview = ({ src, second }: { src: string; second: number }) => {
 
   if (failedSrc === src) {
     return (
-      <p className={styles.framePreviewError}>
+      <p className={`${styles.framePreview} ${styles.framePreviewError}`}>
         Can&rsquo;t preview this format.
       </p>
     );

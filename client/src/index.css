@@ -72,6 +72,8 @@
   --raised:
     0 4px 6px -1px var(--shadow), 0 2px 4px -1px var(--shadow),
     0 0 0 1px var(--border-subtle) inset;
+
+  --radius: 1rem;
 }
 
 /* The switch inverts the theme relative to the system preference; no
