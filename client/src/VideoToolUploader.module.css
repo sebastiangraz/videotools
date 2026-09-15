@@ -607,7 +607,50 @@ button,
   contain: layout;
 }
 
-.credits a,
+.creditsGroup {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  min-width: 0;
+}
+
+.versionLabel {
+  display: grid;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--fg);
+  opacity: 0.5;
+  text-decoration: none;
+  white-space: nowrap;
+  min-width: 0;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.versionTime,
+.versionMessage {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 32em;
+}
+
+.versionMessage {
+  visibility: hidden;
+}
+
+.versionLabel:hover {
+  .versionTime {
+    visibility: hidden;
+  }
+  .versionMessage {
+    visibility: visible;
+  }
+}
+
+.logoLink,
 .themeSwitch {
   padding: 2px;
   font-variation-settings: "wght" 68;

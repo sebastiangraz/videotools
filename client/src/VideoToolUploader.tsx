@@ -13,6 +13,7 @@ import { PreviewCard } from "@base-ui/react/preview-card";
 import { Slider } from "@base-ui/react/slider";
 import { Tooltip } from "@base-ui/react/tooltip";
 import styles from "./VideoToolUploader.module.css";
+import { VersionLabel } from "./VersionLabel";
 
 const VIDEO_ACCEPT =
   "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts";
@@ -879,9 +880,17 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
         )}
 
         <div className={styles.credits}>
-          <a href="https://graz.io" target="_blank">
-            G
-          </a>
+          <div className={styles.creditsGroup}>
+            <a
+              href="https://graz.io"
+              target="_blank"
+              aria-label="logo"
+              className={styles.logoLink}
+            >
+              G
+            </a>
+            <VersionLabel />
+          </div>
           <label className={styles.themeSwitch}>
             <input
               type="checkbox"
