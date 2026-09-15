@@ -13,8 +13,8 @@ const CENTERED_INDICATOR: CSSProperties = {
 };
 
 // Single-thumb slider on Base UI's Slider with the label above the track.
-// `centered` anchors the fill at the track centre (for signed ranges) and
-// `ticks` draws detent marks under the track.
+// `centered` anchors the fill at the track centre (for signed ranges),
+// `ticks` draws detent marks under the track, and `tickCount` sets --major-ticks.
 export const Slider = ({
   label,
   value,
@@ -25,6 +25,7 @@ export const Slider = ({
   disabled,
   centered = false,
   ticks = false,
+  tickCount = 6,
 }: {
   label: ReactNode;
   value: number;
@@ -35,6 +36,7 @@ export const Slider = ({
   disabled: boolean;
   centered?: boolean;
   ticks?: boolean;
+  tickCount?: number;
 }) => {
   const control = (
     <BaseSlider.Control className={styles.control}>
@@ -60,7 +62,16 @@ export const Slider = ({
       className={ticks ? `${styles.slider} ${styles.withTicks}` : styles.slider}
     >
       <BaseSlider.Label className={styles.label}>{label}</BaseSlider.Label>
-      {ticks ? <div className={styles.ticks}>{control}</div> : control}
+      {ticks ? (
+        <div
+          className={styles.ticks}
+          style={{ "--major-ticks": tickCount } as CSSProperties}
+        >
+          {control}
+        </div>
+      ) : (
+        control
+      )}
     </BaseSlider.Root>
   );
 };

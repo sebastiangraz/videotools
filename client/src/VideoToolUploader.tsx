@@ -529,6 +529,8 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                 max={100}
                 step={1}
                 disabled={busy}
+                ticks
+                tickCount={2}
               />
             </div>
           </>
