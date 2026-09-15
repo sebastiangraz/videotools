@@ -68,6 +68,68 @@ describe("VideoToolUploader", () => {
     );
   });
 
+  // The drop zone is the <label> wrapping the aria-labelled file input
+  const getDropZone = (pickerLabel: RegExp) =>
+    screen.getByLabelText(pickerLabel).closest("label")!;
+
+  it("accepts a dropped file and enables the button", async () => {
+    const file = new File(["00"], "dropped.mp4", { type: "video/mp4" });
+    await renderApp();
+
+    fireEvent.drop(getDropZone(/choose video/i), {
+      dataTransfer: { files: [file] },
+    });
+
+    expect(screen.getByText("dropped.mp4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+  });
+
+  it("ignores dropped files that don't match the tool's accept list", async () => {
+    const file = new File(["00"], "photo.png", { type: "image/png" });
+    await renderApp();
+
+    fireEvent.drop(getDropZone(/choose video/i), {
+      dataTransfer: { files: [file] },
+    });
+
+    expect(screen.queryByText("photo.png")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("keeps only the first dropped file on single-file tools", async () => {
+    const first = new File(["00"], "first.mp4", { type: "video/mp4" });
+    const second = new File(["00"], "second.mp4", { type: "video/mp4" });
+    await renderApp();
+
+    fireEvent.drop(getDropZone(/choose video/i), {
+      dataTransfer: { files: [first, second] },
+    });
+
+    expect(screen.getByText("first.mp4")).toBeInTheDocument();
+    expect(screen.queryByText(/2 files/i)).not.toBeInTheDocument();
+  });
+
+  it("accepts multiple dropped images on the sequence tool", async () => {
+    const fileA = new File(["00"], "a.png", { type: "image/png" });
+    const fileB = new File(["00"], "b.png", { type: "image/png" });
+    await renderApp("/sequence");
+
+    fireEvent.drop(getDropZone(/choose images/i), {
+      dataTransfer: { files: [fileA, fileB] },
+    });
+
+    expect(screen.getByText(/2 files/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /create video/i }),
+    ).toHaveAttribute("aria-disabled", "false");
+  });
+
   it("switches tool and clears the picked file when a tab is clicked", async () => {
     const user = userEvent.setup();
     const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });

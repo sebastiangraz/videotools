@@ -97,8 +97,7 @@
 
 input,
 select,
-button,
-::file-selector-button {
+button {
   color: currentColor;
   font-family: inherit;
   text-transform: inherit;
@@ -188,25 +187,74 @@ button,
   background-repeat: repeat-x;
 }
 
-.fileInput {
+.dropZone {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75em;
   margin-block: 0.5em;
+  padding: 2em 1em;
+  border: 1px solid var(--border);
   border-radius: 0.75rem;
   corner-shape: superellipse(1.45);
   font-size: 8.5px;
   letter-spacing: 0.05em;
-  color: var(--fg-secondary);
+  color: var(--fg);
+  cursor: pointer;
+  outline: 1px solid transparent;
+  transition:
+    outline 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+
+  &:hover,
+  &:has(:focus-visible) {
+    outline: 1px solid var(--border);
+    outline-offset: 2px;
+  }
 }
 
-.fileInput::file-selector-button {
-  margin-right: 1em;
-  height: 2.5em;
-  padding: 0 1em;
-  border-radius: 0.75rem;
-  corner-shape: superellipse(1.45);
-  background-color: color-mix(in srgb, var(--fg) 20%, transparent);
-  border: none;
-  cursor: pointer;
+.dropZoneActive {
+  /* border-color: var(--fg); */
   color: var(--fg);
+  background-color: var(--border-subtle);
+  outline: 1px solid var(--border);
+  outline-offset: 2px;
+}
+
+/* Kept in the tree (and focusable) for the label click-through, screen
+   readers, and tests, but never seen. */
+.dropZoneInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+.dropZoneFile {
+  color: var(--fg);
+  text-transform: none;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.dropZoneLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  svg {
+    width: 8px;
+    height: 8px;
+  }
+}
+
+.dropZoneHint {
+  color: var(--fg-tertiary);
 }
 
 .tabContainer {
