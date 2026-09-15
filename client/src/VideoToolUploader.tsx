@@ -525,7 +525,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                 label={<>Quality {quality}%</>}
                 value={quality}
                 onValueChange={setQuality}
-                min={1}
+                min={0}
                 max={100}
                 step={1}
                 disabled={busy}
@@ -615,7 +615,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                 }
                 value={quality}
                 onValueChange={setQuality}
-                min={1}
+                min={0}
                 max={100}
                 step={1}
                 disabled={busy}
@@ -692,7 +692,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                 }
                 value={quality}
                 onValueChange={setQuality}
-                min={1}
+                min={0}
                 max={100}
                 step={1}
                 disabled={busy}
