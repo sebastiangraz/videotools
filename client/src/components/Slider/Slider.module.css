@@ -5,9 +5,6 @@
 }
 
 /* Room for the detent marks drawn below the track */
-.withTicks {
-  margin-bottom: 1em;
-}
 
 .label {
   font-size: 8.5px;
@@ -65,6 +62,11 @@
   }
 }
 
+.withTicks {
+  /* margin-bottom: 0; */
+  gap: 1.5em;
+}
+
 .ticks {
   position: relative;
   width: 100%;
@@ -80,7 +82,7 @@
   position: absolute;
   left: var(--tick-inset);
   right: var(--tick-inset);
-  top: calc(50% + 8px);
+  bottom: calc(100% + 6px);
   height: 6px;
 
   pointer-events: none;
@@ -92,6 +94,6 @@
     calc((100% - 1px) / var(--minor-ticks)) 4px;
   background-position:
     0 0,
-    0 0;
+    0 100%;
   background-repeat: repeat-x;
 }
