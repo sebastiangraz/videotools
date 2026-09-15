@@ -89,11 +89,10 @@ export const VersionLabel = () => {
       rel="noreferrer"
       title={`${version.sha} · ${new Date(version.date).toLocaleString()}`}
     >
-      <span className={styles.versionTime}>
-        {version.label} · {timeAgo(version.date)}
-      </span>
-      <span className={styles.versionMessage}>
-        {version.label} · {version.message}
+      {version.label} ·
+      <span className={styles.versionStack}>
+        <span className={styles.versionTime}>{timeAgo(version.date)}</span>
+        <span className={styles.versionMessage}>{version.message}</span>
       </span>
     </a>
   );
