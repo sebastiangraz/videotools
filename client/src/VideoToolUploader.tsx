@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { upload } from "@vercel/blob/client";
-import { Menu } from "@base-ui/react/menu";
+import { Select } from "@base-ui/react/select";
 import { NumberField } from "@base-ui/react/number-field";
 import { PreviewCard } from "@base-ui/react/preview-card";
 import { Slider } from "@base-ui/react/slider";
@@ -148,10 +148,9 @@ function formatBytes(bytes: number): string {
 
 type Option = { value: string; label: string };
 
-// Select-style dropdown on Base UI's Menu: a trigger showing the current
-// choice, radio items in the popup. The trigger takes the id so an external
+// Dropdown on Base UI's Select. The trigger takes the id so an external
 // <label htmlFor> keeps working.
-const OptionMenu = ({
+const OptionSelect = ({
   id,
   options,
   value,
@@ -164,13 +163,17 @@ const OptionMenu = ({
   onValueChange: (value: string) => void;
   disabled: boolean;
 }) => (
-  <Menu.Root>
-    <Menu.Trigger
+  <Select.Root
+    items={options}
+    value={value}
+    onValueChange={(v) => v !== null && onValueChange(v)}
+    disabled={disabled}
+  >
+    <Select.Trigger
       id={id}
-      disabled={disabled}
       className={`${styles.select} ${styles.menuTrigger}`}
     >
-      {options.find((o) => o.value === value)?.label}
+      <Select.Value />
       <svg
         className={styles.selectCaret}
         viewBox="0 0 10 6"
@@ -183,34 +186,36 @@ const OptionMenu = ({
       >
         <path d="M1 1l4 4 4-4" />
       </svg>
-    </Menu.Trigger>
-    <Menu.Portal>
-      <Menu.Positioner
+    </Select.Trigger>
+    <Select.Portal>
+      <Select.Positioner
         className={styles.menuPositioner}
         align="start"
         sideOffset={4}
+        alignItemWithTrigger={true}
       >
-        <Menu.Popup className={styles.menuPopup}>
-          <Menu.RadioGroup value={value} onValueChange={onValueChange}>
-            {options.map((o) => (
-              <Menu.RadioItem
-                key={o.value}
-                value={o.value}
-                closeOnClick
-                className={styles.menuItem}
+        <Select.Popup className={styles.menuPopup}>
+          {options.map((o) => (
+            <Select.Item
+              key={o.value}
+              value={o.value}
+              className={styles.menuItem}
+            >
+              {/* Explicit null children suppress the indicator's built-in
+                  "✔️"; the dot is drawn in CSS off [data-selected] */}
+              <Select.ItemIndicator
+                keepMounted
+                className={styles.menuItemIndicator}
               >
-                <Menu.RadioItemIndicator
-                  keepMounted
-                  className={styles.menuItemIndicator}
-                />
-                {o.label}
-              </Menu.RadioItem>
-            ))}
-          </Menu.RadioGroup>
-        </Menu.Popup>
-      </Menu.Positioner>
-    </Menu.Portal>
-  </Menu.Root>
+                {null}
+              </Select.ItemIndicator>
+              <Select.ItemText>{o.label}</Select.ItemText>
+            </Select.Item>
+          ))}
+        </Select.Popup>
+      </Select.Positioner>
+    </Select.Portal>
+  </Select.Root>
 );
 
 // Every field here is a duration, so values render with a seconds unit
@@ -646,7 +651,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               <label htmlFor="technique" className={styles.label}>
                 Technique
               </label>
-              <OptionMenu
+              <OptionSelect
                 id="technique"
                 options={TECHNIQUES}
                 value={technique}
@@ -780,7 +785,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               <label htmlFor="format" className={styles.label}>
                 Output format
               </label>
-              <OptionMenu
+              <OptionSelect
                 id="format"
                 options={FORMATS}
                 value={format}
@@ -835,7 +840,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               <label htmlFor="target" className={styles.label}>
                 Convert to
               </label>
-              <OptionMenu
+              <OptionSelect
                 id="target"
                 options={targetOptions}
                 value={effectiveTarget}

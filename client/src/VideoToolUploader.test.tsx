@@ -421,11 +421,9 @@ describe("VideoToolUploader", () => {
 
     await renderApp("/sequence");
     await user.upload(screen.getByLabelText(/choose images/i), [fileB, fileA]);
-    // Format dropdown is a Base UI Menu: open the trigger, pick a radio item
+    // Format dropdown is a Base UI Select: open the trigger, pick an option
     await user.click(screen.getByLabelText(/output format/i));
-    await user.click(
-      await screen.findByRole("menuitemradio", { name: /gif/i }),
-    );
+    await user.click(await screen.findByRole("option", { name: /gif/i }));
     await user.click(screen.getByRole("button", { name: /create video/i }));
 
     await waitFor(() =>
@@ -558,12 +556,12 @@ describe("VideoToolUploader", () => {
     // Open the target menu: the source's own format is not offered
     await user.click(screen.getByLabelText(/convert to/i));
     expect(
-      await screen.findByRole("menuitemradio", { name: /mp4/i }),
+      await screen.findByRole("option", { name: /mp4/i }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("menuitemradio", { name: /mov/i }),
+      screen.queryByRole("option", { name: /mov/i }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("menuitemradio", { name: /gif/i }));
+    await user.click(screen.getByRole("option", { name: /gif/i }));
 
     // GIF-only controls appear with the target
     expect(screen.getByLabelText(/fps/i)).toBeInTheDocument();

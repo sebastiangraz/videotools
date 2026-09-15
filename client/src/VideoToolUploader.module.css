@@ -359,7 +359,8 @@ button {
   text-align: left;
   cursor: pointer;
 
-  &:disabled {
+  &:disabled,
+  &[data-disabled] {
     opacity: 0.4;
     cursor: not-allowed;
   }
@@ -413,7 +414,7 @@ button {
     opacity: 0;
   }
 
-  &[data-checked]::before {
+  &[data-selected]::before {
     opacity: 1;
   }
 }
