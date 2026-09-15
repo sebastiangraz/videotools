@@ -374,6 +374,16 @@ button {
 .menuPopup {
   box-sizing: border-box;
   min-width: var(--anchor-width);
+
+  /* When the Select overlaps the trigger to align the selected item's text
+     with the trigger's ([data-side="none"]), the whole popup shifts left by
+     the difference in text offsets: items indent 2em (0.5em popup padding +
+     0.5em item padding + 0.75em indicator + 0.25em gap) vs the trigger's
+     1em padding + 1px border. Widen by twice that so it overhangs the
+     trigger evenly on both sides. */
+  &[data-side="none"] {
+    min-width: calc(var(--anchor-width) + 2 * (1em - 1px));
+  }
   padding: 0.5em;
   font-size: 10px;
   color: currentColor;
