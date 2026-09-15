@@ -113,3 +113,18 @@ body {
   box-sizing: border-box;
   accent-color: var(--fg);
 }
+
+/* Form controls, including those inside the components in src/components */
+input,
+select,
+button {
+  color: currentColor;
+  font-family: inherit;
+  text-transform: inherit;
+  font-size: 10px;
+  min-height: var(--quantize);
+  &:focus-visible {
+    outline: 1px solid var(--border);
+    outline-offset: 2px;
+  }
+}

@@ -1,0 +1,48 @@
+.group {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  background-color: var(--bg-1);
+  min-height: 2rem;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0.5em 0.75em;
+  border-radius: max(calc(var(--radius) - 0.375rem), 1px);
+  border: none;
+  text-transform: none;
+  font-feature-settings: "tnum" on;
+  user-select: none;
+  background-color: transparent;
+  &:focus-visible {
+    outline-offset: -3px;
+  }
+}
+
+.button {
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  color: var(--fg-secondary);
+  text-box: trim-both ex alphabetic;
+  &:hover {
+    color: var(--fg);
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  &:first-child {
+    padding: 0 0.8rem 0 1rem;
+    border-right: 1px solid var(--border-subtle);
+  }
+  &:last-child {
+    padding: 0 1rem 0 0.8rem;
+    border-left: 1px solid var(--border-subtle);
+  }
+}
