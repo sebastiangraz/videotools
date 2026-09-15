@@ -107,7 +107,8 @@
 .ticks::after {
   --filled-steps: round(nearest, var(--fill-ratio) * var(--minor-ticks), 1);
   --tick-pos: calc(var(--filled-steps) / var(--minor-ticks) * (100% - 1px));
-  --tick-fill: calc(var(--tick-pos) + 1px * min(1, var(--filled-steps)));
+  /* Always include the origin tick so 0% still highlights the first mark. */
+  --tick-fill: calc(var(--tick-pos) + 1px);
   background-image:
     linear-gradient(to right, var(--fg) 0 1px, transparent 1px),
     linear-gradient(to right, var(--fg-tertiary) 0 1px, transparent 1px);

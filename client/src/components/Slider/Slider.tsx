@@ -24,7 +24,7 @@ export const Slider = ({
   step,
   disabled,
   centered = false,
-  ticks = false,
+  ticks = true,
   tickCount = 6,
 }: {
   label: ReactNode;
