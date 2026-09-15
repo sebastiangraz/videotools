@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import styles from "./VideoToolUploader.module.css";
 
 const REPO = "sebastiangraz/videotools";
-const BRANCH = "main";
-const CACHE_KEY = "version-label-v2";
+// On Vercel the label is pinned to the commit this deployment was built from;
+// locally there is no build SHA, so it tracks the branch tip instead
+const REF = __GIT_SHA__ || "main";
+const CACHE_KEY = `version-label-${REF}`;
 const CACHE_TTL = 5 * 60 * 1000;
 
 interface Version {
@@ -40,7 +42,7 @@ async function fetchLatestCommit(): Promise<Version | null> {
   }
 
   const res = await fetch(
-    `https://api.github.com/repos/${REPO}/commits?sha=${BRANCH}&per_page=1`,
+    `https://api.github.com/repos/${REPO}/commits?sha=${REF}&per_page=1`,
     { headers: { Accept: "application/vnd.github+json" } }
   );
   if (!res.ok) return null;
