@@ -107,6 +107,9 @@ body {
   background-color: var(--bg);
   color: var(--fg);
   text-transform: uppercase;
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 * {
