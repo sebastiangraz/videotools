@@ -297,10 +297,10 @@ describe("VideoToolUploader", () => {
 
     // Generic message first; the underlying error hides behind the disclosure
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(/something went wrong/i);
+    expect(alert).toHaveTextContent(/you broke it my dude/i);
     expect(screen.getByText(/ffmpeg exited with 1/i)).not.toBeVisible();
 
-    await user.click(screen.getByText(/something went wrong/i));
+    await user.click(screen.getByText(/you broke it my dude/i));
     expect(screen.getByText(/ffmpeg exited with 1/i)).toBeVisible();
 
     // A fresh attempt clears the stale error
