@@ -65,13 +65,10 @@
   );
   --width: 32em;
   /* Light fg-tinted shadows glow on dark; drop with black instead */
-  --shadow: light-dark(
-    color-mix(in srgb, var(--fg) 20%, transparent),
-    color-mix(in srgb, #000 40%, transparent)
-  );
+  --shadow: color-mix(in srgb, #000 30%, transparent);
   --raised:
-    0 4px 6px -1px var(--shadow), 0 2px 4px -1px var(--shadow),
-    0 0 0 1px var(--border-subtle) inset;
+    0 10px 20px 0px var(--shadow), 0 4px 6px -1px var(--shadow),
+    0 2px 4px -1px var(--shadow), 0 0 0 1px var(--border-subtle) inset;
 
   --radius: 1rem;
 }
@@ -88,10 +85,11 @@
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme-invert] {
+    --shadow: color-mix(in srgb, var(--fg) 4%, transparent);
     color-scheme: light;
     --raised:
-      0 4px 6px -1px var(--shadow), 0 2px 4px -1px var(--shadow),
-      0 0 0 1px var(--border-subtle);
+      0 10px 20px 0px var(--shadow), 0 4px 6px -1px var(--shadow),
+      0 2px 4px -1px var(--shadow), 0 0 0 1px var(--border-subtle);
   }
 }
 
