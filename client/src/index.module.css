@@ -40,10 +40,12 @@
 }
 
 .logo {
-  width: 2em;
+  width: 2rem;
   height: var(--quantize);
   display: flex;
   svg {
+    width: 100%;
+    height: auto;
     overflow: visible;
   }
 }
