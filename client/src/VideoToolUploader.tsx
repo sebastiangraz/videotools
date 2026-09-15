@@ -560,6 +560,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               disabled={busy}
               centered
               ticks
+              tickCount={6}
             />
           </div>
         )}

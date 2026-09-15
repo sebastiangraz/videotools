@@ -14,7 +14,7 @@ const CENTERED_INDICATOR: CSSProperties = {
 
 // Single-thumb slider on Base UI's Slider with the label above the track.
 // `centered` anchors the fill at the track centre (for signed ranges),
-// `ticks` draws detent marks under the track, and `tickCount` sets --major-ticks.
+// `ticks` draws detent marks under the track, and `tickCount` is the major-tick count.
 export const Slider = ({
   label,
   value,
@@ -25,7 +25,7 @@ export const Slider = ({
   disabled,
   centered = false,
   ticks = true,
-  tickCount = 6,
+  tickCount = 2,
 }: {
   label: ReactNode;
   value: number;
@@ -38,6 +38,15 @@ export const Slider = ({
   ticks?: boolean;
   tickCount?: number;
 }) => {
+  const fillRatio = max === min ? 0 : (value - min) / (max - min);
+  const majorTickActive = (index: number) => {
+    const pos = index / tickCount;
+    if (!centered) return index === 0 || pos <= fillRatio;
+    const start = Math.min(fillRatio, 0.5);
+    const end = Math.max(fillRatio, 0.5);
+    return pos >= start && pos <= end;
+  };
+
   const control = (
     <BaseSlider.Control className={styles.control}>
       <BaseSlider.Indicator
@@ -69,12 +78,23 @@ export const Slider = ({
           }
           style={
             {
-              "--major-ticks": tickCount,
-              "--fill-ratio": max === min ? 0 : (value - min) / (max - min),
+              "--fill-ratio": fillRatio,
             } as CSSProperties
           }
         >
           {control}
+          <div className={styles.majorTicks} aria-hidden="true">
+            {Array.from({ length: tickCount + 1 }, (_, i) => (
+              <span
+                key={i}
+                className={
+                  majorTickActive(i)
+                    ? `${styles.majorTick} ${styles.majorTickActive}`
+                    : styles.majorTick
+                }
+              />
+            ))}
+          </div>
         </div>
       ) : (
         control

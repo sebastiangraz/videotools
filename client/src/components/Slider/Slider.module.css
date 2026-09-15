@@ -64,7 +64,7 @@
 
 .withTicks {
   /* margin-bottom: 0; */
-  gap: 1.5em;
+  gap: 1.75em;
 }
 
 .ticks {
@@ -72,7 +72,9 @@
   width: 100%;
   /* detents */
   --minor-ticks: 60;
-  --major-ticks: 6;
+  --major-h: 6;
+  --major-h-active: 10;
+  --minor-h: 4px;
   /* half the thumb (--thumb-size on .control) */
   --tick-inset: calc((11px / 2));
 }
@@ -84,34 +86,33 @@
   left: var(--tick-inset);
   right: var(--tick-inset);
   bottom: calc(100% + 7px);
-  height: 6px;
+  height: var(--minor-h);
   pointer-events: none;
-  background-size:
-    calc((100% - 1px) / var(--major-ticks)) 6px,
-    calc((100% - 1px) / var(--minor-ticks)) 4px;
-  background-position:
-    0 0,
-    0 100%;
+  background-size: calc((100% - 1px) / var(--minor-ticks)) var(--minor-h);
   background-repeat: repeat-x;
 }
 
 .ticks::before {
-  background-image:
-    linear-gradient(to right, var(--fg-tertiary) 0 1px, transparent 1px),
-    linear-gradient(to right, var(--border) 0 1px, transparent 1px);
+  background-image: linear-gradient(
+    to right,
+    var(--border) 0 1px,
+    transparent 1px
+  );
 }
 
-/* Filled ticks: same marks in --fg, clipped to the thumb so whole ticks
-   pop as the value crosses them. --filled-steps is the nearest minor-tick
-   index; the extra 1px keeps that tick's stroke inside the clip. */
+/* Filled minor ticks, clipped to the thumb so whole ticks pop as the
+   value crosses them. --filled-steps is the nearest minor-tick index;
+   the extra 1px keeps that tick's stroke inside the clip. */
 .ticks::after {
   --filled-steps: round(nearest, var(--fill-ratio) * var(--minor-ticks), 1);
   --tick-pos: calc(var(--filled-steps) / var(--minor-ticks) * (100% - 1px));
   /* Always include the origin tick so 0% still highlights the first mark. */
   --tick-fill: calc(var(--tick-pos) + 1px);
-  background-image:
-    linear-gradient(to right, var(--fg) 0 1px, transparent 1px),
-    linear-gradient(to right, var(--fg-tertiary) 0 1px, transparent 1px);
+  background-image: linear-gradient(
+    to right,
+    var(--fg-tertiary) 0 1px,
+    transparent 1px
+  );
   clip-path: inset(0 calc(100% - var(--tick-fill)) 0 0);
 }
 
@@ -124,4 +125,38 @@
     0 calc(100% - max(var(--tick-fill), var(--center-fill))) 0
       min(var(--tick-pos), var(--center-pos))
   );
+}
+
+.majorTicks {
+  position: absolute;
+  left: var(--tick-inset);
+  right: var(--tick-inset);
+  bottom: calc(100% + 7px);
+  height: calc(var(--major-h-active) * 1px);
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.majorTick {
+  width: 1px;
+  height: 100%;
+  will-change: transform;
+  background-color: var(--fg-tertiary);
+  transform: scaleY(calc(var(--major-h) / var(--major-h-active)));
+  transform-origin: bottom;
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease;
+}
+
+.majorTickActive {
+  background-color: var(--fg);
+  transform: scaleY(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .majorTick {
+    transition: none;
+  }
 }
