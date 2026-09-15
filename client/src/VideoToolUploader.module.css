@@ -200,6 +200,7 @@ button {
 .dropZone {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 0.75em;
@@ -250,7 +251,6 @@ button {
   color: var(--fg);
   text-transform: none;
   overflow-wrap: anywhere;
-  text-align: center;
 }
 
 .dropZoneLabel {
@@ -282,6 +282,7 @@ button {
 
 .tabs {
   display: flex;
+  overflow-x: auto;
   min-height: var(--quantize);
   flex-direction: row;
   max-width: var(--width);
@@ -290,6 +291,7 @@ button {
   width: 92%;
   padding-inline: 0.5rem;
   padding-bottom: 1rem;
+  scrollbar-width: none;
 }
 
 .tab {

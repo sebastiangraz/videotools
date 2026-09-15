@@ -10,7 +10,6 @@
   max-width: var(--width);
   display: flex;
   gap: 1em;
-
   justify-content: space-between;
   align-items: center;
   padding: 4em 1em 1em 1em;
