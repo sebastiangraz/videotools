@@ -5,7 +5,7 @@
   padding-left: 1em;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
-  min-height: 2rem;
+  min-height: 2.5rem;
   border: 1px solid var(--border);
   appearance: none;
   background-color: var(--bg-1);
