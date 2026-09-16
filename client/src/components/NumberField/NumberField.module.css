@@ -23,6 +23,10 @@
     outline-offset: -3px;
     corner-shape: superellipse(1.45);
     border-radius: calc(var(--radius) - 1.5px);
+    & + .steppers {
+      border-left: 0;
+      margin-left: -2px;
+    }
   }
 }
 
