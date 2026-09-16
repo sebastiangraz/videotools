@@ -7,9 +7,9 @@ import {
   redirect,
   type RouterHistory,
 } from "@tanstack/react-router";
-import { PreviewCard } from "@base-ui/react/preview-card";
 import { useRef } from "react";
 import { VideoToolUploader, TOOLS } from "./VideoToolUploader";
+import { PreviewCard } from "./components/PreviewCard/PreviewCard";
 import appStyles from "./index.module.css";
 import styles from "./VideoToolUploader.module.css";
 
@@ -60,45 +60,34 @@ const Layout = () => {
       <div className={styles.tabContainer}>
         <div className={styles.tabs}>
           {TOOLS.map((t) => (
-            <PreviewCard.Root key={t.value}>
-              <PreviewCard.Trigger
-                delay={200}
-                render={
-                  <Link
-                    to="/$tool"
-                    params={{ tool: t.value }}
-                    className={styles.tab}
-                    activeProps={{
-                      className: styles.tabActive,
-                      "aria-current": "page",
-                    }}
-                  />
-                }
-              >
-                {t.label}
-              </PreviewCard.Trigger>
-              <PreviewCard.Portal>
-                <PreviewCard.Positioner
-                  className={styles.previewPositioner}
-                  anchor={titleRef}
-                  side="bottom"
-                  align="end"
-                  sideOffset={centerOverAnchor}
-                  alignOffset={-2}
-                  collisionAvoidance={{
-                    side: "none",
-                    align: "none",
-                    fallbackAxisSide: "none",
+            <PreviewCard
+              key={t.value}
+              render={
+                <Link
+                  to="/$tool"
+                  params={{ tool: t.value }}
+                  className={styles.tab}
+                  activeProps={{
+                    className: styles.tabActive,
+                    "aria-current": "page",
                   }}
-                >
-                  <PreviewCard.Popup
-                    className={`${styles.previewCard} ${styles.previewCardDescription}`}
-                  >
-                    {t.description}
-                  </PreviewCard.Popup>
-                </PreviewCard.Positioner>
-              </PreviewCard.Portal>
-            </PreviewCard.Root>
+                />
+              }
+              content={t.description}
+              popupClassName={styles.previewCardDescription}
+              anchor={titleRef}
+              side="bottom"
+              align="end"
+              sideOffset={centerOverAnchor}
+              alignOffset={-2}
+              collisionAvoidance={{
+                side: "none",
+                align: "none",
+                fallbackAxisSide: "none",
+              }}
+            >
+              {t.label}
+            </PreviewCard>
           ))}
         </div>
       </div>

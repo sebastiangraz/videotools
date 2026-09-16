@@ -1,20 +1,11 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  ChangeEvent,
-  CSSProperties,
-  DragEvent,
-  ReactNode,
-} from "react";
+import { useEffect, useRef, useState, ChangeEvent, DragEvent } from "react";
 import { upload } from "@vercel/blob/client";
-import { Select } from "@base-ui/react/select";
-import { NumberField } from "@base-ui/react/number-field";
-import { PreviewCard } from "@base-ui/react/preview-card";
-import { Slider } from "@base-ui/react/slider";
-import { Tooltip } from "@base-ui/react/tooltip";
 import styles from "./VideoToolUploader.module.css";
 import { VersionLabel } from "./VersionLabel";
+import { Select } from "./components/Select/Select";
+import { NumberField } from "./components/NumberField/NumberField";
+import { Slider } from "./components/Slider/Slider";
+import { Tooltip } from "./components/Tooltip/Tooltip";
 
 const VIDEO_ACCEPT =
   "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts";
@@ -146,169 +137,6 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-type Option = { value: string; label: string };
-
-// Dropdown on Base UI's Select. The trigger takes the id so an external
-// <label htmlFor> keeps working.
-const OptionSelect = ({
-  id,
-  options,
-  value,
-  onValueChange,
-  disabled,
-}: {
-  id: string;
-  options: Option[];
-  value: string;
-  onValueChange: (value: string) => void;
-  disabled: boolean;
-}) => (
-  <Select.Root
-    items={options}
-    value={value}
-    onValueChange={(v) => v !== null && onValueChange(v)}
-    disabled={disabled}
-  >
-    <Select.Trigger
-      id={id}
-      className={`${styles.select} ${styles.menuTrigger}`}
-    >
-      <Select.Value />
-      <svg
-        className={styles.selectCaret}
-        viewBox="0 0 10 6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M1 1l4 4 4-4" />
-      </svg>
-    </Select.Trigger>
-    <Select.Portal>
-      <Select.Positioner
-        className={styles.menuPositioner}
-        align="start"
-        sideOffset={4}
-        alignItemWithTrigger={true}
-      >
-        <Select.Popup className={styles.menuPopup}>
-          {options.map((o) => (
-            <Select.Item
-              key={o.value}
-              value={o.value}
-              className={styles.menuItem}
-            >
-              {/* Explicit null children suppress the indicator's built-in
-                  "✔️"; the dot is drawn in CSS off [data-selected] */}
-              <Select.ItemIndicator
-                keepMounted
-                className={styles.menuItemIndicator}
-              >
-                {null}
-              </Select.ItemIndicator>
-              <Select.ItemText>{o.label}</Select.ItemText>
-            </Select.Item>
-          ))}
-        </Select.Popup>
-      </Select.Positioner>
-    </Select.Portal>
-  </Select.Root>
-);
-
-// Every field here is a duration, so values render with a seconds unit
-// ("2.1s"). Base UI derives the unit label from the format options, so it also
-// strips it back off when parsing typed input. One forced decimal keeps whole
-// numbers looking like the fractional steps they're nudged in ("1.0s", not
-// "1s").
-const SECONDS_FORMAT: Intl.NumberFormatOptions = {
-  style: "unit",
-  unit: "second",
-  unitDisplay: "narrow",
-  minimumFractionDigits: 1,
-};
-
-// Decimal entry on Base UI's NumberField. Typed values are parsed with the
-// browser locale ("0,5" and "0.5" both work where the locale allows),
-// replacing the old manual comma handling. An optional `preview` renders in
-// a PreviewCard anchored to the input, opened by the card's own
-// hover/focus-on-trigger behaviour (same pattern as the tab previews in
-// App.tsx). `format` defaults to the seconds unit; pass another
-// Intl.NumberFormatOptions (or plain digits via {maximumFractionDigits: 0})
-// for non-duration fields.
-const DecimalField = ({
-  id,
-  value,
-  onValueChange,
-  min,
-  max,
-  step,
-  largeStep,
-  disabled,
-  preview,
-  format = SECONDS_FORMAT,
-  placeholder,
-}: {
-  id: string;
-  value: number | null;
-  onValueChange: (value: number | null) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  largeStep?: number;
-  disabled: boolean;
-  preview?: ReactNode;
-  format?: Intl.NumberFormatOptions;
-  placeholder?: string;
-}) => (
-  <NumberField.Root
-    id={id}
-    value={value}
-    onValueChange={onValueChange}
-    min={min}
-    max={max}
-    step={step}
-    largeStep={largeStep}
-    format={format}
-    allowWheelScrub={true}
-    disabled={disabled}
-  >
-    <PreviewCard.Root>
-      <PreviewCard.Trigger
-        delay={200}
-        render={<NumberField.Group className={styles.numberGroup} />}
-      >
-        <NumberField.Decrement className={styles.numberButton}>
-          −
-        </NumberField.Decrement>
-        <NumberField.Input
-          className={styles.numberInput}
-          placeholder={placeholder}
-        />
-        <NumberField.Increment className={styles.numberButton}>
-          +
-        </NumberField.Increment>
-      </PreviewCard.Trigger>
-      {preview && (
-        <PreviewCard.Portal>
-          <PreviewCard.Positioner
-            className={styles.previewPositioner}
-            side="top"
-            align="center"
-            sideOffset={8}
-          >
-            <PreviewCard.Popup className={styles.previewCard}>
-              {preview}
-            </PreviewCard.Popup>
-          </PreviewCard.Positioner>
-        </PreviewCard.Portal>
-      )}
-    </PreviewCard.Root>
-  </NumberField.Root>
-);
-
 // Paused <video> seeked to the loop start, shown while choosing "Start at" —
 // usually the frame that becomes a social post's thumbnail. The seek waits
 // for metadata so it lands on a decodable frame; the browser clamps
@@ -351,16 +179,6 @@ const FramePreview = ({ src, second }: { src: string; second: number }) => {
       className={styles.framePreview}
     />
   );
-};
-
-// Centre-anchored fill for the signed speed slider: Slider.Indicator spans
-// 0 → value by default; this respans it between the track centre and the
-// thumb. --start-position is the thumb's inset-adjusted position, set inline
-// by the Indicator itself, and user style wins the per-property merge.
-const CENTERED_INDICATOR: CSSProperties = {
-  insetInlineStart: "min(50%, var(--start-position))",
-  width:
-    "max(calc(var(--start-position) - 50%), calc(50% - var(--start-position)))",
 };
 
 // The route remounts this component (keyed by tool) on tab change, so all
@@ -651,7 +469,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               <label htmlFor="technique" className={styles.label}>
                 Technique
               </label>
-              <OptionSelect
+              <Select
                 id="technique"
                 options={TECHNIQUES}
                 value={technique}
@@ -666,7 +484,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                   <label htmlFor="fadeDuration" className={styles.label}>
                     Fade Duration
                   </label>
-                  <DecimalField
+                  <NumberField
                     id="fadeDuration"
                     value={fadeDuration}
                     onValueChange={setFadeDuration}
@@ -681,7 +499,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                   <label htmlFor="startSecond" className={styles.label}>
                     Start at
                   </label>
-                  <DecimalField
+                  <NumberField
                     id="startSecond"
                     value={startSecond}
                     onValueChange={setStartSecond}
@@ -703,65 +521,47 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             )}
 
             <div className={styles.formGroup}>
-              <Slider.Root
+              <Slider
+                label={<>Quality {quality}%</>}
                 value={quality}
-                onValueChange={(value) => setQuality(value as number)}
-                min={1}
+                onValueChange={setQuality}
+                min={0}
                 max={100}
                 step={1}
                 disabled={busy}
-                thumbAlignment="edge"
-                className={styles.slider}
-              >
-                <Slider.Label className={styles.label}>
-                  Quality {quality}%
-                </Slider.Label>
-                <Slider.Control className={styles.sliderControl}>
-                  <Slider.Indicator className={styles.sliderIndicator} />
-                  <Slider.Track className={styles.sliderTrack}>
-                    <Slider.Thumb className={styles.sliderThumb} />
-                  </Slider.Track>
-                </Slider.Control>
-              </Slider.Root>
+                ticks
+                tickCount={2}
+              />
             </div>
           </>
         )}
 
         {tool === "speed" && (
-          <div className={`${styles.formGroup} ${styles.sliderDetents}`}>
-            <Slider.Root
+          <div className={styles.formGroup}>
+            <Slider
+              label={
+                <>
+                  Speed (
+                  {speed === 0
+                    ? "unchanged"
+                    : speed > 0
+                      ? `${(1 + speed).toFixed(1)}x faster`
+                      : `${(1 - speed).toFixed(1)}x slower`}
+                  {videoDuration > 0 &&
+                    ` ~${(videoDuration / speedMultiplier).toFixed(1)}s`}
+                  )
+                </>
+              }
               value={speed}
-              onValueChange={(value) => setSpeed(value as number)}
+              onValueChange={setSpeed}
               min={-3}
               max={3}
               step={0.1}
               disabled={busy}
-              thumbAlignment="edge"
-              className={styles.slider}
-            >
-              <Slider.Label className={styles.label}>
-                Speed (
-                {speed === 0
-                  ? "unchanged"
-                  : speed > 0
-                    ? `${(1 + speed).toFixed(1)}x faster`
-                    : `${(1 - speed).toFixed(1)}x slower`}
-                {videoDuration > 0 &&
-                  ` ~${(videoDuration / speedMultiplier).toFixed(1)}s`}
-                )
-              </Slider.Label>
-              <div className={styles.sliderTicks}>
-                <Slider.Control className={styles.sliderControl}>
-                  <Slider.Indicator
-                    className={styles.sliderIndicator}
-                    style={CENTERED_INDICATOR}
-                  />
-                  <Slider.Track className={styles.sliderTrack}>
-                    <Slider.Thumb className={styles.sliderThumb} />
-                  </Slider.Track>
-                </Slider.Control>
-              </div>
-            </Slider.Root>
+              centered
+              ticks
+              tickCount={6}
+            />
           </div>
         )}
 
@@ -771,7 +571,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               <label htmlFor="frameDuration" className={styles.label}>
                 Time per frame
               </label>
-              <DecimalField
+              <NumberField
                 id="frameDuration"
                 value={frameDuration}
                 onValueChange={setFrameDuration}
@@ -785,7 +585,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               <label htmlFor="format" className={styles.label}>
                 Output format
               </label>
-              <OptionSelect
+              <Select
                 id="format"
                 options={FORMATS}
                 value={format}
@@ -795,39 +595,32 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             </div>
 
             <div className={styles.formGroup}>
-              <Slider.Root
+              <Slider
+                label={
+                  <>
+                    Quality {quality}%
+                    {format === "avif" && quality === 100
+                      ? " (lossless)"
+                      : files.length > 0 &&
+                        imageDims &&
+                        ` ~${formatBytes(
+                          estimateOutputBytes(
+                            imageDims.w,
+                            imageDims.h,
+                            files.length,
+                            format,
+                            quality,
+                          ),
+                        )}`}
+                  </>
+                }
                 value={quality}
-                onValueChange={(value) => setQuality(value as number)}
-                min={1}
+                onValueChange={setQuality}
+                min={0}
                 max={100}
                 step={1}
                 disabled={busy}
-                thumbAlignment="edge"
-                className={styles.slider}
-              >
-                <Slider.Label className={styles.label}>
-                  Quality {quality}%
-                  {format === "avif" && quality === 100
-                    ? " (lossless)"
-                    : files.length > 0 &&
-                      imageDims &&
-                      ` ~${formatBytes(
-                        estimateOutputBytes(
-                          imageDims.w,
-                          imageDims.h,
-                          files.length,
-                          format,
-                          quality,
-                        ),
-                      )}`}
-                </Slider.Label>
-                <Slider.Control className={styles.sliderControl}>
-                  <Slider.Indicator className={styles.sliderIndicator} />
-                  <Slider.Track className={styles.sliderTrack}>
-                    <Slider.Thumb className={styles.sliderThumb} />
-                  </Slider.Track>
-                </Slider.Control>
-              </Slider.Root>
+              />
             </div>
           </>
         )}
@@ -840,7 +633,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               <label htmlFor="target" className={styles.label}>
                 Convert to
               </label>
-              <OptionSelect
+              <Select
                 id="target"
                 options={targetOptions}
                 value={effectiveTarget}
@@ -855,7 +648,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                   <label htmlFor="gifFps" className={styles.label}>
                     FPS
                   </label>
-                  <DecimalField
+                  <NumberField
                     id="gifFps"
                     value={gifFps}
                     onValueChange={setGifFps}
@@ -873,7 +666,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                   <label htmlFor="gifWidth" className={styles.label}>
                     Width (px)
                   </label>
-                  <DecimalField
+                  <NumberField
                     id="gifWidth"
                     value={gifWidth}
                     onValueChange={setGifWidth}
@@ -889,29 +682,22 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             )}
 
             <div className={styles.formGroup}>
-              <Slider.Root
+              <Slider
+                label={
+                  <>
+                    Quality {quality}%
+                    {effectiveTarget === "webp" &&
+                      quality === 100 &&
+                      " (lossless)"}
+                  </>
+                }
                 value={quality}
-                onValueChange={(value) => setQuality(value as number)}
-                min={1}
+                onValueChange={setQuality}
+                min={0}
                 max={100}
                 step={1}
                 disabled={busy}
-                thumbAlignment="edge"
-                className={styles.slider}
-              >
-                <Slider.Label className={styles.label}>
-                  Quality {quality}%
-                  {effectiveTarget === "webp" &&
-                    quality === 100 &&
-                    " (lossless)"}
-                </Slider.Label>
-                <Slider.Control className={styles.sliderControl}>
-                  <Slider.Indicator className={styles.sliderIndicator} />
-                  <Slider.Track className={styles.sliderTrack}>
-                    <Slider.Thumb className={styles.sliderThumb} />
-                  </Slider.Track>
-                </Slider.Control>
-              </Slider.Root>
+              />
             </div>
           </>
         )}
@@ -927,34 +713,20 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             the tab order; submit() rejects the unusable states. The tooltip
             only speaks for the missing-file case, so it's switched off once
             files are picked (the button is also disabled while busy). */}
-        <Tooltip.Root disabled={files.length > 0}>
-          <Tooltip.Trigger
-            delay={100}
-            closeOnClick={false}
-            render={
-              <button
-                onClick={submit}
-                aria-disabled={!files.length || busy}
-                className={styles.button}
-              />
-            }
-          >
-            {busy ? status && status : currentTool.actionLabel}
-            {busy && <div className={styles.spinner} />}
-          </Tooltip.Trigger>
-          <Tooltip.Portal>
-            <Tooltip.Positioner
-              className={styles.tooltipPositioner}
-              side="bottom"
-              align="start"
-              sideOffset={10}
-            >
-              <Tooltip.Popup className={styles.tooltipPopup}>
-                Upload a file
-              </Tooltip.Popup>
-            </Tooltip.Positioner>
-          </Tooltip.Portal>
-        </Tooltip.Root>
+        <Tooltip
+          disabled={files.length > 0}
+          content="Upload a file"
+          render={
+            <button
+              onClick={submit}
+              aria-disabled={!files.length || busy}
+              className={styles.button}
+            />
+          }
+        >
+          {busy ? status && status : currentTool.actionLabel}
+          {busy && <div className={styles.spinner} />}
+        </Tooltip>
 
         {errorDetail && (
           <div role="alert" className={styles.errorBox}>

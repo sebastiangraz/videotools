@@ -31,12 +31,12 @@
 :root {
   color-scheme: light dark;
 
-  --font-sans: "Styrene B", system-ui, sans-serif;
-  --font-logo: "GGX", "Styrene B", system-ui, sans-serif;
+  --font-sans: "Styrene", system-ui, sans-serif;
+  --font-logo: "GGX", "Styrene", system-ui, sans-serif;
   --font-mono: monospace, menlo, monaco;
   --quantize: calc-size(auto, round(up, size, 1px));
 
-  --bg: light-dark(hsl(156, 29%, 97%), hsl(150, 11%, 4%));
+  --bg: light-dark(hsl(156, 21%, 95%), hsl(150, 11%, 4%));
   --fg: light-dark(hsl(152, 74%, 5%), hsl(150, 19%, 85%));
   /* Elevated surfaces need a gentler lift on a dark base */
   --bg-1: light-dark(
@@ -107,9 +107,27 @@ body {
   background-color: var(--bg);
   color: var(--fg);
   text-transform: uppercase;
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 * {
   box-sizing: border-box;
   accent-color: var(--fg);
+}
+
+/* Form controls, including those inside the components in src/components */
+input,
+select,
+button {
+  color: currentColor;
+  font-family: inherit;
+  text-transform: inherit;
+  font-size: 10px;
+  min-height: var(--quantize);
+  &:focus-visible {
+    outline: 1px solid var(--border);
+    outline-offset: 2px;
+  }
 }
