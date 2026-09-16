@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, ChangeEvent, DragEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  ChangeEvent,
+  DragEvent,
+  MouseEvent,
+} from "react";
 import { upload } from "@vercel/blob/client";
 import styles from "./VideoToolUploader.module.css";
 import { VersionLabel } from "./VersionLabel";
@@ -132,6 +139,17 @@ function matchesAccept(file: File, accept: string): boolean {
   });
 }
 
+// Best-effort removal of a blob this client created (an upload, or a result
+// that was already downloaded). Failures are ignored: Blob storage is only
+// a transfer buffer here.
+function deleteBlob(url: string) {
+  fetch("/api/process", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  }).catch(() => {});
+}
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -208,6 +226,13 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(
     null,
   );
+  const submitRef = useRef<HTMLButtonElement>(null);
+
+  // Controller for the in-flight run (upload -> process -> download). Stop
+  // aborts it; so does unmounting, since a tab switch remounts the component
+  // and would otherwise leave the request running against dead state.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   // Object URL for the picked video, shared by the duration probe and the
   // start-frame preview. Revoked when replaced or on unmount.
@@ -311,8 +336,15 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     setBusy(true);
     setErrorDetail(null);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
+    // Blobs this run has created, so Stop can clean up whatever the server
+    // never got to delete itself.
+    const blobUrls: string[] = [];
+    let resultUrl: string | null = null;
+
     try {
-      const blobUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         setMsg(
           files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading",
@@ -323,6 +355,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
           // Browsers report no type for some containers (.avi, .mkv on
           // certain systems); fall back so the upload token isn't refused.
           contentType: files[i].type || "application/octet-stream",
+          abortSignal: signal,
         });
         blobUrls.push(blob.url);
       }
@@ -373,6 +406,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
           filename: files[0].name,
           ...payload,
         }),
+        signal,
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
@@ -381,13 +415,14 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
         );
       }
       const { url, filename: resultName } = await res.json();
+      resultUrl = url;
       const downloadName =
         resultName || files[0].name.replace(/\.[^.]+$/, "") + "_loop.mp4";
 
       setMsg(`Downloading ${downloadName}`);
       // Result lives on Blob storage (cross-origin), where the anchor
       // `download` attribute is ignored — fetch to an object URL instead.
-      const fileRes = await fetch(url);
+      const fileRes = await fetch(url, { signal });
       if (!fileRes.ok)
         throw new Error(`Failed to download result (${fileRes.status})`);
       const objectUrl = URL.createObjectURL(await fileRes.blob());
@@ -398,19 +433,32 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
       a.click();
       URL.revokeObjectURL(objectUrl);
 
-      fetch("/api/process", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      }).catch(() => {});
+      deleteBlob(url);
     } catch (err: unknown) {
-      console.error(err);
-      // The status message only renders inside the button while busy, so
-      // failures surface through the error box instead.
-      setErrorDetail(err instanceof Error ? err.message : String(err));
+      if (signal.aborted) {
+        // Stopped on purpose: no error box. The server deletes the inputs
+        // itself once it notices the disconnect, but never gets there if
+        // the upload was cut short, and a result it already stored has no
+        // one left to download it, so sweep everything this run made.
+        blobUrls.forEach(deleteBlob);
+        if (resultUrl) deleteBlob(resultUrl);
+      } else {
+        console.error(err);
+        // The status message only renders inside the button while busy, so
+        // failures surface through the error box instead.
+        setErrorDetail(err instanceof Error ? err.message : String(err));
+      }
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setBusy(false);
     }
+  };
+
+  // Stop hides itself the moment the run ends, which would drop keyboard
+  // focus on <body>; hand it back to the action button instead.
+  const stop = (e: MouseEvent<HTMLButtonElement>) => {
+    abortRef.current?.abort();
+    if (e.detail === 0) submitRef.current?.focus();
   };
 
   return (
@@ -713,20 +761,33 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             the tab order; submit() rejects the unusable states. The tooltip
             only speaks for the missing-file case, so it's switched off once
             files are picked (the button is also disabled while busy). */}
-        <Tooltip
-          disabled={files.length > 0}
-          content="Upload a file"
-          render={
-            <button
-              onClick={submit}
-              aria-disabled={!files.length || busy}
-              className={styles.button}
-            />
-          }
-        >
-          {busy ? status && status : currentTool.actionLabel}
-          {busy && <div className={styles.spinner} />}
-        </Tooltip>
+        <div className={styles.actions}>
+          <Tooltip
+            disabled={files.length > 0}
+            content="Upload a file"
+            render={
+              <button
+                ref={submitRef}
+                onClick={submit}
+                aria-disabled={!files.length || busy}
+                className={styles.button}
+              />
+            }
+          >
+            {busy ? status && status : currentTool.actionLabel}
+            {busy && <div className={styles.spinner} />}
+          </Tooltip>
+          {/* Stays mounted so it can fade both ways; `hidden` keeps it out
+              of the tab order and the accessibility tree in between. */}
+          <button
+            type="button"
+            onClick={stop}
+            hidden={!busy}
+            className={styles.stopButton}
+          >
+            Stop
+          </button>
+        </div>
 
         {errorDetail && (
           <div role="alert" className={styles.errorBox}>

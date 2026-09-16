@@ -61,8 +61,12 @@ function clamp(
   return Math.min(max, Math.max(min, n));
 }
 
-async function downloadBlob(url: string, destPath: string): Promise<void> {
-  const download = await fetch(url);
+async function downloadBlob(
+  url: string,
+  destPath: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const download = await fetch(url, { signal });
   if (!download.ok || !download.body) {
     throw new Error(`Failed to fetch uploaded file (${download.status})`);
   }
@@ -119,10 +123,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const workDir = path.join(os.tmpdir(), `videotools-${nanoid(8)}`);
 
+  // The client's Stop button aborts its request. When the disconnect
+  // reaches the function (best effort: it depends on the platform
+  // propagating it), stop encoding instead of finishing work nobody will
+  // download. The response's 'close' fires on normal completion too, hence
+  // the writableFinished check.
+  const abort = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) abort.abort();
+  });
+  const { signal } = abort;
+
   try {
     await fsp.mkdir(workDir, { recursive: true });
 
-    const processor = new VideoProcessor(ffmpegPath, ffprobePath, gifskiPath);
+    const processor = new VideoProcessor(
+      ffmpegPath,
+      ffprobePath,
+      gifskiPath,
+      signal,
+    );
     const base = String(filename)
       .replace(/\.[^.]+$/, "")
       .replace(/[^\w.-]/g, "_");
@@ -148,7 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           workDir,
           `src_${String(i + 1).padStart(4, "0")}${ext}`,
         );
-        await downloadBlob(inputBlobUrls[i], imagePath);
+        await downloadBlob(inputBlobUrls[i], imagePath, signal);
         imagePaths.push(imagePath);
       }
 
@@ -172,7 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const urlExt = path.posix.extname(new URL(inputBlobUrls[0]).pathname);
       const ext = /^\.\w+$/.test(urlExt) ? urlExt : ".mp4";
       const inputPath = path.join(workDir, `input${ext}`);
-      await downloadBlob(inputBlobUrls[0], inputPath);
+      await downloadBlob(inputBlobUrls[0], inputPath, signal);
 
       if (target === "gif") {
         // Absent fps → match the source framerate (capped in videoToGif).
@@ -205,7 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const multiplier = speed >= 0 ? 1 + speed : 1 / (1 - speed);
 
       const inputPath = path.join(workDir, "input.mp4");
-      await downloadBlob(inputBlobUrls[0], inputPath);
+      await downloadBlob(inputBlobUrls[0], inputPath, signal);
 
       outputPath = await processor.changeSpeed(inputPath, multiplier);
       outputName = `${base}_speed.mp4`;
@@ -224,7 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const quality = Math.round(clamp(options.quality, 1, 100, 100));
 
       const inputPath = path.join(workDir, "input.mp4");
-      await downloadBlob(inputBlobUrls[0], inputPath);
+      await downloadBlob(inputBlobUrls[0], inputPath, signal);
 
       outputPath = await processor.createLoop(
         inputPath,
@@ -244,6 +264,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         access: "public",
         contentType,
         addRandomSuffix: true,
+        abortSignal: signal,
       },
     );
 
@@ -253,6 +274,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       filename: outputName,
     });
   } catch (err) {
+    if (signal.aborted) {
+      // Nobody is listening any more; just clean up (finally).
+      console.log("Processing cancelled by client");
+      return;
+    }
     console.error("Processing error:", err);
     // Input-shaped rejections (e.g. "Video too long...") are the user's to
     // fix, not server faults.

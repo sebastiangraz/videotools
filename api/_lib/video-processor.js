@@ -9,10 +9,13 @@ const path = require("path");
  * gifski binary for pngquant palettes and temporal dithering.
  */
 class VideoProcessor {
-  constructor(ffmpegPath, ffprobePath, gifskiPath) {
+  // `signal` (optional AbortSignal) cancels the pipeline: the running child
+  // process is killed and every later command rejects right away.
+  constructor(ffmpegPath, ffprobePath, gifskiPath, signal = null) {
     this.ffmpeg = ffmpegPath;
     this.ffprobe = ffprobePath;
     this.gifski = gifskiPath;
+    this.signal = signal;
   }
 
   // x264 crf: 0 best – 51 worst; quality 100 → 1 (visually lossless — true
@@ -967,8 +970,13 @@ class VideoProcessor {
         console.log(`Working directory: ${options.cwd}`);
       }
 
+      // Node kills the child (SIGKILL: the partial output is discarded
+      // anyway) when the signal fires, and emits 'error' if it already had.
+      const signal = this.signal ?? undefined;
       const process = spawn(command, args, {
         stdio: ["ignore", "pipe", "pipe"],
+        signal,
+        killSignal: "SIGKILL",
         ...options,
       });
 
@@ -984,7 +992,9 @@ class VideoProcessor {
       });
 
       process.on("close", (code) => {
-        if (code === 0) {
+        if (signal?.aborted) {
+          reject(new Error("Cancelled"));
+        } else if (code === 0) {
           resolve(stdout);
         } else {
           console.error(`Command failed with code ${code}`);
@@ -998,6 +1008,10 @@ class VideoProcessor {
       });
 
       process.on("error", (error) => {
+        if (signal?.aborted) {
+          reject(new Error("Cancelled"));
+          return;
+        }
         console.error(`Failed to start command: ${command} ${args.join(" ")}`);
         console.error(`Error: ${error.message}`);
         reject(new Error(`Failed to start command: ${error.message}`));

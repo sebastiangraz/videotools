@@ -642,4 +642,102 @@ describe("VideoToolUploader", () => {
     // Exact match: fps/width must not tag along for non-GIF targets
     expect(processBody.options).toEqual({ target: "webm", quality: 100 });
   });
+
+  // A request that never settles on its own, only rejecting once its signal
+  // is aborted — the shape of an upload or encode the user wants out of.
+  const hangUntilAborted = <T,>(signal?: AbortSignal | null) =>
+    new Promise<T>((_, reject) => {
+      signal?.addEventListener("abort", () =>
+        reject(new DOMException("The operation was aborted.", "AbortError")),
+      );
+    });
+
+  it("fades in a Stop button while a run is in flight and cancels it on click", async () => {
+    const user = userEvent.setup();
+    const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
+    const uploadedUrl =
+      "https://store.public.blob.vercel-storage.com/tiny-abc.mp4";
+
+    uploadMock.mockResolvedValue({ url: uploadedUrl });
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === "/api/process" && init?.method === "POST") {
+          return hangUntilAborted<Response>(init.signal);
+        }
+        if (input === "/api/process" && init?.method === "DELETE") {
+          return new Response(null, { status: 204 });
+        }
+        throw new Error(`Unexpected fetch: ${input}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), file);
+    // Hidden (and so out of the accessibility tree) until a run starts
+    expect(
+      screen.queryByRole("button", { name: /^stop$/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^loop$/i }));
+    const stop = await screen.findByRole("button", { name: /^stop$/i });
+    expect(stop).toBeVisible();
+    expect(screen.getByRole("button", { name: /processing/i })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+
+    await user.click(stop);
+
+    // Back to the idle state: action button usable again, no error box,
+    // and the request itself was aborted
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
+        "aria-disabled",
+        "false",
+      ),
+    );
+    expect(
+      screen.queryByRole("button", { name: /^stop$/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    const postInit = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    )?.[1];
+    expect(postInit?.signal?.aborted).toBe(true);
+    // The upload it had already made is swept up
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/process",
+        expect.objectContaining({
+          method: "DELETE",
+          body: JSON.stringify({ url: uploadedUrl }),
+        }),
+      ),
+    );
+  });
+
+  it("aborts an in-flight upload when the tool is switched", async () => {
+    const user = userEvent.setup();
+    const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
+
+    let uploadSignal: AbortSignal | undefined;
+    uploadMock.mockImplementation(
+      (_name: string, _file: File, opts: { abortSignal?: AbortSignal }) => {
+        uploadSignal = opts.abortSignal;
+        return hangUntilAborted(opts.abortSignal);
+      },
+    );
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), file);
+    await user.click(screen.getByRole("button", { name: /^loop$/i }));
+    expect(uploadSignal?.aborted).toBe(false);
+
+    // The route remounts the uploader per tool, so leaving the tab must not
+    // leave the request running
+    await user.click(screen.getByRole("link", { name: /sequence/i }));
+    await screen.findByRole("button", { name: /create video/i });
+    expect(uploadSignal?.aborted).toBe(true);
+  });
 });
