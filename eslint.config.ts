@@ -44,15 +44,16 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
 
-  // Vercel functions. They run as CommonJS: api/_lib/*.js is plain CJS and the
-  // .ts handlers pull in CJS-only packages via require().
+  // Vercel functions (Node ESM). Type-aware rules via the root tsconfig.json.
   {
     files: ["api/**/*.{js,ts}"],
-    languageOptions: { globals: globals.node },
-    rules: { "@typescript-eslint/no-require-imports": "off" },
-  },
-  {
-    files: ["api/**/*.js"],
-    languageOptions: { sourceType: "commonjs" },
+    extends: [tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      globals: globals.node,
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
   },
 ]);

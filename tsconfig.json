@@ -1,0 +1,16 @@
+{
+  // Vercel functions under api/. @vercel/node picks this up at deploy time
+  // (it forces noEmit off itself); `npm run typecheck` uses it as-is.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["api"],
+  "exclude": ["api/_bin"]
+}

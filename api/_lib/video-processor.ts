@@ -1,6 +1,9 @@
-const { spawn } = require("child_process");
-const fs = require("fs").promises;
-const path = require("path");
+import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+// Only `cwd` is ever passed through to spawn.
+type RunOptions = { cwd?: string };
 
 /**
  * Cross-platform video tools: seamless loops (reverse / crossfade), sequence
@@ -9,9 +12,20 @@ const path = require("path");
  * gifski binary for pngquant palettes and temporal dithering.
  */
 class VideoProcessor {
+  ffmpeg: string;
+  ffprobe: string;
+  gifski: string;
+  signal: AbortSignal | null;
+  gifskiChmodDone = false;
+
   // `signal` (optional AbortSignal) cancels the pipeline: the running child
   // process is killed and every later command rejects right away.
-  constructor(ffmpegPath, ffprobePath, gifskiPath, signal = null) {
+  constructor(
+    ffmpegPath: string,
+    ffprobePath: string,
+    gifskiPath: string,
+    signal: AbortSignal | null = null,
+  ) {
     this.ffmpeg = ffmpegPath;
     this.ffprobe = ffprobePath;
     this.gifski = gifskiPath;
@@ -21,17 +35,17 @@ class VideoProcessor {
   // x264 crf: 0 best – 51 worst; quality 100 → 1 (visually lossless — true
   // lossless x264 forces the High 4:4:4 profile most players reject),
   // quality 1 → 35.
-  static x264Crf(quality) {
+  static x264Crf(quality: number): string {
     return String(Math.max(1, Math.round(35 - (quality / 100) * 34)));
   }
 
   async createLoop(
-    inputFile,
+    inputFile: string,
     technique = "reverse",
     fadeDuration = "0.5",
     startSecond = "0",
     quality = 100,
-  ) {
+  ): Promise<string> {
     const outputFile = `${inputFile}_loop.mp4`;
 
     console.log(`Processing video: ${inputFile}`);
@@ -68,7 +82,11 @@ class VideoProcessor {
     }
   }
 
-  async createReverseLoop(inputFile, outputFile, crf = "18") {
+  async createReverseLoop(
+    inputFile: string,
+    outputFile: string,
+    crf = "18",
+  ): Promise<void> {
     console.log("Creating simple reversed loop...");
 
     const tempDir = path.join(
@@ -126,12 +144,12 @@ class VideoProcessor {
   }
 
   async createCrossfadeLoop(
-    inputFile,
-    outputFile,
-    fadeDuration,
-    startSecond,
+    inputFile: string,
+    outputFile: string,
+    fadeDuration: string,
+    startSecond: string,
     crf = "18",
-  ) {
+  ): Promise<void> {
     console.log("Creating seamless loop with crossfade technique...");
     console.log(`Using fade duration: ${fadeDuration} seconds`);
     console.log(`Starting from: ${startSecond} seconds`);
@@ -290,7 +308,7 @@ class VideoProcessor {
         const seg1Duration = endStartTime - parseFloat(startSecond);
         const seg3Duration = parseFloat(startSecond) - parseFloat(fadeDuration);
 
-        const segments = [];
+        const segments: string[] = [];
 
         if (seg1Duration > 0) {
           await this.runFFmpeg([
@@ -351,12 +369,12 @@ class VideoProcessor {
   }
 
   async createImageSequenceVideo(
-    imagePaths,
-    workDir,
-    frameDuration,
-    format,
+    imagePaths: string[],
+    workDir: string,
+    frameDuration: number,
+    format: string,
     quality = 100,
-  ) {
+  ): Promise<string> {
     console.log(
       `Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`,
     );
@@ -525,17 +543,22 @@ class VideoProcessor {
 
   // Frame budget for video→GIF: PNG frames land on the function's ~500MB
   // ephemeral disk, and at ≤800px they average well under 1MB each.
-  static get MAX_GIF_FRAMES() {
+  static get MAX_GIF_FRAMES(): number {
     return 600;
   }
 
   // libaom is slow enough that long clips would blow the 300s function
   // timeout, so animated AVIF gets a duration ceiling.
-  static get MAX_AVIF_SECONDS() {
+  static get MAX_AVIF_SECONDS(): number {
     return 60;
   }
 
-  async convertVideo(inputFile, workDir, target, quality = 90) {
+  async convertVideo(
+    inputFile: string,
+    workDir: string,
+    target: string,
+    quality = 90,
+  ): Promise<string> {
     console.log(`Converting to ${target} (quality ${quality})...`);
 
     const outputFile = path.join(workDir, `output.${target}`);
@@ -710,7 +733,13 @@ class VideoProcessor {
     return outputFile;
   }
 
-  async videoToGif(inputFile, workDir, quality = 90, fps = null, width = 640) {
+  async videoToGif(
+    inputFile: string,
+    workDir: string,
+    quality = 90,
+    fps: number | null = null,
+    width = 640,
+  ): Promise<string> {
     // No explicit fps → match the source, capped at GIF's practical ceiling
     // (delays are centiseconds; browsers clamp anything ≥50fps).
     if (fps == null) {
@@ -769,7 +798,7 @@ class VideoProcessor {
     }
   }
 
-  async changeSpeed(inputFile, multiplier) {
+  async changeSpeed(inputFile: string, multiplier: number): Promise<string> {
     console.log(`Changing playback speed by ${multiplier}x...`);
 
     const outputFile = `${inputFile}_speed.mp4`;
@@ -803,12 +832,12 @@ class VideoProcessor {
   }
 
   async reorderSegments(
-    inputFile,
-    outputFile,
-    startSecond,
-    duration,
+    inputFile: string,
+    outputFile: string,
+    startSecond: string,
+    duration: number,
     crf = "18",
-  ) {
+  ): Promise<void> {
     const tempDir = path.join(
       path.dirname(inputFile),
       `tmp_loop_${Date.now()}`,
@@ -854,7 +883,12 @@ class VideoProcessor {
     }
   }
 
-  async concatenateVideos(videoFiles, outputFile, tempDir, crf = "18") {
+  async concatenateVideos(
+    videoFiles: string[],
+    outputFile: string,
+    tempDir: string,
+    crf = "18",
+  ): Promise<void> {
     const listFile = path.join(tempDir, "concat_list.txt");
     const listContent = videoFiles
       .map((f) => `file '${path.basename(f)}'`)
@@ -908,7 +942,7 @@ class VideoProcessor {
     }
   }
 
-  async getVideoDuration(inputFile) {
+  async getVideoDuration(inputFile: string): Promise<number> {
     const output = await this.runFFprobe([
       "-v",
       "error",
@@ -921,7 +955,7 @@ class VideoProcessor {
     return parseFloat(output.trim());
   }
 
-  async getVideoFPS(inputFile) {
+  async getVideoFPS(inputFile: string): Promise<number> {
     const output = await this.runFFprobe([
       "-v",
       "error",
@@ -942,15 +976,15 @@ class VideoProcessor {
     return parseFloat(fpsStr) || 30; // fallback to 30 fps
   }
 
-  runFFmpeg(args, options = {}) {
+  runFFmpeg(args: string[], options: RunOptions = {}): Promise<string> {
     return this.runCommand(this.ffmpeg, args, options);
   }
 
-  runFFprobe(args, options = {}) {
+  runFFprobe(args: string[], options: RunOptions = {}): Promise<string> {
     return this.runCommand(this.ffprobe, args, options);
   }
 
-  async runGifski(args, options = {}) {
+  async runGifski(args: string[], options: RunOptions = {}): Promise<string> {
     if (!this.gifski) {
       throw new Error("gifski binary path not configured");
     }
@@ -963,8 +997,12 @@ class VideoProcessor {
     return this.runCommand(this.gifski, args, options);
   }
 
-  runCommand(command, args, options = {}) {
-    return new Promise((resolve, reject) => {
+  runCommand(
+    command: string,
+    args: string[],
+    options: RunOptions = {},
+  ): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
       console.log(`Running: ${command} ${args.join(" ")}`);
       if (options.cwd) {
         console.log(`Working directory: ${options.cwd}`);
@@ -983,11 +1021,11 @@ class VideoProcessor {
       let stdout = "";
       let stderr = "";
 
-      process.stdout.on("data", (data) => {
+      process.stdout.on("data", (data: Buffer) => {
         stdout += data.toString();
       });
 
-      process.stderr.on("data", (data) => {
+      process.stderr.on("data", (data: Buffer) => {
         stderr += data.toString();
       });
 
@@ -1020,4 +1058,4 @@ class VideoProcessor {
   }
 }
 
-module.exports = VideoProcessor;
+export default VideoProcessor;

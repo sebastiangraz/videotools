@@ -12,7 +12,7 @@ videotools/
 │  ├─ _bin/
 │  │  └─ gifski/         # Vendored gifski binaries (video → GIF encoding)
 │  └─ _lib/
-│     └─ video-processor.js  # ffmpeg/gifski pipeline (loops, sequences, conversion)
+│     └─ video-processor.ts  # ffmpeg/gifski pipeline (loops, sequences, conversion)
 ├─ client/               # React + Vite frontend
 │  └─ src/
 │     ├─ VideoToolUploader.tsx      # Upload component
