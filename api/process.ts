@@ -9,7 +9,6 @@ import os from "os";
 import { nanoid } from "nanoid";
 
 import ffmpegStatic from "ffmpeg-static";
-import ffprobe from "@ffprobe-installer/ffprobe";
 import VideoProcessor from "./_lib/video-processor.js";
 import { sweepStaleBlobs } from "./_lib/blob-sweep.js";
 
@@ -21,7 +20,6 @@ if (!maybeFfmpegPath) {
   throw new Error("ffmpeg-static has no ffmpeg binary for this platform");
 }
 const ffmpegPath: string = maybeFfmpegPath;
-const ffprobePath: string = ffprobe.path;
 
 // Vendored gifski CLI (see api/_bin/gifski/README.md). The linux binary is
 // static-pie linked, so it runs on the function runtime as-is; the exec bit
@@ -172,12 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await fsp.mkdir(workDir, { recursive: true });
 
-    const processor = new VideoProcessor(
-      ffmpegPath,
-      ffprobePath,
-      gifskiPath,
-      signal,
-    );
+    const processor = new VideoProcessor(ffmpegPath, gifskiPath, signal);
     const base = String(filename)
       .replace(/\.[^.]+$/, "")
       .replace(/[^\w.-]/g, "_");

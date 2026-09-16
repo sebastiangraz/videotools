@@ -24,7 +24,7 @@ videotools/
 ## How it works
 
 1. The browser uploads the file(s) **directly to Vercel Blob** via `@vercel/blob/client` (token issued by `/api/upload`; capped at 200 MB per file, video/image content types only).
-2. The browser POSTs `{ tool, filename, blobUrl | blobUrls, options }` to `/api/process`. The function downloads the blob(s) to `/tmp`, runs ffmpeg (`ffmpeg-static` + `@ffprobe-installer/ffprobe` — real binaries, no bash), uploads the result to Blob, and returns `{ url, downloadUrl, filename }`. The input blobs are deleted afterwards.
+2. The browser POSTs `{ tool, filename, blobUrl | blobUrls, options }` to `/api/process`. The function downloads the blob(s) to `/tmp`, runs ffmpeg (`ffmpeg-static`, a real binary, no bash; `ffmpeg -i` doubles as the probe, so no ffprobe ships), uploads the result to Blob, and returns `{ url, downloadUrl, filename }`. The input blobs are deleted afterwards.
 3. The browser downloads the result and fires a best-effort `DELETE /api/process` to remove the result blob.
 
 A **Stop** button fades in next to the action button while a run is in flight. It aborts the whole chain client-side (upload, processing request, result download) via one `AbortController`, then deletes whatever blobs that run created; switching tabs mid-run aborts the same way. Server-side, `api/process.ts` listens for the response's `close` event and, if it fires before the response was written, kills the running ffmpeg/gifski child so the function stops encoding — best effort, since it relies on the platform propagating the client disconnect to the function.
