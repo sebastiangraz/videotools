@@ -36,7 +36,7 @@
   --font-mono: monospace, menlo, monaco;
   --quantize: calc-size(auto, round(up, size, 1px));
 
-  --bg: light-dark(hsl(156, 29%, 97%), hsl(150, 11%, 4%));
+  --bg: light-dark(hsl(156, 21%, 95%), hsl(150, 11%, 4%));
   --fg: light-dark(hsl(152, 74%, 5%), hsl(150, 19%, 85%));
   /* Elevated surfaces need a gentler lift on a dark base */
   --bg-1: light-dark(
