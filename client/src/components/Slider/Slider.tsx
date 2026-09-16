@@ -41,6 +41,7 @@ export const Slider = ({
   tickCount?: number;
 }) => {
   const fillRatio = max === min ? 0 : (value - min) / (max - min);
+  const minorSteps = MINOR_TICKS - 1;
   const majorTickActive = (index: number) => {
     const pos = index / tickCount;
     if (!centered) return index === 0 || pos <= fillRatio;
@@ -86,9 +87,19 @@ export const Slider = ({
         >
           {control}
           <div className={styles.minorTicks} aria-hidden="true">
-            {Array.from({ length: MINOR_TICKS }, (_, i) => (
-              <span key={i} className={styles.minorTick} />
-            ))}
+            {Array.from({ length: MINOR_TICKS }, (_, i) => {
+              if (tickCount > 0 && (i * tickCount) % minorSteps === 0) {
+                return null;
+              }
+              const pos = i / minorSteps;
+              return (
+                <span
+                  key={i}
+                  className={styles.minorTick}
+                  style={{ "--pos": pos } as CSSProperties}
+                />
+              );
+            })}
           </div>
           <div className={styles.majorTicks} aria-hidden="true">
             {Array.from({ length: tickCount + 1 }, (_, i) => (
@@ -99,6 +110,7 @@ export const Slider = ({
                     ? `${styles.majorTick} ${styles.majorTickActive}`
                     : styles.majorTick
                 }
+                style={{ "--pos": i / tickCount } as CSSProperties}
               />
             ))}
           </div>

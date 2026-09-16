@@ -88,8 +88,6 @@
   right: var(--tick-inset);
   bottom: calc(100% + 7px);
   height: calc(var(--major-h-active) * 1px);
-  display: flex;
-  justify-content: space-between;
   pointer-events: none;
 }
 
@@ -97,52 +95,47 @@
   z-index: 1;
 }
 
-.minorTick {
+.minorTick,
+.majorTick {
+  position: absolute;
+  left: calc(var(--pos) * (100% - 1px));
   width: 1px;
   height: 100%;
   transform-origin: bottom;
-  background-color: var(--border);
+}
+
+.minorTick {
   will-change: transform;
-  transform: scaleY(calc(var(--minor-h) / var(--major-h-active)));
+  --dist: abs(calc(var(--pos) - var(--fill-ratio)));
+  --t: clamp(0, calc(1 - var(--dist) / var(--hill)), 1);
+  --s: calc((1 - cos(var(--t) * 180deg)) / 2);
+  --h: calc(var(--minor-h) + (var(--minor-peak) - var(--minor-h)) * var(--s));
+  /* 1 when this tick is in the filled span, else 0 */
+  --on: clamp(0, calc((var(--fill-ratio) - var(--pos)) * 1000 + 1), 1);
+  background-color: color-mix(
+    in srgb,
+    var(--fg-tertiary) calc(var(--on) * 100%),
+    var(--border)
+  );
+  transform: scaleY(calc(var(--h) / var(--major-h-active)));
   transition:
     transform 100ms ease,
     background-color 200ms ease;
 }
 
-@supports (width: calc(sibling-index() * 1px)) {
-  .minorTick {
-    --pos: calc((sibling-index() - 1) / (sibling-count() - 1));
-    --dist: abs(calc(var(--pos) - var(--fill-ratio)));
-    --t: clamp(0, calc(1 - var(--dist) / var(--hill)), 1);
-    --s: calc((1 - cos(var(--t) * 180deg)) / 2);
-    --h: calc(var(--minor-h) + (var(--minor-peak) - var(--minor-h)) * var(--s));
-    /* 1 when this tick is in the filled span, else 0 */
-    --on: clamp(0, calc((var(--fill-ratio) - var(--pos)) * 1000 + 1), 1);
-    background-color: color-mix(
-      in srgb,
-      var(--fg-tertiary) calc(var(--on) * 100%),
-      var(--border)
-    );
-    transform: scaleY(calc(var(--h) / var(--major-h-active)));
-  }
-
-  .centeredTicks .minorTick {
-    --start: min(var(--fill-ratio), 0.5);
-    --end: max(var(--fill-ratio), 0.5);
-    --on: calc(
-      clamp(0, calc((var(--pos) - var(--start)) * 1000 + 1), 1) *
-        clamp(0, calc((var(--end) - var(--pos)) * 1000 + 1), 1)
-    );
-  }
+.centeredTicks .minorTick {
+  --start: min(var(--fill-ratio), 0.5);
+  --end: max(var(--fill-ratio), 0.5);
+  --on: calc(
+    clamp(0, calc((var(--pos) - var(--start)) * 1000 + 1), 1) *
+      clamp(0, calc((var(--end) - var(--pos)) * 1000 + 1), 1)
+  );
 }
 
 .majorTick {
-  width: 1px;
-  height: 100%;
   will-change: transform;
   background-color: var(--fg-tertiary);
   transform: scaleY(calc(var(--major-h) / var(--major-h-active)));
-  transform-origin: bottom;
   transition:
     transform 150ms ease,
     background-color 150ms ease;
@@ -154,6 +147,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .minorTick,
   .majorTick {
     transition: none;
   }
