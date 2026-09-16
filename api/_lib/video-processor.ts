@@ -1,6 +1,20 @@
-const { spawn } = require("child_process");
-const fs = require("fs").promises;
-const path = require("path");
+import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+// Only `cwd` is ever passed through to spawn.
+type RunOptions = { cwd?: string };
+
+type RunResult = { code: number | null; stdout: string; stderr: string };
+
+// What `ffmpeg -i` reports about an input. `fps` is null when no frame rate
+// is printed; callers fall back to 30.
+type MediaInfo = {
+  duration: number;
+  width: number;
+  height: number;
+  fps: number | null;
+};
 
 /**
  * Cross-platform video tools: seamless loops (reverse / crossfade), sequence
@@ -9,11 +23,21 @@ const path = require("path");
  * gifski binary for pngquant palettes and temporal dithering.
  */
 class VideoProcessor {
+  ffmpeg: string;
+  gifski: string;
+  signal: AbortSignal | null;
+  gifskiChmodDone = false;
+  // Inputs are immutable for the life of a job, so probe each file once.
+  private infoCache = new Map<string, MediaInfo>();
+
   // `signal` (optional AbortSignal) cancels the pipeline: the running child
   // process is killed and every later command rejects right away.
-  constructor(ffmpegPath, ffprobePath, gifskiPath, signal = null) {
+  constructor(
+    ffmpegPath: string,
+    gifskiPath: string,
+    signal: AbortSignal | null = null,
+  ) {
     this.ffmpeg = ffmpegPath;
-    this.ffprobe = ffprobePath;
     this.gifski = gifskiPath;
     this.signal = signal;
   }
@@ -21,17 +45,17 @@ class VideoProcessor {
   // x264 crf: 0 best – 51 worst; quality 100 → 1 (visually lossless — true
   // lossless x264 forces the High 4:4:4 profile most players reject),
   // quality 1 → 35.
-  static x264Crf(quality) {
+  static x264Crf(quality: number): string {
     return String(Math.max(1, Math.round(35 - (quality / 100) * 34)));
   }
 
   async createLoop(
-    inputFile,
+    inputFile: string,
     technique = "reverse",
     fadeDuration = "0.5",
     startSecond = "0",
     quality = 100,
-  ) {
+  ): Promise<string> {
     const outputFile = `${inputFile}_loop.mp4`;
 
     console.log(`Processing video: ${inputFile}`);
@@ -68,7 +92,11 @@ class VideoProcessor {
     }
   }
 
-  async createReverseLoop(inputFile, outputFile, crf = "18") {
+  async createReverseLoop(
+    inputFile: string,
+    outputFile: string,
+    crf = "18",
+  ): Promise<void> {
     console.log("Creating simple reversed loop...");
 
     const tempDir = path.join(
@@ -126,12 +154,12 @@ class VideoProcessor {
   }
 
   async createCrossfadeLoop(
-    inputFile,
-    outputFile,
-    fadeDuration,
-    startSecond,
+    inputFile: string,
+    outputFile: string,
+    fadeDuration: string,
+    startSecond: string,
     crf = "18",
-  ) {
+  ): Promise<void> {
     console.log("Creating seamless loop with crossfade technique...");
     console.log(`Using fade duration: ${fadeDuration} seconds`);
     console.log(`Starting from: ${startSecond} seconds`);
@@ -290,7 +318,7 @@ class VideoProcessor {
         const seg1Duration = endStartTime - parseFloat(startSecond);
         const seg3Duration = parseFloat(startSecond) - parseFloat(fadeDuration);
 
-        const segments = [];
+        const segments: string[] = [];
 
         if (seg1Duration > 0) {
           await this.runFFmpeg([
@@ -351,12 +379,12 @@ class VideoProcessor {
   }
 
   async createImageSequenceVideo(
-    imagePaths,
-    workDir,
-    frameDuration,
-    format,
+    imagePaths: string[],
+    workDir: string,
+    frameDuration: number,
+    format: string,
     quality = 100,
-  ) {
+  ): Promise<string> {
     console.log(
       `Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`,
     );
@@ -366,21 +394,7 @@ class VideoProcessor {
     // Target frame size: first image's dimensions, capped at 1920 on the
     // longest side (bounds gif/avif encode cost), floored to even for
     // yuv420p/x264.
-    const probe = await this.runFFprobe([
-      "-v",
-      "error",
-      "-select_streams",
-      "v:0",
-      "-show_entries",
-      "stream=width,height",
-      "-of",
-      "csv=s=x:p=0",
-      imagePaths[0],
-    ]);
-    const [w, h] = probe.trim().split("x").map(Number);
-    if (!w || !h) {
-      throw new Error("Could not read dimensions of first image");
-    }
+    const { width: w, height: h } = await this.mediaInfo(imagePaths[0]);
     const scaleFactor = Math.min(1, 1920 / Math.max(w, h));
     const W = Math.max(2, Math.floor((w * scaleFactor) / 2) * 2);
     const H = Math.max(2, Math.floor((h * scaleFactor) / 2) * 2);
@@ -525,17 +539,22 @@ class VideoProcessor {
 
   // Frame budget for video→GIF: PNG frames land on the function's ~500MB
   // ephemeral disk, and at ≤800px they average well under 1MB each.
-  static get MAX_GIF_FRAMES() {
+  static get MAX_GIF_FRAMES(): number {
     return 600;
   }
 
   // libaom is slow enough that long clips would blow the 300s function
   // timeout, so animated AVIF gets a duration ceiling.
-  static get MAX_AVIF_SECONDS() {
+  static get MAX_AVIF_SECONDS(): number {
     return 60;
   }
 
-  async convertVideo(inputFile, workDir, target, quality = 90) {
+  async convertVideo(
+    inputFile: string,
+    workDir: string,
+    target: string,
+    quality = 90,
+  ): Promise<string> {
     console.log(`Converting to ${target} (quality ${quality})...`);
 
     const outputFile = path.join(workDir, `output.${target}`);
@@ -710,7 +729,13 @@ class VideoProcessor {
     return outputFile;
   }
 
-  async videoToGif(inputFile, workDir, quality = 90, fps = null, width = 640) {
+  async videoToGif(
+    inputFile: string,
+    workDir: string,
+    quality = 90,
+    fps: number | null = null,
+    width = 640,
+  ): Promise<string> {
     // No explicit fps → match the source, capped at GIF's practical ceiling
     // (delays are centiseconds; browsers clamp anything ≥50fps).
     if (fps == null) {
@@ -769,7 +794,7 @@ class VideoProcessor {
     }
   }
 
-  async changeSpeed(inputFile, multiplier) {
+  async changeSpeed(inputFile: string, multiplier: number): Promise<string> {
     console.log(`Changing playback speed by ${multiplier}x...`);
 
     const outputFile = `${inputFile}_speed.mp4`;
@@ -803,12 +828,12 @@ class VideoProcessor {
   }
 
   async reorderSegments(
-    inputFile,
-    outputFile,
-    startSecond,
-    duration,
+    inputFile: string,
+    outputFile: string,
+    startSecond: string,
+    duration: number,
     crf = "18",
-  ) {
+  ): Promise<void> {
     const tempDir = path.join(
       path.dirname(inputFile),
       `tmp_loop_${Date.now()}`,
@@ -854,7 +879,12 @@ class VideoProcessor {
     }
   }
 
-  async concatenateVideos(videoFiles, outputFile, tempDir, crf = "18") {
+  async concatenateVideos(
+    videoFiles: string[],
+    outputFile: string,
+    tempDir: string,
+    crf = "18",
+  ): Promise<void> {
     const listFile = path.join(tempDir, "concat_list.txt");
     const listContent = videoFiles
       .map((f) => `file '${path.basename(f)}'`)
@@ -882,7 +912,7 @@ class VideoProcessor {
         ],
         { cwd: tempDir },
       );
-    } catch (error) {
+    } catch {
       console.log("Fast concatenation failed, trying with re-encoding...");
       await this.runFFmpeg(
         [
@@ -908,49 +938,74 @@ class VideoProcessor {
     }
   }
 
-  async getVideoDuration(inputFile) {
-    const output = await this.runFFprobe([
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      inputFile,
-    ]);
-    return parseFloat(output.trim());
+  async getVideoDuration(inputFile: string): Promise<number> {
+    return (await this.mediaInfo(inputFile)).duration;
   }
 
-  async getVideoFPS(inputFile) {
-    const output = await this.runFFprobe([
-      "-v",
-      "error",
-      "-select_streams",
-      "v:0",
-      "-show_entries",
-      "stream=r_frame_rate",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
+  async getVideoFPS(inputFile: string): Promise<number> {
+    return (await this.mediaInfo(inputFile)).fps ?? 30;
+  }
+
+  // ffmpeg itself reports everything the tools need to know about an input,
+  // so there is no separate ffprobe binary to ship. `ffmpeg -i` with no
+  // output prints the stream summary to stderr and exits non-zero, which is
+  // the expected outcome here rather than a failure.
+  async mediaInfo(inputFile: string): Promise<MediaInfo> {
+    const cached = this.infoCache.get(inputFile);
+    if (cached) return cached;
+    const { stderr } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-i",
       inputFile,
     ]);
-
-    const fpsStr = output.trim();
-    if (fpsStr.includes("/")) {
-      const [num, den] = fpsStr.split("/").map(parseFloat);
-      return num / den;
+    const info = VideoProcessor.parseMediaInfo(stderr);
+    if (!info) {
+      throw new Error(`Could not read media info: ${stderr.trim()}`);
     }
-    return parseFloat(fpsStr) || 30; // fallback to 30 fps
+    this.infoCache.set(inputFile, info);
+    return info;
   }
 
-  runFFmpeg(args, options = {}) {
+  // Parses the `-i` summary, e.g.
+  //   Duration: 00:00:03.00, start: 0.000000, bitrate: 46 kb/s
+  //   Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661),
+  //     yuv420p(progressive), 320x240 [SAR 1:1 DAR 4:3], 40 kb/s, 29.97 fps,
+  //     29.97 tbr, 11988 tbn (default)
+  // The video line is split on ", " so a WxH field is matched whole: the
+  // codec tag (`0x31637661`) never starts a field. Stills report
+  // "Duration: N/A", which reads as 0.
+  static parseMediaInfo(summary: string): MediaInfo | null {
+    const video = summary
+      .split("\n")
+      .find((line) => /Stream #\d+:\d+.*: Video: /.test(line));
+    if (!video) return null;
+    const fields = video.slice(video.indexOf(": Video: ")).split(", ");
+    const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
+    if (!size) return null;
+
+    const rate =
+      fields.map((f) => /^([\d.]+) fps\b/.exec(f)).find(Boolean) ??
+      fields.map((f) => /^([\d.]+) tbr\b/.exec(f)).find(Boolean);
+    const fps = rate ? parseFloat(rate[1]) : NaN;
+
+    const dur = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(summary);
+    const duration = dur
+      ? Number(dur[1]) * 3600 + Number(dur[2]) * 60 + Number(dur[3])
+      : 0;
+
+    return {
+      duration,
+      width: Number(size[1]),
+      height: Number(size[2]),
+      fps: Number.isFinite(fps) && fps > 0 ? fps : null,
+    };
+  }
+
+  runFFmpeg(args: string[], options: RunOptions = {}): Promise<string> {
     return this.runCommand(this.ffmpeg, args, options);
   }
 
-  runFFprobe(args, options = {}) {
-    return this.runCommand(this.ffprobe, args, options);
-  }
-
-  async runGifski(args, options = {}) {
+  async runGifski(args: string[], options: RunOptions = {}): Promise<string> {
     if (!this.gifski) {
       throw new Error("gifski binary path not configured");
     }
@@ -963,8 +1018,31 @@ class VideoProcessor {
     return this.runCommand(this.gifski, args, options);
   }
 
-  runCommand(command, args, options = {}) {
-    return new Promise((resolve, reject) => {
+  // Resolves with the child's stdout; a non-zero exit is an error.
+  async runCommand(
+    command: string,
+    args: string[],
+    options: RunOptions = {},
+  ): Promise<string> {
+    const { code, stdout, stderr } = await this.run(command, args, options);
+    if (code === 0) return stdout;
+    console.error(`Command failed with code ${code}`);
+    console.error(`Command: ${command} ${args.join(" ")}`);
+    if (options.cwd) {
+      console.error(`Working directory: ${options.cwd}`);
+    }
+    console.error(`stderr: ${stderr}`);
+    throw new Error(`Command failed: ${stderr || `Exit code ${code}`}`);
+  }
+
+  // Runs the child to completion and reports its exit code and output;
+  // rejects only when it could not be started or was cancelled.
+  run(
+    command: string,
+    args: string[],
+    options: RunOptions = {},
+  ): Promise<RunResult> {
+    return new Promise<RunResult>((resolve, reject) => {
       console.log(`Running: ${command} ${args.join(" ")}`);
       if (options.cwd) {
         console.log(`Working directory: ${options.cwd}`);
@@ -983,27 +1061,19 @@ class VideoProcessor {
       let stdout = "";
       let stderr = "";
 
-      process.stdout.on("data", (data) => {
+      process.stdout.on("data", (data: Buffer) => {
         stdout += data.toString();
       });
 
-      process.stderr.on("data", (data) => {
+      process.stderr.on("data", (data: Buffer) => {
         stderr += data.toString();
       });
 
       process.on("close", (code) => {
         if (signal?.aborted) {
           reject(new Error("Cancelled"));
-        } else if (code === 0) {
-          resolve(stdout);
         } else {
-          console.error(`Command failed with code ${code}`);
-          console.error(`Command: ${command} ${args.join(" ")}`);
-          if (options.cwd) {
-            console.error(`Working directory: ${options.cwd}`);
-          }
-          console.error(`stderr: ${stderr}`);
-          reject(new Error(`Command failed: ${stderr || `Exit code ${code}`}`));
+          resolve({ code, stdout, stderr });
         }
       });
 
@@ -1020,4 +1090,4 @@ class VideoProcessor {
   }
 }
 
-module.exports = VideoProcessor;
+export default VideoProcessor;

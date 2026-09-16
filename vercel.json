@@ -8,8 +8,7 @@
   "functions": {
     "api/process.ts": {
       "maxDuration": 300,
-      "memory": 2048,
-      "includeFiles": "{node_modules/{ffmpeg-static,@ffprobe-installer}/**,api/_bin/**}"
+      "includeFiles": "{node_modules/ffmpeg-static/**,api/_bin/gifski/linux/**}"
     },
     "api/upload.ts": { "maxDuration": 30 }
   }

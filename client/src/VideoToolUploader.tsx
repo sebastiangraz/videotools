@@ -13,56 +13,7 @@ import { Select } from "./components/Select/Select";
 import { NumberField } from "./components/NumberField/NumberField";
 import { Slider } from "./components/Slider/Slider";
 import { Tooltip } from "./components/Tooltip/Tooltip";
-
-const VIDEO_ACCEPT =
-  "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts";
-
-// Available tools. Mirrored in api/process.ts (VALID_TOOLS); each tool's
-// extra options are the conditional blocks in the JSX below. Also drives
-// the routes and tab navigation in App.tsx, where `description` fills the
-// tab's preview card (keep it under 100 characters).
-export const TOOLS = [
-  {
-    value: "loop",
-    label: "Loop",
-    description: "Seamlessly loop a video",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
-    actionLabel: "Loop",
-  },
-  {
-    value: "sequence",
-    label: "Sequence",
-    description: "Convert images to video",
-    input: { accept: "image/*", multiple: true, pickerLabel: "choose images" },
-    actionLabel: "Create video",
-  },
-  {
-    value: "speed",
-    label: "Speed",
-    description: "Change video speed",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
-    actionLabel: "Change speed",
-  },
-  {
-    value: "convert",
-    label: "Convert",
-    description: "Convert a video to another format",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
-    actionLabel: "Convert",
-  },
-];
+import { TOOLS } from "./tools";
 
 // Looping techniques for the "loop" tool. Mirrored in api/process.ts
 // (VALID_TECHNIQUES)
@@ -139,14 +90,15 @@ function matchesAccept(file: File, accept: string): boolean {
   });
 }
 
-// Best-effort removal of a blob this client created (an upload, or a result
+// Best-effort removal of blobs this client created (uploads, or a result
 // that was already downloaded). Failures are ignored: Blob storage is only
-// a transfer buffer here.
-function deleteBlob(url: string) {
+// a transfer buffer here, and the server sweeps leftovers on its own.
+function deleteBlobs(urls: string[]) {
+  if (!urls.length) return;
   fetch("/api/process", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ urls }),
   }).catch(() => {});
 }
 
@@ -433,15 +385,15 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
       a.click();
       URL.revokeObjectURL(objectUrl);
 
-      deleteBlob(url);
+      deleteBlobs([url]);
     } catch (err: unknown) {
+      // Whatever went wrong, nothing this run uploaded is of use any more:
+      // the server only deletes inputs when it gets to run, an upload cut
+      // short never reaches it, and a result nobody downloaded is just
+      // storage. Deleting again what the server already removed is harmless.
+      deleteBlobs(resultUrl ? [...blobUrls, resultUrl] : blobUrls);
       if (signal.aborted) {
-        // Stopped on purpose: no error box. The server deletes the inputs
-        // itself once it notices the disconnect, but never gets there if
-        // the upload was cut short, and a result it already stored has no
-        // one left to download it, so sweep everything this run made.
-        blobUrls.forEach(deleteBlob);
-        if (resultUrl) deleteBlob(resultUrl);
+        // Stopped on purpose: no error box.
       } else {
         console.error(err);
         // The status message only renders inside the button while busy, so

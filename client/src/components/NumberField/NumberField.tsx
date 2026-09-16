@@ -7,7 +7,7 @@ import styles from "./NumberField.module.css";
 // unit label from the format options, so it also strips it back off when
 // parsing typed input. One forced decimal keeps whole numbers looking like
 // the fractional steps they're nudged in ("1.0s", not "1s").
-export const SECONDS_FORMAT: Intl.NumberFormatOptions = {
+const SECONDS_FORMAT: Intl.NumberFormatOptions = {
   style: "unit",
   unit: "second",
   unitDisplay: "narrow",

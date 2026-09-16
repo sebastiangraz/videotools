@@ -8,9 +8,18 @@ import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
 
-const ffmpegPath: string = require("ffmpeg-static");
-const ffprobePath: string = require("@ffprobe-installer/ffprobe").path;
-const VideoProcessor = require("./_lib/video-processor");
+import ffmpegStatic from "ffmpeg-static";
+import VideoProcessor from "./_lib/video-processor.js";
+import { sweepStaleBlobs } from "./_lib/blob-sweep.js";
+
+// ffmpeg-static is CommonJS (`module.exports = path | null`) but its .d.ts says
+// `export default`, so under NodeNext TypeScript types the default import as
+// the module namespace. At runtime Node hands ESM importers the string itself.
+const maybeFfmpegPath = ffmpegStatic as unknown as string | null;
+if (!maybeFfmpegPath) {
+  throw new Error("ffmpeg-static has no ffmpeg binary for this platform");
+}
+const ffmpegPath: string = maybeFfmpegPath;
 
 // Vendored gifski CLI (see api/_bin/gifski/README.md). The linux binary is
 // static-pie linked, so it runs on the function runtime as-is; the exec bit
@@ -39,7 +48,17 @@ const CONTENT_TYPES: Record<string, string> = {
   webp: "image/webp",
 };
 const MAX_IMAGES = 100;
+
 const BLOB_HOST_RE = /\.public\.blob\.vercel-storage\.com$/;
+
+// req.body is untyped JSON; every field is validated below before use.
+type ProcessBody = {
+  tool?: unknown;
+  filename?: unknown;
+  blobUrl?: unknown;
+  blobUrls?: unknown;
+  options?: Record<string, unknown>;
+};
 
 function isBlobUrl(url: unknown): url is string {
   if (typeof url !== "string") return false;
@@ -48,6 +67,10 @@ function isBlobUrl(url: unknown): url is string {
   } catch {
     return false;
   }
+}
+
+function pick(value: unknown, allowed: string[], fallback: string): string {
+  return typeof value === "string" && allowed.includes(value) ? value : fallback;
 }
 
 function clamp(
@@ -78,9 +101,10 @@ async function downloadBlob(
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "DELETE") {
-    const { url } = req.body ?? {};
-    if (isBlobUrl(url)) {
-      await del(url).catch(() => {});
+    const { urls } = (req.body ?? {}) as { urls?: unknown };
+    const valid = Array.isArray(urls) ? urls.filter(isBlobUrl) : [];
+    if (valid.length) {
+      await del(valid).catch(() => {});
     }
     return res.status(204).end();
   }
@@ -95,10 +119,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     blobUrl,
     blobUrls,
     options = {},
-  } = req.body ?? {};
+  } = (req.body ?? {}) as ProcessBody;
 
-  if (!VALID_TOOLS.includes(tool)) {
-    return res.status(400).json({ error: "Unknown tool" });
+  // The client has already uploaded before it asks for processing, so a
+  // rejected request still has to release whatever it uploaded.
+  const uploaded = [
+    blobUrl,
+    ...(Array.isArray(blobUrls) ? (blobUrls as unknown[]) : []),
+  ].filter(isBlobUrl);
+  const reject = async (error: string) => {
+    if (uploaded.length) await del(uploaded).catch(() => {});
+    return res.status(400).json({ error });
+  };
+
+  if (typeof tool !== "string" || !VALID_TOOLS.includes(tool)) {
+    return reject("Unknown tool");
   }
 
   let inputBlobUrls: string[];
@@ -109,14 +144,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       blobUrls.length > MAX_IMAGES ||
       !blobUrls.every(isBlobUrl)
     ) {
-      return res
-        .status(400)
-        .json({ error: `Expected 1–${MAX_IMAGES} valid blob URLs` });
+      return reject(`Expected 1–${MAX_IMAGES} valid blob URLs`);
     }
     inputBlobUrls = blobUrls;
   } else {
     if (!isBlobUrl(blobUrl)) {
-      return res.status(400).json({ error: "Invalid blob URL" });
+      return reject("Invalid blob URL");
     }
     inputBlobUrls = [blobUrl];
   }
@@ -137,12 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     await fsp.mkdir(workDir, { recursive: true });
 
-    const processor = new VideoProcessor(
-      ffmpegPath,
-      ffprobePath,
-      gifskiPath,
-      signal,
-    );
+    const processor = new VideoProcessor(ffmpegPath, gifskiPath, signal);
     const base = String(filename)
       .replace(/\.[^.]+$/, "")
       .replace(/[^\w.-]/g, "_");
@@ -153,9 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (tool === "sequence") {
       const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
-      const format = VALID_FORMATS.includes(options.format)
-        ? options.format
-        : "mp4";
+      const format = pick(options.format, VALID_FORMATS, "mp4");
       const quality = Math.round(clamp(options.quality, 1, 100, 100));
 
       const imagePaths: string[] = [];
@@ -182,9 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       outputName = `${base}_video.${format}`;
       contentType = CONTENT_TYPES[format];
     } else if (tool === "convert") {
-      const target = CONVERT_TARGETS.includes(options.target)
-        ? options.target
-        : "mp4";
+      const target = pick(options.target, CONVERT_TARGETS, "mp4");
       const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
       // Keep the original extension for readability; ffmpeg sniffs the
@@ -231,9 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       outputName = `${base}_speed.mp4`;
       contentType = "video/mp4";
     } else {
-      const technique = VALID_TECHNIQUES.includes(options.technique)
-        ? options.technique
-        : "reverse";
+      const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
       const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
       const startSecond = clamp(
         options.startSecond,
@@ -288,9 +310,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: err instanceof Error ? err.message : "Processing failed",
     });
   } finally {
-    for (const url of inputBlobUrls) {
-      await del(url).catch(() => {});
-    }
+    await del(inputBlobUrls).catch(() => {});
     await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    // Runs after the response has been sent, so the client never waits on it.
+    await sweepStaleBlobs(inputBlobUrls);
   }
 }
