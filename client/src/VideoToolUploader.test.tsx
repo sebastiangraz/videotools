@@ -141,7 +141,7 @@ describe("VideoToolUploader", () => {
       "false",
     );
 
-    await user.click(screen.getByRole("link", { name: /sequence/i }));
+    await user.click(screen.getByRole("tab", { name: /sequence/i }));
     expect(
       await screen.findByRole("button", { name: /create video/i }),
     ).toHaveAttribute("aria-disabled", "true");
@@ -736,7 +736,7 @@ describe("VideoToolUploader", () => {
 
     // The route remounts the uploader per tool, so leaving the tab must not
     // leave the request running
-    await user.click(screen.getByRole("link", { name: /sequence/i }));
+    await user.click(screen.getByRole("tab", { name: /sequence/i }));
     await screen.findByRole("button", { name: /create video/i });
     expect(uploadSignal?.aborted).toBe(true);
   });

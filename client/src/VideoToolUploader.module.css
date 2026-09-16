@@ -192,41 +192,21 @@
   scrollbar-width: none;
 }
 
+/* Sizing and type only; colour states come from the Tabs component */
 .tab {
   min-height: var(--quantize);
-  padding: 0.75rem 0.5rem 0.75rem 0.5rem;
+  padding: 0.75rem 0.5rem;
   font-size: 10px;
-  text-decoration: none;
-  text-transform: uppercase;
-  color: var(--fg-secondary);
-
-  &::before {
-    border-top: 1px solid transparent;
-    width: calc(100% - 1rem);
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0.5rem;
-    height: 1px;
-  }
-  &:hover {
-    color: var(--fg);
-  }
-  &:focus-visible {
-    position: relative;
-    outline: none;
-    &::before {
-      border-top: 1px solid var(--fg-tertiary);
-    }
-  }
 }
 
-.tabActive {
-  color: var(--fg);
-  position: relative;
-  &::before {
-    border-top: 1px solid var(--fg);
-  }
+/* The active tab's line, drawn over the container rule above and slid from
+   tab to tab by the Tabs component. Inset by the tab's inline padding so it
+   spans the label rather than the whole box. */
+.tabIndicator {
+  height: 1px;
+  margin-left: 0.5rem;
+  width: calc(var(--active-tab-width) - 1rem);
+  border-top: 1px solid var(--fg);
 }
 
 .previewCardDescription {

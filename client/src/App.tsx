@@ -5,11 +5,13 @@ import {
   Link,
   Outlet,
   redirect,
+  useParams,
   type RouterHistory,
 } from "@tanstack/react-router";
 import { useRef } from "react";
 import { VideoToolUploader, TOOLS } from "./VideoToolUploader";
 import { PreviewCard } from "./components/PreviewCard/PreviewCard";
+import { Tabs, Tab } from "./components/Tabs/Tabs";
 import appStyles from "./index.module.css";
 import styles from "./VideoToolUploader.module.css";
 
@@ -47,6 +49,10 @@ const Layout = () => {
   // Every preview card is positioned over the title rather than its own tab, so
   // the card never moves regardless of which tab is hovered
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+  // The route is the source of truth for the active tab: each tab is a Link,
+  // so clicking navigates and the strip follows the URL (deep links, back and
+  // forward included). Before the index redirect lands no tab is active.
+  const { tool } = useParams({ strict: false });
 
   return (
     <div className={appStyles.app}>
@@ -57,40 +63,40 @@ const Layout = () => {
         </h1>
       </header>
 
-      <div className={styles.tabContainer}>
-        <div className={styles.tabs}>
-          {TOOLS.map((t) => (
-            <PreviewCard
-              key={t.value}
-              render={
-                <Link
-                  to="/$tool"
-                  params={{ tool: t.value }}
-                  className={styles.tab}
-                  activeProps={{
-                    className: styles.tabActive,
-                    "aria-current": "page",
-                  }}
-                />
-              }
-              content={t.description}
-              popupClassName={styles.previewCardDescription}
-              anchor={titleRef}
-              side="bottom"
-              align="end"
-              sideOffset={centerOverAnchor}
-              alignOffset={-2}
-              collisionAvoidance={{
-                side: "none",
-                align: "none",
-                fallbackAxisSide: "none",
-              }}
-            >
-              {t.label}
-            </PreviewCard>
-          ))}
-        </div>
-      </div>
+      <Tabs
+        value={tool ?? null}
+        className={styles.tabContainer}
+        listClassName={styles.tabs}
+        indicatorClassName={styles.tabIndicator}
+      >
+        {TOOLS.map((t) => (
+          <PreviewCard
+            key={t.value}
+            render={
+              <Tab
+                value={t.value}
+                nativeButton={false}
+                className={styles.tab}
+                render={<Link to="/$tool" params={{ tool: t.value }} />}
+              />
+            }
+            content={t.description}
+            popupClassName={styles.previewCardDescription}
+            anchor={titleRef}
+            side="bottom"
+            align="end"
+            sideOffset={centerOverAnchor}
+            alignOffset={-2}
+            collisionAvoidance={{
+              side: "none",
+              align: "none",
+              fallbackAxisSide: "none",
+            }}
+          >
+            {t.label}
+          </PreviewCard>
+        ))}
+      </Tabs>
       <main className={appStyles.main}>
         <Outlet />
       </main>
