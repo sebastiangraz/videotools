@@ -67,14 +67,21 @@
   outline: none;
   cursor: default;
   color: var(--fg-secondary);
+  outline: 1px solid transparent;
+  transition:
+    color 0.125s ease,
+    outline 0.125s ease;
   &[data-highlighted] {
     outline: 1px solid var(--border);
   }
   &[data-selected] {
     color: var(--fg);
   }
-  &:hover {
-    color: var(--fg);
+  &:hover:not([data-selected]) {
+    cursor: pointer;
+    .itemIndicator::before {
+      opacity: 0.2;
+    }
   }
 }
 
@@ -90,6 +97,7 @@
     border-radius: 50%;
     background-color: var(--fg);
     opacity: 0;
+    transition: opacity 0.125s ease;
   }
   &[data-selected]::before {
     opacity: 1;
