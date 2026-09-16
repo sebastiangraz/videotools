@@ -53,8 +53,6 @@ export const Select = ({
               value={o.value}
               className={styles.item}
             >
-              {/* Explicit null children suppress the indicator's built-in
-                  "✔️"; the dot is drawn in CSS off [data-selected] */}
               <BaseSelect.ItemIndicator
                 keepMounted
                 className={styles.itemIndicator}
