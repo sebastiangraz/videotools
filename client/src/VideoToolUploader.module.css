@@ -17,11 +17,12 @@
   border-top: 1px solid var(--border-subtle);
 }
 
-/* On tool change only the contents animate. The containers stay unnamed, so
-   they are captured in the root snapshot instead, where their inline borders
-   are identical before and after and therefore never appear to move or fade.
-   match-element gives every child a unique snapshot name, so old and new
-   children never pair up and each simply leaves or enters. */
+/* On tool change only the contents animate. The containers stay unnamed and
+   the root is not captured either (see index.module.css), so they render live
+   throughout; their inline borders are identical before and after and
+   therefore never appear to move or fade. match-element gives every child a
+   unique snapshot name, so old and new children never pair up and each simply
+   leaves or enters. */
 .container > * {
   view-transition-name: match-element;
   view-transition-class: panelItem;

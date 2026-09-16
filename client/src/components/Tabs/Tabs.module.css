@@ -20,14 +20,18 @@
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
+  /* Dimming waits before it starts. On click the browser drops :hover a few
+     frames before the tab turns active (hit testing pauses while the view
+     transition captures), and without the delay those frames paint in the
+     dim colour, a one-frame flicker. Hovering in and turning active are
+     immediate, see below. */
+  transition: color 120ms ease;
 }
 
-:where(.tab):hover {
-  color: var(--fg);
-}
-
+:where(.tab):hover,
 :where(.tab)[data-active] {
   color: var(--fg);
+  transition-delay: 0ms;
 }
 
 :where(.tab)[data-disabled] {

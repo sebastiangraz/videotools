@@ -30,6 +30,27 @@
   flex-grow: 1;
 }
 
+/* Keeps the page clickable while a tool switch animates (~450ms with the
+   stagger below), so a second tab click is not swallowed. Two things block
+   clicks: the overlay, which is a plain full-viewport box and can be told to
+   let pointer events through; and captured elements, which the spec makes
+   hit-test transparent for the whole transition, with clicks going to the
+   document element instead. The root is captured by default, which took the
+   entire page with it, so it opts out. Only the panel items are captured now;
+   they are inert while they animate, and the header and tabs stay live. A
+   click mid-transition simply skips the one in flight. */
+:root {
+  view-transition-name: none;
+}
+
+::view-transition,
+::view-transition-group(*),
+::view-transition-image-pair(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
