@@ -31,8 +31,8 @@
 :root {
   color-scheme: light dark;
 
-  --font-sans: "Styrene B", system-ui, sans-serif;
-  --font-logo: "GGX", "Styrene B", system-ui, sans-serif;
+  --font-sans: "Styrene", system-ui, sans-serif;
+  --font-logo: "GGX", "Styrene", system-ui, sans-serif;
   --font-mono: monospace, menlo, monaco;
   --quantize: calc-size(auto, round(up, size, 1px));
 
