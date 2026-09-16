@@ -361,6 +361,16 @@ describe("VideoToolUploader", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/you broke it my dude/i);
     expect(screen.getByText(/ffmpeg exited with 1/i)).not.toBeVisible();
+    // The upload is of no use after a failure, so it is released
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/process",
+      expect.objectContaining({
+        method: "DELETE",
+        body: JSON.stringify({
+          urls: ["https://store.public.blob.vercel-storage.com/anim-abc.gif"],
+        }),
+      }),
+    );
 
     await user.click(screen.getByText(/you broke it my dude/i));
     expect(screen.getByText(/ffmpeg exited with 1/i)).toBeVisible();
@@ -711,7 +721,7 @@ describe("VideoToolUploader", () => {
         "/api/process",
         expect.objectContaining({
           method: "DELETE",
-          body: JSON.stringify({ url: uploadedUrl }),
+          body: JSON.stringify({ urls: [uploadedUrl] }),
         }),
       ),
     );

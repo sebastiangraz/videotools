@@ -90,14 +90,15 @@ function matchesAccept(file: File, accept: string): boolean {
   });
 }
 
-// Best-effort removal of a blob this client created (an upload, or a result
+// Best-effort removal of blobs this client created (uploads, or a result
 // that was already downloaded). Failures are ignored: Blob storage is only
-// a transfer buffer here.
-function deleteBlob(url: string) {
+// a transfer buffer here, and the server sweeps leftovers on its own.
+function deleteBlobs(urls: string[]) {
+  if (!urls.length) return;
   fetch("/api/process", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ urls }),
   }).catch(() => {});
 }
 
@@ -384,15 +385,15 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
       a.click();
       URL.revokeObjectURL(objectUrl);
 
-      deleteBlob(url);
+      deleteBlobs([url]);
     } catch (err: unknown) {
+      // Whatever went wrong, nothing this run uploaded is of use any more:
+      // the server only deletes inputs when it gets to run, an upload cut
+      // short never reaches it, and a result nobody downloaded is just
+      // storage. Deleting again what the server already removed is harmless.
+      deleteBlobs(resultUrl ? [...blobUrls, resultUrl] : blobUrls);
       if (signal.aborted) {
-        // Stopped on purpose: no error box. The server deletes the inputs
-        // itself once it notices the disconnect, but never gets there if
-        // the upload was cut short, and a result it already stored has no
-        // one left to download it, so sweep everything this run made.
-        blobUrls.forEach(deleteBlob);
-        if (resultUrl) deleteBlob(resultUrl);
+        // Stopped on purpose: no error box.
       } else {
         console.error(err);
         // The status message only renders inside the button while busy, so

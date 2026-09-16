@@ -11,6 +11,7 @@ import { nanoid } from "nanoid";
 import ffmpegStatic from "ffmpeg-static";
 import ffprobe from "@ffprobe-installer/ffprobe";
 import VideoProcessor from "./_lib/video-processor.js";
+import { sweepStaleBlobs } from "./_lib/blob-sweep.js";
 
 // ffmpeg-static is CommonJS (`module.exports = path | null`) but its .d.ts says
 // `export default`, so under NodeNext TypeScript types the default import as
@@ -102,9 +103,10 @@ async function downloadBlob(
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "DELETE") {
-    const { url } = (req.body ?? {}) as { url?: unknown };
-    if (isBlobUrl(url)) {
-      await del(url).catch(() => {});
+    const { urls } = (req.body ?? {}) as { urls?: unknown };
+    const valid = Array.isArray(urls) ? urls.filter(isBlobUrl) : [];
+    if (valid.length) {
+      await del(valid).catch(() => {});
     }
     return res.status(204).end();
   }
@@ -121,8 +123,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     options = {},
   } = (req.body ?? {}) as ProcessBody;
 
+  // The client has already uploaded before it asks for processing, so a
+  // rejected request still has to release whatever it uploaded.
+  const uploaded = [
+    blobUrl,
+    ...(Array.isArray(blobUrls) ? (blobUrls as unknown[]) : []),
+  ].filter(isBlobUrl);
+  const reject = async (error: string) => {
+    if (uploaded.length) await del(uploaded).catch(() => {});
+    return res.status(400).json({ error });
+  };
+
   if (typeof tool !== "string" || !VALID_TOOLS.includes(tool)) {
-    return res.status(400).json({ error: "Unknown tool" });
+    return reject("Unknown tool");
   }
 
   let inputBlobUrls: string[];
@@ -133,14 +146,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       blobUrls.length > MAX_IMAGES ||
       !blobUrls.every(isBlobUrl)
     ) {
-      return res
-        .status(400)
-        .json({ error: `Expected 1–${MAX_IMAGES} valid blob URLs` });
+      return reject(`Expected 1–${MAX_IMAGES} valid blob URLs`);
     }
     inputBlobUrls = blobUrls;
   } else {
     if (!isBlobUrl(blobUrl)) {
-      return res.status(400).json({ error: "Invalid blob URL" });
+      return reject("Invalid blob URL");
     }
     inputBlobUrls = [blobUrl];
   }
@@ -306,9 +317,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: err instanceof Error ? err.message : "Processing failed",
     });
   } finally {
-    for (const url of inputBlobUrls) {
-      await del(url).catch(() => {});
-    }
+    await del(inputBlobUrls).catch(() => {});
     await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    // Runs after the response has been sent, so the client never waits on it.
+    await sweepStaleBlobs(inputBlobUrls);
   }
 }
