@@ -882,7 +882,7 @@ class VideoProcessor {
         ],
         { cwd: tempDir },
       );
-    } catch (error) {
+    } catch {
       console.log("Fast concatenation failed, trying with re-encoding...");
       await this.runFFmpeg(
         [

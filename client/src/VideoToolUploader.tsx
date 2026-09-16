@@ -13,56 +13,7 @@ import { Select } from "./components/Select/Select";
 import { NumberField } from "./components/NumberField/NumberField";
 import { Slider } from "./components/Slider/Slider";
 import { Tooltip } from "./components/Tooltip/Tooltip";
-
-const VIDEO_ACCEPT =
-  "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts";
-
-// Available tools. Mirrored in api/process.ts (VALID_TOOLS); each tool's
-// extra options are the conditional blocks in the JSX below. Also drives
-// the routes and tab navigation in App.tsx, where `description` fills the
-// tab's preview card (keep it under 100 characters).
-export const TOOLS = [
-  {
-    value: "loop",
-    label: "Loop",
-    description: "Seamlessly loop a video",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
-    actionLabel: "Loop",
-  },
-  {
-    value: "sequence",
-    label: "Sequence",
-    description: "Convert images to video",
-    input: { accept: "image/*", multiple: true, pickerLabel: "choose images" },
-    actionLabel: "Create video",
-  },
-  {
-    value: "speed",
-    label: "Speed",
-    description: "Change video speed",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
-    actionLabel: "Change speed",
-  },
-  {
-    value: "convert",
-    label: "Convert",
-    description: "Convert a video to another format",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
-    actionLabel: "Convert",
-  },
-];
+import { TOOLS } from "./tools";
 
 // Looping techniques for the "loop" tool. Mirrored in api/process.ts
 // (VALID_TECHNIQUES)

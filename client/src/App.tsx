@@ -1,3 +1,6 @@
+/* eslint-disable react-refresh/only-export-components -- this file is the
+   route tree: its components exist only to be wired into createAppRouter, so
+   there is no Fast Refresh boundary to preserve here */
 import {
   createRootRoute,
   createRoute,
@@ -9,7 +12,8 @@ import {
   type RouterHistory,
 } from "@tanstack/react-router";
 import { useRef } from "react";
-import { VideoToolUploader, TOOLS } from "./VideoToolUploader";
+import { VideoToolUploader } from "./VideoToolUploader";
+import { TOOLS } from "./tools";
 import { PreviewCard } from "./components/PreviewCard/PreviewCard";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import appStyles from "./index.module.css";
