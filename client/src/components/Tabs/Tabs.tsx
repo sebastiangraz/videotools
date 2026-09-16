@@ -32,7 +32,9 @@ export const Tabs = ({
     className={className}
   >
     <BaseTabs.List
-      className={listClassName ? `${styles.list} ${listClassName}` : styles.list}
+      className={
+        listClassName ? `${styles.list} ${listClassName}` : styles.list
+      }
     >
       {children}
       {indicatorClassName ? (
