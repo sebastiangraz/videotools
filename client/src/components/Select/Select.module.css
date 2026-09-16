@@ -38,7 +38,7 @@
 .popup {
   box-sizing: border-box;
   min-width: var(--anchor-width);
-  padding: calc(0.5em + 1px);
+  padding: calc(3px + 1px);
   font-size: 10px;
   color: currentColor;
   background-color: var(--bg-1);
@@ -61,8 +61,9 @@
   display: flex;
   align-items: center;
   gap: 0.25em;
-  padding: 0.75em 0.75em 0.75em 0.5em;
-  border-radius: max(calc(var(--radius) - 0.375rem), 1px);
+  padding: 0 0.75em;
+  min-height: calc(2.5rem - 2px);
+  border-radius: max(calc(var(--radius) - (3px + 1px)), 1px);
   corner-shape: superellipse(1.45);
   outline: none;
   cursor: default;
@@ -70,7 +71,7 @@
   outline: 1px solid transparent;
   transition:
     color 0.125s ease,
-    outline 0.125s ease;
+    outline 0.2s ease;
   &[data-highlighted] {
     outline: 1px solid var(--border);
   }

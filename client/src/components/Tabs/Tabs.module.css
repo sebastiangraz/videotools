@@ -36,8 +36,9 @@
 }
 
 :where(.tab):focus-visible {
-  outline: 1px solid var(--fg-tertiary);
-  outline-offset: -1px;
+  outline: 1px solid var(--border);
+  outline-offset: -3px;
+  border-radius: calc(var(--radius) - 3px);
 }
 
 /* Follows the active tab. Base UI measures the tab against the list (scroll
