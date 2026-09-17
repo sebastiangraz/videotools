@@ -35,6 +35,11 @@ const MARK = {
   elongatedScale: 1.5,
   squarishScale: 0.75,
   squarishPadding: 0.5,
+  // Ceiling on the padding, as a fraction of the frame's shorter side. The
+  // shape rule takes the padding from the drawn logo, which for an asset
+  // with a lot of empty canvas around the mark is far more than the mark
+  // itself; this keeps such logos from drifting into the frame.
+  maxPaddingRatio: 0.05,
   // Frosted-glass mode: the backdrop under the logo is blurred by this sigma
   // (fraction of the shorter side; the CSS analogue is backdrop-filter:
   // blur()), then saturated and mixed with white.
@@ -973,11 +978,14 @@ class VideoProcessor {
     // so the mark always sits one "logo" in from the edges: a logotype
     // (wider than tall) uses its height, a tall mark its width, and a
     // square-ish one the mean of the two, eased back a little.
-    const margin = squarish
-      ? Math.round(((LW + LH) / 2) * MARK.squarishPadding)
-      : aspect > 1
-        ? LH
-        : LW;
+    const margin = Math.min(
+      squarish
+        ? Math.round(((LW + LH) / 2) * MARK.squarishPadding)
+        : aspect > 1
+          ? LH
+          : LW,
+      Math.round(shorter * MARK.maxPaddingRatio),
+    );
     // The logo's top-left corner in the frame.
     const LX = VW - margin - LW;
     const LY = VH - margin - LH;
