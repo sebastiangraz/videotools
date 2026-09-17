@@ -72,8 +72,8 @@ const MARK = {
   // Where the light comes from, in degrees clockwise from the top (−45 is
   // top-left), and the rim it lights: a stroke along the inside of the edge
   // (1px at 720p, scaling up) at rimOpacity where the edge faces the light,
-  // fading around the shape, plus a fainter glint (this fraction of it) on
-  // the edge facing away, like a Fresnel reflection.
+  // easing down around the shape to the glint: the level (this fraction of
+  // it) the rest of the rim holds, so the outline never breaks.
   lightAngle: -45, //-45
   rimOpacity: 0.85, //0.85
   glint: 0.66, //0.35
@@ -1092,8 +1092,12 @@ class VideoProcessor {
       Math.round(-100 * (k * lx + KY[i] * ly)),
     ).join(" ");
     const lighting = `convolution=0m='${lightKernel}':0rdiv=${(127 / (8 * edgeSlope) / 100).toFixed(6)}:0bias=128`;
-    // Lit side above 128, far side below: full white on one, glint on the other.
-    const rimLight = `lut=c0='clip(max((val-128)*2,(128-val)*${(2 * MARK.glint).toFixed(3)}),0,255)'`;
+    // The whole rim sits at the glint level and the lit side (above 128)
+    // rises from there to full white. A glint that ramped up separately on
+    // the far side left the rim notched wherever an edge turns through
+    // side-on to the light (a diamond's corners under a 45° light), as both
+    // ramps start from nothing there.
+    const rimLight = `lut=c0='clip(${(255 * MARK.glint).toFixed(1)}+${(1 - MARK.glint).toFixed(3)}*max(0,(val-128)*2),0,255)'`;
 
     // Saturation as an RGB matrix (colorchannelmixer has no offset term, so
     // the white tint is a separate lut): c' = (1-s)·luma + s·c.
