@@ -267,18 +267,18 @@
   object-fit: cover;
 }
 
+/* Out of sight once a render is up, but still in the DOM (it is the frame
+   grab's source). */
+.markPreviewFrameHidden {
+  visibility: hidden;
+}
+
 .markPreviewRender {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: opacity 150ms ease;
-}
-
-/* A render is on its way; the last one stays up, dimmed, meanwhile. */
-.markPreviewStale {
-  opacity: 0.5;
 }
 
 .markPreviewNote {

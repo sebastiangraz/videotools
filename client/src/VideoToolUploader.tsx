@@ -346,7 +346,6 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   // (an object URL), refreshed whenever the frame, logo or filter changes.
   const [frameBlob, setFrameBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState(false);
   const submitRef = useRef<HTMLButtonElement>(null);
 
@@ -381,7 +380,6 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     const controller = new AbortController();
     const filter = filterMode && hasAlpha(watermark);
     (async () => {
-      setPreviewBusy(true);
       setPreviewError(false);
       const [frame, logo] = await Promise.all([
         toDataUrl(frameBlob),
@@ -395,12 +393,10 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
       });
       if (!res.ok) throw new Error(`Preview failed (${res.status})`);
       setPreviewUrl(URL.createObjectURL(await res.blob()));
-      setPreviewBusy(false);
     })().catch((err: unknown) => {
       if (controller.signal.aborted) return;
       console.error(err);
       setPreviewError(true);
-      setPreviewBusy(false);
     });
     return () => controller.abort();
   }, [frameBlob, watermark, filterMode]);
@@ -938,11 +934,20 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                     : "16 / 9",
                 }}
               >
+                {/* The bare frame is the render's stand-in (and the
+                    element the frame is grabbed from), so once a render is
+                    up it is hidden rather than left showing through —
+                    a GIF would otherwise be seen playing underneath. It
+                    keeps its place in the DOM for the grab. */}
                 {gifSource ? (
                   <img
                     src={videoUrl}
                     alt="first frame"
-                    className={styles.markPreviewFrame}
+                    className={
+                      previewUrl
+                        ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                        : styles.markPreviewFrame
+                    }
                     onLoad={(e) => {
                       const img = e.currentTarget;
                       setVideoDims({
@@ -957,21 +962,23 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                     src={videoUrl}
                     second={0}
                     label="first frame"
-                    className={styles.markPreviewFrame}
+                    className={
+                      previewUrl
+                        ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                        : styles.markPreviewFrame
+                    }
                     onFrame={(video) =>
                       grabFrame(video, video.videoWidth, video.videoHeight)
                     }
                   />
                 )}
+                {/* The last render stays up, unchanged, until the next one
+                    replaces it. */}
                 {previewUrl && (
                   <img
                     src={previewUrl}
                     alt="watermarked frame"
-                    className={
-                      previewBusy
-                        ? `${styles.markPreviewRender} ${styles.markPreviewStale}`
-                        : styles.markPreviewRender
-                    }
+                    className={styles.markPreviewRender}
                   />
                 )}
                 {previewError && (
