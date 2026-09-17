@@ -40,15 +40,38 @@ const MARK = {
   // with a lot of empty canvas around the mark is far more than the mark
   // itself; this keeps such logos from drifting into the frame.
   maxPaddingRatio: 0.05,
-  // Frosted-glass mode: the backdrop under the logo is blurred by this sigma
-  // (fraction of the shorter side; the CSS analogue is backdrop-filter:
-  // blur()), then saturated and mixed with white.
-  blurRatio: 0.02,
+  // Glass mode. The logo's alpha becomes a lens: a heightfield that rises
+  // from 0 at the edge to full over the bevel, whose slope refracts the video
+  // underneath (each pixel is pulled in from just outside the edge, the way a
+  // thick slab bends what's behind its rim) and catches the light along the
+  // rim; the flat interior is frosted.
+  // Frost: the refracted backdrop is blurred by this sigma (fraction of the
+  // shorter side; the CSS analogue is backdrop-filter: blur()), then
+  // saturated and mixed with white. Light enough that the bending at the
+  // bevel still reads through it.
+  blurRatio: 0.012,
   saturation: 1.35,
   tint: 0.22,
-  // A stroke along the inside of the logo's edge (1px at 720p, scaling up),
-  // like a light rim catching the light.
-  rimOpacity: 0.55,
+  // Bevel width, as a fraction of the logo's shorter drawn side rather than
+  // of the frame: a bevel wider than a logotype's strokes would flatten them
+  // away. The profile is the mean of a wide and a narrow (÷3) blur of the
+  // alpha, so thick shapes get a steep rim easing into the flat middle and
+  // thin strokes still keep a usable slope.
+  bevelRatio: 0.1,
+  // Peak displacement of the backdrop at the edge, as a fraction of the
+  // shorter side (6.5px at 1080p); it eases to none over the bevel.
+  refractRatio: 0.006,
+  // Chromatic split: red is displaced (1 − chroma)×, blue (1 + chroma)×,
+  // green as is. Subtle on purpose, a hint of colour on contrasty edges.
+  chroma: 0.15,
+  // Where the light comes from, in degrees clockwise from the top (−45 is
+  // top-left), and the rim it lights: a stroke along the inside of the edge
+  // (1px at 720p, scaling up) at rimOpacity where the edge faces the light,
+  // fading around the shape, plus a fainter glint (this fraction of it) on
+  // the edge facing away, like a Fresnel reflection.
+  lightAngle: -45,
+  rimOpacity: 0.85,
+  glint: 0.35,
   // Soft drop shadow behind the glass shape, offset downwards.
   shadowBlurRatio: 0.012,
   shadowOffsetRatio: 0.006,
@@ -843,7 +866,7 @@ class VideoProcessor {
   /**
    * Stamps `logoFile` (png / jpg / gif / webp) onto the bottom-right corner
    * of `inputFile`. With `filter` the logo's alpha becomes the shape of a
-   * frosted-glass panel (see MARK) instead of a plain overlay. Animated GIFs
+   * glass lens (see MARK) instead of a plain overlay. Animated GIFs
    * loop for the length of the video. Audio is kept. Output is mp4.
    */
   async addWatermark(
@@ -1024,6 +1047,40 @@ class VideoProcessor {
     // Rim width in px: each erosion pass eats one pixel off the mask.
     const rimPx = Math.max(1, Math.round(shorter / 720));
 
+    // The lens maps are built at 2× and the refraction runs there: displace
+    // moves whole pixels only, so at 1× the bevel would step. Everything
+    // else (frost, rim, shadow, the faint logo) stays at 1×.
+    const SS = 2;
+    const [CW2, CH2, LW2, LH2, P2] = [CW, CH, LW, LH, P].map((n) => n * SS);
+    // Heightfield: the 2× alpha blurred wide and narrow, each remapped so the
+    // edge (a blurred step sits at 128 there) is 0 and the interior 255, and
+    // averaged. A blurred step's slope at the edge is 2·255/(σ√2π) per px
+    // after the remap; the narrow blur is 3× steeper, so the mean's is 2×.
+    const bevel = Math.min(LW, LH) * MARK.bevelRatio * SS;
+    const edgeSlope = (2 * 2 * 255) / (bevel * Math.sqrt(2 * Math.PI));
+    const remap = "lut=c0='clip((val-128)*2,0,255)'";
+    // Sobel sums 8× the slope; rdiv turns that into pixels of displacement
+    // (in 2× space) around 128, which displace reads as none. The kernels
+    // are the negated derivatives: the backdrop is sampled outward, down
+    // the slope, like light bending in at a lens's rim.
+    const refractPx = shorter * MARK.refractRatio * SS;
+    const sobel = (axis: "x" | "y", gain: number) =>
+      `convolution=0m='${axis === "x" ? "1 0 -1 2 0 -2 1 0 -1" : "1 2 1 0 0 0 -1 -2 -1"}':0rdiv=${((refractPx * gain) / (8 * edgeSlope)).toFixed(5)}:0bias=128`;
+    const chroma = { r: 1 - MARK.chroma, g: 1, b: 1 + MARK.chroma };
+    // Edge light: the heightfield's derivative towards the light, as one
+    // kernel (the two Sobels weighted by the light vector, ×100 for integer
+    // taps), scaled so the steepest edge spans the full range around 128.
+    const angle = (MARK.lightAngle * Math.PI) / 180;
+    const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
+    const KX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+    const KY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+    const lightKernel = KX.map((k, i) =>
+      Math.round(-100 * (k * lx + KY[i] * ly)),
+    ).join(" ");
+    const lighting = `convolution=0m='${lightKernel}':0rdiv=${(127 / (8 * edgeSlope) / 100).toFixed(6)}:0bias=128`;
+    // Lit side above 128, far side below: full white on one, glint on the other.
+    const rimLight = `lut=c0='clip(max((val-128)*2,(128-val)*${(2 * MARK.glint).toFixed(3)}),0,255)'`;
+
     // Saturation as an RGB matrix (colorchannelmixer has no offset term, so
     // the white tint is a separate lut): c' = (1-s)·luma + s·c.
     const lum: Record<string, number> = { r: 0.299, g: 0.587, b: 0.114 };
@@ -1043,17 +1100,59 @@ class VideoProcessor {
 
     const graph = [
       `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0,split[base][src]`,
-      // The patch of video under the cell, twice: one to blur, one to build on.
+      // The patch of video under the cell, twice: one to refract, one to
+      // build on.
       `[src]crop=${CW}:${CH}:${CX}:${CY},format=rgba,split[cellA][cellB]`,
-      // The logo scaled and centred in a transparent cell-sized canvas.
-      `[1:v]format=rgba,scale=${LW}:${LH}:flags=lanczos,pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
-      `[lg1]alphaextract,split=4[m1][m2][m3][m4]`,
-      // Frosted fill: blur, saturate, lighten; shaped by the logo's alpha.
-      `[cellA]gblur=sigma=${sigma}:steps=2,colorchannelmixer=${saturate},lutrgb=${tint}[blurred]`,
-      `[blurred][m1]alphamerge${stop}[glass]`,
-      // Rim: the mask minus itself eroded by a pixel or so, painted white.
+      // The logo scaled and centred in a transparent cell-sized canvas, at
+      // 1× (the faint copy and the masks) and at 2× (the lens maps). The
+      // explicit formats pin the negotiation: a split of an open-format
+      // scale output leaves alphaextract/extractplanes unable to choose.
+      `[1:v]format=rgba,split[l1][l2]`,
+      `[l1]scale=${LW}:${LH}:flags=lanczos,pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
+      `[lg1]format=rgba,alphaextract,format=gray,split=4[m1][m2][m3][m4]`,
+      `[l2]scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,split=3[mk1][mk2][mk3]`,
+      // Heightfield, clipped to the alpha so nothing rises outside the shape.
+      `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${remap}[hw]`,
+      `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,${remap}[hn]`,
+      `[hw][hn]blend=all_mode=average[hb]`,
+      `[hb][mk3]blend=all_mode=multiply,split=4[h1][h2][h3][h4]`,
+      // Displacement maps, a pair per channel for the chromatic split.
+      `[h1]split=3[hx1][hx2][hx3]`,
+      `[hx1]${sobel("x", chroma.r)}[xr]`,
+      `[hx2]${sobel("x", chroma.g)}[xg]`,
+      `[hx3]${sobel("x", chroma.b)}[xb]`,
+      `[h2]split=3[hy1][hy2][hy3]`,
+      `[hy1]${sobel("y", chroma.r)}[yr]`,
+      `[hy2]${sobel("y", chroma.g)}[yg]`,
+      `[hy3]${sobel("y", chroma.b)}[yb]`,
+      // Refraction: the patch at 2×, each channel displaced by its own maps,
+      // reassembled (gbrp plane order) and brought back to 1×.
+      `[cellA]scale=${CW2}:${CH2}:flags=bicubic,format=gbrp,extractplanes=r+g+b[pr][pg][pb]`,
+      `[pr]format=gray[cr]`,
+      `[pg]format=gray[cg]`,
+      `[pb]format=gray[cb]`,
+      // (displace has no sync options: it always stops with its source and
+      // repeats the maps, which is what both a still and a looped GIF need.)
+      `[cr][xr][yr]displace=edge=mirror[dr]`,
+      `[cg][xg][yg]displace=edge=mirror[dg]`,
+      `[cb][xb][yb]displace=edge=mirror[db]`,
+      `[dg][db][dr]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,scale=${CW}:${CH}:flags=bicubic,format=rgba,split[rf1][rf2]`,
+      // Frosted fill: blurred where the heightfield is flat, the sharp
+      // refracted backdrop where it is still rising (the bevel, laid over
+      // the blur with the inverted heightfield as its alpha; maskedmerge
+      // would do it in one but can't stop with the video); then saturated
+      // and lightened, and shaped by the logo's alpha.
+      `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
+      `[h3]scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
+      `[rf2][bevelMask]alphamerge${stop}[bevel]`,
+      `[frost][bevel]overlay=format=auto${shortest},colorchannelmixer=${saturate},lutrgb=${tint}[fill]`,
+      `[fill][m1]alphamerge${stop}[glass]`,
+      // Rim: the mask minus itself eroded by a pixel or so, lit by the
+      // edge's slope towards the light, painted white.
+      `[h4]${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
       `[m2]${Array<string>(rimPx).fill("erosion").join(",")}[eroded]`,
-      `[m3][eroded]blend=all_mode=subtract,split[rk1][rk2]`,
+      `[m3][eroded]blend=all_mode=subtract[band]`,
+      `[light][band]blend=all_mode=multiply,split[rk1][rk2]`,
       `[rk1]format=rgba,lutrgb=r=255:g=255:b=255[white]`,
       `[white][rk2]alphamerge,colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
       // Shadow: the mask blurred, painted black, offset downwards on overlay.
