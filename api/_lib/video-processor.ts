@@ -887,6 +887,50 @@ class VideoProcessor {
     return outputFile;
   }
 
+  /**
+   * One composited frame for the UI's preview: `frameFile` is a still (the
+   * browser's grab of the video's first frame) and goes through exactly the
+   * graph addWatermark uses, so whatever the filter does, the preview shows.
+   * Returns a JPEG.
+   */
+  async renderWatermarkFrame(
+    frameFile: string,
+    logoFile: string,
+    workDir: string,
+    filter = false,
+  ): Promise<string> {
+    const frame = await this.mediaInfo(frameFile);
+    const logo = await this.mediaInfo(logoFile);
+    const { graph, animated } = VideoProcessor.watermarkGraph(
+      frame,
+      logo,
+      filter,
+    );
+
+    const outputFile = path.join(workDir, "preview.jpg");
+    await this.runFFmpeg([
+      "-y",
+      "-i",
+      frameFile,
+      // A GIF logo shows its first frame; the loop just keeps the graph's
+      // sync options identical to the real encode.
+      ...(animated ? ["-stream_loop", "-1"] : []),
+      "-i",
+      logoFile,
+      "-filter_complex",
+      graph,
+      "-map",
+      "[out]",
+      "-frames:v",
+      "1",
+      "-q:v",
+      "3",
+      outputFile,
+    ]);
+
+    return outputFile;
+  }
+
   // Builds the watermark filtergraph (inputs: [0] video, [1] logo; output
   // [out]). Every dimension is computed here from the probed sizes rather
   // than with filter expressions, so the glass pipeline can crop just the
@@ -921,9 +965,13 @@ class VideoProcessor {
     const shortest = animated ? ":shortest=1" : "";
     const stop = animated ? "=shortest=1" : "";
 
+    // The base is pinned to limited-range yuv420p before anything else:
+    // full-range sources (JPEG stills from the preview's frame grab, some
+    // phone footage) would otherwise reach the final overlay through a
+    // different conversion than the glass patch and leave a faint box.
     if (!filter) {
       const graph = [
-        `[0:v]crop=${VW}:${VH}:0:0[base]`,
+        `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0[base]`,
         `[1:v]format=rgba,scale=${LW}:${LH}:flags=lanczos[logo]`,
         `[base][logo]overlay=x=${LX}:y=${LY}${shortest},format=yuv420p[out]`,
       ].join(";");
@@ -963,7 +1011,7 @@ class VideoProcessor {
       .join(":");
 
     const graph = [
-      `[0:v]crop=${VW}:${VH}:0:0,split[base][src]`,
+      `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0,split[base][src]`,
       // The patch of video under the cell, twice: one to blur, one to build on.
       `[src]crop=${CW}:${CH}:${CX}:${CY},format=rgba,split[cellA][cellB]`,
       // The logo scaled and centred in a transparent cell-sized canvas.

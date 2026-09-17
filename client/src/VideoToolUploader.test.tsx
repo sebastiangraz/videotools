@@ -1,4 +1,10 @@
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createAppRouter } from "./App";
@@ -812,6 +818,92 @@ describe("VideoToolUploader", () => {
     expect(
       screen.getByRole("switch", { name: /filter mode/i }),
     ).toBeInTheDocument();
+  });
+
+  it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
+    const user = userEvent.setup();
+    // jsdom neither decodes video nor draws: give the <video> a size and
+    // stand in for the canvas the frame is grabbed through
+    const sizes = ["videoWidth", "videoHeight"].map((name) => {
+      const original = Object.getOwnPropertyDescriptor(
+        HTMLVideoElement.prototype,
+        name,
+      );
+      Object.defineProperty(HTMLVideoElement.prototype, name, {
+        configurable: true,
+        get: () => (name === "videoWidth" ? 1280 : 720),
+      });
+      return () =>
+        Object.defineProperty(HTMLVideoElement.prototype, name, original!);
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      function (callback) {
+        callback(new Blob(["jpg"], { type: "image/jpeg" }));
+      },
+    );
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === "/api/preview" && init?.method === "POST") {
+          return new Response(new Blob(["jpg"], { type: "image/jpeg" }), {
+            status: 200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${input}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await renderApp("/mark");
+      await user.upload(
+        screen.getByLabelText(/choose video/i),
+        new File(["00"], "clip.mp4", { type: "video/mp4" }),
+      );
+      // Nothing to render until the logo is there too
+      expect(
+        screen.queryByLabelText(/watermark preview/i),
+      ).not.toBeInTheDocument();
+
+      await user.upload(
+        screen.getByLabelText(/choose watermark/i),
+        new File(["00"], "logo.png", { type: "image/png" }),
+      );
+      const preview = screen.getByLabelText(/watermark preview/i);
+      // Inline, not a popup: the bare frame is in the page right away
+      const frame = screen.getByLabelText(/first frame/i);
+      expect(frame).toHaveAttribute("src", "blob:mock");
+
+      // Once the browser has a decoded frame it is grabbed and sent, with
+      // the logo, to be composited by the real graph
+      fireEvent(frame, new Event("loadeddata"));
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          "/api/preview",
+          expect.objectContaining({ method: "POST" }),
+        ),
+      );
+      const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
+      expect(body).toMatchObject({ filter: false });
+      expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
+      expect(body.logo).toMatch(/^data:image\/png;base64,/);
+      await waitFor(() =>
+        expect(
+          within(preview).getByAltText(/watermarked frame/i),
+        ).toHaveAttribute("src", "blob:mock"),
+      );
+
+      // Filter mode is the server's business too, so it re-renders
+      await user.click(screen.getByRole("switch", { name: /filter mode/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      expect(
+        JSON.parse(fetchMock.mock.calls[1][1]?.body as string),
+      ).toMatchObject({ filter: true });
+    } finally {
+      sizes.forEach((restore) => restore());
+    }
   });
 
   it("uploads the video then the watermark and requests a glass watermark", async () => {

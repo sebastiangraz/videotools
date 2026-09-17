@@ -8,30 +8,9 @@ import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
 
-import ffmpegStatic from "ffmpeg-static";
 import VideoProcessor from "./_lib/video-processor.js";
+import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { sweepStaleBlobs } from "./_lib/blob-sweep.js";
-
-// ffmpeg-static is CommonJS (`module.exports = path | null`) but its .d.ts says
-// `export default`, so under NodeNext TypeScript types the default import as
-// the module namespace. At runtime Node hands ESM importers the string itself.
-const maybeFfmpegPath = ffmpegStatic as unknown as string | null;
-if (!maybeFfmpegPath) {
-  throw new Error("ffmpeg-static has no ffmpeg binary for this platform");
-}
-const ffmpegPath: string = maybeFfmpegPath;
-
-// Vendored gifski CLI (see api/_bin/gifski/README.md). The linux binary is
-// static-pie linked, so it runs on the function runtime as-is; the exec bit
-// is restored at spawn time in VideoProcessor.
-const gifskiPath: string = path.join(
-  process.cwd(),
-  "api",
-  "_bin",
-  "gifski",
-  process.platform === "win32" ? "win" : "linux",
-  process.platform === "win32" ? "gifski.exe" : "gifski",
-);
 
 // Mirrored in client/src/tools.ts (TOOLS) and VideoToolUploader.tsx
 // (TECHNIQUES / FORMATS / CONVERT_TARGETS)

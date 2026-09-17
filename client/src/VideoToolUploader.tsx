@@ -64,6 +64,20 @@ const ALPHA_TYPES = ["image/png", "image/gif", "image/webp"];
 
 const hasAlpha = (file: File) => ALPHA_TYPES.includes(file.type);
 
+// The mark preview is rendered by the server with the real ffmpeg graph, so
+// it always matches the encode. The browser sends the video's first frame
+// (grabbed off the <video>, downscaled: the geometry is relative to the
+// frame, so a smaller one previews the same) and the logo inline.
+const PREVIEW_MAX_WIDTH = 1280;
+
+const toDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
 // Rough output-size model: bytes per pixel per frame at quality 0 → 100.
 // Real encoders vary wildly with content, so this is an order-of-magnitude
 // estimate only.
@@ -224,7 +238,23 @@ const DropZone = ({
 // what browsers can decode (server-side ffmpeg handles the rest), so a
 // decode error swaps the frame for a short note. Tracking the failed src
 // rather than a boolean resets the error when a new file is picked.
-const FramePreview = ({ src, second }: { src: string; second: number }) => {
+// `className` swaps the default card look for the caller's own (the mark
+// preview lays it out as a frame to draw on) and `label` names the video.
+// `onFrame` fires once a frame is decoded and drawable (the mark preview
+// grabs it for the server-side render).
+const FramePreview = ({
+  src,
+  second,
+  label = "start frame preview",
+  className = styles.framePreview,
+  onFrame,
+}: {
+  src: string;
+  second: number;
+  label?: string;
+  className?: string;
+  onFrame?: (video: HTMLVideoElement) => void;
+}) => {
   const ref = useRef<HTMLVideoElement>(null);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
@@ -239,9 +269,23 @@ const FramePreview = ({ src, second }: { src: string; second: number }) => {
     return () => video.removeEventListener("loadedmetadata", seek);
   }, [second]);
 
+  // The latest callback without re-subscribing on every render.
+  const onFrameRef = useRef(onFrame);
+  useEffect(() => {
+    onFrameRef.current = onFrame;
+  });
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    const handle = () => onFrameRef.current?.(video);
+    video.addEventListener("loadeddata", handle);
+    if (video.readyState >= video.HAVE_CURRENT_DATA) handle();
+    return () => video.removeEventListener("loadeddata", handle);
+  }, [src]);
+
   if (failedSrc === src) {
     return (
-      <p className={`${styles.framePreview} ${styles.framePreviewError}`}>
+      <p className={`${className} ${styles.framePreviewError}`}>
         Can&rsquo;t preview this format.
       </p>
     );
@@ -254,9 +298,9 @@ const FramePreview = ({ src, second }: { src: string; second: number }) => {
       muted
       playsInline
       preload="auto"
-      aria-label="start frame preview"
+      aria-label={label}
       onError={() => setFailedSrc(src)}
-      className={styles.framePreview}
+      className={className}
     />
   );
 };
@@ -284,6 +328,11 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [gifFps, setGifFps] = useState<number | null>(null);
   const [gifWidth, setGifWidth] = useState<number | null>(640);
   const [videoDuration, setVideoDuration] = useState<number>(0);
+  // Frame size of the picked video, for the mark preview's aspect ratio.
+  // Null until metadata loads, or for good if the browser can't decode it.
+  const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(
+    null,
+  );
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(
     null,
@@ -293,6 +342,12 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState(false);
+  // The mark preview: the grabbed first frame, and the server's render of it
+  // (an object URL), refreshed whenever the frame, logo or filter changes.
+  const [frameBlob, setFrameBlob] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
   const submitRef = useRef<HTMLButtonElement>(null);
 
   // Controller for the in-flight run (upload -> process -> download). Stop
@@ -308,11 +363,60 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     return () => URL.revokeObjectURL(videoUrl);
   }, [videoUrl]);
 
-  // Same for the watermark thumbnail.
+  // Same for the watermark thumbnail and the rendered preview.
   useEffect(() => {
     if (!watermarkUrl) return;
     return () => URL.revokeObjectURL(watermarkUrl);
   }, [watermarkUrl]);
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  // Asks the server for the composited frame. A change while a render is in
+  // flight abandons it (the function stops encoding when the disconnect
+  // reaches it) and starts over.
+  useEffect(() => {
+    if (!frameBlob || !watermark) return;
+    const controller = new AbortController();
+    const filter = filterMode && hasAlpha(watermark);
+    (async () => {
+      setPreviewBusy(true);
+      setPreviewError(false);
+      const [frame, logo] = await Promise.all([
+        toDataUrl(frameBlob),
+        toDataUrl(watermark),
+      ]);
+      const res = await fetch("/api/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ frame, logo, filter }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`Preview failed (${res.status})`);
+      setPreviewUrl(URL.createObjectURL(await res.blob()));
+      setPreviewBusy(false);
+    })().catch((err: unknown) => {
+      if (controller.signal.aborted) return;
+      console.error(err);
+      setPreviewError(true);
+      setPreviewBusy(false);
+    });
+    return () => controller.abort();
+  }, [frameBlob, watermark, filterMode]);
+
+  // Grabs the first decoded frame off the preview's <video> as a JPEG.
+  const grabFrame = (video: HTMLVideoElement) => {
+    if (!video.videoWidth || !video.videoHeight) return;
+    const scale = Math.min(1, PREVIEW_MAX_WIDTH / video.videoWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => setFrameBlob(blob), "image/jpeg", 0.9);
+  };
 
   const currentTool = TOOLS.find((t) => t.value === tool) ?? TOOLS[0];
 
@@ -343,6 +447,9 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     );
     setFiles(sorted);
     setVideoDuration(0);
+    setVideoDims(null);
+    setFrameBlob(null);
+    setPreviewUrl("");
     setVideoUrl("");
     setImageDims(null);
 
@@ -350,11 +457,14 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     if (!currentTool.input.multiple && first.type.startsWith("video/")) {
       const url = URL.createObjectURL(first);
       setVideoUrl(url);
-      // Get video duration when a single video is selected
+      // Get video duration and frame size when a single video is selected
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
         setVideoDuration(Math.floor(video.duration));
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          setVideoDims({ w: video.videoWidth, h: video.videoHeight });
+        }
       };
       video.src = url;
     } else if (first.type.startsWith("image/")) {
@@ -799,6 +909,47 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
 
         {tool === "mark" && (
           <>
+            {/* The first frame, watermarked by the server with the real
+                graph. The bare frame shows until the render lands (and
+                stays as the fallback if it fails); a format the browser
+                can't decode shows the frame's own note instead. The aspect
+                box waits for the video's metadata. */}
+            {videoUrl && watermarkUrl && (
+              <figure
+                aria-label="watermark preview"
+                className={styles.markPreview}
+                style={{
+                  aspectRatio: videoDims
+                    ? `${videoDims.w} / ${videoDims.h}`
+                    : "16 / 9",
+                }}
+              >
+                <FramePreview
+                  src={videoUrl}
+                  second={0}
+                  label="first frame"
+                  className={styles.markPreviewFrame}
+                  onFrame={grabFrame}
+                />
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="watermarked frame"
+                    className={
+                      previewBusy
+                        ? `${styles.markPreviewRender} ${styles.markPreviewStale}`
+                        : styles.markPreviewRender
+                    }
+                  />
+                )}
+                {previewError && (
+                  <figcaption className={styles.markPreviewNote}>
+                    Preview unavailable
+                  </figcaption>
+                )}
+              </figure>
+            )}
+
             {/* The glass needs a shape, so the switch waits for a logo that
                 can have one. */}
             {watermark && hasAlpha(watermark) && (
