@@ -49,36 +49,36 @@ const MARK = {
   // shorter side; the CSS analogue is backdrop-filter: blur()), then
   // saturated and mixed with white. Light enough that the bending at the
   // bevel still reads through it.
-  blurRatio: 0.012,
-  saturation: 1.6,
-  tint: 0.12,
+  blurRatio: 0.012, //0.012
+  saturation: 1.6, //1.35
+  tint: 0.12, //0.22
   // Bevel width, as a fraction of the logo's shorter drawn side rather than
   // of the frame: a bevel wider than a logotype's strokes would flatten them
   // away. The profile is the mean of a wide and a narrow (÷3) blur of the
   // alpha, so thick shapes get a steep rim easing into the flat middle and
   // thin strokes still keep a usable slope.
-  bevelRatio: 0.1,
+  bevelRatio: 0.1, //0.1
   // Peak displacement of the backdrop at the edge, as a fraction of the
   // shorter side (6.5px at 1080p); it eases to none over the bevel.
-  refractRatio: 0.006,
+  refractRatio: 0.006, //0.006
   // Chromatic split: red is displaced (1 − chroma)×, blue (1 + chroma)×,
   // green as is. Subtle on purpose, a hint of colour on contrasty edges.
-  chroma: 0.15,
+  chroma: 0.15, //0.15
   // Where the light comes from, in degrees clockwise from the top (−45 is
   // top-left), and the rim it lights: a stroke along the inside of the edge
   // (1px at 720p, scaling up) at rimOpacity where the edge faces the light,
   // fading around the shape, plus a fainter glint (this fraction of it) on
   // the edge facing away, like a Fresnel reflection.
-  lightAngle: -45,
-  rimOpacity: 0.85,
-  glint: 0.6,
+  lightAngle: -45, //-45
+  rimOpacity: 0.85, //0.85
+  glint: 0.6, //0.35
   // Soft drop shadow behind the glass shape, offset downwards.
-  shadowBlurRatio: 0.012,
-  shadowOffsetRatio: 0.006,
-  shadowOpacity: 0.35,
+  shadowBlurRatio: 0.012, //0.012
+  shadowOffsetRatio: 0.006, //0.006
+  shadowOpacity: 0.35, //0.35
   // The logo's own pixels over the glass: a white logo brightens it, a dark
   // one smokes it, a coloured one tints it.
-  logoOpacity: 0.36,
+  logoOpacity: 0.36, //0.45
 };
 
 /**
