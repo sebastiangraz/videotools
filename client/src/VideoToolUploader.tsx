@@ -406,17 +406,24 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   }, [frameBlob, watermark, filterMode]);
 
   // Grabs the first decoded frame off the preview's <video> as a JPEG.
-  const grabFrame = (video: HTMLVideoElement) => {
-    if (!video.videoWidth || !video.videoHeight) return;
-    const scale = Math.min(1, PREVIEW_MAX_WIDTH / video.videoWidth);
+  // `source` is the preview's <video>, or the <img> standing in for a GIF
+  // source (a canvas always draws an animated image's first frame).
+  const grabFrame = (source: CanvasImageSource, w: number, h: number) => {
+    if (!w || !h) return;
+    const scale = Math.min(1, PREVIEW_MAX_WIDTH / w);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob) => setFrameBlob(blob), "image/jpeg", 0.9);
   };
+
+  // A GIF picked as the mark tool's source: previewed through an <img>,
+  // since <video> won't decode it.
+  const gifSource =
+    tool === "mark" && files.length === 1 && files[0].type === "image/gif";
 
   const currentTool = TOOLS.find((t) => t.value === tool) ?? TOOLS[0];
 
@@ -454,9 +461,16 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     setImageDims(null);
 
     const first = sorted[0];
-    if (!currentTool.input.multiple && first.type.startsWith("video/")) {
+    // The mark tool also takes a GIF as its source; its size is read from
+    // the preview's <img> when it loads, so no probe is needed here.
+    const isGif = tool === "mark" && first.type === "image/gif";
+    if (
+      !currentTool.input.multiple &&
+      (first.type.startsWith("video/") || isGif)
+    ) {
       const url = URL.createObjectURL(first);
       setVideoUrl(url);
+      if (isGif) return;
       // Get video duration and frame size when a single video is selected
       const video = document.createElement("video");
       video.preload = "metadata";
@@ -924,13 +938,31 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                     : "16 / 9",
                 }}
               >
-                <FramePreview
-                  src={videoUrl}
-                  second={0}
-                  label="first frame"
-                  className={styles.markPreviewFrame}
-                  onFrame={grabFrame}
-                />
+                {gifSource ? (
+                  <img
+                    src={videoUrl}
+                    alt="first frame"
+                    className={styles.markPreviewFrame}
+                    onLoad={(e) => {
+                      const img = e.currentTarget;
+                      setVideoDims({
+                        w: img.naturalWidth,
+                        h: img.naturalHeight,
+                      });
+                      grabFrame(img, img.naturalWidth, img.naturalHeight);
+                    }}
+                  />
+                ) : (
+                  <FramePreview
+                    src={videoUrl}
+                    second={0}
+                    label="first frame"
+                    className={styles.markPreviewFrame}
+                    onFrame={(video) =>
+                      grabFrame(video, video.videoWidth, video.videoHeight)
+                    }
+                  />
+                )}
                 {previewUrl && (
                   <img
                     src={previewUrl}

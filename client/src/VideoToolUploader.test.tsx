@@ -820,6 +820,80 @@ describe("VideoToolUploader", () => {
     ).toBeInTheDocument();
   });
 
+  it("takes a GIF as the mark source and previews it through an image instead of a video", async () => {
+    const user = userEvent.setup();
+    // jsdom never decodes images: give the <img> a size and stand in for
+    // the canvas the frame is grabbed through
+    const sizes = ["naturalWidth", "naturalHeight"].map((name) => {
+      const original = Object.getOwnPropertyDescriptor(
+        HTMLImageElement.prototype,
+        name,
+      );
+      Object.defineProperty(HTMLImageElement.prototype, name, {
+        configurable: true,
+        get: () => (name === "naturalWidth" ? 480 : 270),
+      });
+      return () =>
+        Object.defineProperty(HTMLImageElement.prototype, name, original!);
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      function (callback) {
+        callback(new Blob(["jpg"], { type: "image/jpeg" }));
+      },
+    );
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === "/api/preview" && init?.method === "POST") {
+          return new Response(new Blob(["jpg"], { type: "image/jpeg" }), {
+            status: 200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${input}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await renderApp("/mark");
+      await user.upload(
+        screen.getByLabelText(/choose video/i),
+        new File(["00"], "anim.gif", { type: "image/gif" }),
+      );
+      expect(screen.getByText("anim.gif")).toBeInTheDocument();
+      await user.upload(
+        screen.getByLabelText(/choose watermark/i),
+        new File(["00"], "logo.png", { type: "image/png" }),
+      );
+
+      // An <img>, not a <video>, carries the first frame
+      const frame = screen.getByAltText(/first frame/i);
+      expect(frame.tagName).toBe("IMG");
+      expect(frame).toHaveAttribute("src", "blob:mock");
+      fireEvent.load(frame);
+
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          "/api/preview",
+          expect.objectContaining({ method: "POST" }),
+        ),
+      );
+      expect(
+        JSON.parse(fetchMock.mock.calls[0][1]?.body as string).frame,
+      ).toMatch(/^data:image\/jpeg;base64,/);
+      await waitFor(() =>
+        expect(screen.getByAltText(/watermarked frame/i)).toHaveAttribute(
+          "src",
+          "blob:mock",
+        ),
+      );
+    } finally {
+      sizes.forEach((restore) => restore());
+    }
+  });
+
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
     const user = userEvent.setup();
     // jsdom neither decodes video nor draws: give the <video> a size and
