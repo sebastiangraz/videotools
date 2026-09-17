@@ -247,15 +247,55 @@
 
 /* Mark tool: the first frame, then the server's watermarked render of it
    laid over the top once it arrives. */
-.markPreview {
+
+.markPreviewContainer {
   position: relative;
   width: 100%;
-  margin: 0;
+  height: 100%;
+  display: flex;
   overflow: hidden;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   box-shadow: var(--raised);
+  &:hover figure {
+    transform: scale(2) translate(-1rem, -1rem);
+  }
+}
+
+.markPreview {
+  display: grid;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  corner-shape: superellipse(1.45);
+  background-color: var(--bg-1);
+  transform-origin: bottom right;
+  transition: transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
+  will-change: transform;
+  right: 0;
+  bottom: 0;
+
+  img {
+    grid-area: 1 / 1;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0px;
+    width: 100%;
+    height: 100%;
+    box-shadow: var(--raised);
+    z-index: 1;
+    pointer-events: none;
+    border-radius: var(--radius);
+    corner-shape: superellipse(1.45);
+    mix-blend-mode: plus-lighter;
+  }
 }
 
 .markPreviewFrame {
@@ -282,7 +322,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: calc(var(--radius) / 2);
+  /* border-radius: calc(var(--radius) / 2); */
   transition: opacity 0.5s ease-in-out;
   opacity: 1;
   @starting-style {

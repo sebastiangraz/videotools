@@ -925,68 +925,77 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                 can't decode shows the frame's own note instead. The aspect
                 box waits for the video's metadata. */}
             {videoUrl && watermarkUrl && (
-              <figure
-                aria-label="watermark preview"
-                className={styles.markPreview}
+              <div
+                className={styles.markPreviewContainer}
                 style={{
                   aspectRatio: videoDims
                     ? `${videoDims.w} / ${videoDims.h}`
                     : "16 / 9",
                 }}
               >
-                {/* The bare frame is the render's stand-in (and the
+                <figure
+                  aria-label="watermark preview"
+                  className={styles.markPreview}
+                  style={{
+                    aspectRatio: videoDims
+                      ? `${videoDims.w} / ${videoDims.h}`
+                      : "16 / 9",
+                  }}
+                >
+                  {/* The bare frame is the render's stand-in (and the
                     element the frame is grabbed from), so once a render is
                     up it is hidden rather than left showing through —
                     a GIF would otherwise be seen playing underneath. It
                     keeps its place in the DOM for the grab. */}
-                {gifSource ? (
-                  <img
-                    src={videoUrl}
-                    alt="first frame"
-                    className={
-                      previewUrl
-                        ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
-                        : styles.markPreviewFrame
-                    }
-                    onLoad={(e) => {
-                      const img = e.currentTarget;
-                      setVideoDims({
-                        w: img.naturalWidth,
-                        h: img.naturalHeight,
-                      });
-                      grabFrame(img, img.naturalWidth, img.naturalHeight);
-                    }}
-                  />
-                ) : (
-                  <FramePreview
-                    src={videoUrl}
-                    second={0}
-                    label="first frame"
-                    className={
-                      previewUrl
-                        ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
-                        : styles.markPreviewFrame
-                    }
-                    onFrame={(video) =>
-                      grabFrame(video, video.videoWidth, video.videoHeight)
-                    }
-                  />
-                )}
-                {/* The last render stays up, unchanged, until the next one
+                  {gifSource ? (
+                    <img
+                      src={videoUrl}
+                      alt="first frame"
+                      className={
+                        previewUrl
+                          ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                          : styles.markPreviewFrame
+                      }
+                      onLoad={(e) => {
+                        const img = e.currentTarget;
+                        setVideoDims({
+                          w: img.naturalWidth,
+                          h: img.naturalHeight,
+                        });
+                        grabFrame(img, img.naturalWidth, img.naturalHeight);
+                      }}
+                    />
+                  ) : (
+                    <FramePreview
+                      src={videoUrl}
+                      second={0}
+                      label="first frame"
+                      className={
+                        previewUrl
+                          ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                          : styles.markPreviewFrame
+                      }
+                      onFrame={(video) =>
+                        grabFrame(video, video.videoWidth, video.videoHeight)
+                      }
+                    />
+                  )}
+                  {/* The last render stays up, unchanged, until the next one
                     replaces it. */}
-                {previewUrl && (
-                  <img
-                    src={previewUrl}
-                    alt="watermarked frame"
-                    className={styles.markPreviewRender}
-                  />
-                )}
-                {previewError && (
-                  <figcaption className={styles.markPreviewNote}>
-                    Preview unavailable
-                  </figcaption>
-                )}
-              </figure>
+                  {previewUrl && (
+                    <img
+                      src={previewUrl}
+                      alt="watermarked frame"
+                      className={styles.markPreviewRender}
+                    />
+                  )}
+                  {previewError && (
+                    <figcaption className={styles.markPreviewNote}>
+                      Preview unavailable
+                    </figcaption>
+                  )}
+                </figure>
+              </div>
             )}
 
             {/* The glass needs a shape, so the switch waits for a logo that

@@ -50,8 +50,8 @@ const MARK = {
   // saturated and mixed with white. Light enough that the bending at the
   // bevel still reads through it.
   blurRatio: 0.012,
-  saturation: 1.35,
-  tint: 0.22,
+  saturation: 1.6,
+  tint: 0.12,
   // Bevel width, as a fraction of the logo's shorter drawn side rather than
   // of the frame: a bevel wider than a logotype's strokes would flatten them
   // away. The profile is the mean of a wide and a narrow (÷3) blur of the
@@ -71,14 +71,14 @@ const MARK = {
   // the edge facing away, like a Fresnel reflection.
   lightAngle: -45,
   rimOpacity: 0.85,
-  glint: 0.35,
+  glint: 0.6,
   // Soft drop shadow behind the glass shape, offset downwards.
   shadowBlurRatio: 0.012,
   shadowOffsetRatio: 0.006,
   shadowOpacity: 0.35,
   // The logo's own pixels over the glass: a white logo brightens it, a dark
   // one smokes it, a coloured one tints it.
-  logoOpacity: 0.45,
+  logoOpacity: 0.36,
 };
 
 /**
