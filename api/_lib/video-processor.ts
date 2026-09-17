@@ -77,6 +77,16 @@ const MARK = {
   lightAngle: -45, //-45
   rimOpacity: 0.85, //0.85
   glint: 0.66, //0.35
+  // What the rim is painted with: not white but the backdrop under it,
+  // saturated by rimSaturation (the same scale as `saturation`: 1 leaves
+  // it, 0 is grey), brightened by rimGain like a colour dodge, then mixed
+  // this far towards white. The gain does most of the work: it keeps the
+  // hue and lifts the rim clear of the video, where more saturation alone
+  // turns the rim into the backdrop's own colour and it disappears. At
+  // rimWhite 1 it is a plain white rim.
+  rimSaturation: 2, //1.4
+  rimGain: 7, //3
+  rimWhite: 0.6, //0.15
   // Soft drop shadow behind the glass shape, offset downwards.
   shadowBlurRatio: 0.016, //0.012
   shadowOffsetRatio: 0.016, //0.006
@@ -1102,19 +1112,39 @@ class VideoProcessor {
     // Saturation as an RGB matrix (colorchannelmixer has no offset term, so
     // the white tint is a separate lut): c' = (1-s)·luma + s·c.
     const lum: Record<string, number> = { r: 0.299, g: 0.587, b: 0.114 };
-    const s = MARK.saturation;
-    const saturate = ["r", "g", "b"]
-      .flatMap((o) =>
-        ["r", "g", "b"].map(
-          (i) =>
-            `${o}${i}=${((1 - s) * lum[i] + (o === i ? s : 0)).toFixed(4)}`,
-        ),
-      )
-      .join(":");
-    const t = MARK.tint;
-    const tint = ["r", "g", "b"]
-      .map((c) => `${c}='val*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`)
-      .join(":");
+    const saturation = (s: number) =>
+      ["r", "g", "b"]
+        .flatMap((o) =>
+          ["r", "g", "b"].map(
+            (i) =>
+              `${o}${i}=${((1 - s) * lum[i] + (o === i ? s : 0)).toFixed(4)}`,
+          ),
+        )
+        .join(":");
+    const whiten = (t: number, gain = 1) =>
+      ["r", "g", "b"]
+        .map(
+          (c) =>
+            `${c}='min(val*${gain.toFixed(3)},255)*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`,
+        )
+        .join(":");
+    const saturate = saturation(MARK.saturation);
+    const tint = whiten(MARK.tint);
+    // The rim's paint: the backdrop under it pushed far past natural
+    // saturation, brightened, then lifted towards white so it still reads
+    // as light on a dark or grey video. colorchannelmixer caps coefficients
+    // at ±2, which a single matrix passes at about 2.1; saturations multiply
+    // when chained, so a bigger one is split into equal passes under 2.
+    const passes = Math.max(
+      1,
+      Math.ceil(Math.log(MARK.rimSaturation) / Math.LN2),
+    );
+    const rimPaint = [
+      ...Array<string>(passes).fill(
+        `colorchannelmixer=${saturation(MARK.rimSaturation ** (1 / passes))}`,
+      ),
+      `lutrgb=${whiten(MARK.rimWhite, MARK.rimGain)}`,
+    ].join(",");
 
     const graph = [
       `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0,split[base][src]`,
@@ -1158,7 +1188,7 @@ class VideoProcessor {
       `[cr][xr][yr]displace=edge=mirror[dr]`,
       `[cg][xg][yg]displace=edge=mirror[dg]`,
       `[cb][xb][yb]displace=edge=mirror[db]`,
-      `[dg][db][dr]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,scale=${CW}:${CH}:flags=bicubic,format=rgba,split[rf1][rf2]`,
+      `[dg][db][dr]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,scale=${CW}:${CH}:flags=bicubic,format=rgba,split=3[rf1][rf2][rf3]`,
       // Frosted fill: blurred where the heightfield is flat, the barely
       // blurred (minBlurRatio) refracted backdrop where it is still rising
       // (the bevel, laid over the frost with the inverted heightfield as its
@@ -1171,13 +1201,14 @@ class VideoProcessor {
       `[frost][bevel]overlay=format=auto${shortest},colorchannelmixer=${saturate},lutrgb=${tint}[fill]`,
       `[fill][m1]alphamerge${stop}[glass]`,
       // Rim: the mask minus itself eroded by a pixel or so, lit by the
-      // edge's slope towards the light, painted white.
+      // edge's slope towards the light, painted with the vivid backdrop
+      // (softened first, so the stroke's colour doesn't flicker with detail).
       `[h4]${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
       `[m2]${Array<string>(rimPx).fill("erosion").join(",")}[eroded]`,
       `[m3][eroded]blend=all_mode=subtract[band]`,
-      `[light][band]blend=all_mode=multiply,split[rk1][rk2]`,
-      `[rk1]format=rgba,lutrgb=r=255:g=255:b=255[white]`,
-      `[white][rk2]alphamerge,colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
+      `[light][band]blend=all_mode=multiply[rimAlpha]`,
+      `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
+      `[paint][rimAlpha]alphamerge${stop},colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
       // Shadow: the mask blurred, painted black, offset downwards on overlay.
       `[m4]gblur=sigma=${shadowSigma}:steps=2,split[sk1][sk2]`,
       `[sk1]format=rgba,lutrgb=r=0:g=0:b=0[black]`,
