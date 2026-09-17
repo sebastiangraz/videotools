@@ -283,14 +283,14 @@
   transform-origin: bottom right;
   --mask-image: radial-gradient(
     ellipse at bottom right,
-    #fff 10%,
-    #fff var(--mask-solid),
-    #fff0 calc(var(--mask-solid) + 45%)
+    #fff 0%,
+    #fff0 calc(var(--mask-solid) + 40%),
+    #fff0 calc(var(--mask-solid) + 70%)
   );
   mask-image: var(--mask-image);
   transition:
-    --mask-solid 0.5s cubic-bezier(0.77, 0, 0.175, 1),
-    transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
+    --mask-solid 0.5s cubic-bezier(0.7, 0, 0.175, 1),
+    transform 0.5s cubic-bezier(0.7, 0, 0.175, 1);
   will-change: transform;
   right: 0;
   bottom: 0;
