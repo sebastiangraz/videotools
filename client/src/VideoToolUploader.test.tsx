@@ -8,6 +8,11 @@ import "@testing-library/jest-dom/vitest";
 const uploadMock = vi.hoisted(() => vi.fn());
 vi.mock("@vercel/blob/client", () => ({ upload: uploadMock }));
 
+// jsdom has no PointerEvent; Base UI's Switch dispatches one on click
+if (!("PointerEvent" in window)) {
+  vi.stubGlobal("PointerEvent", class PointerEvent extends MouseEvent {});
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   uploadMock.mockReset();
@@ -749,5 +754,112 @@ describe("VideoToolUploader", () => {
     await user.click(screen.getByRole("tab", { name: /sequence/i }));
     await screen.findByRole("button", { name: /create video/i });
     expect(uploadSignal?.aborted).toBe(true);
+  });
+
+  // Uploads keyed by filename, so the video and the watermark can be told
+  // apart in the process request
+  const blobFor = (name: string) =>
+    `https://store.public.blob.vercel-storage.com/${name}`;
+
+  const markFetchMock = (resultUrl: string) =>
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/process" && init?.method === "POST") {
+        return new Response(
+          JSON.stringify({ url: resultUrl, filename: "clip_marked.mp4" }),
+          { status: 200 },
+        );
+      }
+      if (input === resultUrl) {
+        return new Response(new Blob(["video"], { type: "video/mp4" }), {
+          status: 200,
+        });
+      }
+      if (input === "/api/process" && init?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected fetch: ${input}`);
+    });
+
+  it("waits for a video and a watermark on the mark tool, offering filter mode only for alpha formats", async () => {
+    const user = userEvent.setup();
+    await renderApp("/mark");
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mp4", { type: "video/mp4" }),
+    );
+    const button = screen.getByRole("button", { name: /^mark$/i });
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    await user.hover(button);
+    expect(await screen.findByText(/upload a watermark/i)).toBeInTheDocument();
+    await user.unhover(button);
+
+    // JPEG can't carry transparency, so there is no shape for the glass
+    await user.upload(
+      screen.getByLabelText(/choose watermark/i),
+      new File(["00"], "logo.jpg", { type: "image/jpeg" }),
+    );
+    expect(button).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByText("logo.jpg")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("switch", { name: /filter mode/i }),
+    ).not.toBeInTheDocument();
+
+    await user.upload(
+      screen.getByLabelText(/choose watermark/i),
+      new File(["00"], "logo.png", { type: "image/png" }),
+    );
+    expect(
+      screen.getByRole("switch", { name: /filter mode/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("uploads the video then the watermark and requests a glass watermark", async () => {
+    const user = userEvent.setup();
+    const video = new File(["00"], "clip.mp4", { type: "video/mp4" });
+    const logo = new File(["00"], "logo.png", { type: "image/png" });
+
+    uploadMock.mockImplementation(async (name: string) => ({
+      url: blobFor(name),
+    }));
+    const resultUrl = blobFor("results/clip_marked-xyz.mp4");
+    const fetchMock = markFetchMock(resultUrl);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderApp("/mark");
+    await user.upload(screen.getByLabelText(/choose video/i), video);
+    await user.upload(screen.getByLabelText(/choose watermark/i), logo);
+    await user.click(screen.getByRole("switch", { name: /filter mode/i }));
+    await user.click(screen.getByRole("button", { name: /^mark$/i }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/process",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+    expect(uploadMock).toHaveBeenNthCalledWith(
+      1,
+      "clip.mp4",
+      video,
+      expect.anything(),
+    );
+    expect(uploadMock).toHaveBeenNthCalledWith(
+      2,
+      "logo.png",
+      logo,
+      expect.anything(),
+    );
+    const processBody = JSON.parse(
+      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
+        ?.body as string) ?? "{}",
+    );
+    expect(processBody).toEqual({
+      tool: "mark",
+      filename: "clip.mp4",
+      blobUrl: blobFor("clip.mp4"),
+      watermarkUrl: blobFor("logo.png"),
+      options: { filter: true, quality: 100 },
+    });
   });
 });

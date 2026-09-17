@@ -33,9 +33,9 @@ const gifskiPath: string = path.join(
   process.platform === "win32" ? "gifski.exe" : "gifski",
 );
 
-// Mirrored in client/src/VideoToolUploader.tsx (TOOLS / TECHNIQUES / FORMATS
-// / CONVERT_TARGETS)
-const VALID_TOOLS = ["loop", "sequence", "speed", "convert"];
+// Mirrored in client/src/tools.ts (TOOLS) and VideoToolUploader.tsx
+// (TECHNIQUES / FORMATS / CONVERT_TARGETS)
+const VALID_TOOLS = ["loop", "sequence", "speed", "convert", "mark"];
 const VALID_TECHNIQUES = ["reverse", "crossfade"];
 const VALID_FORMATS = ["mp4", "gif", "avif"];
 const CONVERT_TARGETS = ["mp4", "webm", "mov", "gif", "webp", "avif"];
@@ -57,8 +57,17 @@ type ProcessBody = {
   filename?: unknown;
   blobUrl?: unknown;
   blobUrls?: unknown;
+  // "mark" only: the logo image, uploaded like the video.
+  watermarkUrl?: unknown;
   options?: Record<string, unknown>;
 };
+
+// Keeps a downloaded blob's extension for readability; ffmpeg sniffs the
+// actual container/codec from content, so a wrong or missing one is fine.
+function blobExt(url: string, fallback: string): string {
+  const urlExt = path.posix.extname(new URL(url).pathname);
+  return /^\.\w+$/.test(urlExt) ? urlExt : fallback;
+}
 
 function isBlobUrl(url: unknown): url is string {
   if (typeof url !== "string") return false;
@@ -118,6 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     filename = "video",
     blobUrl,
     blobUrls,
+    watermarkUrl,
     options = {},
   } = (req.body ?? {}) as ProcessBody;
 
@@ -125,6 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // rejected request still has to release whatever it uploaded.
   const uploaded = [
     blobUrl,
+    watermarkUrl,
     ...(Array.isArray(blobUrls) ? (blobUrls as unknown[]) : []),
   ].filter(isBlobUrl);
   const reject = async (error: string) => {
@@ -147,6 +158,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return reject(`Expected 1–${MAX_IMAGES} valid blob URLs`);
     }
     inputBlobUrls = blobUrls;
+  } else if (tool === "mark") {
+    if (!isBlobUrl(blobUrl) || !isBlobUrl(watermarkUrl)) {
+      return reject("Expected a video and a watermark blob URL");
+    }
+    inputBlobUrls = [blobUrl, watermarkUrl];
   } else {
     if (!isBlobUrl(blobUrl)) {
       return reject("Invalid blob URL");
@@ -186,13 +202,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const imagePaths: string[] = [];
       for (let i = 0; i < inputBlobUrls.length; i++) {
-        // Keep the original extension for readability; ffmpeg sniffs the
-        // actual codec from content, so a wrong/missing extension is fine.
-        const urlExt = path.posix.extname(new URL(inputBlobUrls[i]).pathname);
-        const ext = /^\.\w+$/.test(urlExt) ? urlExt : ".png";
         const imagePath = path.join(
           workDir,
-          `src_${String(i + 1).padStart(4, "0")}${ext}`,
+          `src_${String(i + 1).padStart(4, "0")}${blobExt(inputBlobUrls[i], ".png")}`,
         );
         await downloadBlob(inputBlobUrls[i], imagePath, signal);
         imagePaths.push(imagePath);
@@ -211,11 +223,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const target = pick(options.target, CONVERT_TARGETS, "mp4");
       const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
-      // Keep the original extension for readability; ffmpeg sniffs the
-      // container from content, so a wrong/missing extension is fine.
-      const urlExt = path.posix.extname(new URL(inputBlobUrls[0]).pathname);
-      const ext = /^\.\w+$/.test(urlExt) ? urlExt : ".mp4";
-      const inputPath = path.join(workDir, `input${ext}`);
+      const inputPath = path.join(
+        workDir,
+        `input${blobExt(inputBlobUrls[0], ".mp4")}`,
+      );
       await downloadBlob(inputBlobUrls[0], inputPath, signal);
 
       if (target === "gif") {
@@ -253,6 +264,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       outputPath = await processor.changeSpeed(inputPath, multiplier);
       outputName = `${base}_speed.mp4`;
+      contentType = "video/mp4";
+    } else if (tool === "mark") {
+      // Frosted-glass mode; only meaningful with an alpha channel (the
+      // client offers it for those formats), but harmless without: the
+      // glass is then the logo's full rectangle.
+      const filter = options.filter === true;
+      const quality = Math.round(clamp(options.quality, 1, 100, 90));
+
+      const inputPath = path.join(
+        workDir,
+        `input${blobExt(inputBlobUrls[0], ".mp4")}`,
+      );
+      // The extension tells ffmpeg's image demuxer little (content wins),
+      // but it makes logs readable.
+      const logoPath = path.join(
+        workDir,
+        `logo${blobExt(inputBlobUrls[1], ".png")}`,
+      );
+      await downloadBlob(inputBlobUrls[0], inputPath, signal);
+      await downloadBlob(inputBlobUrls[1], logoPath, signal);
+
+      outputPath = await processor.addWatermark(
+        inputPath,
+        logoPath,
+        workDir,
+        filter,
+        quality,
+      );
+      outputName = `${base}_marked.mp4`;
       contentType = "video/mp4";
     } else {
       const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");

@@ -5,6 +5,7 @@ import {
   ChangeEvent,
   DragEvent,
   MouseEvent,
+  ReactNode,
 } from "react";
 import { upload } from "@vercel/blob/client";
 import styles from "./VideoToolUploader.module.css";
@@ -12,6 +13,7 @@ import { VersionLabel } from "./VersionLabel";
 import { Select } from "./components/Select/Select";
 import { NumberField } from "./components/NumberField/NumberField";
 import { Slider } from "./components/Slider/Slider";
+import { Switch } from "./components/Switch/Switch";
 import { Tooltip } from "./components/Tooltip/Tooltip";
 import { TOOLS } from "./tools";
 
@@ -51,6 +53,16 @@ const EXT_TO_FORMAT: Record<string, string> = {
   qt: "mov",
   webm: "webm",
 };
+
+// Watermark images for the "mark" tool. SVG is left out: the server's
+// ffmpeg has no SVG decoder, so export the logo as PNG first.
+const WATERMARK_ACCEPT = "image/png,image/jpeg,image/gif,image/webp";
+
+// Formats that can carry transparency, which the frosted-glass filter mode
+// needs for its shape. JPEG is always opaque, so it doesn't get the switch.
+const ALPHA_TYPES = ["image/png", "image/gif", "image/webp"];
+
+const hasAlpha = (file: File) => ALPHA_TYPES.includes(file.type);
 
 // Rough output-size model: bytes per pixel per frame at quality 0 → 100.
 // Real encoders vary wildly with content, so this is an order-of-magnitude
@@ -106,6 +118,104 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
+
+// File picker and drop target in one: as a <label> around the (visually
+// hidden) file input a click anywhere on it opens the native picker, and the
+// drag handlers make the same surface the drop target. The input keeps the
+// aria-label, so the zone is announced — and tested — through it. Dropped
+// files skip the native picker's accept filtering, so it is mirrored here,
+// and a single-file zone keeps only the first match. `preview` renders ahead
+// of the picked file's name (a thumbnail, say).
+const DropZone = ({
+  accept,
+  multiple,
+  pickerLabel,
+  files,
+  onFiles,
+  preview,
+}: {
+  accept: string;
+  multiple: boolean;
+  pickerLabel: string;
+  files: File[];
+  onFiles: (files: File[]) => void;
+  preview?: ReactNode;
+}) => {
+  // Drag enter/leave also fire on the drop zone's children, so a plain
+  // boolean would flicker off mid-drag; the depth counter only clears once
+  // the drag truly leaves the zone.
+  const dragDepth = useRef(0);
+  const [dragging, setDragging] = useState(false);
+
+  const pick = (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length) onFiles(picked);
+  };
+
+  const dragEnter = (e: DragEvent) => {
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragging(true);
+  };
+
+  const dragLeave = () => {
+    dragDepth.current -= 1;
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0;
+      setDragging(false);
+    }
+  };
+
+  const drop = (e: DragEvent) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
+      matchesAccept(f, accept),
+    );
+    if (!dropped.length) return;
+    onFiles(multiple ? dropped : dropped.slice(0, 1));
+  };
+
+  return (
+    <label
+      className={`${styles.dropZone}${dragging ? ` ${styles.dropZoneActive}` : ""}`}
+      onDragEnter={dragEnter}
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={dragLeave}
+      onDrop={drop}
+    >
+      <input
+        aria-label={pickerLabel}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        onChange={pick}
+        className={styles.dropZoneInput}
+      />
+      {files.length > 0 ? (
+        <span className={styles.dropZoneFile}>
+          {preview}
+          {files.length === 1 ? files[0].name : `${files.length} files`}
+        </span>
+      ) : (
+        <span className={styles.dropZoneLabel}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 8 8">
+            <path
+              fill="currentColor"
+              d="M4.354 2.356v4.641h-.707v-4.64L1.5 4.502l-.5-.5 3-3 3 3-.5.5z"
+            />
+          </svg>
+
+          <span>{pickerLabel}</span>
+        </span>
+      )}
+      <span className={styles.dropZoneHint}>
+        {files.length > 0 ? "click/drop to replace" : "or drop it here"}
+      </span>
+    </label>
+  );
+};
 
 // Paused <video> seeked to the loop start, shown while choosing "Start at" —
 // usually the frame that becomes a social post's thumbnail. The seek waits
@@ -178,6 +288,11 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(
     null,
   );
+  // The "mark" tool's logo, and its frosted-glass switch (only offered for
+  // formats with transparency; the flag is ignored for the rest).
+  const [watermark, setWatermark] = useState<File | null>(null);
+  const [watermarkUrl, setWatermarkUrl] = useState<string>("");
+  const [filterMode, setFilterMode] = useState(false);
   const submitRef = useRef<HTMLButtonElement>(null);
 
   // Controller for the in-flight run (upload -> process -> download). Stop
@@ -193,7 +308,16 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     return () => URL.revokeObjectURL(videoUrl);
   }, [videoUrl]);
 
+  // Same for the watermark thumbnail.
+  useEffect(() => {
+    if (!watermarkUrl) return;
+    return () => URL.revokeObjectURL(watermarkUrl);
+  }, [watermarkUrl]);
+
   const currentTool = TOOLS.find((t) => t.value === tool) ?? TOOLS[0];
+
+  // Everything the run needs has been picked. The mark tool wants two files.
+  const ready = files.length > 0 && (tool !== "mark" || watermark !== null);
 
   // Signed speed ratio → playback multiplier: ±1 → 2× faster/slower,
   // ±3 → 4×. Mirrored in api/process.ts.
@@ -245,46 +369,16 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     }
   };
 
-  const pick = (e: ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(e.target.files ?? []);
-    if (picked.length) addFiles(picked);
-  };
-
-  // Drag enter/leave also fire on the drop zone's children, so a plain
-  // boolean would flicker off mid-drag; the depth counter only clears once
-  // the drag truly leaves the zone.
-  const dragDepth = useRef(0);
-  const [dragging, setDragging] = useState(false);
-
-  const dragEnter = (e: DragEvent) => {
-    e.preventDefault();
-    dragDepth.current += 1;
-    setDragging(true);
-  };
-
-  const dragLeave = () => {
-    dragDepth.current -= 1;
-    if (dragDepth.current <= 0) {
-      dragDepth.current = 0;
-      setDragging(false);
-    }
-  };
-
-  const drop = (e: DragEvent) => {
-    e.preventDefault();
-    dragDepth.current = 0;
-    setDragging(false);
-    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
-      matchesAccept(f, currentTool.input.accept),
-    );
-    if (!dropped.length) return;
-    addFiles(currentTool.input.multiple ? dropped : dropped.slice(0, 1));
+  const pickWatermark = ([picked]: File[]) => {
+    setErrorDetail(null);
+    setWatermark(picked);
+    setWatermarkUrl(URL.createObjectURL(picked));
   };
 
   const submit = async () => {
     // The button is only aria-disabled, so unusable states are rejected here
     // rather than by the browser
-    if (!files.length || busy) return;
+    if (!ready || busy) return;
     setBusy(true);
     setErrorDetail(null);
 
@@ -297,19 +391,28 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     let resultUrl: string | null = null;
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        setMsg(
-          files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading",
-        );
-        const blob = await upload(files[i].name, files[i], {
+      const send = (file: File) =>
+        upload(file.name, file, {
           access: "public",
           handleUploadUrl: "/api/upload",
           // Browsers report no type for some containers (.avi, .mkv on
           // certain systems); fall back so the upload token isn't refused.
-          contentType: files[i].type || "application/octet-stream",
+          contentType: file.type || "application/octet-stream",
           abortSignal: signal,
         });
-        blobUrls.push(blob.url);
+
+      for (let i = 0; i < files.length; i++) {
+        setMsg(
+          files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading",
+        );
+        blobUrls.push((await send(files[i])).url);
+      }
+
+      let logoUrl: string | undefined;
+      if (tool === "mark" && watermark) {
+        setMsg("Uploading watermark");
+        logoUrl = (await send(watermark)).url;
+        blobUrls.push(logoUrl);
       }
 
       setMsg("Processing");
@@ -325,31 +428,41 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             }
           : tool === "speed"
             ? { blobUrl: blobUrls[0], options: { speed } }
-            : tool === "convert"
+            : tool === "mark"
               ? {
                   blobUrl: blobUrls[0],
+                  watermarkUrl: logoUrl,
                   options: {
-                    target: effectiveTarget,
+                    filter:
+                      filterMode && watermark !== null && hasAlpha(watermark),
                     quality,
-                    ...(effectiveTarget === "gif"
-                      ? {
-                          // fps stays home when empty: the server then
-                          // matches the source framerate
-                          ...(gifFps != null ? { fps: gifFps } : {}),
-                          width: gifWidth ?? 640,
-                        }
-                      : {}),
                   },
                 }
-              : {
-                  blobUrl: blobUrls[0],
-                  options: {
-                    technique,
-                    fadeDuration: fadeDuration ?? 0.5,
-                    startSecond: startSecond ?? 0,
-                    quality,
-                  },
-                };
+              : tool === "convert"
+                ? {
+                    blobUrl: blobUrls[0],
+                    options: {
+                      target: effectiveTarget,
+                      quality,
+                      ...(effectiveTarget === "gif"
+                        ? {
+                            // fps stays home when empty: the server then
+                            // matches the source framerate
+                            ...(gifFps != null ? { fps: gifFps } : {}),
+                            width: gifWidth ?? 640,
+                          }
+                        : {}),
+                    },
+                  }
+                : {
+                    blobUrl: blobUrls[0],
+                    options: {
+                      technique,
+                      fadeDuration: fadeDuration ?? 0.5,
+                      startSecond: startSecond ?? 0,
+                      quality,
+                    },
+                  };
       const res = await fetch("/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -416,50 +529,32 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   return (
     <>
       <div className={styles.container}>
-        {/* One element serves both entry paths: as a <label> around the
-            (visually hidden) file input a click anywhere on it opens the
-            native picker, and the drag handlers make the same surface the
-            drop target. The input keeps the aria-label, so the zone is
-            announced — and tested — through it. */}
-        <label
-          className={`${styles.dropZone}${dragging ? ` ${styles.dropZoneActive}` : ""}`}
-          onDragEnter={dragEnter}
-          onDragOver={(e) => e.preventDefault()}
-          onDragLeave={dragLeave}
-          onDrop={drop}
-        >
-          <input
-            aria-label={currentTool.input.pickerLabel}
-            type="file"
-            accept={currentTool.input.accept}
-            multiple={currentTool.input.multiple}
-            onChange={pick}
-            className={styles.dropZoneInput}
-          />
-          {files.length > 0 ? (
-            <span className={styles.dropZoneFile}>
-              {files.length === 1 ? files[0].name : `${files.length} files`}
-            </span>
-          ) : (
-            <span className={styles.dropZoneLabel}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 8 8"
-              >
-                <path
-                  fill="currentColor"
-                  d="M4.354 2.356v4.641h-.707v-4.64L1.5 4.502l-.5-.5 3-3 3 3-.5.5z"
-                />
-              </svg>
+        <DropZone
+          accept={currentTool.input.accept}
+          multiple={currentTool.input.multiple}
+          pickerLabel={currentTool.input.pickerLabel}
+          files={files}
+          onFiles={addFiles}
+        />
 
-              <span>{currentTool.input.pickerLabel}</span>
-            </span>
-          )}
-          <span className={styles.dropZoneHint}>
-            {files.length > 0 ? "click/drop to replace" : "or drop it here"}
-          </span>
-        </label>
+        {tool === "mark" && (
+          <DropZone
+            accept={WATERMARK_ACCEPT}
+            multiple={false}
+            pickerLabel="choose watermark"
+            files={watermark ? [watermark] : []}
+            onFiles={pickWatermark}
+            preview={
+              watermarkUrl && (
+                <img
+                  src={watermarkUrl}
+                  alt=""
+                  className={styles.dropZoneThumb}
+                />
+              )
+            }
+          />
+        )}
       </div>
 
       <div className={styles.container}>
@@ -702,6 +797,38 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
           </>
         )}
 
+        {tool === "mark" && (
+          <>
+            {/* The glass needs a shape, so the switch waits for a logo that
+                can have one. */}
+            {watermark && hasAlpha(watermark) && (
+              <div className={styles.switchRow}>
+                <label htmlFor="filterMode" className={styles.label}>
+                  Filter mode
+                </label>
+                <Switch
+                  id="filterMode"
+                  checked={filterMode}
+                  onCheckedChange={setFilterMode}
+                  disabled={busy}
+                />
+              </div>
+            )}
+
+            <div className={styles.formGroup}>
+              <Slider
+                label={<>Quality {quality}%</>}
+                value={quality}
+                onValueChange={setQuality}
+                min={0}
+                max={100}
+                step={1}
+                disabled={busy}
+              />
+            </div>
+          </>
+        )}
+
         {/* {videoDuration > 0 && (
           <small className={styles.label}>
             Video length: {videoDuration} seconds
@@ -711,17 +838,17 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             tooltip explaining why it can't be pressed would never open. It
             carries aria-disabled instead, which leaves it hoverable and in
             the tab order; submit() rejects the unusable states. The tooltip
-            only speaks for the missing-file case, so it's switched off once
-            files are picked (the button is also disabled while busy). */}
+            only speaks for the missing-file cases, so it's switched off once
+            everything is picked (the button is also disabled while busy). */}
         <div className={styles.actions}>
           <Tooltip
-            disabled={files.length > 0}
-            content="Upload a file"
+            disabled={ready}
+            content={files.length ? "Upload a watermark" : "Upload a file"}
             render={
               <button
                 ref={submitRef}
                 onClick={submit}
-                aria-disabled={!files.length || busy}
+                aria-disabled={!ready || busy}
                 className={styles.button}
               />
             }

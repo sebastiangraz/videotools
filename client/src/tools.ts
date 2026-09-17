@@ -49,4 +49,15 @@ export const TOOLS = [
     },
     actionLabel: "Convert",
   },
+  {
+    value: "mark",
+    label: "Mark",
+    description: "Watermark a video with your logo",
+    input: {
+      accept: VIDEO_ACCEPT,
+      multiple: false,
+      pickerLabel: "choose video",
+    },
+    actionLabel: "Mark",
+  },
 ];

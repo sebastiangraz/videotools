@@ -1,0 +1,50 @@
+.root {
+  --track-w: 2.5rem;
+  --track-h: 1.5rem;
+  --pad: 3px;
+  --thumb: calc(var(--track-h) - 2px - 2 * var(--pad));
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: var(--track-w);
+  height: var(--track-h);
+  padding: var(--pad);
+  border: 1px solid var(--border);
+  border-radius: var(--track-h);
+  background-color: var(--bg-1);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+
+  &[data-checked] {
+    background-color: var(--fg);
+    border-color: var(--fg);
+  }
+
+  &[data-disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--border);
+    outline-offset: 2px;
+  }
+}
+
+.thumb {
+  width: var(--thumb);
+  height: var(--thumb);
+  border-radius: 50%;
+  background-color: var(--fg-secondary);
+  transition:
+    translate 150ms ease,
+    background-color 150ms ease;
+
+  &[data-checked] {
+    translate: calc(var(--track-w) - 2px - 2 * var(--pad) - var(--thumb)) 0;
+    background-color: var(--bg);
+  }
+}

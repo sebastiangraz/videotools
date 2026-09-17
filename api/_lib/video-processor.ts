@@ -8,19 +8,49 @@ type RunOptions = { cwd?: string };
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
 // What `ffmpeg -i` reports about an input. `fps` is null when no frame rate
-// is printed; callers fall back to 30.
+// is printed; callers fall back to 30. `codec` is the decoder name ("h264",
+// "png", "gif", ...).
 type MediaInfo = {
   duration: number;
   width: number;
   height: number;
   fps: number | null;
+  codec: string;
+};
+
+// Watermark layout and look, all relative to the video so the mark reads the
+// same at every resolution. Position is fixed to the bottom-right corner.
+const MARK = {
+  // The logo is fitted (aspect kept) into a box this fraction of the video's
+  // width and height.
+  boxRatio: 0.16,
+  // Gap between the logo and the frame edges, as a fraction of the shorter
+  // side. Also the room the glass effects (shadow, blur) get around the logo.
+  marginRatio: 0.04,
+  // Frosted-glass mode: the backdrop under the logo is blurred by this sigma
+  // (fraction of the shorter side; the CSS analogue is backdrop-filter:
+  // blur()), then saturated and mixed with white.
+  blurRatio: 0.02,
+  saturation: 1.35,
+  tint: 0.22,
+  // A stroke along the inside of the logo's edge (1px at 720p, scaling up),
+  // like a light rim catching the light.
+  rimOpacity: 0.55,
+  // Soft drop shadow behind the glass shape, offset downwards.
+  shadowBlurRatio: 0.012,
+  shadowOffsetRatio: 0.006,
+  shadowOpacity: 0.35,
+  // The logo's own pixels over the glass: a white logo brightens it, a dark
+  // one smokes it, a coloured one tints it.
+  logoOpacity: 0.45,
 };
 
 /**
  * Cross-platform video tools: seamless loops (reverse / crossfade), sequence
- * assembly (mp4 / gif / avif) and format conversion, all pure-Node ffmpeg —
- * except video→GIF, which pipes ffmpeg-extracted frames through the vendored
- * gifski binary for pngquant palettes and temporal dithering.
+ * assembly (mp4 / gif / avif), format conversion and watermarking, all
+ * pure-Node ffmpeg — except video→GIF, which pipes ffmpeg-extracted frames
+ * through the vendored gifski binary for pngquant palettes and temporal
+ * dithering.
  */
 class VideoProcessor {
   ffmpeg: string;
@@ -794,6 +824,174 @@ class VideoProcessor {
     }
   }
 
+  /**
+   * Stamps `logoFile` (png / jpg / gif / webp) onto the bottom-right corner
+   * of `inputFile`. With `filter` the logo's alpha becomes the shape of a
+   * frosted-glass panel (see MARK) instead of a plain overlay. Animated GIFs
+   * loop for the length of the video. Audio is kept. Output is mp4.
+   */
+  async addWatermark(
+    inputFile: string,
+    logoFile: string,
+    workDir: string,
+    filter = false,
+    quality = 90,
+  ): Promise<string> {
+    console.log(
+      `Adding watermark (${filter ? "glass" : "plain"}, quality ${quality})...`,
+    );
+
+    const video = await this.mediaInfo(inputFile);
+    const logo = await this.mediaInfo(logoFile);
+    const { graph, animated } = VideoProcessor.watermarkGraph(
+      video,
+      logo,
+      filter,
+    );
+
+    const outputFile = path.join(workDir, "output.mp4");
+    await this.runFFmpeg([
+      "-y",
+      "-i",
+      inputFile,
+      // A still image is a one-frame stream, which overlay simply holds for
+      // the whole video. A GIF plays through once and would freeze on its
+      // last frame, so it is looped at the demuxer instead (regardless of
+      // the file's own loop count) and the graph ends with the video.
+      ...(animated ? ["-stream_loop", "-1"] : []),
+      "-i",
+      logoFile,
+      "-filter_complex",
+      graph,
+      "-map",
+      "[out]",
+      "-map",
+      "0:a?",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "fast",
+      "-crf",
+      VideoProcessor.x264Crf(quality),
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      "-movflags",
+      "+faststart",
+      outputFile,
+    ]);
+
+    return outputFile;
+  }
+
+  // Builds the watermark filtergraph (inputs: [0] video, [1] logo; output
+  // [out]). Every dimension is computed here from the probed sizes rather
+  // than with filter expressions, so the glass pipeline can crop just the
+  // patch of video under the logo instead of blurring whole frames.
+  static watermarkGraph(
+    video: MediaInfo,
+    logo: MediaInfo,
+    filter: boolean,
+  ): { graph: string; animated: boolean } {
+    // Frame size floored to even for yuv420p (odd-sized sources exist), and
+    // every patch size/offset kept even too: crop on a subsampled source
+    // rounds them otherwise, and the patches must line up exactly.
+    const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
+    const VW = even(video.width);
+    const VH = even(video.height);
+    const shorter = Math.min(VW, VH);
+
+    const fit = Math.min(
+      (VW * MARK.boxRatio) / logo.width,
+      (VH * MARK.boxRatio) / logo.height,
+    );
+    const LW = even(Math.round(logo.width * fit));
+    const LH = even(Math.round(logo.height * fit));
+    const margin = Math.round(shorter * MARK.marginRatio);
+    // The logo's top-left corner in the frame.
+    const LX = VW - margin - LW;
+    const LY = VH - margin - LH;
+
+    const animated = logo.codec === "gif";
+    // Looping the GIF makes it an endless stream, so every filter that syncs
+    // a video-derived stream with a logo-derived one must stop with the video.
+    const shortest = animated ? ":shortest=1" : "";
+    const stop = animated ? "=shortest=1" : "";
+
+    if (!filter) {
+      const graph = [
+        `[0:v]crop=${VW}:${VH}:0:0[base]`,
+        `[1:v]format=rgba,scale=${LW}:${LH}:flags=lanczos[logo]`,
+        `[base][logo]overlay=x=${LX}:y=${LY}${shortest},format=yuv420p[out]`,
+      ].join(";");
+      return { graph, animated };
+    }
+
+    // The glass is built on a "cell": the logo box plus `margin` of padding
+    // on every side, so shadow and blur have room to spill. The cell reaches
+    // the frame edge exactly, never past it.
+    const P = margin;
+    const CW = LW + 2 * P;
+    const CH = LH + 2 * P;
+    const CX = LX - P;
+    const CY = LY - P;
+
+    const sigma = (shorter * MARK.blurRatio).toFixed(2);
+    const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
+    const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
+    // Rim width in px: each erosion pass eats one pixel off the mask.
+    const rimPx = Math.max(1, Math.round(shorter / 720));
+
+    // Saturation as an RGB matrix (colorchannelmixer has no offset term, so
+    // the white tint is a separate lut): c' = (1-s)·luma + s·c.
+    const lum: Record<string, number> = { r: 0.299, g: 0.587, b: 0.114 };
+    const s = MARK.saturation;
+    const saturate = ["r", "g", "b"]
+      .flatMap((o) =>
+        ["r", "g", "b"].map(
+          (i) =>
+            `${o}${i}=${((1 - s) * lum[i] + (o === i ? s : 0)).toFixed(4)}`,
+        ),
+      )
+      .join(":");
+    const t = MARK.tint;
+    const tint = ["r", "g", "b"]
+      .map((c) => `${c}='val*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`)
+      .join(":");
+
+    const graph = [
+      `[0:v]crop=${VW}:${VH}:0:0,split[base][src]`,
+      // The patch of video under the cell, twice: one to blur, one to build on.
+      `[src]crop=${CW}:${CH}:${CX}:${CY},format=rgba,split[cellA][cellB]`,
+      // The logo scaled and centred in a transparent cell-sized canvas.
+      `[1:v]format=rgba,scale=${LW}:${LH}:flags=lanczos,pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
+      `[lg1]alphaextract,split=4[m1][m2][m3][m4]`,
+      // Frosted fill: blur, saturate, lighten; shaped by the logo's alpha.
+      `[cellA]gblur=sigma=${sigma}:steps=2,colorchannelmixer=${saturate},lutrgb=${tint}[blurred]`,
+      `[blurred][m1]alphamerge${stop}[glass]`,
+      // Rim: the mask minus itself eroded by a pixel or so, painted white.
+      `[m2]${Array<string>(rimPx).fill("erosion").join(",")}[eroded]`,
+      `[m3][eroded]blend=all_mode=subtract,split[rk1][rk2]`,
+      `[rk1]format=rgba,lutrgb=r=255:g=255:b=255[white]`,
+      `[white][rk2]alphamerge,colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
+      // Shadow: the mask blurred, painted black, offset downwards on overlay.
+      `[m4]gblur=sigma=${shadowSigma}:steps=2,split[sk1][sk2]`,
+      `[sk1]format=rgba,lutrgb=r=0:g=0:b=0[black]`,
+      `[black][sk2]alphamerge,colorchannelmixer=aa=${MARK.shadowOpacity}[shadow]`,
+      `[lg2]colorchannelmixer=aa=${MARK.logoOpacity}[faint]`,
+      // Stack the layers on the untouched patch, then put it back.
+      `[cellB][shadow]overlay=x=0:y=${shadowDy}:format=auto${shortest}[c1]`,
+      `[c1][glass]overlay=format=auto${shortest}[c2]`,
+      `[c2][rim]overlay=format=auto${shortest}[c3]`,
+      `[c3][faint]overlay=format=auto${shortest}[cell]`,
+      `[base][cell]overlay=x=${CX}:y=${CY}${shortest},format=yuv420p[out]`,
+    ].join(";");
+    return { graph, animated };
+  }
+
   async changeSpeed(inputFile: string, multiplier: number): Promise<string> {
     console.log(`Changing playback speed by ${multiplier}x...`);
 
@@ -982,6 +1180,7 @@ class VideoProcessor {
     const fields = video.slice(video.indexOf(": Video: ")).split(", ");
     const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
     if (!size) return null;
+    const codec = /: Video: (\w+)/.exec(video)?.[1] ?? "";
 
     const rate =
       fields.map((f) => /^([\d.]+) fps\b/.exec(f)).find(Boolean) ??
@@ -998,6 +1197,7 @@ class VideoProcessor {
       width: Number(size[1]),
       height: Number(size[2]),
       fps: Number.isFinite(fps) && fps > 0 ? fps : null,
+      codec,
     };
   }
 
