@@ -1019,6 +1019,11 @@ class VideoProcessor {
     const shortest = animated ? ":shortest=1" : "";
     const stop = animated ? "=shortest=1" : "";
 
+    // The logo is scaled premultiplied and turned back to straight alpha:
+    // scaled as is, the (usually black) colour of its transparent pixels
+    // bleeds into the antialiased edge and rims a light logo in dark.
+    const scaleLogo = `premultiply=inplace=1,scale=${LW}:${LH}:flags=lanczos,unpremultiply=inplace=1`;
+
     // The base is pinned to limited-range yuv420p before anything else:
     // full-range sources (JPEG stills from the preview's frame grab, some
     // phone footage) would otherwise reach the final overlay through a
@@ -1026,7 +1031,7 @@ class VideoProcessor {
     if (!filter) {
       const graph = [
         `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0[base]`,
-        `[1:v]format=rgba,scale=${LW}:${LH}:flags=lanczos[logo]`,
+        `[1:v]format=rgba,${scaleLogo}[logo]`,
         `[base][logo]overlay=x=${LX}:y=${LY}${shortest},format=yuv420p[out]`,
       ].join(";");
       return { graph, animated };
@@ -1108,7 +1113,7 @@ class VideoProcessor {
       // explicit formats pin the negotiation: a split of an open-format
       // scale output leaves alphaextract/extractplanes unable to choose.
       `[1:v]format=rgba,split[l1][l2]`,
-      `[l1]scale=${LW}:${LH}:flags=lanczos,pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
+      `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
       `[lg1]format=rgba,alphaextract,format=gray,split=4[m1][m2][m3][m4]`,
       `[l2]scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,split=3[mk1][mk2][mk3]`,
       // Heightfield, clipped to the alpha so nothing rises outside the shape.
