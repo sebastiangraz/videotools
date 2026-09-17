@@ -1003,7 +1003,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             {watermark && hasAlpha(watermark) && (
               <div className={styles.switchRow}>
                 <label htmlFor="filterMode" className={styles.label}>
-                  Filter mode
+                  Glass
                 </label>
                 <Switch
                   id="filterMode"
