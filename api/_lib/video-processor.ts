@@ -50,6 +50,11 @@ const MARK = {
   // saturated and mixed with white. Light enough that the bending at the
   // bevel still reads through it.
   blurRatio: 0.012, //0.012
+  // Floor for the blur, same unit (1.6px at 1080p): what the bevel gets
+  // instead of the full frost. Small islands and thin strokes are bevel all
+  // the way through, so without it hard backdrop edges cut straight across
+  // them; big shapes still ramp from this at the rim to blurRatio inside.
+  minBlurRatio: 0.001, //0.0015
   saturation: 1.8, //1.35
   tint: 0.12, //0.22
   // Bevel width, as a fraction of the logo's shorter drawn side rather than
@@ -1047,6 +1052,7 @@ class VideoProcessor {
     const CY = LY - P;
 
     const sigma = (shorter * MARK.blurRatio).toFixed(2);
+    const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
     const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
     const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
     // Rim width in px: each erosion pass eats one pixel off the mask.
@@ -1142,14 +1148,15 @@ class VideoProcessor {
       `[cg][xg][yg]displace=edge=mirror[dg]`,
       `[cb][xb][yb]displace=edge=mirror[db]`,
       `[dg][db][dr]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,scale=${CW}:${CH}:flags=bicubic,format=rgba,split[rf1][rf2]`,
-      // Frosted fill: blurred where the heightfield is flat, the sharp
-      // refracted backdrop where it is still rising (the bevel, laid over
-      // the blur with the inverted heightfield as its alpha; maskedmerge
-      // would do it in one but can't stop with the video); then saturated
-      // and lightened, and shaped by the logo's alpha.
+      // Frosted fill: blurred where the heightfield is flat, the barely
+      // blurred (minBlurRatio) refracted backdrop where it is still rising
+      // (the bevel, laid over the frost with the inverted heightfield as its
+      // alpha; maskedmerge would do it in one but can't stop with the
+      // video); then saturated and lightened, and shaped by the logo's alpha.
       `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
       `[h3]scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
-      `[rf2][bevelMask]alphamerge${stop}[bevel]`,
+      `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
+      `[soft][bevelMask]alphamerge${stop}[bevel]`,
       `[frost][bevel]overlay=format=auto${shortest},colorchannelmixer=${saturate},lutrgb=${tint}[fill]`,
       `[fill][m1]alphamerge${stop}[glass]`,
       // Rim: the mask minus itself eroded by a pixel or so, lit by the
