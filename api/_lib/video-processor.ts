@@ -24,9 +24,13 @@ const MARK = {
   // The logo is fitted (aspect kept) into a box this fraction of the video's
   // width and height.
   boxRatio: 0.16,
-  // Gap between the logo and the frame edges, as a fraction of the shorter
-  // side. Also the room the glass effects (shadow, blur) get around the logo.
-  marginRatio: 0.04,
+  // The gap to the frame edges is the logo's own size (see watermarkGraph):
+  // a logotype's height, a tall mark's width, a square-ish one's mean of
+  // both. Aspect ratios within this factor of 1:1 count as square-ish.
+  squarish: 1.25,
+  // A square mark's size is larger relative to its visual weight than an
+  // elongated one's shorter side, so its padding is eased back by this.
+  squarishPadding: 0.5,
   // Frosted-glass mode: the backdrop under the logo is blurred by this sigma
   // (fraction of the shorter side; the CSS analogue is backdrop-filter:
   // blur()), then saturated and mixed with white.
@@ -769,7 +773,10 @@ class VideoProcessor {
     // No explicit fps → match the source, capped at GIF's practical ceiling
     // (delays are centiseconds; browsers clamp anything ≥50fps).
     if (fps == null) {
-      fps = Math.max(1, Math.min(Math.round(await this.getVideoFPS(inputFile)), 30));
+      fps = Math.max(
+        1,
+        Math.min(Math.round(await this.getVideoFPS(inputFile)), 30),
+      );
     }
     console.log(
       `Converting to GIF via gifski (quality ${quality}, ${fps} fps, ${width}px)...`,
@@ -954,7 +961,17 @@ class VideoProcessor {
     );
     const LW = even(Math.round(logo.width * fit));
     const LH = even(Math.round(logo.height * fit));
-    const margin = Math.round(shorter * MARK.marginRatio);
+    // Padding between the logo and the corner, taken from the logo itself
+    // so the mark always sits one "logo" in from the edges: a logotype
+    // (wider than tall) uses its height, a tall mark its width, and a
+    // square-ish one the mean of the two, eased back a little.
+    const aspect = LW / LH;
+    const margin =
+      aspect > MARK.squarish
+        ? LH
+        : aspect < 1 / MARK.squarish
+          ? LW
+          : Math.round(((LW + LH) / 2) * MARK.squarishPadding);
     // The logo's top-left corner in the frame.
     const LX = VW - margin - LW;
     const LY = VH - margin - LH;
