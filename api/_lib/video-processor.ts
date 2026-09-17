@@ -23,13 +23,17 @@ type MediaInfo = {
 const MARK = {
   // The logo is fitted (aspect kept) into a box this fraction of the video's
   // width and height.
-  boxRatio: 0.16,
+  boxRatio: 0.12,
   // The gap to the frame edges is the logo's own size (see watermarkGraph):
   // a logotype's height, a tall mark's width, a square-ish one's mean of
   // both. Aspect ratios within this factor of 1:1 count as square-ish.
   squarish: 1.25,
-  // A square mark's size is larger relative to its visual weight than an
-  // elongated one's shorter side, so its padding is eased back by this.
+  // How much of the fitting box the logo is actually drawn at. A square
+  // mark fills its box both ways and reads heavier than an elongated one,
+  // so it gets its own, smaller scale; its padding (from the already
+  // reduced size) is eased back too.
+  elongatedScale: 1.5,
+  squarishScale: 0.75,
   squarishPadding: 0.5,
   // Frosted-glass mode: the backdrop under the logo is blurred by this sigma
   // (fraction of the shorter side; the CSS analogue is backdrop-filter:
@@ -955,23 +959,25 @@ class VideoProcessor {
     const VH = even(video.height);
     const shorter = Math.min(VW, VH);
 
-    const fit = Math.min(
-      (VW * MARK.boxRatio) / logo.width,
-      (VH * MARK.boxRatio) / logo.height,
-    );
+    const aspect = logo.width / logo.height;
+    const squarish = aspect <= MARK.squarish && aspect >= 1 / MARK.squarish;
+    // Fitted into the box, then drawn at the shape's own scale of it.
+    const fit =
+      Math.min(
+        (VW * MARK.boxRatio) / logo.width,
+        (VH * MARK.boxRatio) / logo.height,
+      ) * (squarish ? MARK.squarishScale : MARK.elongatedScale);
     const LW = even(Math.round(logo.width * fit));
     const LH = even(Math.round(logo.height * fit));
     // Padding between the logo and the corner, taken from the logo itself
     // so the mark always sits one "logo" in from the edges: a logotype
     // (wider than tall) uses its height, a tall mark its width, and a
     // square-ish one the mean of the two, eased back a little.
-    const aspect = LW / LH;
-    const margin =
-      aspect > MARK.squarish
+    const margin = squarish
+      ? Math.round(((LW + LH) / 2) * MARK.squarishPadding)
+      : aspect > 1
         ? LH
-        : aspect < 1 / MARK.squarish
-          ? LW
-          : Math.round(((LW + LH) / 2) * MARK.squarishPadding);
+        : LW;
     // The logo's top-left corner in the frame.
     const LX = VW - margin - LW;
     const LY = VH - margin - LH;
