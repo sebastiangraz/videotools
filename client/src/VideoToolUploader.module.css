@@ -284,8 +284,8 @@
   --mask-image: radial-gradient(
     ellipse at bottom right,
     #fff 0%,
-    #fff0 calc(var(--mask-solid) + 40%),
-    #fff0 calc(var(--mask-solid) + 70%)
+    #fff calc(var(--mask-solid) + 10%),
+    #fff0 calc(var(--mask-solid) + 60%)
   );
   mask-image: var(--mask-image);
   transition:
