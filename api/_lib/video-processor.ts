@@ -1051,6 +1051,9 @@ class VideoProcessor {
     const CX = LX - P;
     const CY = LY - P;
 
+    // One YUV↔RGB matrix for the cell's way in and back (the usual HD/SD
+    // convention; being the same both ways matters more than which).
+    const matrix = VH >= 720 ? "bt709" : "bt601";
     const sigma = (shorter * MARK.blurRatio).toFixed(2);
     const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
     const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
@@ -1111,9 +1114,13 @@ class VideoProcessor {
 
     const graph = [
       `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0,split[base][src]`,
-      // The patch of video under the cell, twice: one to refract, one to
-      // build on.
-      `[src]crop=${CW}:${CH}:${CX}:${CY},format=rgba,split[cellA][cellB]`,
+      // The patch of video under the cell, to refract, and a transparent
+      // canvas of the same size and timing to stack the layers on. Both
+      // colour conversions (here and on the way back) name their matrix:
+      // left to auto, the way in follows the source's tag (bt709 on most HD
+      // files) and the way back falls to bt601, which shifts the hue.
+      `[src]crop=${CW}:${CH}:${CX}:${CY},scale=in_color_matrix=${matrix}:in_range=tv,format=rgba,split[cellA][cellB]`,
+      `[cellB]colorchannelmixer=aa=0[canvas]`,
       // The logo scaled and centred in a transparent cell-sized canvas, at
       // 1× (the faint copy and the masks) and at 2× (the lens maps). The
       // explicit formats pin the negotiation: a split of an open-format
@@ -1172,11 +1179,13 @@ class VideoProcessor {
       `[sk1]format=rgba,lutrgb=r=0:g=0:b=0[black]`,
       `[black][sk2]alphamerge,colorchannelmixer=aa=${MARK.shadowOpacity}[shadow]`,
       `[lg2]colorchannelmixer=aa=${MARK.logoOpacity}[faint]`,
-      // Stack the layers on the untouched patch, then put it back.
-      `[cellB][shadow]overlay=x=0:y=${shadowDy}:format=auto${shortest}[c1]`,
+      // Stack the layers on the transparent canvas and lay that on the
+      // frame: only pixels the glass or its shadow cover are touched, so no
+      // conversion round trip can leave the cell showing as a faint box.
+      `[canvas][shadow]overlay=x=0:y=${shadowDy}:format=auto${shortest}[c1]`,
       `[c1][glass]overlay=format=auto${shortest}[c2]`,
       `[c2][rim]overlay=format=auto${shortest}[c3]`,
-      `[c3][faint]overlay=format=auto${shortest}[cell]`,
+      `[c3][faint]overlay=format=auto${shortest},scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p[cell]`,
       `[base][cell]overlay=x=${CX}:y=${CY}${shortest},format=yuv420p[out]`,
     ].join(";");
     return { graph, animated };
