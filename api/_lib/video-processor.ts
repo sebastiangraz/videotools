@@ -33,13 +33,13 @@ const MARK = {
   // so it gets its own, smaller scale; its padding (from the already
   // reduced size) is eased back too.
   elongatedScale: 1.5,
-  squarishScale: 0.75,
+  squarishScale: 0.66,
   squarishPadding: 0.75,
   // Ceiling on the padding, as a fraction of the frame's shorter side. The
   // shape rule takes the padding from the drawn logo, which for an asset
   // with a lot of empty canvas around the mark is far more than the mark
   // itself; this keeps such logos from drifting into the frame.
-  maxPaddingRatio: 0.05,
+  maxPaddingRatio: 0.06,
   // Glass mode. The logo's alpha becomes a lens: a heightfield that rises
   // from 0 at the edge to full over the bevel, whose slope refracts the video
   // underneath (each pixel is pulled in from just outside the edge, the way a
@@ -50,7 +50,7 @@ const MARK = {
   // saturated and mixed with white. Light enough that the bending at the
   // bevel still reads through it.
   blurRatio: 0.012, //0.012
-  saturation: 1.6, //1.35
+  saturation: 1.8, //1.35
   tint: 0.12, //0.22
   // Bevel width, as a fraction of the logo's shorter drawn side rather than
   // of the frame: a bevel wider than a logotype's strokes would flatten them
@@ -71,14 +71,14 @@ const MARK = {
   // the edge facing away, like a Fresnel reflection.
   lightAngle: -45, //-45
   rimOpacity: 0.85, //0.85
-  glint: 0.6, //0.35
+  glint: 0.66, //0.35
   // Soft drop shadow behind the glass shape, offset downwards.
-  shadowBlurRatio: 0.012, //0.012
-  shadowOffsetRatio: 0.006, //0.006
-  shadowOpacity: 0.35, //0.35
+  shadowBlurRatio: 0.016, //0.012
+  shadowOffsetRatio: 0.016, //0.006
+  shadowOpacity: 0.08, //0.35
   // The logo's own pixels over the glass: a white logo brightens it, a dark
   // one smokes it, a coloured one tints it.
-  logoOpacity: 0.36, //0.45
+  logoOpacity: 0.12, //0.45
 };
 
 /**
