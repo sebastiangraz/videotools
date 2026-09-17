@@ -248,6 +248,12 @@
 /* Mark tool: the first frame, then the server's watermarked render of it
    laid over the top once it arrives. */
 
+@property --mask-solid {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+
 .markPreviewContainer {
   position: relative;
   width: 100%;
@@ -260,6 +266,7 @@
   box-shadow: var(--raised);
   &:hover figure {
     transform: scale(2) translate(-1rem, -1rem);
+    --mask-solid: 0%;
   }
 }
 
@@ -274,7 +281,16 @@
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   transform-origin: bottom right;
-  transition: transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
+  --mask-image: radial-gradient(
+    ellipse at bottom right,
+    #fff 10%,
+    #fff var(--mask-solid),
+    #fff0 calc(var(--mask-solid) + 45%)
+  );
+  mask-image: var(--mask-image);
+  transition:
+    --mask-solid 0.5s cubic-bezier(0.77, 0, 0.175, 1),
+    transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
   will-change: transform;
   right: 0;
   bottom: 0;
