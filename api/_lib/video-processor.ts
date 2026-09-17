@@ -34,7 +34,7 @@ const MARK = {
   // reduced size) is eased back too.
   elongatedScale: 1.5,
   squarishScale: 0.75,
-  squarishPadding: 0.5,
+  squarishPadding: 0.75,
   // Ceiling on the padding, as a fraction of the frame's shorter side. The
   // shape rule takes the padding from the drawn logo, which for an asset
   // with a lot of empty canvas around the mark is far more than the mark
