@@ -40,7 +40,7 @@ const MARK = {
   // every logo has the same short side (all logotypes one height, however
   // long). In between, elongated logos, which are mostly thin strokes and
   // gaps, gain some area so they don't read lighter than a dense square.
-  sizeRatio: 0.085,
+  sizeRatio: 0.064,
   elongationGain: 0.5,
   // Safety bound for banner-like logos (and wide ones on portrait video):
   // neither side is drawn past this fraction of the frame's matching side.
@@ -50,7 +50,7 @@ const MARK = {
   // every logo: sizes are already evened out, so nothing about the shape
   // needs to feed back into it. It is also the glass cell's padding, the
   // room the shadow and blur spill into.
-  paddingRatio: 0.045,
+  paddingRatio: 0.05,
   // Glass mode. The logo's alpha becomes a lens: a heightfield that rises
   // from 0 at the edge to full over the bevel, whose slope refracts the video
   // underneath (each pixel is pulled in from just outside the edge, the way a
@@ -1042,11 +1042,7 @@ class VideoProcessor {
       (unit * MARK.sizeRatio) ** 2 * elongation ** MARK.elongationGain;
     const w = Math.sqrt(area * aspect);
     const h = Math.sqrt(area / aspect);
-    const clamp = Math.min(
-      1,
-      (MARK.maxSpan * VW) / w,
-      (MARK.maxSpan * VH) / h,
-    );
+    const clamp = Math.min(1, (MARK.maxSpan * VW) / w, (MARK.maxSpan * VH) / h);
     const LW = even(Math.round(w * clamp));
     const LH = even(Math.round(h * clamp));
     // (The bound only bites on absurdly long frames, where the unit is many
