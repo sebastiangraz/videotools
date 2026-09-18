@@ -70,7 +70,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     if (abort.signal.aborted) return;
     console.error("Preview error:", err);
-    return res.status(500).json({
+    // A logo that isn't a PNG is the caller's to fix, not a server fault.
+    const status =
+      err instanceof Error && /must be a PNG/i.test(err.message) ? 400 : 500;
+    return res.status(status).json({
       error: err instanceof Error ? err.message : "Preview failed",
     });
   } finally {

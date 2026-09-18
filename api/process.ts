@@ -315,10 +315,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     console.error("Processing error:", err);
-    // Input-shaped rejections (e.g. "Video too long...") are the user's to
-    // fix, not server faults.
+    // Input-shaped rejections ("Video too long...", "Watermark must be a
+    // PNG...") are the user's to fix, not server faults.
     const status =
-      err instanceof Error && /too long/i.test(err.message) ? 400 : 500;
+      err instanceof Error && /too long|must be a PNG/i.test(err.message)
+        ? 400
+        : 500;
     return res.status(status).json({
       error: err instanceof Error ? err.message : "Processing failed",
     });

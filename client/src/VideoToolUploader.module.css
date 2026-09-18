@@ -374,6 +374,7 @@
   letter-spacing: 0.05em;
   color: var(--fg);
   background-color: color-mix(in srgb, var(--bg) 75%, transparent);
+  backdrop-filter: blur(4px);
 }
 
 .framePreviewError {

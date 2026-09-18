@@ -8,15 +8,17 @@ type RunOptions = { cwd?: string };
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
 // What `ffmpeg -i` reports about an input. `fps` is null when no frame rate
-// is printed; callers fall back to 30. `matrix` is the YUV↔RGB matrix the
-// stream is tagged with, in the scale filter's names; RGB inputs (PNG, GIF)
-// count as bt601, which is what their conversion to YUV produces, and null
-// means an untagged YUV stream.
+// is printed; callers fall back to 30. `codec` is the decoder name ("h264",
+// "png", "gif", ...): what the content is, whatever the file is called.
+// `matrix` is the YUV↔RGB matrix the stream is tagged with, in the scale
+// filter's names; RGB inputs (PNG, GIF) count as bt601, which is what their
+// conversion to YUV produces, and null means an untagged YUV stream.
 type MediaInfo = {
   duration: number;
   width: number;
   height: number;
   fps: number | null;
+  codec: string;
   matrix: "bt709" | "bt601" | "bt2020" | null;
 };
 
@@ -920,7 +922,7 @@ class VideoProcessor {
     );
 
     const video = await this.mediaInfo(inputFile);
-    const logo = await this.mediaInfo(logoFile);
+    const logo = await this.logoInfo(logoFile);
     const graph = VideoProcessor.watermarkGraph(
       video,
       logo,
@@ -963,6 +965,20 @@ class VideoProcessor {
     return outputFile;
   }
 
+  // Probes the logo, which has to be a still PNG. The client only offers
+  // those, but nothing else is tested any more (a GIF would play once and
+  // freeze), so whatever else reaches the API is turned away. Going by the
+  // codec rather than the name also catches animated PNGs ("apng").
+  async logoInfo(logoFile: string): Promise<MediaInfo> {
+    const logo = await this.mediaInfo(logoFile);
+    if (logo.codec !== "png") {
+      throw new Error(
+        `Watermark must be a PNG image (got ${logo.codec || "an unknown format"})`,
+      );
+    }
+    return logo;
+  }
+
   /**
    * One composited frame for the UI's preview: `frameFile` is a still (the
    * browser's grab of the video's first frame) and goes through exactly the
@@ -976,7 +992,7 @@ class VideoProcessor {
     filter = false,
   ): Promise<string> {
     const frame = await this.mediaInfo(frameFile);
-    const logo = await this.mediaInfo(logoFile);
+    const logo = await this.logoInfo(logoFile);
     const graph = VideoProcessor.watermarkGraph(
       frame,
       logo,
@@ -1526,6 +1542,7 @@ class VideoProcessor {
     const fields = video.slice(video.indexOf(": Video: ")).split(", ");
     const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
     if (!size) return null;
+    const codec = /: Video: (\w+)/.exec(video)?.[1] ?? "";
     // The pixel format field reads e.g. "yuv420p(tv, bt709, progressive)" or
     // "yuvj444p(pc, bt470bg/unknown/unknown)": the colour item is one name
     // when matrix, primaries and transfer agree, else matrix/primaries/trc.
@@ -1556,6 +1573,7 @@ class VideoProcessor {
       width: Number(size[1]),
       height: Number(size[2]),
       fps: Number.isFinite(fps) && fps > 0 ? fps : null,
+      codec,
       matrix,
     };
   }

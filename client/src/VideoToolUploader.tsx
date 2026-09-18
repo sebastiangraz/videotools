@@ -1110,11 +1110,6 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                         />
                       ),
                   )}
-                  {previewError && (
-                    <figcaption className={styles.markPreviewNote}>
-                      Preview unavailable
-                    </figcaption>
-                  )}
                 </figure>
                 {/* One invisible strip per grabbed frame, side by side
                   across the box: the one under the pointer picks the frame.
@@ -1126,6 +1121,11 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                       <div key={i} onPointerEnter={() => setScrubIndex(i)} />
                     ))}
                   </div>
+                )}
+                {previewError && (
+                  <figcaption className={styles.markPreviewNote}>
+                    Preview unavailable
+                  </figcaption>
                 )}
               </div>
             )}
