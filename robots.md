@@ -32,6 +32,8 @@ videotools/
 │     ├─ components/        # ToolPanel (page frame: containers, action/Stop buttons, error box, credits), DropZone, FramePreview, Base UI wrappers
 │     ├─ hooks/             # useToolRun (upload → process → download, abort, cleanup), useVideoSource (object URL, duration, frame size)
 │     └─ test/              # vitest setup (blob mock, jsdom stubs) + renderApp helper
+├─ scripts/
+│  └─ smoke.mjs          # Runs every tool against real ffmpeg and diffs commands/results between runs (see Testing)
 ├─ vercel.json           # Function memory/duration config
 └─ package.json          # Root package (npm workspaces: client)
 ```
@@ -81,8 +83,21 @@ Note: the `onUploadCompleted` webhook warning on localhost is expected and harml
 ## Testing
 
 ```bash
-npm test      # client component tests (vitest)
+npm test      # client component tests + the api's pure helpers (vitest)
 ```
+
+The unit tests never run ffmpeg. `scripts/smoke.mjs` does: it builds `api/`, pushes a set of cases (every tool, format and technique, on small synthetic inputs) through the tools' handlers exactly as `/api/process` calls them, with the Blob download faked by a file copy, and records every ffmpeg/gifski command spawned plus each result (download name, bytes, size relative to the source, probed codec / dimensions / duration). No Vercel, no Blob.
+
+```bash
+npm run smoke -- before                 # run all cases, save under .smoke/before (gitignored)
+npm run smoke -- after --diff before    # run again and compare: exits 1 if commands or results differ
+npm run smoke -- gif --only gif,webp    # only the cases with "gif" or "webp" in their name
+npm run smoke -- v7 --ffmpeg <path>     # another ffmpeg than ffmpeg-static's (Vercel runs 7.0.2, Windows installs 6.1.1)
+```
+
+A refactor should leave commands and results identical; a deliberate encoding change shows up as exactly the commands meant to change, with its effect on the sizes next to it. Outputs stay in `.smoke/<label>/runs/<case>/` to look at. `NO VIDEO STREAM` in the table means ffmpeg could not find a video stream in the result: expected for animated WebP (ffmpeg has no decoder for it), a finding anywhere else. New cases are one line in `CASES`.
+
+The inputs are synthetic test patterns unless you supply your own: put `video.<ext>`, `animation.gif`, `logo.png` and/or `images/*` in `scripts/smoke-assets/` (gitignored; see its README) or point `--assets <dir>` somewhere else. Whatever is missing is still synthesized, and the GIF source and preview frame are derived from your video. Use real footage to judge quality by eye: the outputs of every case are kept under `.smoke/<label>/runs/`.
 
 ## Deployment
 
