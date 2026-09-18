@@ -22,28 +22,35 @@ type MediaInfo = {
   matrix: "bt709" | "bt601" | "bt2020" | null;
 };
 
+// A rectangle inside an image, in its pixels.
+type Bounds = { x: number; y: number; width: number; height: number };
+
 // Watermark layout and look, all relative to the video so the mark reads the
 // same at every resolution. Position is fixed to the bottom-right corner.
 const MARK = {
-  // The logo is fitted (aspect kept) into a box this fraction of the video's
-  // width and height.
-  boxRatio: 0.12,
-  // The gap to the frame edges is the logo's own size (see watermarkGraph):
-  // a logotype's height, a tall mark's width, a square-ish one's mean of
-  // both. Aspect ratios within this factor of 1:1 count as square-ish.
-  squarish: 1.25,
-  // How much of the fitting box the logo is actually drawn at. A square
-  // mark fills its box both ways and reads heavier than an elongated one,
-  // so it gets its own, smaller scale; its padding (from the already
-  // reduced size) is eased back too.
-  elongatedScale: 1.5,
-  squarishScale: 0.66,
-  squarishPadding: 0.75,
-  // Ceiling on the padding, as a fraction of the frame's shorter side. The
-  // shape rule takes the padding from the drawn logo, which for an asset
-  // with a lot of empty canvas around the mark is far more than the mark
-  // itself; this keeps such logos from drifting into the frame.
-  maxPaddingRatio: 0.06,
+  // Layout (see watermarkLayout). Lengths are fractions of the frame's
+  // "unit", the geometric mean of its width and height, so the mark takes
+  // the same share of a landscape, portrait or square picture. The logo is
+  // measured by its visible pixels (see logoBounds), not its canvas.
+  // Size is an area budget rather than a fitting box: a 1:1 logo is drawn
+  // this fraction of the unit on each side, and every other shape gets the
+  // same area times elongation^elongationGain, where elongation is the long
+  // side over the short one (so wide and tall are treated alike, and no
+  // ratio is special). At gain 0 every logo covers the same area; at 1
+  // every logo has the same short side (all logotypes one height, however
+  // long). In between, elongated logos, which are mostly thin strokes and
+  // gaps, gain some area so they don't read lighter than a dense square.
+  sizeRatio: 0.085,
+  elongationGain: 0.5,
+  // Safety bound for banner-like logos (and wide ones on portrait video):
+  // neither side is drawn past this fraction of the frame's matching side.
+  // A third still clears a 4:1 logotype on portrait video.
+  maxSpan: 0.33,
+  // The gap to the frame edges, a fraction of the unit and the same for
+  // every logo: sizes are already evened out, so nothing about the shape
+  // needs to feed back into it. It is also the glass cell's padding, the
+  // room the shadow and blur spill into.
+  paddingRatio: 0.045,
   // Glass mode. The logo's alpha becomes a lens: a heightfield that rises
   // from 0 at the edge to full over the bevel, whose slope refracts the video
   // underneath (each pixel is pulled in from just outside the edge, the way a
@@ -919,6 +926,7 @@ class VideoProcessor {
       video,
       logo,
       filter,
+      await this.logoBounds(logoFile, logo),
     );
 
     const outputFile = path.join(workDir, "output.mp4");
@@ -977,6 +985,7 @@ class VideoProcessor {
       frame,
       logo,
       filter,
+      await this.logoBounds(logoFile, logo),
     );
 
     const outputFile = path.join(workDir, "preview.jpg");
@@ -1003,6 +1012,57 @@ class VideoProcessor {
     return outputFile;
   }
 
+  // Where the logo goes and how big, from the frame and the logo's visible
+  // bounds alone (see MARK for the model). One continuous formula: the
+  // logo's aspect ratio sets how an area budget is split between its sides,
+  // and the padding doesn't depend on the logo at all.
+  static watermarkLayout(
+    video: { width: number; height: number },
+    bounds: { width: number; height: number },
+  ): {
+    VW: number;
+    VH: number;
+    LW: number;
+    LH: number;
+    margin: number;
+    LX: number;
+    LY: number;
+  } {
+    // Frame size floored to even for yuv420p (odd-sized sources exist), and
+    // every patch size/offset kept even too: crop on a subsampled source
+    // rounds them otherwise, and the patches must line up exactly.
+    const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
+    const VW = even(video.width);
+    const VH = even(video.height);
+    const unit = Math.sqrt(VW * VH);
+
+    const aspect = bounds.width / bounds.height;
+    const elongation = Math.max(aspect, 1 / aspect);
+    const area =
+      (unit * MARK.sizeRatio) ** 2 * elongation ** MARK.elongationGain;
+    const w = Math.sqrt(area * aspect);
+    const h = Math.sqrt(area / aspect);
+    const clamp = Math.min(
+      1,
+      (MARK.maxSpan * VW) / w,
+      (MARK.maxSpan * VH) / h,
+    );
+    const LW = even(Math.round(w * clamp));
+    const LH = even(Math.round(h * clamp));
+    // (The bound only bites on absurdly long frames, where the unit is many
+    // times the short side: the glass cell, logo plus this padding on every
+    // side, has to fit the frame.)
+    const margin = Math.min(
+      Math.round(unit * MARK.paddingRatio),
+      Math.floor((VW - LW) / 2),
+      Math.floor((VH - LH) / 2),
+    );
+    // The logo's top-left corner in the frame.
+    const LX = VW - margin - LW;
+    const LY = VH - margin - LH;
+    return { VW, VH, LW, LH, margin, LX, LY };
+  }
+
   // Builds the watermark filtergraph (inputs: [0] video, [1] logo; output
   // [out]). Every dimension is computed here from the probed sizes rather
   // than with filter expressions, so the glass pipeline can crop just the
@@ -1011,40 +1071,19 @@ class VideoProcessor {
     video: MediaInfo,
     logo: MediaInfo,
     filter: boolean,
+    bounds: Bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
   ): { graph: string; animated: boolean } {
-    // Frame size floored to even for yuv420p (odd-sized sources exist), and
-    // every patch size/offset kept even too: crop on a subsampled source
-    // rounds them otherwise, and the patches must line up exactly.
-    const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
-    const VW = even(video.width);
-    const VH = even(video.height);
-    const shorter = Math.min(VW, VH);
-
-    const aspect = logo.width / logo.height;
-    const squarish = aspect <= MARK.squarish && aspect >= 1 / MARK.squarish;
-    // Fitted into the box, then drawn at the shape's own scale of it.
-    const fit =
-      Math.min(
-        (VW * MARK.boxRatio) / logo.width,
-        (VH * MARK.boxRatio) / logo.height,
-      ) * (squarish ? MARK.squarishScale : MARK.elongatedScale);
-    const LW = even(Math.round(logo.width * fit));
-    const LH = even(Math.round(logo.height * fit));
-    // Padding between the logo and the corner, taken from the logo itself
-    // so the mark always sits one "logo" in from the edges: a logotype
-    // (wider than tall) uses its height, a tall mark its width, and a
-    // square-ish one the mean of the two, eased back a little.
-    const margin = Math.min(
-      squarish
-        ? Math.round(((LW + LH) / 2) * MARK.squarishPadding)
-        : aspect > 1
-          ? LH
-          : LW,
-      Math.round(shorter * MARK.maxPaddingRatio),
+    const { VW, VH, LW, LH, margin, LX, LY } = VideoProcessor.watermarkLayout(
+      video,
+      bounds,
     );
-    // The logo's top-left corner in the frame.
-    const LX = VW - margin - LW;
-    const LY = VH - margin - LH;
+    const shorter = Math.min(VW, VH);
+    // The logo cut down to its visible pixels, which is what the layout
+    // measured; nothing to cut when they fill the canvas.
+    const trimmed = bounds.width < logo.width || bounds.height < logo.height;
+    const trim = trimmed
+      ? `,crop=${bounds.width}:${bounds.height}:${bounds.x}:${bounds.y}`
+      : "";
 
     const animated = logo.codec === "gif";
     // Looping the GIF makes it an endless stream, so every filter that syncs
@@ -1064,7 +1103,7 @@ class VideoProcessor {
     if (!filter) {
       const graph = [
         `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0[base]`,
-        `[1:v]format=rgba,${scaleLogo}[logo]`,
+        `[1:v]format=rgba${trim},${scaleLogo}[logo]`,
         `[base][logo]overlay=x=${LX}:y=${LY}${shortest},format=yuv420p[out]`,
       ].join(";");
       return { graph, animated };
@@ -1214,7 +1253,7 @@ class VideoProcessor {
       // 1× (the faint copy and the masks) and at 2× (the lens maps). The
       // explicit formats pin the negotiation: a split of an open-format
       // scale output leaves alphaextract/extractplanes unable to choose.
-      `[1:v]format=rgba,split[l1][l2]`,
+      `[1:v]format=rgba${trim},split[l1][l2]`,
       `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
       `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m4][m5]`,
       `[l2]scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,split=3[mk1][mk2][mk3]`,
@@ -1455,6 +1494,46 @@ class VideoProcessor {
     }
     this.infoCache.set(inputFile, info);
     return info;
+  }
+
+  // The part of a logo that is actually visible: many assets carry empty
+  // canvas around the mark (a logotype exported on a square, uneven
+  // margins), and sized and placed by the canvas they come out small and
+  // off the corner. bbox logs the box of the alpha above min_val per frame;
+  // an opaque image (format=rgba gives it a solid alpha) reports its whole
+  // frame. A failed pass just means no trimming.
+  async logoBounds(logoFile: string, logo: MediaInfo): Promise<Bounds> {
+    const { stderr } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-i",
+      logoFile,
+      "-vf",
+      "format=rgba,alphaextract,bbox=min_val=16",
+      "-f",
+      "null",
+      "-",
+    ]);
+    return VideoProcessor.parseBounds(stderr, logo.width, logo.height);
+  }
+
+  // Parses bbox's log lines, e.g.
+  //   [Parsed_bbox_2 @ 0x...] n:0 pts:0 pts_time:0 x1:50 x2:349 y1:160
+  //     y2:239 w:300 h:80 crop=300:80:50:160 drawbox=50:160:300:80
+  // into the union over all frames, so an animated GIF keeps everything it
+  // ever shows. A frame with nothing visible logs no coordinates; with none
+  // at all the bounds are the whole image.
+  static parseBounds(log: string, width: number, height: number): Bounds {
+    let [x1, y1, x2, y2] = [width, height, -1, -1];
+    for (const m of log.matchAll(/ x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/g)) {
+      x1 = Math.min(x1, Number(m[1]));
+      x2 = Math.max(x2, Number(m[2]));
+      y1 = Math.min(y1, Number(m[3]));
+      y2 = Math.max(y2, Number(m[4]));
+    }
+    if (x2 < x1 || y2 < y1 || x2 >= width || y2 >= height) {
+      return { x: 0, y: 0, width, height };
+    }
+    return { x: x1, y: y1, width: x2 - x1 + 1, height: y2 - y1 + 1 };
   }
 
   // Parses the `-i` summary, e.g.
