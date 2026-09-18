@@ -1160,17 +1160,6 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
           </>
         )}
 
-        {/* {videoDuration > 0 && (
-          <small className={styles.label}>
-            Video length: {videoDuration} seconds
-          </small>
-        )} */}
-        {/* A natively disabled button dispatches no pointer events, so the
-            tooltip explaining why it can't be pressed would never open. It
-            carries aria-disabled instead, which leaves it hoverable and in
-            the tab order; submit() rejects the unusable states. The tooltip
-            only speaks for the missing-file cases, so it's switched off once
-            everything is picked (the button is also disabled while busy). */}
         <div className={styles.actions}>
           <Tooltip
             disabled={ready}
@@ -1187,8 +1176,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             {busy ? status && status : currentTool.actionLabel}
             {busy && <div className={styles.spinner} />}
           </Tooltip>
-          {/* Stays mounted so it can fade both ways; `hidden` keeps it out
-              of the tab order and the accessibility tree in between. */}
+
           <button
             type="button"
             onClick={stop}
