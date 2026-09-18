@@ -9,13 +9,17 @@ type RunResult = { code: number | null; stdout: string; stderr: string };
 
 // What `ffmpeg -i` reports about an input. `fps` is null when no frame rate
 // is printed; callers fall back to 30. `codec` is the decoder name ("h264",
-// "png", "gif", ...).
+// "png", "gif", ...). `matrix` is the YUV↔RGB matrix the stream is tagged
+// with, in the scale filter's names; RGB inputs (PNG, GIF) count as bt601,
+// which is what their conversion to YUV produces, and null means an
+// untagged YUV stream.
 type MediaInfo = {
   duration: number;
   width: number;
   height: number;
   fps: number | null;
   codec: string;
+  matrix: "bt709" | "bt601" | "bt2020" | null;
 };
 
 // Watermark layout and look, all relative to the video so the mark reads the
@@ -63,9 +67,12 @@ const MARK = {
   // alpha, so thick shapes get a steep rim easing into the flat middle and
   // thin strokes still keep a usable slope.
   bevelRatio: 0.1, //0.1
-  // Peak displacement of the backdrop at the edge, as a fraction of the
-  // shorter side (6.5px at 1080p); it eases to none over the bevel.
-  refractRatio: 0.006, //0.006
+  // Displacement of the backdrop at the steepest part of the bevel, as a
+  // fraction of the shorter side; it eases to none over the bevel. displace
+  // moves at most 127 map px (63px of video at the 2× the lens runs at), so
+  // anything past about 0.059 also flattens the top of the curve: more of
+  // the bevel bends by the full amount, which is the thick-lens look.
+  refractRatio: 0.088,
   // Chromatic split: red is displaced (1 − chroma)×, blue (1 + chroma)×,
   // green as is. Subtle on purpose, a hint of colour on contrasty edges.
   chroma: 0.15, //0.15
@@ -1072,9 +1079,13 @@ class VideoProcessor {
     const CX = LX - P;
     const CY = LY - P;
 
-    // One YUV↔RGB matrix for the cell's way in and back (the usual HD/SD
-    // convention; being the same both ways matters more than which).
-    const matrix = VH >= 720 ? "bt709" : "bt601";
+    // One YUV↔RGB matrix for the cell's way in and back: the source's own
+    // when it is tagged (a JPEG frame grab is bt601 at any size), else the
+    // usual HD/SD convention. Being the same both ways is what keeps the
+    // cell's colours; matching the tag matters on ffmpeg 7, where links
+    // carry a colour space and a cell tagged differently from the base makes
+    // overlay convert the whole frame (and a JPEG cannot say it is bt709).
+    const matrix = video.matrix ?? (VH >= 720 ? "bt709" : "bt601");
     const sigma = (shorter * MARK.blurRatio).toFixed(2);
     const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
     const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
@@ -1094,17 +1105,41 @@ class VideoProcessor {
     const bevel = Math.min(LW, LH) * MARK.bevelRatio * SS;
     const edgeSlope = (2 * 2 * 255) / (bevel * Math.sqrt(2 * Math.PI));
     const remap = "lut=c0='clip((val-128)*2,0,255)'";
-    // Sobel sums 8× the slope; rdiv turns that into pixels of displacement
-    // (in 2× space) around 128, which displace reads as none. The kernels
-    // are the negated derivatives: the backdrop is sampled outward, down
-    // the slope, like light bending in at a lens's rim.
+    // Sobel sums 8× the slope; scaled by refractPx/(8·edgeSlope) that is
+    // pixels of displacement (in 2× space) around 128, which displace reads
+    // as none. The kernels are the negated derivatives: the backdrop is
+    // sampled outward, down the slope, like light bending in at a lens's rim.
+    // The scale cannot go through convolution's rdiv: ffmpeg 6.1 (the
+    // Windows ffmpeg-static binary) ignores a given rdiv and divides by the
+    // kernel's sum (1 for these), 7.0 (the Linux one, so Vercel) applies it,
+    // and the lens has to come out the same on both. So rdiv stays 1 and the
+    // gain is split: its fraction scales the heightfield beforehand, its
+    // whole part multiplies the integer taps. That runs in 16 bits so the
+    // fraction costs no precision, with a lut bringing the result back to
+    // the 8-bit map (×256+128: exact through the gray16→gray conversion
+    // whether or not it dithers).
     const refractPx = shorter * MARK.refractRatio * SS;
-    const sobel = (axis: "x" | "y", gain: number) =>
-      `convolution=0m='${axis === "x" ? "1 0 -1 2 0 -2 1 0 -1" : "1 2 1 0 0 0 -1 -2 -1"}':0rdiv=${((refractPx * gain) / (8 * edgeSlope)).toFixed(5)}:0bias=128`;
+    const SOBEL = {
+      x: [1, 0, -1, 2, 0, -2, 1, 0, -1],
+      y: [1, 2, 1, 0, 0, 0, -1, -2, -1],
+    };
+    const sobel = (axis: "x" | "y", gain: number) => {
+      const scale = (refractPx * gain) / (8 * edgeSlope);
+      const whole = Math.max(1, Math.ceil(scale));
+      return [
+        "format=gray16le",
+        `lut=c0='val*${(scale / whole).toFixed(5)}'`,
+        `convolution=0m='${SOBEL[axis].map((k) => k * whole).join(" ")}':0rdiv=1:0bias=32768`,
+        "lut=c0='clip(round((val-32768)/257)+128,0,255)*256+128'",
+        "format=gray",
+      ].join(",");
+    };
     const chroma = { r: 1 - MARK.chroma, g: 1, b: 1 + MARK.chroma };
     // Edge light: the heightfield's derivative towards the light, as one
     // kernel (the two Sobels weighted by the light vector, ×100 for integer
-    // taps), scaled so the steepest edge spans the full range around 128.
+    // taps). Left at that gain it saturates: any edge facing the light at
+    // all is fully lit, any facing away fully dark, and the downscale to 1×
+    // softens the line between them. (rdiv=1 for the same reason as above.)
     const angle = (MARK.lightAngle * Math.PI) / 180;
     const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
     // Ambient gradient over the fill: radial, centred one logo radius off
@@ -1121,7 +1156,7 @@ class VideoProcessor {
     const lightKernel = KX.map((k, i) =>
       Math.round(-100 * (k * lx + KY[i] * ly)),
     ).join(" ");
-    const lighting = `convolution=0m='${lightKernel}':0rdiv=${(127 / (8 * edgeSlope) / 100).toFixed(6)}:0bias=128`;
+    const lighting = `convolution=0m='${lightKernel}':0rdiv=1:0bias=128`;
     // The whole rim sits at the glint level and the lit side (above 128)
     // rises from there to full white. A glint that ramped up separately on
     // the far side left the rim notched wherever an edge turns through
@@ -1439,6 +1474,20 @@ class VideoProcessor {
     const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
     if (!size) return null;
     const codec = /: Video: (\w+)/.exec(video)?.[1] ?? "";
+    // The pixel format field reads e.g. "yuv420p(tv, bt709, progressive)" or
+    // "yuvj444p(pc, bt470bg/unknown/unknown)": the colour item is one name
+    // when matrix, primaries and transfer agree, else matrix/primaries/trc.
+    const [, pixFmt = "", tags = ""] =
+      /, ([a-z]\w*)(?:\(([^)]*)\))?, \d+x\d+/.exec(video) ?? [];
+    const tagged = tags.split(", ").map((t) => t.split("/")[0]);
+    const matrix = tagged.includes("bt709")
+      ? "bt709"
+      : tagged.some((t) => t === "bt470bg" || t === "smpte170m") ||
+          /^(rgb|bgr|gbr|argb|abgr|pal8|gray|ya|mono)/.test(pixFmt)
+        ? "bt601"
+        : tagged.some((t) => t.startsWith("bt2020"))
+          ? "bt2020"
+          : null;
 
     const rate =
       fields.map((f) => /^([\d.]+) fps\b/.exec(f)).find(Boolean) ??
@@ -1456,6 +1505,7 @@ class VideoProcessor {
       height: Number(size[2]),
       fps: Number.isFinite(fps) && fps > 0 ? fps : null,
       codec,
+      matrix,
     };
   }
 
