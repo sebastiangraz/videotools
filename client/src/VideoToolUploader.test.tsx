@@ -808,7 +808,7 @@ describe("VideoToolUploader", () => {
     expect(button).toHaveAttribute("aria-disabled", "false");
     expect(screen.getByText("logo.jpg")).toBeInTheDocument();
     expect(
-      screen.queryByRole("switch", { name: /filter mode/i }),
+      screen.queryByRole("switch", { name: /glass/i }),
     ).not.toBeInTheDocument();
 
     await user.upload(
@@ -816,7 +816,7 @@ describe("VideoToolUploader", () => {
       new File(["00"], "logo.png", { type: "image/png" }),
     );
     expect(
-      screen.getByRole("switch", { name: /filter mode/i }),
+      screen.getByRole("switch", { name: /glass/i }),
     ).toBeInTheDocument();
   });
 
@@ -950,9 +950,13 @@ describe("VideoToolUploader", () => {
       const frame = screen.getByLabelText(/first frame/i);
       expect(frame).toHaveAttribute("src", "blob:mock");
 
-      // Once the browser has a decoded frame it is grabbed and sent, with
-      // the logo, to be composited by the real graph
-      fireEvent(frame, new Event("loadeddata"));
+      // Once the browser has a decoded frame it is grabbed (off a second,
+      // undisplayed video) and sent, with the logo, to be composited by the
+      // real graph. jsdom's video has no duration, so one frame is all
+      fireEvent(
+        screen.getByLabelText(/frame grab source/i),
+        new Event("loadeddata"),
+      );
       await waitFor(() =>
         expect(fetchMock).toHaveBeenCalledWith(
           "/api/preview",
@@ -970,13 +974,185 @@ describe("VideoToolUploader", () => {
       );
 
       // Filter mode is the server's business too, so it re-renders
-      await user.click(screen.getByRole("switch", { name: /filter mode/i }));
+      await user.click(screen.getByRole("switch", { name: /glass/i }));
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
       expect(
         JSON.parse(fetchMock.mock.calls[1][1]?.body as string),
       ).toMatchObject({ filter: true });
     } finally {
       sizes.forEach((restore) => restore());
+    }
+  });
+
+  it("grabs five evenly spaced frames of a GIF source through ImageDecoder", async () => {
+    const user = userEvent.setup();
+    // Like the real one, the track (and its frame count) isn't there until
+    // `tracks.ready` resolves, even with `completed` already resolved
+    const decoded: number[] = [];
+    class FakeImageDecoder {
+      completed = Promise.resolve();
+      tracks: { ready: Promise<void>; selectedTrack: unknown } = {
+        selectedTrack: null,
+        ready: new Promise<void>((resolve) =>
+          setTimeout(() => {
+            this.tracks.selectedTrack = { frameCount: 100 };
+            resolve();
+          }),
+        ),
+      };
+      async decode({ frameIndex }: { frameIndex: number }) {
+        decoded.push(frameIndex);
+        return {
+          image: { displayWidth: 480, displayHeight: 270, close: vi.fn() },
+        };
+      }
+      close() {}
+    }
+    vi.stubGlobal("ImageDecoder", FakeImageDecoder);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      function (callback) {
+        callback(new Blob(["jpg"], { type: "image/jpeg" }));
+      },
+    );
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === "/api/preview" && init?.method === "POST") {
+          return new Response(new Blob(["jpg"], { type: "image/jpeg" }), {
+            status: 200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${input}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await renderApp("/mark");
+      const gif = new File(["00"], "anim.gif", { type: "image/gif" });
+      // jsdom's File can't hand over its bytes
+      gif.arrayBuffer = async () => new ArrayBuffer(2);
+      await user.upload(screen.getByLabelText(/choose video/i), gif);
+      await user.upload(
+        screen.getByLabelText(/choose watermark/i),
+        new File(["00"], "logo.png", { type: "image/png" }),
+      );
+      fireEvent.load(screen.getByAltText(/first frame/i));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+      expect(decoded).toEqual([0, 20, 40, 60, 80]);
+      const preview = screen.getByLabelText(/watermark preview/i);
+      expect(preview.parentElement!.lastElementChild!.children).toHaveLength(
+        5,
+      );
+    } finally {
+      // Not unstubAllGlobals: the PointerEvent stand-in has to stay
+      Reflect.deleteProperty(globalThis, "ImageDecoder");
+    }
+  });
+
+  it("grabs five evenly spaced frames and scrubs through their renders as the pointer crosses the preview", async () => {
+    const user = userEvent.setup();
+    // jsdom neither decodes nor seeks: give the <video> a size and a length,
+    // answer every seek, and stand in for the canvas
+    const seeks: number[] = [];
+    const stubs: Record<string, PropertyDescriptor> = {
+      videoWidth: { get: () => 1280 },
+      videoHeight: { get: () => 720 },
+      duration: { get: () => 10 },
+      currentTime: {
+        get: () => 0,
+        set(this: HTMLVideoElement, time: number) {
+          seeks.push(time);
+          queueMicrotask(() => this.dispatchEvent(new Event("seeked")));
+        },
+      },
+    };
+    const restores = Object.entries(stubs).map(([name, descriptor]) => {
+      const original = Object.getOwnPropertyDescriptor(
+        HTMLVideoElement.prototype,
+        name,
+      );
+      Object.defineProperty(HTMLVideoElement.prototype, name, {
+        configurable: true,
+        ...descriptor,
+      });
+      return () => {
+        if (original) {
+          Object.defineProperty(HTMLVideoElement.prototype, name, original);
+        } else {
+          delete (HTMLVideoElement.prototype as unknown as Record<string, unknown>)[
+            name
+          ];
+        }
+      };
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      function (callback) {
+        callback(new Blob(["jpg"], { type: "image/jpeg" }));
+      },
+    );
+    // A URL per render, to tell the slots apart
+    let renders = 0;
+    URL.createObjectURL = vi.fn((blob: Blob | MediaSource) =>
+      blob instanceof Blob && blob.type === "image/jpeg"
+        ? `blob:render-${renders++}`
+        : "blob:mock",
+    );
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === "/api/preview" && init?.method === "POST") {
+          return new Response(new Blob(["jpg"], { type: "image/jpeg" }), {
+            status: 200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${input}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await renderApp("/mark");
+      await user.upload(
+        screen.getByLabelText(/choose video/i),
+        new File(["00"], "clip.mp4", { type: "video/mp4" }),
+      );
+      await user.upload(
+        screen.getByLabelText(/choose watermark/i),
+        new File(["00"], "logo.png", { type: "image/png" }),
+      );
+      fireEvent(
+        screen.getByLabelText(/frame grab source/i),
+        new Event("loadeddata"),
+      );
+
+      // The loaded frame, then four seeks a fifth of the clip apart
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+      expect(seeks).toEqual([2, 4, 6, 8]);
+
+      const preview = screen.getByLabelText(/watermark preview/i);
+      await waitFor(() =>
+        expect(preview.querySelectorAll("img")).toHaveLength(5),
+      );
+      // The first frame's render shows until the pointer says otherwise
+      const first = within(preview).getByAltText(/watermarked frame/i);
+
+      // One strip per frame, side by side over the box
+      const strips = preview.parentElement!.lastElementChild!.children;
+      expect(strips).toHaveLength(5);
+      fireEvent.pointerEnter(strips[3]);
+      const scrubbed = within(preview).getByAltText(/watermarked frame/i);
+      expect(scrubbed).not.toBe(first);
+
+      fireEvent.pointerEnter(strips[0]);
+      expect(within(preview).getByAltText(/watermarked frame/i)).toBe(first);
+    } finally {
+      restores.forEach((restore) => restore());
     }
   });
 
@@ -995,7 +1171,7 @@ describe("VideoToolUploader", () => {
     await renderApp("/mark");
     await user.upload(screen.getByLabelText(/choose video/i), video);
     await user.upload(screen.getByLabelText(/choose watermark/i), logo);
-    await user.click(screen.getByRole("switch", { name: /filter mode/i }));
+    await user.click(screen.getByRole("switch", { name: /glass/i }));
     await user.click(screen.getByRole("button", { name: /^mark$/i }));
 
     await waitFor(() =>

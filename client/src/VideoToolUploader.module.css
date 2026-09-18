@@ -325,10 +325,27 @@
   /* border-radius: calc(var(--radius) / 2); */
 }
 
-/* Out of sight once a render is up, but still in the DOM (it is the frame
-   grab's source). */
+/* Out of sight, but still laid out: the bare frame once a render is up, and
+   every render but the scrubbed one. */
 .markPreviewFrameHidden {
   visibility: hidden;
+}
+
+/* The <video> the frames are grabbed off: loaded and seeked, never shown. */
+.markPreviewGrab {
+  display: none;
+}
+
+/* The scrub strips: one equal, invisible column per grabbed frame, over the
+   whole box and above the (transformed) figure. */
+.markPreviewScrub {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  & > div {
+    flex: 1;
+  }
 }
 
 .markPreviewRender {

@@ -65,10 +65,29 @@ const ALPHA_TYPES = ["image/png", "image/gif", "image/webp"];
 const hasAlpha = (file: File) => ALPHA_TYPES.includes(file.type);
 
 // The mark preview is rendered by the server with the real ffmpeg graph, so
-// it always matches the encode. The browser sends the video's first frame
-// (grabbed off the <video>, downscaled: the geometry is relative to the
+// it always matches the encode. The browser sends frames of the video
+// (grabbed off a <video>, downscaled: the geometry is relative to the
 // frame, so a smaller one previews the same) and the logo inline.
 const PREVIEW_MAX_WIDTH = 1280;
+
+// How many frames the mark preview grabs, evenly spaced from the start of
+// the clip, so hovering across it scrubs through time.
+const SCRUB_FRAMES = 5;
+
+// Draws `source` onto a canvas and encodes it as a JPEG. Null when there is
+// nothing to draw (no size yet) or the canvas is unavailable.
+const grabFrame = (source: CanvasImageSource, w: number, h: number) =>
+  new Promise<Blob | null>((resolve) => {
+    if (!w || !h) return resolve(null);
+    const scale = Math.min(1, PREVIEW_MAX_WIDTH / w);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return resolve(null);
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(resolve, "image/jpeg", 0.9);
+  });
 
 const toDataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -342,11 +361,17 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState(false);
-  // The mark preview: the grabbed first frame, and the server's render of it
-  // (an object URL), refreshed whenever the frame, logo or filter changes.
-  const [frameBlob, setFrameBlob] = useState<Blob | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>("");
+  // The mark preview: the grabbed frames, and the server's render of each
+  // (object URLs, slot for slot; "" until one lands), refreshed whenever the
+  // frames, logo or filter change. `scrubIndex` is the slot the pointer's
+  // horizontal position picks.
+  const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [scrubIndex, setScrubIndex] = useState(0);
   const [previewError, setPreviewError] = useState(false);
+  // Bumped per grab (and per picked file), so a grab still seeking through
+  // the previous source drops its frames instead of landing them.
+  const grabRun = useRef(0);
   const submitRef = useRef<HTMLButtonElement>(null);
 
   // Controller for the in-flight run (upload -> process -> download). Stop
@@ -362,64 +387,144 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     return () => URL.revokeObjectURL(videoUrl);
   }, [videoUrl]);
 
-  // Same for the watermark thumbnail and the rendered preview.
+  // Same for the watermark thumbnail.
   useEffect(() => {
     if (!watermarkUrl) return;
     return () => URL.revokeObjectURL(watermarkUrl);
   }, [watermarkUrl]);
-  useEffect(() => {
-    if (!previewUrl) return;
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
 
-  // Asks the server for the composited frame. A change while a render is in
-  // flight abandons it (the function stops encoding when the disconnect
-  // reaches it) and starts over.
+  // And the rendered previews: a slot's URL is revoked once a newer render
+  // (or a reset) has pushed it out, and whatever is left goes on unmount.
+  const liveUrls = useRef<string[]>([]);
   useEffect(() => {
-    if (!frameBlob || !watermark) return;
+    for (const url of liveUrls.current) {
+      if (url && !previewUrls.includes(url)) URL.revokeObjectURL(url);
+    }
+    liveUrls.current = previewUrls;
+  }, [previewUrls]);
+  useEffect(
+    () => () => {
+      for (const url of liveUrls.current) if (url) URL.revokeObjectURL(url);
+    },
+    [],
+  );
+
+  // Asks the server for the composited frames. The first goes alone, so the
+  // preview is up as fast as a single render allows; the rest follow
+  // together. A change while renders are in flight abandons them (the
+  // function stops encoding when the disconnect reaches it) and starts over.
+  useEffect(() => {
+    if (frameBlobs.length === 0 || !watermark) return;
     const controller = new AbortController();
     const filter = filterMode && hasAlpha(watermark);
     (async () => {
       setPreviewError(false);
-      const [frame, logo] = await Promise.all([
-        toDataUrl(frameBlob),
-        toDataUrl(watermark),
-      ]);
-      const res = await fetch("/api/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frame, logo, filter }),
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`Preview failed (${res.status})`);
-      setPreviewUrl(URL.createObjectURL(await res.blob()));
+      const logo = await toDataUrl(watermark);
+      const render = async (blob: Blob, slot: number) => {
+        const res = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ frame: await toDataUrl(blob), logo, filter }),
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Preview failed (${res.status})`);
+        const rendered = await res.blob();
+        if (controller.signal.aborted) return;
+        const url = URL.createObjectURL(rendered);
+        // The slot's last render stays up until this one replaces it.
+        setPreviewUrls((prev) =>
+          frameBlobs.map((_, i) => (i === slot ? url : (prev[i] ?? ""))),
+        );
+      };
+      await render(frameBlobs[0], 0);
+      await Promise.all(
+        frameBlobs.slice(1).map((blob, i) => render(blob, i + 1)),
+      );
     })().catch((err: unknown) => {
       if (controller.signal.aborted) return;
       console.error(err);
       setPreviewError(true);
     });
     return () => controller.abort();
-  }, [frameBlob, watermark, filterMode]);
+  }, [frameBlobs, watermark, filterMode]);
 
-  // Grabs the first decoded frame off the preview's <video> as a JPEG.
-  // `source` is the preview's <video>, or the <img> standing in for a GIF
-  // source (a canvas always draws an animated image's first frame).
-  const grabFrame = (source: CanvasImageSource, w: number, h: number) => {
-    if (!w || !h) return;
-    const scale = Math.min(1, PREVIEW_MAX_WIDTH / w);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(w * scale);
-    canvas.height = Math.round(h * scale);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => setFrameBlob(blob), "image/jpeg", 0.9);
+  // Grabs SCRUB_FRAMES frames off the grab <video>, evenly spaced from the
+  // start (0, 1/5, 2/5… of the clip: the end itself rarely seeks to a
+  // drawable frame). A source without a usable duration gives just the
+  // frame it has loaded.
+  const grabVideoFrames = async (video: HTMLVideoElement) => {
+    const run = ++grabRun.current;
+    const count =
+      Number.isFinite(video.duration) && video.duration > 0 ? SCRUB_FRAMES : 1;
+    const blobs: Blob[] = [];
+    for (let i = 0; i < count; i++) {
+      if (i > 0) {
+        const seeked = new Promise((resolve) =>
+          video.addEventListener("seeked", resolve, { once: true }),
+        );
+        video.currentTime = (video.duration * i) / count;
+        await seeked;
+      }
+      const blob = await grabFrame(video, video.videoWidth, video.videoHeight);
+      if (run !== grabRun.current) return;
+      if (blob) blobs.push(blob);
+    }
+    setFrameBlobs(blobs);
+  };
+
+  // Same for a GIF source. ImageDecoder reaches any frame of it; without it
+  // the <img> is all there is, and a canvas always draws an animated
+  // image's first frame, so that one frame is the whole preview.
+  const grabGifFrames = async (file: File, img: HTMLImageElement) => {
+    const run = ++grabRun.current;
+    const blobs: Blob[] = [];
+    if ("ImageDecoder" in window) {
+      try {
+        const decoder = new ImageDecoder({
+          data: await file.arrayBuffer(),
+          type: file.type,
+        });
+        // `completed` = every byte is in, so the frame count is final;
+        // the track (and that count) only exists once `tracks.ready` is.
+        await Promise.all([decoder.completed, decoder.tracks.ready]);
+        const total = decoder.tracks.selectedTrack?.frameCount ?? 1;
+        const count = Math.min(SCRUB_FRAMES, total);
+        for (let i = 0; i < count; i++) {
+          const { image } = await decoder.decode({
+            frameIndex: Math.floor((total * i) / count),
+          });
+          const blob = await grabFrame(
+            image,
+            image.displayWidth,
+            image.displayHeight,
+          );
+          image.close();
+          if (blob) blobs.push(blob);
+        }
+        decoder.close();
+      } catch (err) {
+        console.error(err);
+        blobs.length = 0;
+      }
+    }
+    if (blobs.length === 0) {
+      const blob = await grabFrame(img, img.naturalWidth, img.naturalHeight);
+      if (blob) blobs.push(blob);
+    }
+    if (run !== grabRun.current) return;
+    setFrameBlobs(blobs);
   };
 
   // A GIF picked as the mark tool's source: previewed through an <img>,
   // since <video> won't decode it.
   const gifSource =
     tool === "mark" && files.length === 1 && files[0].type === "image/gif";
+
+  // The render on show: the scrubbed slot's, or while that one is still on
+  // its way, the first that has landed. -1 = none yet (the bare frame shows).
+  const shownRender = previewUrls[scrubIndex]
+    ? scrubIndex
+    : previewUrls.findIndex(Boolean);
 
   const currentTool = TOOLS.find((t) => t.value === tool) ?? TOOLS[0];
 
@@ -451,8 +556,10 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     setFiles(sorted);
     setVideoDuration(0);
     setVideoDims(null);
-    setFrameBlob(null);
-    setPreviewUrl("");
+    grabRun.current++;
+    setFrameBlobs([]);
+    setPreviewUrls([]);
+    setScrubIndex(0);
     setVideoUrl("");
     setImageDims(null);
 
@@ -919,8 +1026,9 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
 
         {tool === "mark" && (
           <>
-            {/* The first frame, watermarked by the server with the real
-                graph. The bare frame shows until the render lands (and
+            {/* Frames of the clip, watermarked by the server with the real
+                graph; moving the pointer across the box scrubs through
+                them. The bare first frame shows until a render lands (and
                 stays as the fallback if it fails); a format the browser
                 can't decode shows the frame's own note instead. The aspect
                 box waits for the video's metadata. */}
@@ -942,17 +1050,16 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                       : "16 / 9",
                   }}
                 >
-                  {/* The bare frame is the render's stand-in (and the
-                    element the frame is grabbed from), so once a render is
-                    up it is hidden rather than left showing through —
-                    a GIF would otherwise be seen playing underneath. It
-                    keeps its place in the DOM for the grab. */}
+                  {/* The bare frame is the render's stand-in, so once a
+                    render is up it is hidden rather than left showing
+                    through — a GIF would otherwise be seen playing
+                    underneath. */}
                   {gifSource ? (
                     <img
                       src={videoUrl}
                       alt="first frame"
                       className={
-                        previewUrl
+                        shownRender >= 0
                           ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
                           : styles.markPreviewFrame
                       }
@@ -962,32 +1069,51 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                           w: img.naturalWidth,
                           h: img.naturalHeight,
                         });
-                        grabFrame(img, img.naturalWidth, img.naturalHeight);
+                        grabGifFrames(files[0], img);
                       }}
                     />
                   ) : (
-                    <FramePreview
-                      src={videoUrl}
-                      second={0}
-                      label="first frame"
-                      className={
-                        previewUrl
-                          ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
-                          : styles.markPreviewFrame
-                      }
-                      onFrame={(video) =>
-                        grabFrame(video, video.videoWidth, video.videoHeight)
-                      }
-                    />
+                    <>
+                      <FramePreview
+                        src={videoUrl}
+                        second={0}
+                        label="first frame"
+                        className={
+                          shownRender >= 0
+                            ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                            : styles.markPreviewFrame
+                        }
+                      />
+                      {/* The frames are grabbed off a second, undisplayed
+                        <video>, so its seeking never shows through the bare
+                        frame above. */}
+                      <FramePreview
+                        src={videoUrl}
+                        second={0}
+                        label="frame grab source"
+                        className={styles.markPreviewGrab}
+                        onFrame={grabVideoFrames}
+                      />
+                    </>
                   )}
-                  {/* The last render stays up, unchanged, until the next one
-                    replaces it. */}
-                  {previewUrl && (
-                    <img
-                      src={previewUrl}
-                      alt="watermarked frame"
-                      className={styles.markPreviewRender}
-                    />
+                  {/* Every landed render is stacked here and only the
+                    scrubbed one shown, so scrubbing never waits on an image
+                    decode. A slot's last render stays up, unchanged, until
+                    the next one replaces it. */}
+                  {previewUrls.map(
+                    (url, i) =>
+                      url && (
+                        <img
+                          key={i}
+                          src={url}
+                          alt={i === shownRender ? "watermarked frame" : ""}
+                          className={
+                            i === shownRender
+                              ? styles.markPreviewRender
+                              : `${styles.markPreviewRender} ${styles.markPreviewFrameHidden}`
+                          }
+                        />
+                      ),
                   )}
                   {previewError && (
                     <figcaption className={styles.markPreviewNote}>
@@ -995,6 +1121,18 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                     </figcaption>
                   )}
                 </figure>
+                {/* One invisible strip per grabbed frame, side by side
+                  across the box: the one under the pointer picks the frame.
+                  They sit outside the figure so its hover zoom doesn't
+                  stretch them, and being inside the container they keep
+                  that hover (and so the zoom) alive. */}
+                {frameBlobs.length > 1 && (
+                  <div className={styles.markPreviewScrub} aria-hidden="true">
+                    {frameBlobs.map((_, i) => (
+                      <div key={i} onPointerEnter={() => setScrubIndex(i)} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
