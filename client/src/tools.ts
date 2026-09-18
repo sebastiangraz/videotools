@@ -49,4 +49,16 @@ export const TOOLS = [
     },
     actionLabel: "Convert",
   },
+  {
+    value: "mark",
+    label: "Mark",
+    description: "Watermark a video with your logo",
+    input: {
+      // Animated GIFs are videos to ffmpeg, so they can be marked too.
+      accept: `${VIDEO_ACCEPT},image/gif,.gif`,
+      multiple: false,
+      pickerLabel: "choose video",
+    },
+    actionLabel: "Mark",
+  },
 ];

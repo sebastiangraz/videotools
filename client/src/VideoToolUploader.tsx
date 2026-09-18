@@ -5,6 +5,7 @@ import {
   ChangeEvent,
   DragEvent,
   MouseEvent,
+  ReactNode,
 } from "react";
 import { upload } from "@vercel/blob/client";
 import styles from "./VideoToolUploader.module.css";
@@ -12,6 +13,7 @@ import { VersionLabel } from "./VersionLabel";
 import { Select } from "./components/Select/Select";
 import { NumberField } from "./components/NumberField/NumberField";
 import { Slider } from "./components/Slider/Slider";
+import { Switch } from "./components/Switch/Switch";
 import { Tooltip } from "./components/Tooltip/Tooltip";
 import { TOOLS } from "./tools";
 
@@ -51,6 +53,44 @@ const EXT_TO_FORMAT: Record<string, string> = {
   qt: "mov",
   webm: "webm",
 };
+
+// Watermark images for the "mark" tool: PNG only. SVG in particular is left
+// out: the server's ffmpeg has no SVG decoder, so export the logo as PNG
+// first.
+const WATERMARK_ACCEPT = "image/png";
+
+// The mark preview is rendered by the server with the real ffmpeg graph, so
+// it always matches the encode. The browser sends frames of the video
+// (grabbed off a <video>, downscaled: the geometry is relative to the
+// frame, so a smaller one previews the same) and the logo inline.
+const PREVIEW_MAX_WIDTH = 1280;
+
+// How many frames the mark preview grabs, evenly spaced from the start of
+// the clip, so hovering across it scrubs through time.
+const SCRUB_FRAMES = 5;
+
+// Draws `source` onto a canvas and encodes it as a JPEG. Null when there is
+// nothing to draw (no size yet) or the canvas is unavailable.
+const grabFrame = (source: CanvasImageSource, w: number, h: number) =>
+  new Promise<Blob | null>((resolve) => {
+    if (!w || !h) return resolve(null);
+    const scale = Math.min(1, PREVIEW_MAX_WIDTH / w);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return resolve(null);
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(resolve, "image/jpeg", 0.9);
+  });
+
+const toDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 
 // Rough output-size model: bytes per pixel per frame at quality 0 → 100.
 // Real encoders vary wildly with content, so this is an order-of-magnitude
@@ -107,6 +147,104 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+// File picker and drop target in one: as a <label> around the (visually
+// hidden) file input a click anywhere on it opens the native picker, and the
+// drag handlers make the same surface the drop target. The input keeps the
+// aria-label, so the zone is announced — and tested — through it. Dropped
+// files skip the native picker's accept filtering, so it is mirrored here,
+// and a single-file zone keeps only the first match. `preview` renders ahead
+// of the picked file's name (a thumbnail, say).
+const DropZone = ({
+  accept,
+  multiple,
+  pickerLabel,
+  files,
+  onFiles,
+  preview,
+}: {
+  accept: string;
+  multiple: boolean;
+  pickerLabel: string;
+  files: File[];
+  onFiles: (files: File[]) => void;
+  preview?: ReactNode;
+}) => {
+  // Drag enter/leave also fire on the drop zone's children, so a plain
+  // boolean would flicker off mid-drag; the depth counter only clears once
+  // the drag truly leaves the zone.
+  const dragDepth = useRef(0);
+  const [dragging, setDragging] = useState(false);
+
+  const pick = (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length) onFiles(picked);
+  };
+
+  const dragEnter = (e: DragEvent) => {
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragging(true);
+  };
+
+  const dragLeave = () => {
+    dragDepth.current -= 1;
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0;
+      setDragging(false);
+    }
+  };
+
+  const drop = (e: DragEvent) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
+      matchesAccept(f, accept),
+    );
+    if (!dropped.length) return;
+    onFiles(multiple ? dropped : dropped.slice(0, 1));
+  };
+
+  return (
+    <label
+      className={`${styles.dropZone}${dragging ? ` ${styles.dropZoneActive}` : ""}`}
+      onDragEnter={dragEnter}
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={dragLeave}
+      onDrop={drop}
+    >
+      <input
+        aria-label={pickerLabel}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        onChange={pick}
+        className={styles.dropZoneInput}
+      />
+      {files.length > 0 ? (
+        <span className={styles.dropZoneFile}>
+          {preview}
+          {files.length === 1 ? files[0].name : `${files.length} files`}
+        </span>
+      ) : (
+        <span className={styles.dropZoneLabel}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 8 8">
+            <path
+              fill="currentColor"
+              d="M4.354 2.356v4.641h-.707v-4.64L1.5 4.502l-.5-.5 3-3 3 3-.5.5z"
+            />
+          </svg>
+
+          <span>{pickerLabel}</span>
+        </span>
+      )}
+      <span className={styles.dropZoneHint}>
+        {files.length > 0 ? "click/drop to replace" : "or drop it here"}
+      </span>
+    </label>
+  );
+};
+
 // Paused <video> seeked to the loop start, shown while choosing "Start at" —
 // usually the frame that becomes a social post's thumbnail. The seek waits
 // for metadata so it lands on a decodable frame; the browser clamps
@@ -114,7 +252,23 @@ function formatBytes(bytes: number): string {
 // what browsers can decode (server-side ffmpeg handles the rest), so a
 // decode error swaps the frame for a short note. Tracking the failed src
 // rather than a boolean resets the error when a new file is picked.
-const FramePreview = ({ src, second }: { src: string; second: number }) => {
+// `className` swaps the default card look for the caller's own (the mark
+// preview lays it out as a frame to draw on) and `label` names the video.
+// `onFrame` fires once a frame is decoded and drawable (the mark preview
+// grabs it for the server-side render).
+const FramePreview = ({
+  src,
+  second,
+  label = "start frame preview",
+  className = styles.framePreview,
+  onFrame,
+}: {
+  src: string;
+  second: number;
+  label?: string;
+  className?: string;
+  onFrame?: (video: HTMLVideoElement) => void;
+}) => {
   const ref = useRef<HTMLVideoElement>(null);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
@@ -129,9 +283,23 @@ const FramePreview = ({ src, second }: { src: string; second: number }) => {
     return () => video.removeEventListener("loadedmetadata", seek);
   }, [second]);
 
+  // The latest callback without re-subscribing on every render.
+  const onFrameRef = useRef(onFrame);
+  useEffect(() => {
+    onFrameRef.current = onFrame;
+  });
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    const handle = () => onFrameRef.current?.(video);
+    video.addEventListener("loadeddata", handle);
+    if (video.readyState >= video.HAVE_CURRENT_DATA) handle();
+    return () => video.removeEventListener("loadeddata", handle);
+  }, [src]);
+
   if (failedSrc === src) {
     return (
-      <p className={`${styles.framePreview} ${styles.framePreviewError}`}>
+      <p className={`${className} ${styles.framePreviewError}`}>
         Can&rsquo;t preview this format.
       </p>
     );
@@ -144,9 +312,9 @@ const FramePreview = ({ src, second }: { src: string; second: number }) => {
       muted
       playsInline
       preload="auto"
-      aria-label="start frame preview"
+      aria-label={label}
       onError={() => setFailedSrc(src)}
-      className={styles.framePreview}
+      className={className}
     />
   );
 };
@@ -174,10 +342,31 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [gifFps, setGifFps] = useState<number | null>(null);
   const [gifWidth, setGifWidth] = useState<number | null>(640);
   const [videoDuration, setVideoDuration] = useState<number>(0);
+  // Frame size of the picked video, for the mark preview's aspect ratio.
+  // Null until metadata loads, or for good if the browser can't decode it.
+  const [videoDims, setVideoDims] = useState<{ w: number; h: number } | null>(
+    null,
+  );
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(
     null,
   );
+  // The "mark" tool's logo, and its frosted-glass switch.
+  const [watermark, setWatermark] = useState<File | null>(null);
+  const [watermarkUrl, setWatermarkUrl] = useState<string>("");
+  const [filterMode, setFilterMode] = useState(false);
+  // The mark preview: the grabbed frames, and the server's render of each
+  // (object URLs, slot for slot; "" until one lands), refreshed whenever the
+  // frames, logo or filter change. `scrubIndex` is the slot the pointer's
+  // horizontal position picks.
+  const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [scrubIndex, setScrubIndex] = useState(0);
+  const [previewError, setPreviewError] = useState(false);
+  const [previewZoomed, setPreviewZoomed] = useState(false);
+  // Bumped per grab (and per picked file), so a grab still seeking through
+  // the previous source drops its frames instead of landing them.
+  const grabRun = useRef(0);
   const submitRef = useRef<HTMLButtonElement>(null);
 
   // Controller for the in-flight run (upload -> process -> download). Stop
@@ -193,7 +382,152 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     return () => URL.revokeObjectURL(videoUrl);
   }, [videoUrl]);
 
+  // Same for the watermark thumbnail.
+  useEffect(() => {
+    if (!watermarkUrl) return;
+    return () => URL.revokeObjectURL(watermarkUrl);
+  }, [watermarkUrl]);
+
+  // And the rendered previews: a slot's URL is revoked once a newer render
+  // (or a reset) has pushed it out, and whatever is left goes on unmount.
+  const liveUrls = useRef<string[]>([]);
+  useEffect(() => {
+    for (const url of liveUrls.current) {
+      if (url && !previewUrls.includes(url)) URL.revokeObjectURL(url);
+    }
+    liveUrls.current = previewUrls;
+  }, [previewUrls]);
+  useEffect(
+    () => () => {
+      for (const url of liveUrls.current) if (url) URL.revokeObjectURL(url);
+    },
+    [],
+  );
+
+  // Asks the server for the composited frames. The first goes alone, so the
+  // preview is up as fast as a single render allows; the rest follow
+  // together. A change while renders are in flight abandons them (the
+  // function stops encoding when the disconnect reaches it) and starts over.
+  useEffect(() => {
+    if (frameBlobs.length === 0 || !watermark) return;
+    const controller = new AbortController();
+    (async () => {
+      setPreviewError(false);
+      const logo = await toDataUrl(watermark);
+      const render = async (blob: Blob, slot: number) => {
+        const res = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            frame: await toDataUrl(blob),
+            logo,
+            filter: filterMode,
+          }),
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Preview failed (${res.status})`);
+        const rendered = await res.blob();
+        if (controller.signal.aborted) return;
+        const url = URL.createObjectURL(rendered);
+        // The slot's last render stays up until this one replaces it.
+        setPreviewUrls((prev) =>
+          frameBlobs.map((_, i) => (i === slot ? url : (prev[i] ?? ""))),
+        );
+      };
+      await render(frameBlobs[0], 0);
+      await Promise.all(
+        frameBlobs.slice(1).map((blob, i) => render(blob, i + 1)),
+      );
+    })().catch((err: unknown) => {
+      if (controller.signal.aborted) return;
+      console.error(err);
+      setPreviewError(true);
+    });
+    return () => controller.abort();
+  }, [frameBlobs, watermark, filterMode]);
+
+  // Grabs SCRUB_FRAMES frames off the grab <video>, evenly spaced from the
+  // start (0, 1/5, 2/5… of the clip: the end itself rarely seeks to a
+  // drawable frame). A source without a usable duration gives just the
+  // frame it has loaded.
+  const grabVideoFrames = async (video: HTMLVideoElement) => {
+    const run = ++grabRun.current;
+    const count =
+      Number.isFinite(video.duration) && video.duration > 0 ? SCRUB_FRAMES : 1;
+    const blobs: Blob[] = [];
+    for (let i = 0; i < count; i++) {
+      if (i > 0) {
+        const seeked = new Promise((resolve) =>
+          video.addEventListener("seeked", resolve, { once: true }),
+        );
+        video.currentTime = (video.duration * i) / count;
+        await seeked;
+      }
+      const blob = await grabFrame(video, video.videoWidth, video.videoHeight);
+      if (run !== grabRun.current) return;
+      if (blob) blobs.push(blob);
+    }
+    setFrameBlobs(blobs);
+  };
+
+  // Same for a GIF source. ImageDecoder reaches any frame of it; without it
+  // the <img> is all there is, and a canvas always draws an animated
+  // image's first frame, so that one frame is the whole preview.
+  const grabGifFrames = async (file: File, img: HTMLImageElement) => {
+    const run = ++grabRun.current;
+    const blobs: Blob[] = [];
+    if ("ImageDecoder" in window) {
+      try {
+        const decoder = new ImageDecoder({
+          data: await file.arrayBuffer(),
+          type: file.type,
+        });
+        // `completed` = every byte is in, so the frame count is final;
+        // the track (and that count) only exists once `tracks.ready` is.
+        await Promise.all([decoder.completed, decoder.tracks.ready]);
+        const total = decoder.tracks.selectedTrack?.frameCount ?? 1;
+        const count = Math.min(SCRUB_FRAMES, total);
+        for (let i = 0; i < count; i++) {
+          const { image } = await decoder.decode({
+            frameIndex: Math.floor((total * i) / count),
+          });
+          const blob = await grabFrame(
+            image,
+            image.displayWidth,
+            image.displayHeight,
+          );
+          image.close();
+          if (blob) blobs.push(blob);
+        }
+        decoder.close();
+      } catch (err) {
+        console.error(err);
+        blobs.length = 0;
+      }
+    }
+    if (blobs.length === 0) {
+      const blob = await grabFrame(img, img.naturalWidth, img.naturalHeight);
+      if (blob) blobs.push(blob);
+    }
+    if (run !== grabRun.current) return;
+    setFrameBlobs(blobs);
+  };
+
+  // A GIF picked as the mark tool's source: previewed through an <img>,
+  // since <video> won't decode it.
+  const gifSource =
+    tool === "mark" && files.length === 1 && files[0].type === "image/gif";
+
+  // The render on show: the scrubbed slot's, or while that one is still on
+  // its way, the first that has landed. -1 = none yet (the bare frame shows).
+  const shownRender = previewUrls[scrubIndex]
+    ? scrubIndex
+    : previewUrls.findIndex(Boolean);
+
   const currentTool = TOOLS.find((t) => t.value === tool) ?? TOOLS[0];
+
+  // Everything the run needs has been picked. The mark tool wants two files.
+  const ready = files.length > 0 && (tool !== "mark" || watermark !== null);
 
   // Signed speed ratio → playback multiplier: ±1 → 2× faster/slower,
   // ±3 → 4×. Mirrored in api/process.ts.
@@ -219,18 +553,33 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     );
     setFiles(sorted);
     setVideoDuration(0);
+    setVideoDims(null);
+    grabRun.current++;
+    setFrameBlobs([]);
+    setPreviewUrls([]);
+    setScrubIndex(0);
     setVideoUrl("");
     setImageDims(null);
 
     const first = sorted[0];
-    if (!currentTool.input.multiple && first.type.startsWith("video/")) {
+    // The mark tool also takes a GIF as its source; its size is read from
+    // the preview's <img> when it loads, so no probe is needed here.
+    const isGif = tool === "mark" && first.type === "image/gif";
+    if (
+      !currentTool.input.multiple &&
+      (first.type.startsWith("video/") || isGif)
+    ) {
       const url = URL.createObjectURL(first);
       setVideoUrl(url);
-      // Get video duration when a single video is selected
+      if (isGif) return;
+      // Get video duration and frame size when a single video is selected
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
         setVideoDuration(Math.floor(video.duration));
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          setVideoDims({ w: video.videoWidth, h: video.videoHeight });
+        }
       };
       video.src = url;
     } else if (first.type.startsWith("image/")) {
@@ -245,46 +594,16 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     }
   };
 
-  const pick = (e: ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(e.target.files ?? []);
-    if (picked.length) addFiles(picked);
-  };
-
-  // Drag enter/leave also fire on the drop zone's children, so a plain
-  // boolean would flicker off mid-drag; the depth counter only clears once
-  // the drag truly leaves the zone.
-  const dragDepth = useRef(0);
-  const [dragging, setDragging] = useState(false);
-
-  const dragEnter = (e: DragEvent) => {
-    e.preventDefault();
-    dragDepth.current += 1;
-    setDragging(true);
-  };
-
-  const dragLeave = () => {
-    dragDepth.current -= 1;
-    if (dragDepth.current <= 0) {
-      dragDepth.current = 0;
-      setDragging(false);
-    }
-  };
-
-  const drop = (e: DragEvent) => {
-    e.preventDefault();
-    dragDepth.current = 0;
-    setDragging(false);
-    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
-      matchesAccept(f, currentTool.input.accept),
-    );
-    if (!dropped.length) return;
-    addFiles(currentTool.input.multiple ? dropped : dropped.slice(0, 1));
+  const pickWatermark = ([picked]: File[]) => {
+    setErrorDetail(null);
+    setWatermark(picked);
+    setWatermarkUrl(URL.createObjectURL(picked));
   };
 
   const submit = async () => {
     // The button is only aria-disabled, so unusable states are rejected here
     // rather than by the browser
-    if (!files.length || busy) return;
+    if (!ready || busy) return;
     setBusy(true);
     setErrorDetail(null);
 
@@ -297,19 +616,28 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
     let resultUrl: string | null = null;
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        setMsg(
-          files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading",
-        );
-        const blob = await upload(files[i].name, files[i], {
+      const send = (file: File) =>
+        upload(file.name, file, {
           access: "public",
           handleUploadUrl: "/api/upload",
           // Browsers report no type for some containers (.avi, .mkv on
           // certain systems); fall back so the upload token isn't refused.
-          contentType: files[i].type || "application/octet-stream",
+          contentType: file.type || "application/octet-stream",
           abortSignal: signal,
         });
-        blobUrls.push(blob.url);
+
+      for (let i = 0; i < files.length; i++) {
+        setMsg(
+          files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading",
+        );
+        blobUrls.push((await send(files[i])).url);
+      }
+
+      let logoUrl: string | undefined;
+      if (tool === "mark" && watermark) {
+        setMsg("Uploading watermark");
+        logoUrl = (await send(watermark)).url;
+        blobUrls.push(logoUrl);
       }
 
       setMsg("Processing");
@@ -325,31 +653,37 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             }
           : tool === "speed"
             ? { blobUrl: blobUrls[0], options: { speed } }
-            : tool === "convert"
+            : tool === "mark"
               ? {
                   blobUrl: blobUrls[0],
-                  options: {
-                    target: effectiveTarget,
-                    quality,
-                    ...(effectiveTarget === "gif"
-                      ? {
-                          // fps stays home when empty: the server then
-                          // matches the source framerate
-                          ...(gifFps != null ? { fps: gifFps } : {}),
-                          width: gifWidth ?? 640,
-                        }
-                      : {}),
-                  },
+                  watermarkUrl: logoUrl,
+                  options: { filter: filterMode, quality },
                 }
-              : {
-                  blobUrl: blobUrls[0],
-                  options: {
-                    technique,
-                    fadeDuration: fadeDuration ?? 0.5,
-                    startSecond: startSecond ?? 0,
-                    quality,
-                  },
-                };
+              : tool === "convert"
+                ? {
+                    blobUrl: blobUrls[0],
+                    options: {
+                      target: effectiveTarget,
+                      quality,
+                      ...(effectiveTarget === "gif"
+                        ? {
+                            // fps stays home when empty: the server then
+                            // matches the source framerate
+                            ...(gifFps != null ? { fps: gifFps } : {}),
+                            width: gifWidth ?? 640,
+                          }
+                        : {}),
+                    },
+                  }
+                : {
+                    blobUrl: blobUrls[0],
+                    options: {
+                      technique,
+                      fadeDuration: fadeDuration ?? 0.5,
+                      startSecond: startSecond ?? 0,
+                      quality,
+                    },
+                  };
       const res = await fetch("/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -371,7 +705,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
       const downloadName =
         resultName || files[0].name.replace(/\.[^.]+$/, "") + "_loop.mp4";
 
-      setMsg(`Downloading ${downloadName}`);
+      setMsg(`Downloading ${downloadName.slice(0, 28)}`);
       // Result lives on Blob storage (cross-origin), where the anchor
       // `download` attribute is ignored — fetch to an object URL instead.
       const fileRes = await fetch(url, { signal });
@@ -416,50 +750,32 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   return (
     <>
       <div className={styles.container}>
-        {/* One element serves both entry paths: as a <label> around the
-            (visually hidden) file input a click anywhere on it opens the
-            native picker, and the drag handlers make the same surface the
-            drop target. The input keeps the aria-label, so the zone is
-            announced — and tested — through it. */}
-        <label
-          className={`${styles.dropZone}${dragging ? ` ${styles.dropZoneActive}` : ""}`}
-          onDragEnter={dragEnter}
-          onDragOver={(e) => e.preventDefault()}
-          onDragLeave={dragLeave}
-          onDrop={drop}
-        >
-          <input
-            aria-label={currentTool.input.pickerLabel}
-            type="file"
-            accept={currentTool.input.accept}
-            multiple={currentTool.input.multiple}
-            onChange={pick}
-            className={styles.dropZoneInput}
-          />
-          {files.length > 0 ? (
-            <span className={styles.dropZoneFile}>
-              {files.length === 1 ? files[0].name : `${files.length} files`}
-            </span>
-          ) : (
-            <span className={styles.dropZoneLabel}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 8 8"
-              >
-                <path
-                  fill="currentColor"
-                  d="M4.354 2.356v4.641h-.707v-4.64L1.5 4.502l-.5-.5 3-3 3 3-.5.5z"
-                />
-              </svg>
+        <DropZone
+          accept={currentTool.input.accept}
+          multiple={currentTool.input.multiple}
+          pickerLabel={currentTool.input.pickerLabel}
+          files={files}
+          onFiles={addFiles}
+        />
 
-              <span>{currentTool.input.pickerLabel}</span>
-            </span>
-          )}
-          <span className={styles.dropZoneHint}>
-            {files.length > 0 ? "click/drop to replace" : "or drop it here"}
-          </span>
-        </label>
+        {tool === "mark" && (
+          <DropZone
+            accept={WATERMARK_ACCEPT}
+            multiple={false}
+            pickerLabel="choose watermark"
+            files={watermark ? [watermark] : []}
+            onFiles={pickWatermark}
+            preview={
+              watermarkUrl && (
+                <img
+                  src={watermarkUrl}
+                  alt=""
+                  className={styles.dropZoneThumb}
+                />
+              )
+            }
+          />
+        )}
       </div>
 
       <div className={styles.container}>
@@ -702,26 +1018,157 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
           </>
         )}
 
-        {/* {videoDuration > 0 && (
-          <small className={styles.label}>
-            Video length: {videoDuration} seconds
-          </small>
-        )} */}
-        {/* A natively disabled button dispatches no pointer events, so the
-            tooltip explaining why it can't be pressed would never open. It
-            carries aria-disabled instead, which leaves it hoverable and in
-            the tab order; submit() rejects the unusable states. The tooltip
-            only speaks for the missing-file case, so it's switched off once
-            files are picked (the button is also disabled while busy). */}
+        {tool === "mark" && (
+          <>
+            {/* Frames of the clip, watermarked by the server with the real
+                graph; moving the pointer across the box scrubs through
+                them. The bare first frame shows until a render lands (and
+                stays as the fallback if it fails); a format the browser
+                can't decode shows the frame's own note instead. The aspect
+                box waits for the video's metadata. */}
+            {videoUrl && watermarkUrl && (
+              <div
+                className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
+                onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
+                style={{
+                  aspectRatio: videoDims
+                    ? `${videoDims.w} / ${videoDims.h}`
+                    : "16 / 9",
+                }}
+              >
+                <figure
+                  aria-label="watermark preview"
+                  className={styles.markPreview}
+                  style={{
+                    aspectRatio: videoDims
+                      ? `${videoDims.w} / ${videoDims.h}`
+                      : "16 / 9",
+                  }}
+                >
+                  {/* The bare frame is the render's stand-in, so once a
+                    render is up it is hidden rather than left showing
+                    through — a GIF would otherwise be seen playing
+                    underneath. */}
+                  {gifSource ? (
+                    <img
+                      src={videoUrl}
+                      alt="first frame"
+                      className={
+                        shownRender >= 0
+                          ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                          : styles.markPreviewFrame
+                      }
+                      onLoad={(e) => {
+                        const img = e.currentTarget;
+                        setVideoDims({
+                          w: img.naturalWidth,
+                          h: img.naturalHeight,
+                        });
+                        grabGifFrames(files[0], img);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <FramePreview
+                        src={videoUrl}
+                        second={0}
+                        label="first frame"
+                        className={
+                          shownRender >= 0
+                            ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                            : styles.markPreviewFrame
+                        }
+                      />
+                      {/* The frames are grabbed off a second, undisplayed
+                        <video>, so its seeking never shows through the bare
+                        frame above. */}
+                      <FramePreview
+                        src={videoUrl}
+                        second={0}
+                        label="frame grab source"
+                        className={styles.markPreviewGrab}
+                        onFrame={grabVideoFrames}
+                      />
+                    </>
+                  )}
+                  {/* Every landed render is stacked here and only the
+                    scrubbed one shown, so scrubbing never waits on an image
+                    decode. A slot's last render stays up, unchanged, until
+                    the next one replaces it. */}
+                  {previewUrls.map(
+                    (url, i) =>
+                      url && (
+                        <img
+                          key={i}
+                          src={url}
+                          alt={i === shownRender ? "watermarked frame" : ""}
+                          className={
+                            i === shownRender
+                              ? styles.markPreviewRender
+                              : `${styles.markPreviewRender} ${styles.markPreviewFrameHidden}`
+                          }
+                        />
+                      ),
+                  )}
+                </figure>
+                {/* One invisible strip per grabbed frame, side by side
+                  across the box: the one under the pointer picks the frame.
+                  They sit outside the figure so its zoom doesn't stretch
+                  them. */}
+                {frameBlobs.length > 1 && (
+                  <div className={styles.markPreviewScrub} aria-hidden="true">
+                    {frameBlobs.map((_, i) => (
+                      <div key={i} onPointerEnter={() => setScrubIndex(i)} />
+                    ))}
+                  </div>
+                )}
+                {previewError && (
+                  <figcaption className={styles.markPreviewNote}>
+                    Preview unavailable
+                  </figcaption>
+                )}
+              </div>
+            )}
+
+            {/* The glass takes its shape from the logo, so the switch waits
+                for one. */}
+            {watermark && (
+              <div className={styles.switchRow}>
+                <label htmlFor="filterMode" className={styles.label}>
+                  Glass
+                </label>
+                <Switch
+                  id="filterMode"
+                  checked={filterMode}
+                  onCheckedChange={setFilterMode}
+                  disabled={busy}
+                />
+              </div>
+            )}
+
+            <div className={styles.formGroup}>
+              <Slider
+                label={<>Quality {quality}%</>}
+                value={quality}
+                onValueChange={setQuality}
+                min={0}
+                max={100}
+                step={1}
+                disabled={busy}
+              />
+            </div>
+          </>
+        )}
+
         <div className={styles.actions}>
           <Tooltip
-            disabled={files.length > 0}
-            content="Upload a file"
+            disabled={ready}
+            content={files.length ? "Upload a watermark" : "Upload a file"}
             render={
               <button
                 ref={submitRef}
                 onClick={submit}
-                aria-disabled={!files.length || busy}
+                aria-disabled={!ready || busy}
                 className={styles.button}
               />
             }
@@ -729,8 +1176,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
             {busy ? status && status : currentTool.actionLabel}
             {busy && <div className={styles.spinner} />}
           </Tooltip>
-          {/* Stays mounted so it can fade both ways; `hidden` keeps it out
-              of the tab order and the accessibility tree in between. */}
+
           <button
             type="button"
             onClick={stop}

@@ -10,6 +10,10 @@
       "maxDuration": 300,
       "includeFiles": "{node_modules/ffmpeg-static/**,api/_bin/gifski/linux/**}"
     },
+    "api/preview.ts": {
+      "maxDuration": 60,
+      "includeFiles": "{node_modules/ffmpeg-static/**,api/_bin/gifski/linux/**}"
+    },
     "api/upload.ts": { "maxDuration": 30 }
   }
 }
