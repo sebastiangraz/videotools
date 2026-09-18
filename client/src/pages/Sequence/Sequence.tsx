@@ -11,7 +11,7 @@ import form from "../form.module.css";
 
 const TOOL = toolById("sequence");
 
-// Mirrored in api/process.ts (VALID_FORMATS)
+// Mirrored in api/_lib/tools/sequence.ts (VALID_FORMATS)
 const FORMATS = [
   { value: "mp4", label: "MP4" },
   { value: "gif", label: "GIF" },

@@ -12,7 +12,7 @@ import form from "../form.module.css";
 
 const TOOL = toolById("loop");
 
-// Looping techniques. Mirrored in api/process.ts (VALID_TECHNIQUES)
+// Looping techniques. Mirrored in api/_lib/tools/loop.ts (VALID_TECHNIQUES)
 const TECHNIQUES = [
   { value: "crossfade", label: "Crossfade" },
   { value: "reverse", label: "Forward & reverse" },

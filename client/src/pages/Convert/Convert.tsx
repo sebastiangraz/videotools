@@ -11,7 +11,7 @@ import form from "../form.module.css";
 
 const TOOL = toolById("convert");
 
-// Mirrored in api/process.ts (CONVERT_TARGETS). GIF is encoded by gifski
+// Mirrored in api/_lib/encode/index.ts (ENCODERS). GIF is encoded by gifski
 // server-side, the rest by ffmpeg — the dropdown deliberately doesn't
 // distinguish.
 const CONVERT_TARGETS = [

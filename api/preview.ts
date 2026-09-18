@@ -4,7 +4,8 @@ import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
 
-import VideoProcessor from "./_lib/video-processor.js";
+import { FFmpeg } from "./_lib/ffmpeg.js";
+import { renderWatermarkFrame } from "./_lib/tools/mark.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 // Renders the "mark" tool's preview: the browser sends the video's first
@@ -56,8 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await fsp.writeFile(framePath, frameImage);
     await fsp.writeFile(logoPath, logoImage);
 
-    const processor = new VideoProcessor(ffmpegPath, gifskiPath, abort.signal);
-    const outputPath = await processor.renderWatermarkFrame(
+    const outputPath = await renderWatermarkFrame(
+      new FFmpeg(ffmpegPath, gifskiPath, abort.signal),
       framePath,
       logoPath,
       workDir,

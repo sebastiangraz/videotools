@@ -1,7 +1,7 @@
 const VIDEO_ACCEPT =
   "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts";
 
-// Available tools. Mirrored in api/process.ts (VALID_TOOLS); each tool's
+// Available tools. Mirrored in api/_lib/tools/index.ts (TOOLS); each tool's
 // page (its options and request payload) is a component under pages/,
 // registered in pages/index.ts. Also drives the routes and tab navigation
 // in App.tsx, where `description` fills the tab's preview card (keep it
