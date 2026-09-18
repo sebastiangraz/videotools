@@ -604,7 +604,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
       const downloadName =
         resultName || files[0].name.replace(/\.[^.]+$/, "") + "_loop.mp4";
 
-      setMsg(`Downloading ${downloadName.slice(0, 24)}`);
+      setMsg(`Downloading ${downloadName.slice(0, 28)}`);
       // Result lives on Blob storage (cross-origin), where the anchor
       // `download` attribute is ignored — fetch to an object URL instead.
       const fileRes = await fetch(url, { signal });
