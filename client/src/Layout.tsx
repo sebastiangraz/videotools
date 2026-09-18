@@ -1,11 +1,11 @@
 import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useRef } from "react";
-import { VideoToolUploader } from "./VideoToolUploader";
-import { TOOLS } from "./tools";
+import { PAGES } from "./pages";
+import { TOOLS, type ToolId } from "./tools";
 import { PreviewCard } from "./components/PreviewCard/PreviewCard";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import appStyles from "./index.module.css";
-import styles from "./VideoToolUploader.module.css";
+import styles from "./Layout.module.css";
 
 const Logo = () => {
   return (
@@ -97,7 +97,10 @@ export const Layout = () => {
 };
 
 export const ToolPage = () => {
+  // The route only lets known tools through (see beforeLoad in App.tsx).
+  // Every tool is its own component, so a tab change unmounts the old page
+  // and all of its state — picked files included — goes with it.
   const { tool } = useParams({ from: "/$tool" });
-  // Keyed remount resets all uploader state when the tool changes
-  return <VideoToolUploader key={tool} tool={tool} />;
+  const Page = PAGES[tool as ToolId];
+  return <Page />;
 };

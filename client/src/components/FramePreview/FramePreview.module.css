@@ -1,0 +1,21 @@
+.framePreview {
+  display: flex;
+  width: 14rem;
+  max-width: 100%;
+  box-shadow: var(--raised);
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  overflow: hidden;
+  background-color: var(--bg-1);
+}
+
+.framePreviewError {
+  font-size: 10px;
+  padding: 2em;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  text-align: left;
+  text-wrap: balance;
+  margin: 0;
+}

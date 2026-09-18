@@ -12,8 +12,8 @@ import VideoProcessor from "./_lib/video-processor.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { sweepStaleBlobs } from "./_lib/blob-sweep.js";
 
-// Mirrored in client/src/tools.ts (TOOLS) and VideoToolUploader.tsx
-// (TECHNIQUES / FORMATS / CONVERT_TARGETS)
+// Mirrored in client/src/tools.ts (TOOLS) and the tool pages under
+// client/src/pages/ (TECHNIQUES / FORMATS / CONVERT_TARGETS)
 const VALID_TOOLS = ["loop", "sequence", "speed", "convert", "mark"];
 const VALID_TECHNIQUES = ["reverse", "crossfade"];
 const VALID_FORMATS = ["mp4", "gif", "avif"];
@@ -234,7 +234,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contentType = CONTENT_TYPES[target];
     } else if (tool === "speed") {
       // Signed ratio: ±1 → 2× faster/slower, ±3 → 4×. Mirrored in
-      // client/src/VideoToolUploader.tsx.
+      // client/src/pages/Speed/Speed.tsx.
       const speed = clamp(options.speed, -3, 3, 0);
       const multiplier = speed >= 0 ? 1 + speed : 1 / (1 - speed);
 

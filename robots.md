@@ -17,8 +17,15 @@ videotools/
 │     └─ video-processor.ts  # ffmpeg/gifski pipeline (loops, sequences, conversion, watermarks)
 ├─ client/               # React + Vite frontend
 │  └─ src/
-│     ├─ VideoToolUploader.tsx      # Upload component
-│     └─ VideoToolUploader.test.tsx # Component tests
+│     ├─ App.tsx            # Routes (/$tool); App.test.tsx covers routing, drop zone and the run pipeline
+│     ├─ Layout.tsx         # Header + tabs; ToolPage resolves the tool's page from pages/index.ts
+│     ├─ tools.ts           # TOOLS registry (tab label, description, input accept, action label)
+│     ├─ pages/             # One folder per tool: <Tool>.tsx (state, options UI, request payload) + <Tool>.test.tsx
+│     │  ├─ index.ts        # PAGES: tool id → page component (typed, so a tool without a page fails to compile)
+│     │  └─ form.module.css # Form-row classes shared by the pages
+│     ├─ components/        # ToolPanel (page frame: containers, action/Stop buttons, error box, credits), DropZone, FramePreview, Base UI wrappers
+│     ├─ hooks/             # useToolRun (upload → process → download, abort, cleanup), useVideoSource (object URL, duration, frame size)
+│     └─ test/              # vitest setup (blob mock, jsdom stubs) + renderApp helper
 ├─ vercel.json           # Function memory/duration config
 └─ package.json          # Root package (npm workspaces: client)
 ```
@@ -33,7 +40,7 @@ A **Stop** button fades in next to the action button while a run is in flight. I
 
 ## Tools
 
-Each tool is a tab with its own URL (`/loop`, `/sequence`, `/speed`, `/convert`, `/mark` — TanStack Router; `/` and unknown paths redirect to `/loop`); adding a tool means one entry in `TOOLS` (client) + `VALID_TOOLS` (server) and a conditional options block in the component — routes, tabs and the SPA rewrite need no changes (the rewrite in `vercel.json` is a catch-all that already excludes `api/` and Vite's module URLs).
+Each tool is a tab with its own URL (`/loop`, `/sequence`, `/speed`, `/convert`, `/mark` — TanStack Router; `/` and unknown paths redirect to `/loop`); adding a tool means one entry in `TOOLS` (client) + `VALID_TOOLS` (server), a page component under `client/src/pages/` and its line in `PAGES` (`pages/index.ts`) — routes, tabs and the SPA rewrite need no changes (the rewrite in `vercel.json` is a catch-all that already excludes `api/` and Vite's module URLs).
 
 - **Loop**: seamless video loop. Options: `technique` — `reverse` (plays the video forward then reversed, no further options) or `crossfade` (adds `fadeDuration` in seconds and `startSecond` to choose the first frame, for thumbnails/social media) — and `quality` (1–100 slider, maps to the x264 CRF of the output; intermediate clips are always encoded near-lossless so quality is only spent once). Output is mp4, which is never fully lossless: quality 100 uses CRF 1 (visually lossless) because true lossless x264 forces a profile most players can't decode.
 - **Video speed**: speed a clip up or slow it down. Option: `speed` slider from −3 to +3 (0 = unchanged, center). The value is a signed ratio: +1 plays 2× faster (10 s → 5 s), −1 plays 2× slower (10 s → 20 s), ±3 → 4×. Audio is dropped (as in the other tools).
