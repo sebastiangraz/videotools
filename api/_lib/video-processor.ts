@@ -65,7 +65,7 @@ const MARK = {
   // instead of the full frost. Small islands and thin strokes are bevel all
   // the way through, so without it hard backdrop edges cut straight across
   // them; big shapes still ramp from this at the rim to blurRatio inside.
-  minBlurRatio: 0.001, //0.0015
+  minBlurRatio: 0.0008, //0.0015
   saturation: 1.8, //1.35
   tint: 0.12, //0.22
   // Bevel width, as a fraction of the logo's shorter drawn side rather than
@@ -118,7 +118,7 @@ const MARK = {
   shadowOpacity: 0.08, //0.35
   // The logo's own pixels over the glass: a white logo brightens it, a dark
   // one smokes it, a coloured one tints it.
-  logoOpacity: 0.12, //0.45
+  logoOpacity: 0.07, //0.45
 };
 
 /**
