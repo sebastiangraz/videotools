@@ -72,10 +72,10 @@ const MARK = {
   // moves at most 127 map px (63px of video at the 2× the lens runs at), so
   // anything past about 0.059 also flattens the top of the curve: more of
   // the bevel bends by the full amount, which is the thick-lens look.
-  refractRatio: 0.088,
+  refractRatio: 0.088, //0.088
   // Chromatic split: red is displaced (1 − chroma)×, blue (1 + chroma)×,
   // green as is. Subtle on purpose, a hint of colour on contrasty edges.
-  chroma: 0.15, //0.15
+  chroma: 0.08, //0.15
   // Where the light comes from, in degrees clockwise from the top (−45 is
   // top-left), and the rim it lights: a stroke along the inside of the edge
   // (1px at 720p, scaling up) at rimOpacity where the edge faces the light,
