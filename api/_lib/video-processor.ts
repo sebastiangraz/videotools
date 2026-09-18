@@ -8,17 +8,15 @@ type RunOptions = { cwd?: string };
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
 // What `ffmpeg -i` reports about an input. `fps` is null when no frame rate
-// is printed; callers fall back to 30. `codec` is the decoder name ("h264",
-// "png", "gif", ...). `matrix` is the YUV↔RGB matrix the stream is tagged
-// with, in the scale filter's names; RGB inputs (PNG, GIF) count as bt601,
-// which is what their conversion to YUV produces, and null means an
-// untagged YUV stream.
+// is printed; callers fall back to 30. `matrix` is the YUV↔RGB matrix the
+// stream is tagged with, in the scale filter's names; RGB inputs (PNG, GIF)
+// count as bt601, which is what their conversion to YUV produces, and null
+// means an untagged YUV stream.
 type MediaInfo = {
   duration: number;
   width: number;
   height: number;
   fps: number | null;
-  codec: string;
   matrix: "bt709" | "bt601" | "bt2020" | null;
 };
 
@@ -906,10 +904,9 @@ class VideoProcessor {
   }
 
   /**
-   * Stamps `logoFile` (png / jpg / gif / webp) onto the bottom-right corner
-   * of `inputFile`. With `filter` the logo's alpha becomes the shape of a
-   * glass lens (see MARK) instead of a plain overlay. Animated GIFs
-   * loop for the length of the video. Audio is kept. Output is mp4.
+   * Stamps `logoFile` (a PNG) onto the bottom-right corner of `inputFile`.
+   * With `filter` the logo's alpha becomes the shape of a glass lens (see
+   * MARK) instead of a plain overlay. Audio is kept. Output is mp4.
    */
   async addWatermark(
     inputFile: string,
@@ -924,7 +921,7 @@ class VideoProcessor {
 
     const video = await this.mediaInfo(inputFile);
     const logo = await this.mediaInfo(logoFile);
-    const { graph, animated } = VideoProcessor.watermarkGraph(
+    const graph = VideoProcessor.watermarkGraph(
       video,
       logo,
       filter,
@@ -936,11 +933,8 @@ class VideoProcessor {
       "-y",
       "-i",
       inputFile,
-      // A still image is a one-frame stream, which overlay simply holds for
-      // the whole video. A GIF plays through once and would freeze on its
-      // last frame, so it is looped at the demuxer instead (regardless of
-      // the file's own loop count) and the graph ends with the video.
-      ...(animated ? ["-stream_loop", "-1"] : []),
+      // The logo is a one-frame stream, which overlay simply holds for the
+      // whole video.
       "-i",
       logoFile,
       "-filter_complex",
@@ -983,7 +977,7 @@ class VideoProcessor {
   ): Promise<string> {
     const frame = await this.mediaInfo(frameFile);
     const logo = await this.mediaInfo(logoFile);
-    const { graph, animated } = VideoProcessor.watermarkGraph(
+    const graph = VideoProcessor.watermarkGraph(
       frame,
       logo,
       filter,
@@ -995,9 +989,6 @@ class VideoProcessor {
       "-y",
       "-i",
       frameFile,
-      // A GIF logo shows its first frame; the loop just keeps the graph's
-      // sync options identical to the real encode.
-      ...(animated ? ["-stream_loop", "-1"] : []),
       "-i",
       logoFile,
       "-filter_complex",
@@ -1070,7 +1061,7 @@ class VideoProcessor {
     logo: MediaInfo,
     filter: boolean,
     bounds: Bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
-  ): { graph: string; animated: boolean } {
+  ): string {
     const { VW, VH, LW, LH, margin, LX, LY } = VideoProcessor.watermarkLayout(
       video,
       bounds,
@@ -1083,12 +1074,6 @@ class VideoProcessor {
       ? `,crop=${bounds.width}:${bounds.height}:${bounds.x}:${bounds.y}`
       : "";
 
-    const animated = logo.codec === "gif";
-    // Looping the GIF makes it an endless stream, so every filter that syncs
-    // a video-derived stream with a logo-derived one must stop with the video.
-    const shortest = animated ? ":shortest=1" : "";
-    const stop = animated ? "=shortest=1" : "";
-
     // The logo is scaled premultiplied and turned back to straight alpha:
     // scaled as is, the (usually black) colour of its transparent pixels
     // bleeds into the antialiased edge and rims a light logo in dark.
@@ -1099,12 +1084,11 @@ class VideoProcessor {
     // phone footage) would otherwise reach the final overlay through a
     // different conversion than the glass patch and leave a faint box.
     if (!filter) {
-      const graph = [
+      return [
         `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0[base]`,
         `[1:v]format=rgba${trim},${scaleLogo}[logo]`,
-        `[base][logo]overlay=x=${LX}:y=${LY}${shortest},format=yuv420p[out]`,
+        `[base][logo]overlay=x=${LX}:y=${LY},format=yuv420p[out]`,
       ].join(";");
-      return { graph, animated };
     }
 
     // The glass is built on a "cell": the logo box plus `margin` of padding
@@ -1238,7 +1222,7 @@ class VideoProcessor {
       `lutrgb=${whiten(MARK.rimWhite, MARK.rimGain)}`,
     ].join(",");
 
-    const graph = [
+    return [
       `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0,split[base][src]`,
       // The patch of video under the cell, to refract, and a transparent
       // canvas of the same size and timing to stack the layers on. Both
@@ -1275,8 +1259,8 @@ class VideoProcessor {
       `[pr]format=gray[cr]`,
       `[pg]format=gray[cg]`,
       `[pb]format=gray[cb]`,
-      // (displace has no sync options: it always stops with its source and
-      // repeats the maps, which is what both a still and a looped GIF need.)
+      // (displace stops with its source and repeats the maps, which is what
+      // a still logo needs.)
       `[cr][xr][yr]displace=edge=mirror[dr]`,
       `[cg][xg][yg]displace=edge=mirror[dg]`,
       `[cb][xb][yb]displace=edge=mirror[db]`,
@@ -1284,14 +1268,13 @@ class VideoProcessor {
       // Frosted fill: blurred where the heightfield is flat, the barely
       // blurred (minBlurRatio) refracted backdrop where it is still rising
       // (the bevel, laid over the frost with the inverted heightfield as its
-      // alpha; maskedmerge would do it in one but can't stop with the
-      // video); then saturated and lightened, and shaped by the logo's alpha.
+      // alpha); then saturated and lightened, and shaped by the logo's alpha.
       `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
       `[h3]scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
       `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
-      `[soft][bevelMask]alphamerge${stop}[bevel]`,
-      `[frost][bevel]overlay=format=auto${shortest},colorchannelmixer=${saturate},lutrgb=${tint}[fill]`,
-      `[fill][m1]alphamerge${stop}[glass]`,
+      `[soft][bevelMask]alphamerge[bevel]`,
+      `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturate},lutrgb=${tint}[fill]`,
+      `[fill][m1]alphamerge[glass]`,
       // Rim: the mask minus itself eroded by a pixel or so, lit by the
       // edge's slope towards the light, painted with the vivid backdrop
       // (softened first, so the stroke's colour doesn't flicker with detail).
@@ -1300,7 +1283,7 @@ class VideoProcessor {
       `[m3][eroded]blend=all_mode=subtract[band]`,
       `[light][band]blend=all_mode=multiply[rimAlpha]`,
       `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
-      `[paint][rimAlpha]alphamerge${stop},colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
+      `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
       // Ambient gradient: white towards the light, black away from it, with
       // the mask (which the gray→rgba conversion put in r) as its alpha.
       `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${MARK.ambient},${(MARK.ambient * MARK.ambientShade).toFixed(3)})'[ambient]`,
@@ -1312,14 +1295,13 @@ class VideoProcessor {
       // Stack the layers on the transparent canvas and lay that on the
       // frame: only pixels the glass or its shadow cover are touched, so no
       // conversion round trip can leave the cell showing as a faint box.
-      `[canvas][shadow]overlay=x=0:y=${shadowDy}:format=auto${shortest}[c1]`,
-      `[c1][glass]overlay=format=auto${shortest}[c2a]`,
-      `[c2a][ambient]overlay=format=auto${shortest}[c2]`,
-      `[c2][rim]overlay=format=auto${shortest}[c3]`,
-      `[c3][faint]overlay=format=auto${shortest},scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p[cell]`,
-      `[base][cell]overlay=x=${CX}:y=${CY}${shortest},format=yuv420p[out]`,
+      `[canvas][shadow]overlay=x=0:y=${shadowDy}:format=auto[c1]`,
+      `[c1][glass]overlay=format=auto[c2a]`,
+      `[c2a][ambient]overlay=format=auto[c2]`,
+      `[c2][rim]overlay=format=auto[c3]`,
+      `[c3][faint]overlay=format=auto,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p[cell]`,
+      `[base][cell]overlay=x=${CX}:y=${CY},format=yuv420p[out]`,
     ].join(";");
-    return { graph, animated };
   }
 
   async changeSpeed(inputFile: string, multiplier: number): Promise<string> {
@@ -1497,9 +1479,9 @@ class VideoProcessor {
   // The part of a logo that is actually visible: many assets carry empty
   // canvas around the mark (a logotype exported on a square, uneven
   // margins), and sized and placed by the canvas they come out small and
-  // off the corner. bbox logs the box of the alpha above min_val per frame;
-  // an opaque image (format=rgba gives it a solid alpha) reports its whole
-  // frame. A failed pass just means no trimming.
+  // off the corner. bbox logs the box of the alpha above min_val; an opaque
+  // image (format=rgba gives it a solid alpha) reports its whole frame. A
+  // failed pass just means no trimming.
   async logoBounds(logoFile: string, logo: MediaInfo): Promise<Bounds> {
     const { stderr } = await this.run(this.ffmpeg, [
       "-hide_banner",
@@ -1514,21 +1496,15 @@ class VideoProcessor {
     return VideoProcessor.parseBounds(stderr, logo.width, logo.height);
   }
 
-  // Parses bbox's log lines, e.g.
+  // Parses bbox's log line, e.g.
   //   [Parsed_bbox_2 @ 0x...] n:0 pts:0 pts_time:0 x1:50 x2:349 y1:160
   //     y2:239 w:300 h:80 crop=300:80:50:160 drawbox=50:160:300:80
-  // into the union over all frames, so an animated GIF keeps everything it
-  // ever shows. A frame with nothing visible logs no coordinates; with none
-  // at all the bounds are the whole image.
+  // A logo with nothing visible logs no coordinates; the bounds are then the
+  // whole image.
   static parseBounds(log: string, width: number, height: number): Bounds {
-    let [x1, y1, x2, y2] = [width, height, -1, -1];
-    for (const m of log.matchAll(/ x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/g)) {
-      x1 = Math.min(x1, Number(m[1]));
-      x2 = Math.max(x2, Number(m[2]));
-      y1 = Math.min(y1, Number(m[3]));
-      y2 = Math.max(y2, Number(m[4]));
-    }
-    if (x2 < x1 || y2 < y1 || x2 >= width || y2 >= height) {
+    const m = / x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/.exec(log);
+    const [x1, x2, y1, y2] = (m ?? []).slice(1).map(Number);
+    if (!m || x2 < x1 || y2 < y1 || x2 >= width || y2 >= height) {
       return { x: 0, y: 0, width, height };
     }
     return { x: x1, y: y1, width: x2 - x1 + 1, height: y2 - y1 + 1 };
@@ -1550,7 +1526,6 @@ class VideoProcessor {
     const fields = video.slice(video.indexOf(": Video: ")).split(", ");
     const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
     if (!size) return null;
-    const codec = /: Video: (\w+)/.exec(video)?.[1] ?? "";
     // The pixel format field reads e.g. "yuv420p(tv, bt709, progressive)" or
     // "yuvj444p(pc, bt470bg/unknown/unknown)": the colour item is one name
     // when matrix, primaries and transfer agree, else matrix/primaries/trc.
@@ -1581,7 +1556,6 @@ class VideoProcessor {
       width: Number(size[1]),
       height: Number(size[2]),
       fps: Number.isFinite(fps) && fps > 0 ? fps : null,
-      codec,
       matrix,
     };
   }

@@ -139,20 +139,6 @@ describe("parseBounds", () => {
     ).toEqual({ x: 50, y: 160, width: 300, height: 80 });
   });
 
-  it("takes the union over an animation's frames, skipping empty ones", () => {
-    const log = [
-      line(0, 50, 100, 60, 90),
-      "[Parsed_bbox_2 @ 000001526dfafdc0] n:1 pts:1 pts_time:1",
-      line(2, 80, 300, 20, 70),
-    ].join("\n");
-    expect(VideoProcessor.parseBounds(log, 400, 400)).toEqual({
-      x: 50,
-      y: 20,
-      width: 251,
-      height: 71,
-    });
-  });
-
   it("falls back to the whole image when nothing is reported", () => {
     const full = { x: 0, y: 0, width: 400, height: 300 };
     expect(VideoProcessor.parseBounds("", 400, 300)).toEqual(full);
@@ -167,27 +153,21 @@ describe("parseBounds", () => {
 });
 
 describe("watermarkGraph", () => {
-  const info = (width: number, height: number, codec: string) => ({
+  const info = (width: number, height: number) => ({
     duration: 0,
     width,
     height,
     fps: null,
-    codec,
     matrix: null,
   });
-  const video = info(1920, 1080, "h264");
-  const logo = info(400, 400, "png");
+  const video = info(1920, 1080);
+  const logo = info(400, 400);
 
   it("crops a logo to its visible bounds and lays it out by them", () => {
     const bounds = { x: 50, y: 160, width: 300, height: 80 };
     const l = VideoProcessor.watermarkLayout(video, bounds);
     for (const filter of [false, true]) {
-      const { graph } = VideoProcessor.watermarkGraph(
-        video,
-        logo,
-        filter,
-        bounds,
-      );
+      const graph = VideoProcessor.watermarkGraph(video, logo, filter, bounds);
       expect(graph).toContain("[1:v]format=rgba,crop=300:80:50:160,");
       expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
     }
@@ -195,7 +175,7 @@ describe("watermarkGraph", () => {
 
   it("leaves a logo that fills its canvas alone", () => {
     for (const filter of [false, true]) {
-      const { graph } = VideoProcessor.watermarkGraph(video, logo, filter);
+      const graph = VideoProcessor.watermarkGraph(video, logo, filter);
       expect(graph).not.toMatch(/\[1:v\]format=rgba,crop=/);
     }
   });

@@ -786,7 +786,7 @@ describe("VideoToolUploader", () => {
       throw new Error(`Unexpected fetch: ${input}`);
     });
 
-  it("waits for a video and a watermark on the mark tool, offering filter mode only for alpha formats", async () => {
+  it("waits for a video and a PNG watermark on the mark tool, then offers filter mode", async () => {
     const user = userEvent.setup();
     await renderApp("/mark");
 
@@ -800,21 +800,25 @@ describe("VideoToolUploader", () => {
     expect(await screen.findByText(/upload a watermark/i)).toBeInTheDocument();
     await user.unhover(button);
 
-    // JPEG can't carry transparency, so there is no shape for the glass
+    // Only PNG logos are taken; the picker's accept list filters the rest
+    const picker = screen.getByLabelText(/choose watermark/i);
+    expect(picker).toHaveAttribute("accept", "image/png");
     await user.upload(
-      screen.getByLabelText(/choose watermark/i),
-      new File(["00"], "logo.jpg", { type: "image/jpeg" }),
+      picker,
+      new File(["00"], "logo.gif", { type: "image/gif" }),
     );
-    expect(button).toHaveAttribute("aria-disabled", "false");
-    expect(screen.getByText("logo.jpg")).toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText("logo.gif")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("switch", { name: /glass/i }),
     ).not.toBeInTheDocument();
 
     await user.upload(
-      screen.getByLabelText(/choose watermark/i),
+      picker,
       new File(["00"], "logo.png", { type: "image/png" }),
     );
+    expect(button).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByText("logo.png")).toBeInTheDocument();
     expect(
       screen.getByRole("switch", { name: /glass/i }),
     ).toBeInTheDocument();

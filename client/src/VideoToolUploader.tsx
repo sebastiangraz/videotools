@@ -54,15 +54,10 @@ const EXT_TO_FORMAT: Record<string, string> = {
   webm: "webm",
 };
 
-// Watermark images for the "mark" tool. SVG is left out: the server's
-// ffmpeg has no SVG decoder, so export the logo as PNG first.
-const WATERMARK_ACCEPT = "image/png,image/jpeg,image/gif,image/webp";
-
-// Formats that can carry transparency, which the frosted-glass filter mode
-// needs for its shape. JPEG is always opaque, so it doesn't get the switch.
-const ALPHA_TYPES = ["image/png", "image/gif", "image/webp"];
-
-const hasAlpha = (file: File) => ALPHA_TYPES.includes(file.type);
+// Watermark images for the "mark" tool: PNG only. SVG in particular is left
+// out: the server's ffmpeg has no SVG decoder, so export the logo as PNG
+// first.
+const WATERMARK_ACCEPT = "image/png";
 
 // The mark preview is rendered by the server with the real ffmpeg graph, so
 // it always matches the encode. The browser sends frames of the video
@@ -356,8 +351,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(
     null,
   );
-  // The "mark" tool's logo, and its frosted-glass switch (only offered for
-  // formats with transparency; the flag is ignored for the rest).
+  // The "mark" tool's logo, and its frosted-glass switch.
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState(false);
@@ -417,7 +411,6 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
     const controller = new AbortController();
-    const filter = filterMode && hasAlpha(watermark);
     (async () => {
       setPreviewError(false);
       const logo = await toDataUrl(watermark);
@@ -425,7 +418,11 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
         const res = await fetch("/api/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ frame: await toDataUrl(blob), logo, filter }),
+          body: JSON.stringify({
+            frame: await toDataUrl(blob),
+            logo,
+            filter: filterMode,
+          }),
           signal: controller.signal,
         });
         if (!res.ok) throw new Error(`Preview failed (${res.status})`);
@@ -660,11 +657,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               ? {
                   blobUrl: blobUrls[0],
                   watermarkUrl: logoUrl,
-                  options: {
-                    filter:
-                      filterMode && watermark !== null && hasAlpha(watermark),
-                    quality,
-                  },
+                  options: { filter: filterMode, quality },
                 }
               : tool === "convert"
                 ? {
@@ -1137,9 +1130,9 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
               </div>
             )}
 
-            {/* The glass needs a shape, so the switch waits for a logo that
-                can have one. */}
-            {watermark && hasAlpha(watermark) && (
+            {/* The glass takes its shape from the logo, so the switch waits
+                for one. */}
+            {watermark && (
               <div className={styles.switchRow}>
                 <label htmlFor="filterMode" className={styles.label}>
                   Glass

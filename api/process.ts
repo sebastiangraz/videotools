@@ -36,7 +36,7 @@ type ProcessBody = {
   filename?: unknown;
   blobUrl?: unknown;
   blobUrls?: unknown;
-  // "mark" only: the logo image, uploaded like the video.
+  // "mark" only: the logo (a PNG), uploaded like the video.
   watermarkUrl?: unknown;
   options?: Record<string, unknown>;
 };
@@ -245,9 +245,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       outputName = `${base}_speed.mp4`;
       contentType = "video/mp4";
     } else if (tool === "mark") {
-      // Frosted-glass mode; only meaningful with an alpha channel (the
-      // client offers it for those formats), but harmless without: the
-      // glass is then the logo's full rectangle.
+      // Frosted-glass mode; only meaningful with an alpha channel, but
+      // harmless without: the glass is then the logo's full rectangle.
       const filter = options.filter === true;
       const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
@@ -255,12 +254,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         workDir,
         `input${blobExt(inputBlobUrls[0], ".mp4")}`,
       );
-      // The extension tells ffmpeg's image demuxer little (content wins),
-      // but it makes logs readable.
-      const logoPath = path.join(
-        workDir,
-        `logo${blobExt(inputBlobUrls[1], ".png")}`,
-      );
+      const logoPath = path.join(workDir, "logo.png");
       await downloadBlob(inputBlobUrls[0], inputPath, signal);
       await downloadBlob(inputBlobUrls[1], logoPath, signal);
 
