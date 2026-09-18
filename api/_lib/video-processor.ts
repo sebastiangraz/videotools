@@ -87,6 +87,17 @@ const MARK = {
   rimSaturation: 2, //1.4
   rimGain: 7, //3
   rimWhite: 0.6, //0.15
+  // Ambient light across the glass, for depth when the video under it is
+  // flat: a radial gradient from the side opposite lightAngle (bottom-right
+  // under the default top-left light), white there at this opacity, fading
+  // through nothing to black on the light's own side at ambientShade
+  // of it (shade reads heavier than light, so it gets less). ambientReach is
+  // the gradient's radius in logo radii; the centre sits one radius outside
+  // the logo, so at 2 it would end at the logo's far edge, and a bit more
+  // keeps the far side from going fully dark and the curve shallow.
+  ambient: 0.16, //0.16
+  ambientShade: 0.5, //0.5
+  ambientReach: 2.4, //2.4
   // Soft drop shadow behind the glass shape, offset downwards.
   shadowBlurRatio: 0.016, //0.012
   shadowOffsetRatio: 0.016, //0.006
@@ -1096,6 +1107,15 @@ class VideoProcessor {
     // taps), scaled so the steepest edge spans the full range around 128.
     const angle = (MARK.lightAngle * Math.PI) / 180;
     const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
+    // Ambient gradient over the fill: radial, centred one logo radius off
+    // the logo on the side away from the light (the glow a lens gathers
+    // opposite its highlight) and reaching ambientReach radii out, so
+    // across the logo it reads as a gently curved linear ramp. As a geq
+    // expression it runs from +1 at the centre to −1 at the reach (and past
+    // it); the logo spans roughly the top of that range to a little under 0.
+    const radius = Math.hypot(LW, LH) / 2;
+    const [ax, ay] = [CW / 2 - lx * radius, CH / 2 - ly * radius];
+    const ambientS = `(1-2*min(hypot(X-${ax.toFixed(1)},Y-${ay.toFixed(1)})/${(radius * MARK.ambientReach).toFixed(1)},1))`;
     const KX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
     const KY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
     const lightKernel = KX.map((k, i) =>
@@ -1161,7 +1181,7 @@ class VideoProcessor {
       // scale output leaves alphaextract/extractplanes unable to choose.
       `[1:v]format=rgba,split[l1][l2]`,
       `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
-      `[lg1]format=rgba,alphaextract,format=gray,split=4[m1][m2][m3][m4]`,
+      `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m4][m5]`,
       `[l2]scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,split=3[mk1][mk2][mk3]`,
       // Heightfield, clipped to the alpha so nothing rises outside the shape.
       `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${remap}[hw]`,
@@ -1209,6 +1229,9 @@ class VideoProcessor {
       `[light][band]blend=all_mode=multiply[rimAlpha]`,
       `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
       `[paint][rimAlpha]alphamerge${stop},colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
+      // Ambient gradient: white towards the light, black away from it, with
+      // the mask (which the gray→rgba conversion put in r) as its alpha.
+      `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${MARK.ambient},${(MARK.ambient * MARK.ambientShade).toFixed(3)})'[ambient]`,
       // Shadow: the mask blurred, painted black, offset downwards on overlay.
       `[m4]gblur=sigma=${shadowSigma}:steps=2,split[sk1][sk2]`,
       `[sk1]format=rgba,lutrgb=r=0:g=0:b=0[black]`,
@@ -1218,7 +1241,8 @@ class VideoProcessor {
       // frame: only pixels the glass or its shadow cover are touched, so no
       // conversion round trip can leave the cell showing as a faint box.
       `[canvas][shadow]overlay=x=0:y=${shadowDy}:format=auto${shortest}[c1]`,
-      `[c1][glass]overlay=format=auto${shortest}[c2]`,
+      `[c1][glass]overlay=format=auto${shortest}[c2a]`,
+      `[c2a][ambient]overlay=format=auto${shortest}[c2]`,
       `[c2][rim]overlay=format=auto${shortest}[c3]`,
       `[c3][faint]overlay=format=auto${shortest},scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p[cell]`,
       `[base][cell]overlay=x=${CX}:y=${CY}${shortest},format=yuv420p[out]`,
