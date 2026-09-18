@@ -369,6 +369,7 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
   const [previewError, setPreviewError] = useState(false);
+  const [previewZoomed, setPreviewZoomed] = useState(false);
   // Bumped per grab (and per picked file), so a grab still seeking through
   // the previous source drops its frames instead of landing them.
   const grabRun = useRef(0);
@@ -1034,7 +1035,8 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                 box waits for the video's metadata. */}
             {videoUrl && watermarkUrl && (
               <div
-                className={styles.markPreviewContainer}
+                className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
+                onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
                 style={{
                   aspectRatio: videoDims
                     ? `${videoDims.w} / ${videoDims.h}`
@@ -1123,9 +1125,8 @@ export const VideoToolUploader = ({ tool }: { tool: string }) => {
                 </figure>
                 {/* One invisible strip per grabbed frame, side by side
                   across the box: the one under the pointer picks the frame.
-                  They sit outside the figure so its hover zoom doesn't
-                  stretch them, and being inside the container they keep
-                  that hover (and so the zoom) alive. */}
+                  They sit outside the figure so its zoom doesn't stretch
+                  them. */}
                 {frameBlobs.length > 1 && (
                   <div className={styles.markPreviewScrub} aria-hidden="true">
                     {frameBlobs.map((_, i) => (

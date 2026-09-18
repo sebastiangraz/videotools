@@ -1,8 +1,14 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
-import VideoProcessor from "./video-processor.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import VideoProcessor, { MARK } from "./video-processor.js";
 
+// Nothing here pins a tuned number: what the layout should come to is worked
+// out from MARK, so the constants can be tweaked freely and the tests keep
+// checking the model (the area budget, the frame-based gap, the bounds).
 const HD = { width: 1920, height: 1080 };
+// Big enough that rounding to even pixels is well under a percent.
+const UHD = { width: 3840, height: 2160 };
+const UNIT = Math.sqrt(UHD.width * UHD.height);
 const layout = (
   video: { width: number; height: number },
   aspect: number,
@@ -13,11 +19,34 @@ const layout = (
     height: Math.round(base / Math.sqrt(aspect)),
   });
 
-describe("watermarkLayout", () => {
-  it("keeps a 4:1 logotype at its calibrated size, a logo-independent gap in", () => {
-    const l = layout(HD, 4);
-    expect([l.LW, l.LH, l.margin]).toEqual([346, 86, 65]);
-    expect([l.LX, l.LY]).toEqual([1920 - 65 - 346, 1080 - 65 - 86]);
+// The suite runs on the values as tuned and on two quite different tunings,
+// so it is known to hold across the range the constants might move in.
+const TUNINGS: [string, Partial<typeof MARK>][] = [
+  ["as tuned", {}],
+  [
+    "small, equal-area",
+    { sizeRatio: 0.05, elongationGain: 0, maxSpan: 0.25, paddingRatio: 0.03 },
+  ],
+  [
+    "large, near equal-height",
+    { sizeRatio: 0.11, elongationGain: 0.8, maxSpan: 0.4, paddingRatio: 0.07 },
+  ],
+];
+
+describe.each(TUNINGS)("watermarkLayout (%s)", (_name, tuning) => {
+  const tuned = { ...MARK };
+  beforeAll(() => void Object.assign(MARK, tuning));
+  afterAll(() => void Object.assign(MARK, tuned));
+
+  it("draws a 1:1 logo at sizeRatio of the frame's unit, paddingRatio of it in from the corner", () => {
+    const l = layout(UHD, 1);
+    expect(l.LW).toBe(l.LH);
+    expect(Math.abs(l.LW - UNIT * MARK.sizeRatio)).toBeLessThanOrEqual(2);
+    expect(l.margin).toBe(Math.round(UNIT * MARK.paddingRatio));
+    expect([l.LX, l.LY]).toEqual([
+      UHD.width - l.margin - l.LW,
+      UHD.height - l.margin - l.LH,
+    ]);
   });
 
   it("sizes by the logo's shape, not its resolution", () => {
@@ -26,28 +55,30 @@ describe("watermarkLayout", () => {
 
   it("has no jump anywhere along the aspect range", () => {
     for (let a = 0.1; a < 10; a *= 1.02) {
-      const [p, q] = [layout(HD, a), layout(HD, a * 1.02)];
-      // 2% more aspect moves each side by about 1–2%; rounding to even
-      // adds up to 2px on sides that are at least 40px here.
-      expect(Math.abs(q.LW - p.LW) / p.LW).toBeLessThan(0.08);
-      expect(Math.abs(q.LH - p.LH) / p.LH).toBeLessThan(0.08);
+      const [p, q] = [layout(UHD, a), layout(UHD, a * 1.02)];
+      // 2% more aspect moves a side by 2% at the very most (whatever the
+      // gain); rounding to even adds up to 2px on top.
+      expect(Math.abs(q.LW - p.LW)).toBeLessThan(0.03 * p.LW + 3);
+      expect(Math.abs(q.LH - p.LH)).toBeLessThan(0.03 * p.LH + 3);
     }
   });
 
-  it("evens out the area: a square mark and a 4:3 logo are close, a logotype gets more", () => {
-    const area = (a: number) => {
-      const l = layout(HD, a);
-      return l.LW * l.LH;
-    };
-    expect(area(4 / 3) / area(1)).toBeGreaterThan(1);
-    expect(area(4 / 3) / area(1)).toBeLessThan(1.25);
-    expect(area(4) / area(1)).toBeCloseTo(2, 1);
+  it("budgets area by elongation^elongationGain, keeping the logo's aspect", () => {
+    const square = layout(UHD, 1);
+    for (const a of [4 / 3, 16 / 9, 3, 1 / 2]) {
+      const l = layout(UHD, a);
+      const elongation = Math.max(a, 1 / a);
+      const budget = elongation ** MARK.elongationGain;
+      const got = (l.LW * l.LH) / (square.LW * square.LH);
+      expect(Math.abs(got / budget - 1)).toBeLessThan(0.05);
+      expect(Math.abs(l.LW / l.LH / a - 1)).toBeLessThan(0.05);
+    }
   });
 
   it("treats wide and tall alike, and landscape and portrait frames alike", () => {
-    const [wide, tall] = [layout(HD, 3), layout(HD, 1 / 3)];
+    const [wide, tall] = [layout(HD, 2), layout(HD, 1 / 2)];
     expect([tall.LW, tall.LH]).toEqual([wide.LH, wide.LW]);
-    const portrait = layout({ width: 1080, height: 1920 }, 3);
+    const portrait = layout({ width: 1080, height: 1920 }, 2);
     expect([portrait.LW, portrait.LH, portrait.margin]).toEqual([
       wide.LW,
       wide.LH,
@@ -84,8 +115,8 @@ describe("watermarkLayout", () => {
       for (let a = 0.05; a <= 20; a *= 1.3) {
         const l = layout({ width, height }, a);
         for (const n of [l.VW, l.VH, l.LW, l.LH]) expect(n % 2).toBe(0);
-        expect(l.LW).toBeLessThanOrEqual(0.33 * l.VW + 1);
-        expect(l.LH).toBeLessThanOrEqual(0.33 * l.VH + 1);
+        expect(l.LW).toBeLessThanOrEqual(MARK.maxSpan * l.VW + 1);
+        expect(l.LH).toBeLessThanOrEqual(MARK.maxSpan * l.VH + 1);
         // The cell: the logo plus the margin on every side.
         expect(l.LX - l.margin).toBeGreaterThanOrEqual(0);
         expect(l.LY - l.margin).toBeGreaterThanOrEqual(0);

@@ -27,7 +27,9 @@ type Bounds = { x: number; y: number; width: number; height: number };
 
 // Watermark layout and look, all relative to the video so the mark reads the
 // same at every resolution. Position is fixed to the bottom-right corner.
-const MARK = {
+// (Exported for the tests, which check the layout against these values
+// rather than pinning numbers, so tuning them here doesn't break anything.)
+export const MARK = {
   // Layout (see watermarkLayout). Lengths are fractions of the frame's
   // "unit", the geometric mean of its width and height, so the mark takes
   // the same share of a landscape, portrait or square picture. The logo is

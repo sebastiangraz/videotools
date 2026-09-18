@@ -264,10 +264,12 @@
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   box-shadow: var(--raised);
-  &:hover figure {
-    transform: scale(2) translate(-1rem, -1rem);
-    --mask-solid: 0%;
-  }
+  cursor: pointer;
+}
+
+.markPreviewZoomed figure {
+  transform: scale(2) translate(-1rem, -1rem);
+  --mask-solid: 0%;
 }
 
 .markPreview {
