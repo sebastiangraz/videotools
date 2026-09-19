@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import VideoProcessor, { MARK } from "./video-processor.js";
+import {
+  MARK,
+  parseBounds,
+  watermarkGraph,
+  watermarkLayout,
+} from "./mark-graph.js";
+
 
 // Nothing here pins a tuned number: what the layout should come to is worked
 // out from MARK, so the constants can be tweaked freely and the tests keep
@@ -14,7 +20,7 @@ const layout = (
   aspect: number,
   base = 1000,
 ) =>
-  VideoProcessor.watermarkLayout(video, {
+  watermarkLayout(video, {
     width: Math.round(base * Math.sqrt(aspect)),
     height: Math.round(base / Math.sqrt(aspect)),
   });
@@ -135,46 +141,20 @@ describe("parseBounds", () => {
 
   it("reads the visible box", () => {
     expect(
-      VideoProcessor.parseBounds(line(0, 50, 349, 160, 239), 400, 400),
+      parseBounds(line(0, 50, 349, 160, 239), 400, 400),
     ).toEqual({ x: 50, y: 160, width: 300, height: 80 });
   });
 
   it("falls back to the whole image when nothing is reported", () => {
     const full = { x: 0, y: 0, width: 400, height: 300 };
-    expect(VideoProcessor.parseBounds("", 400, 300)).toEqual(full);
+    expect(parseBounds("", 400, 300)).toEqual(full);
     expect(
-      VideoProcessor.parseBounds(
+      parseBounds(
         "[Parsed_bbox_2 @ 0] n:0 pts:0 pts_time:0",
         400,
         300,
       ),
     ).toEqual(full);
-  });
-});
-
-describe("parseMediaInfo", () => {
-  // The watermark's PNG check goes by this, so the lines are ffmpeg's own:
-  // each of these files was probed under the name logo.png.
-  it.each([
-    ["png", "png, rgb24(pc, gbr/unknown/unknown), 200x100 [SAR 1:1 DAR 2:1]"],
-    ["gif", "gif, bgra, 200x100 [SAR 64:64 DAR 2:1]"],
-    ["apng", "apng, rgb24(pc, gbr/unknown/unknown), 200x100 [SAR 1:1 DAR 2:1]"],
-    [
-      "mjpeg",
-      "mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 200x100 [SAR 1:1 DAR 2:1]",
-    ],
-    ["webp", "webp, yuv420p(tv, bt470bg/unknown/unknown), 200x100"],
-  ])("reads the codec of %s content, whatever the file is called", (codec, stream) => {
-    const summary = [
-      "Input #0, png_pipe, from 'logo.png':",
-      "  Duration: N/A, bitrate: N/A",
-      `  Stream #0:0: Video: ${stream}, 25 fps, 25 tbr, 25 tbn`,
-    ].join("\n");
-    expect(VideoProcessor.parseMediaInfo(summary)).toMatchObject({
-      codec,
-      width: 200,
-      height: 100,
-    });
   });
 });
 
@@ -192,17 +172,48 @@ describe("watermarkGraph", () => {
 
   it("crops a logo to its visible bounds and lays it out by them", () => {
     const bounds = { x: 50, y: 160, width: 300, height: 80 };
-    const l = VideoProcessor.watermarkLayout(video, bounds);
+    const l = watermarkLayout(video, bounds);
     for (const filter of [false, true]) {
-      const graph = VideoProcessor.watermarkGraph(video, logo, filter, bounds);
+      const graph = watermarkGraph(video, logo, filter, bounds);
       expect(graph).toContain("[1:v]format=rgba,crop=300:80:50:160,");
       expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
     }
   });
 
+  it("keeps an RGBA base out of YUV, and whole", () => {
+    const odd = info(321, 241, "gif");
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(odd, logo, filter, undefined, {
+        base: "rgba",
+      });
+      expect(graph).not.toMatch(/yuv|color_matrix/);
+      expect(graph).toMatch(/^\[0:v\]format=rgba[,[]/);
+      expect(graph).toMatch(/:format=auto,format=rgba\[out\]$/);
+    }
+  });
+
+  it("composites video in yuv420p, cropped to even dimensions", () => {
+    const odd = info(321, 241, "h264");
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(odd, logo, filter);
+      expect(graph).toMatch(/^\[0:v\]format=yuv420p,crop=320:240:0:0/);
+      expect(graph).toMatch(/,format=yuv420p\[out\]$/);
+    }
+  });
+
+  it("takes the video from the stream it is told to", () => {
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        pad: "[0:v:1]",
+      });
+      expect(graph).toMatch(/^\[0:v:1\]format=yuv420p/);
+      expect(graph).not.toContain("[0:v]");
+    }
+  });
+
   it("leaves a logo that fills its canvas alone", () => {
     for (const filter of [false, true]) {
-      const graph = VideoProcessor.watermarkGraph(video, logo, filter);
+      const graph = watermarkGraph(video, logo, filter);
       expect(graph).not.toMatch(/\[1:v\]format=rgba,crop=/);
     }
   });

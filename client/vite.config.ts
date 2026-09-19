@@ -13,8 +13,15 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // Blob upload mock, jest-dom matchers and the jsdom stubs every test
+    // file needs
+    setupFiles: ["src/test/setup.ts"],
     // The api's pure helpers are tested from here too, rather than giving
     // the functions a test setup of their own.
-    include: ["src/**/*.test.{ts,tsx}", "../api/**/*.test.ts"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "../api/**/*.test.ts",
+      "../shared/**/*.test.ts",
+    ],
   },
 });

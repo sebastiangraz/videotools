@@ -1,0 +1,223 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: var(--width);
+  min-height: var(--quantize);
+  padding: 1em;
+  margin: 0 auto;
+  width: 92%;
+  border-inline: 1px solid var(--border);
+  &:last-child {
+    flex: 1;
+  }
+}
+
+.container + .container {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* On tool change only the contents animate. The containers stay unnamed and
+   the root is not captured either (see index.module.css), so they render live
+   throughout; their inline borders are identical before and after and
+   therefore never appear to move or fade. match-element gives every child a
+   unique snapshot name, so old and new children never pair up and each simply
+   leaves or enters. */
+.container > * {
+  view-transition-name: match-element;
+  view-transition-class: panelItem;
+}
+
+/* Positions are enumerated to stagger the sequence. sibling-index() cannot do
+   this job: inside a pseudo-element it resolves against the originating
+   element, which for every view transition pseudo is <html>, so it is always 1.
+   A view-transition-class is a plain property though, so :nth-child() can hand
+   each position its own hook. Items past the last rule share the final step. */
+.container + .container > *:nth-child(1) {
+  view-transition-class: panelItem i1;
+}
+.container + .container > *:nth-child(2) {
+  view-transition-class: panelItem i2;
+}
+.container + .container > *:nth-child(3) {
+  view-transition-class: panelItem i3;
+}
+.container + .container > *:nth-child(4) {
+  view-transition-class: panelItem i4;
+}
+.container + .container > *:nth-child(n + 5) {
+  view-transition-class: panelItem i5;
+}
+
+/* :global is required throughout: CSS modules would otherwise hash the class
+   inside the pseudo-element while leaving the property values above alone.
+   --i is set on the group because custom properties inherit from there down to
+   the old and new snapshots, which is where the animations read them. */
+::view-transition-group(*:global(.panelItem)) {
+  --stagger: 35ms;
+}
+::view-transition-group(*:global(.i1)) {
+  --i: 1;
+}
+::view-transition-group(*:global(.i2)) {
+  --i: 2;
+}
+::view-transition-group(*:global(.i3)) {
+  --i: 3;
+}
+::view-transition-group(*:global(.i4)) {
+  --i: 4;
+}
+::view-transition-group(*:global(.i5)) {
+  --i: 5;
+}
+
+::view-transition-old(*:global(.panelItem)) {
+  animation: panelItemLeave 180ms ease-out both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+
+::view-transition-new(*:global(.panelItem)) {
+  animation: panelItemEnter 240ms ease-in both;
+  animation-delay: calc(30ms + var(--i, 0) * var(--stagger));
+}
+
+@keyframes panelItemLeave {
+  to {
+    opacity: 0;
+    translate: 0 -0.3em;
+  }
+}
+
+@keyframes panelItemEnter {
+  from {
+    opacity: 0;
+    translate: 0 0.3em;
+  }
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0 2em;
+  min-height: 2.25rem;
+  align-self: flex-start;
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  background-color: var(--fg);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  &:hover:not([aria-disabled="true"]) {
+    background-color: var(--fg-secondary);
+  }
+}
+
+/* Unusable rather than :disabled, so hover and focus still reach the button
+   and can open its tooltip */
+.button[aria-disabled="true"] {
+  /* opacity: 0.5; */
+  cursor: not-allowed;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  align-self: flex-start;
+}
+
+.stopButton {
+  --fade: 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.5em;
+  min-height: 2.25rem;
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  background-color: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  opacity: 1;
+  transition:
+    opacity var(--fade) ease,
+    background-color 150ms ease,
+    display var(--fade) allow-discrete;
+
+  @starting-style {
+    opacity: 0;
+  }
+
+  &:hover {
+    background-color: var(--border-subtle);
+  }
+}
+
+.stopButton[hidden] {
+  display: none;
+  opacity: 0;
+}
+
+.spinner {
+  width: 18px;
+  aspect-ratio: 1;
+  transform-origin: center right;
+  transform: scale(0.5);
+  --_g: no-repeat radial-gradient(farthest-side, var(--bg) 70%, #0000);
+
+  background:
+    var(--_g) 0 0,
+    var(--_g) 100% 0,
+    var(--_g) 100% 100%,
+    var(--_g) 0 100%;
+  background-size: 33% 33%;
+  animation: spinner 0.5s infinite;
+}
+@keyframes spinner {
+  100% {
+    background-position:
+      100% 0,
+      100% 100%,
+      0 100%,
+      0 0;
+  }
+}
+
+.errorBox {
+  --error: light-dark(hsl(4, 55%, 40%), hsl(4, 65%, 74%));
+  padding: 0.75em 1em;
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  background-color: color-mix(in srgb, var(--error) 6%, transparent);
+  font-size: 8.5px;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: var(--error);
+}
+
+.errorSummary {
+  cursor: pointer;
+  &::marker {
+    margin-right: 0.25em;
+    color: color-mix(in srgb, var(--error) 60%, transparent);
+  }
+  &:focus-visible {
+    outline: 1px solid color-mix(in srgb, var(--error) 40%, transparent);
+    outline-offset: 2px;
+  }
+  span {
+    margin-left: 0.25em;
+  }
+}
+
+.errorDetail {
+  margin: 0.75em 0 0;
+  color: color-mix(in srgb, var(--error) 75%, transparent);
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

@@ -1,0 +1,36 @@
+.horizontal {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5em;
+  & > * {
+    flex: 1;
+  }
+  @media (max-width: 480px) {
+    gap: 1.5rem;
+    flex-direction: column;
+  }
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+/* A label with its switch on the same line */
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  gap: 0.5em;
+  min-height: 2.5rem;
+}
+
+.label {
+  font-size: 8.5px;
+  padding-inline: 0.175em;
+  min-height: var(--quantize);
+  font-feature-settings: "tnum" on;
+  letter-spacing: 0.05em;
+  color: var(--fg-secondary);
+}

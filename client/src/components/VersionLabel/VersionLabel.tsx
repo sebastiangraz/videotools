@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import styles from "./VideoToolUploader.module.css";
+import styles from "./VersionLabel.module.css";
 
 const REPO = "sebastiangraz/videotools";
 // On Vercel the label is pinned to the commit this deployment was built from;

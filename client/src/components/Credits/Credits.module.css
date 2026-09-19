@@ -1,0 +1,68 @@
+.credits {
+  flex: 1;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  contain: layout;
+}
+
+.creditsGroup {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  min-width: 0;
+}
+
+.logoLink,
+.themeSwitch {
+  padding: 2px;
+  font-variation-settings: "wght" 68;
+  color: var(--fg-tertiary);
+  font-family: var(--font-logo);
+  font-size: 44px;
+  text-box: trim-both cap alphabetic;
+  text-decoration: none;
+  border-radius: var(--radius);
+  height: 1.25rem;
+  corner-shape: superellipse(1.45);
+  transition:
+    font-variation-settings 320ms ease,
+    color 200ms ease;
+  &:hover {
+    color: var(--fg-secondary);
+    font-variation-settings: "wght" 84;
+  }
+  &:focus-visible,
+  &:has(input:focus-visible) {
+    outline: 1px solid var(--border);
+    outline-offset: 3px;
+  }
+}
+
+.themeSwitch {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  rotate: 0deg;
+  height: 1.25rem;
+  aspect-ratio: 1;
+  contain: strict;
+  transition:
+    font-variation-settings 320ms ease,
+    color 200ms ease,
+    rotate 320ms ease;
+  &:has(input:checked) {
+    rotate: 180deg;
+  }
+  input {
+    position: absolute;
+    content-visibility: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}

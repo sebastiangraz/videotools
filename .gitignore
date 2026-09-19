@@ -3,6 +3,10 @@ dist/
 .vercel
 .env*.local
 tmp/
+.smoke/
+# Own footage for `npm run smoke`; large, so not versioned
+scripts/smoke-assets/*
+!scripts/smoke-assets/README.md
 
 .vercel
 .env*

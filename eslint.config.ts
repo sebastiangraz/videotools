@@ -6,7 +6,7 @@ import { reactRefresh } from "eslint-plugin-react-refresh";
 import globals from "globals";
 
 export default defineConfig([
-  globalIgnores(["**/dist/", ".vercel/", "api/_bin/", "**/*.d.ts"]),
+  globalIgnores(["**/dist/", ".vercel/", ".smoke/", "api/_bin/", "**/*.d.ts"]),
 
   // Shared JS + TS baseline for every file in the repo
   {
@@ -40,7 +40,12 @@ export default defineConfig([
 
   // Node-side tooling config files
   {
-    files: ["client/vite.config.ts", "client/postcss.config.js", "eslint.config.ts"],
+    files: [
+      "client/vite.config.ts",
+      "client/postcss.config.js",
+      "eslint.config.ts",
+      "scripts/**/*.mjs",
+    ],
     languageOptions: { globals: globals.node },
   },
 

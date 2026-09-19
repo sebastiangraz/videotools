@@ -11,6 +11,7 @@
     "strict": true,
     "noEmit": true
   },
-  "include": ["api"],
+  // shared/ is the one module both the functions and the client compile.
+  "include": ["api", "shared"],
   "exclude": ["api/_bin"]
 }

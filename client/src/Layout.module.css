@@ -1,0 +1,53 @@
+.tabContainer {
+  position: relative;
+  &::before {
+    border-top: 1px solid var(--border);
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+  }
+}
+
+.tabs {
+  display: flex;
+  overflow-x: auto;
+  min-height: var(--quantize);
+  flex-direction: row;
+  max-width: var(--width);
+  border-inline: 1px solid var(--border);
+  margin: 0 auto;
+  width: 92%;
+  padding-inline: 0.5rem;
+  padding-bottom: 1rem;
+  scrollbar-width: none;
+}
+
+/* Sizing and type only; colour states come from the Tabs component */
+.tab {
+  min-height: var(--quantize);
+  padding: 0.75rem 0.5rem;
+  font-size: 10px;
+}
+
+/* The active tab's line, drawn over the container rule above and slid from
+   tab to tab by the Tabs component. Inset by the tab's inline padding so it
+   spans the label rather than the whole box. */
+.tabIndicator {
+  height: 1px;
+  margin-left: 0.5rem;
+  width: calc(var(--active-tab-width) - 1rem);
+  border-top: 1px solid var(--fg);
+}
+
+.previewCardDescription {
+  padding: 2px;
+  color: var(--fg);
+  letter-spacing: 0.05em;
+  text-align: right;
+  text-wrap: balance;
+  font-size: 10px;
+  background-color: var(--bg);
+}
