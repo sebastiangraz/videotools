@@ -1,31 +1,23 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { SEQUENCE_FORMATS, type FormatId } from "../../../shared/formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
-import { h264, x264Crf } from "../encode/h264.js";
+import { encodeRender, type EncodeOptions } from "../encode/index.js";
+import type { Render } from "../encode/render.js";
 import { blobExt, clamp, isBlobUrl, pick } from "../request.js";
 import type { Tool } from "./types.js";
 
-// Mirrored in client/src/pages/Sequence/Sequence.tsx (FORMATS)
-const VALID_FORMATS = ["mp4", "gif", "avif"] as const;
 const MAX_IMAGES = 100;
 
-// The encodes below start from stills rather than a video, with quality
-// curves of their own (lossless AVIF, palette-sized GIF), so they live here
-// and not in encode/.
-export async function createImageSequenceVideo(
+// Stills, one after the other, each shown for `frameDuration` seconds. The
+// one tool with a format of its own to pick: stills have none to hand back.
+export async function imageSequence(
   ff: FFmpeg,
   imagePaths: string[],
   workDir: string,
   frameDuration: number,
-  format: string,
-  quality = 100,
-): Promise<string> {
-  console.log(
-    `Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`,
-  );
-
-  const outputFile = path.join(workDir, `output.${format}`);
-
+  format: FormatId,
+): Promise<Render> {
   // Target frame size: first image's dimensions, capped at 1920 on the
   // longest side (bounds gif/avif encode cost), floored to even for
   // yuv420p/x264.
@@ -36,9 +28,11 @@ export async function createImageSequenceVideo(
 
   // Normalize every image to a uniform PNG frame (mixed formats and
   // dimensions are the norm for user uploads; the sequence demuxer
-  // needs identical frames).
+  // needs identical frames). Lossless, so nothing is spent before the one
+  // encode.
   const framesDir = path.join(workDir, "frames");
   await fs.mkdir(framesDir, { recursive: true });
+  const frames: string[] = [];
   for (let i = 0; i < imagePaths.length; i++) {
     const framePath = path.join(
       framesDir,
@@ -54,116 +48,29 @@ export async function createImageSequenceVideo(
       "1",
       framePath,
     ]);
+    frames.push(framePath);
   }
 
-  const framerate = (1 / frameDuration).toString();
-  const pattern = path.join(framesDir, "norm_%04d.png");
-
-  if (format === "gif") {
-    // Quality drives the palette size; at high quality use a fresh
-    // palette per frame (much better color, larger file).
-    const colors = Math.max(
-      16,
-      Math.min(256, Math.round((quality / 100) * 256)),
-    );
-    const perFrame = quality >= 80;
-    const vf = perFrame
-      ? `split[a][b];[a]palettegen=stats_mode=single:max_colors=${colors}[p];[b][p]paletteuse=new=1:dither=sierra2_4a`
-      : `split[a][b];[a]palettegen=stats_mode=diff:max_colors=${colors}[p];[b][p]paletteuse=dither=sierra2_4a`;
-    await ff.runFFmpeg([
-      "-y",
+  // Video gets a constant 30 fps (each still repeated by the fps filter),
+  // so every player handles it: a frame every few seconds is a rate many
+  // of them refuse. The animated-image formats hold one frame per still.
+  const video = format === "mp4";
+  return {
+    inputArgs: [
       "-framerate",
-      framerate,
+      (1 / frameDuration).toString(),
       "-i",
-      pattern,
-      "-vf",
-      vf,
-      "-loop",
-      "0",
-      outputFile,
-    ]);
-  } else if (format === "avif") {
-    if (quality >= 100) {
-      // Truly lossless: planar RGB (gbrp) skips the RGB→YUV rounding and
-      // chroma subsampling, and aom's lossless mode skips quantization.
-      // Verified bit-exact against the source frames (PSNR = inf).
-      await ff.runFFmpeg([
-        "-y",
-        "-framerate",
-        framerate,
-        "-i",
-        pattern,
-        "-c:v",
-        "libaom-av1",
-        "-crf",
-        "0",
-        "-b:v",
-        "0",
-        "-aom-params",
-        "lossless=1",
-        "-cpu-used",
-        "6",
-        "-row-mt",
-        "1",
-        "-threads",
-        "0",
-        "-pix_fmt",
-        "gbrp",
-        "-f",
-        "avif",
-        outputFile,
-      ]);
-    } else {
-      // libaom crf: 0 best – 63 worst; quality 99 → 1, quality 1 → 62.
-      // Slow the encoder down a notch and keep full chroma resolution at
-      // high quality (yuv420p halves color detail regardless of crf).
-      const crf = Math.round(63 * (1 - quality / 100));
-      const cpuUsed = quality >= 80 ? "6" : "8";
-      const pixFmt = quality >= 90 ? "yuv444p" : "yuv420p";
-      await ff.runFFmpeg([
-        "-y",
-        "-framerate",
-        framerate,
-        "-i",
-        pattern,
-        "-c:v",
-        "libaom-av1",
-        "-crf",
-        String(crf),
-        "-b:v",
-        "0",
-        "-cpu-used",
-        cpuUsed,
-        "-row-mt",
-        "1",
-        "-threads",
-        "0",
-        "-pix_fmt",
-        pixFmt,
-        "-f",
-        "avif",
-        outputFile,
-      ]);
-    }
-  } else {
-    // mp4: constant 30fps output (frames duplicated by the fps filter)
-    // so every player handles very low source frame rates.
-    await ff.runFFmpeg([
-      "-y",
-      "-framerate",
-      framerate,
-      "-i",
-      pattern,
-      "-vf",
-      "fps=30,format=yuv420p",
-      ...h264(x264Crf(quality)),
-      "-movflags",
-      "+faststart",
-      outputFile,
-    ]);
-  }
-
-  return outputFile;
+      path.join(framesDir, "norm_%04d.png"),
+    ],
+    ...(video ? { filter: "[0:v]fps=30[out]" } : {}),
+    keepAudio: false,
+    source: null,
+    duration: imagePaths.length * frameDuration,
+    fps: video ? 30 : 1 / frameDuration,
+    width: W,
+    height: H,
+    frames,
+  };
 }
 
 export const sequence: Tool = {
@@ -180,7 +87,7 @@ export const sequence: Tool = {
   },
   async run({ ff, workDir, inputs, options, download }) {
     const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
-    const format = pick(options.format, VALID_FORMATS, "mp4");
+    const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
     const quality = Math.round(clamp(options.quality, 1, 100, 100));
 
     const imagePaths: string[] = [];
@@ -192,15 +99,30 @@ export const sequence: Tool = {
       await download(inputs[i], imagePath);
       imagePaths.push(imagePath);
     }
+    console.log(
+      `Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`,
+    );
 
-    const outputPath = await createImageSequenceVideo(
+    const render = await imageSequence(
       ff,
       imagePaths,
       workDir,
       frameDuration,
       format,
-      quality,
     );
+    // The pictures as they are: one frame per still, at their own size.
+    // Stills are pristine, which is what AVIF's lossless mode (at 100) and
+    // full chroma resolution (from 90) are for; a video's frames have been
+    // through both losses already, so conversions never ask for them.
+    const encode: EncodeOptions = {
+      quality,
+      fps: render.fps,
+      width: null,
+      everyFrame: true,
+      lossless: quality >= 100,
+      chroma444: quality >= 90,
+    };
+    const outputPath = await encodeRender(ff, render, workDir, format, encode);
     return { outputPath, suffix: "video", ext: format };
   },
 };

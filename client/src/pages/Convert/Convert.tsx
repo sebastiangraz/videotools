@@ -6,33 +6,17 @@ import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
+import { fileFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
+import { FORMATS } from "../../../../shared/formats";
 import form from "../form.module.css";
 
 const TOOL = toolById("convert");
 
-// Mirrored in api/_lib/encode/index.ts (ENCODERS). GIF is encoded by gifski
-// server-side, the rest by ffmpeg — the dropdown deliberately doesn't
-// distinguish.
-const CONVERT_TARGETS = [
-  { value: "mp4", label: "MP4" },
-  { value: "webm", label: "WebM" },
-  { value: "mov", label: "MOV" },
-  { value: "gif", label: "GIF" },
-  { value: "webp", label: "WebP" },
-  { value: "avif", label: "AVIF" },
-];
-
-// Extensions that map onto a convert target, so the source's own format can
-// be left out of the dropdown. Unknown extensions (.avi, .mkv, ...) keep the
-// full list.
-const EXT_TO_FORMAT: Record<string, string> = {
-  mp4: "mp4",
-  m4v: "mp4",
-  mov: "mov",
-  qt: "mov",
-  webm: "webm",
-};
+// Every format the app writes (shared/formats.ts, which the functions'
+// encoders follow too). GIF is encoded by gifski server-side, the rest by
+// ffmpeg — the dropdown deliberately doesn't distinguish.
+const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
 
 export const Convert = () => {
   const run = useToolRun(TOOL.value);
@@ -45,13 +29,18 @@ export const Convert = () => {
   // the default.
   const [gifWidth, setGifWidth] = useState<number | null>(640);
 
-  // Convert targets minus the picked file's own format. `target` survives a
-  // file swap; if the new source claims it, fall to the first remaining
-  // option instead of resetting state.
-  const srcExt = source.file?.name.split(".").pop()?.toLowerCase() ?? "";
+  // Convert targets minus the picked file's own format: every other tool
+  // already hands that one back. Sources in no format of the app's (.avi,
+  // .mkv, ...) keep the full list. `target` survives a file swap; if the new
+  // source claims it, fall to the first remaining option instead of
+  // resetting state.
+  const sourceFormat = source.file ? fileFormat(source.file) : null;
   const targetOptions = CONVERT_TARGETS.filter(
-    (t) => t.value !== EXT_TO_FORMAT[srcExt],
+    (t) => t.value !== sourceFormat?.id,
   );
+  // The one source that is a format of the app's and still no use: ffmpeg
+  // has no decoder for animated WebP.
+  const unreadable = sourceFormat !== null && !sourceFormat.readable;
   const effectiveTarget = targetOptions.some((t) => t.value === target)
     ? target
     : targetOptions[0].value;
@@ -93,7 +82,13 @@ export const Convert = () => {
           onFiles={pick}
         />
       }
-      blocker={source.file ? null : "Upload a file"}
+      blocker={
+        !source.file
+          ? "Upload a file"
+          : unreadable
+            ? `${sourceFormat.label} can't be read`
+            : null
+      }
       run={run}
       onSubmit={submit}
     >
@@ -157,15 +152,14 @@ export const Convert = () => {
             <Slider
               label={
                 <>
-                  Quality {quality}%
-                  {effectiveTarget === "webp" &&
-                    quality === 100 &&
-                    " (lossless)"}
+                  {effectiveTarget === "webp" && quality === 100
+                    ? `Lossless ${quality}%`
+                    : `Quality ${quality}%`}
                 </>
               }
               value={quality}
               onValueChange={setQuality}
-              min={0}
+              min={1}
               max={100}
               step={1}
               disabled={run.busy}

@@ -18,6 +18,10 @@ export default defineConfig({
     setupFiles: ["src/test/setup.ts"],
     // The api's pure helpers are tested from here too, rather than giving
     // the functions a test setup of their own.
-    include: ["src/**/*.test.{ts,tsx}", "../api/**/*.test.ts"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "../api/**/*.test.ts",
+      "../shared/**/*.test.ts",
+    ],
   },
 });

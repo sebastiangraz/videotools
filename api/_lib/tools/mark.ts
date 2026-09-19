@@ -1,64 +1,44 @@
 import path from "node:path";
+import { InputError } from "../errors.js";
 import type { FFmpeg, MediaInfo } from "../ffmpeg.js";
-import { h264, x264Crf } from "../encode/h264.js";
-import { blobExt, clamp, isBlobUrl } from "../request.js";
+import { encodePreserved } from "../encode/index.js";
+import { sourceRender, videoPad, type Render } from "../encode/render.js";
+import { clamp, isBlobUrl } from "../request.js";
+import { openSource, preservedFormat, type Source } from "../source.js";
 import { parseBounds, watermarkGraph, type Bounds } from "./mark-graph.js";
 import type { Tool } from "./types.js";
 
 /**
- * Stamps `logoFile` (a PNG) onto the bottom-right corner of `inputFile`.
- * With `filter` the logo's alpha becomes the shape of a glass lens (see
- * MARK) instead of a plain overlay. Audio is kept. Output is mp4.
+ * Stamps `logoFile` (a PNG) onto the bottom-right corner of `source`. With
+ * `filter` the logo's alpha becomes the shape of a glass lens (see MARK)
+ * instead of a plain overlay. Audio is kept.
  */
 export async function addWatermark(
   ff: FFmpeg,
-  inputFile: string,
+  source: Source,
   logoFile: string,
-  workDir: string,
   filter = false,
-  quality = 90,
-): Promise<string> {
-  console.log(
-    `Adding watermark (${filter ? "glass" : "plain"}, quality ${quality})...`,
-  );
-
-  const video = await ff.mediaInfo(inputFile);
+): Promise<Render> {
   const logo = await logoInfo(ff, logoFile);
   const graph = watermarkGraph(
-    video,
+    source.profile,
     logo,
     filter,
     await logoBounds(ff, logoFile, logo),
+    {
+      // A GIF is RGB going in and coming out, so it is never taken through
+      // yuv420p in between (mark-graph.ts).
+      base: source.format === "gif" ? "rgba" : "yuv420p",
+      pad: videoPad(source),
+    },
   );
-
-  const outputFile = path.join(workDir, "output.mp4");
-  await ff.runFFmpeg([
-    "-y",
-    "-i",
-    inputFile,
+  return sourceRender(source, {
     // The logo is a one-frame stream, which overlay simply holds for the
     // whole video.
-    "-i",
-    logoFile,
-    "-filter_complex",
-    graph,
-    "-map",
-    "[out]",
-    "-map",
-    "0:a?",
-    ...h264(x264Crf(quality)),
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
-    "-b:a",
-    "192k",
-    "-movflags",
-    "+faststart",
-    outputFile,
-  ]);
-
-  return outputFile;
+    inputArgs: ["-i", source.path, "-i", logoFile],
+    filter: graph,
+    keepAudio: true,
+  });
 }
 
 /**
@@ -111,8 +91,9 @@ export async function renderWatermarkFrame(
 async function logoInfo(ff: FFmpeg, logoFile: string): Promise<MediaInfo> {
   const logo = await ff.mediaInfo(logoFile);
   if (logo.codec !== "png") {
-    throw new Error(
+    throw new InputError(
       `Watermark must be a PNG image (got ${logo.codec || "an unknown format"})`,
+      "invalid-watermark",
     );
   }
   return logo;
@@ -149,25 +130,24 @@ export const mark: Tool = {
     }
     return [blobUrl, watermarkUrl];
   },
-  async run({ ff, workDir, inputs, options, download }) {
+  async run(job) {
+    const { ff, workDir, inputs, options, download } = job;
     // Frosted-glass mode; only meaningful with an alpha channel, but
     // harmless without: the glass is then the logo's full rectangle.
     const filter = options.filter === true;
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
-    const inputPath = path.join(workDir, `input${blobExt(inputs[0], ".mp4")}`);
+    const source = await openSource(job, inputs[0]);
+    // A marked file comes back in the format it came in.
+    const format = preservedFormat(source);
     const logoPath = path.join(workDir, "logo.png");
-    await download(inputs[0], inputPath);
     await download(inputs[1], logoPath);
-
-    const outputPath = await addWatermark(
-      ff,
-      inputPath,
-      logoPath,
-      workDir,
-      filter,
-      quality,
+    console.log(
+      `Adding watermark to ${format} (${filter ? "glass" : "plain"}, quality ${quality})...`,
     );
-    return { outputPath, suffix: "marked", ext: "mp4" };
+
+    const render = await addWatermark(ff, source, logoPath, filter);
+    const outputPath = await encodePreserved(ff, render, workDir, format, quality);
+    return { outputPath, suffix: "marked", ext: format };
   },
 };

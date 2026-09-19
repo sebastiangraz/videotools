@@ -6,22 +6,14 @@ import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
 
+import { formatById } from "../shared/formats.js";
+import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
 import { downloadBlob, isBlobUrl } from "./_lib/request.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { sweepStaleBlobs } from "./_lib/blob-sweep.js";
-
-// By the extension of a tool's result.
-const CONTENT_TYPES: Record<string, string> = {
-  mp4: "video/mp4",
-  gif: "image/gif",
-  avif: "image/avif",
-  webm: "video/webm",
-  mov: "video/quicktime",
-  webp: "image/webp",
-};
 
 // req.body is untyped JSON; every field is validated before use (the tool's
 // own fields by the tool, see _lib/tools/).
@@ -110,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fs.createReadStream(outputPath),
       {
         access: "public",
-        contentType: CONTENT_TYPES[ext],
+        contentType: formatById(ext).mime,
         addRandomSuffix: true,
         abortSignal: signal,
       },
@@ -128,13 +120,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     console.error("Processing error:", err);
-    // Input-shaped rejections ("Video too long...", "Watermark must be a
-    // PNG...") are the user's to fix, not server faults.
-    const status =
-      err instanceof Error && /too long|must be a PNG/i.test(err.message)
-        ? 400
-        : 500;
-    return res.status(status).json({
+    // What is wrong with the input (a source the tool cannot hand back, a
+    // clip too long for the format, ...) is the user's to fix, not a server
+    // fault; the code lets the client tell these apart.
+    if (err instanceof InputError) {
+      return res.status(400).json({ error: err.message, code: err.code });
+    }
+    return res.status(500).json({
       error: err instanceof Error ? err.message : "Processing failed",
     });
   } finally {

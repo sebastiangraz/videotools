@@ -1,55 +1,110 @@
 import path from "node:path";
+import { FORMAT_IDS, type FormatId } from "../../../shared/formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
+import { sourceVideoKbps } from "../source.js";
+import { codecFactor, rateCap, type RateCap } from "./rate.js";
+import type { Render } from "./render.js";
 import { encodeMp4, encodeMov } from "./h264.js";
 import { encodeWebm } from "./webm.js";
 import { encodeGif } from "./gif.js";
 import { encodeWebp } from "./webp.js";
 import { encodeAvif } from "./avif.js";
 
-// What an encode can be asked for. `quality` is the UI's 1–100 slider, which
-// each encoder maps onto its codec's own scale; `fps` (null = match the
-// source) and `width` are GIF's.
+// What an encode can be asked for. `quality` is the UI's 1–100 slider: each
+// encoder maps it onto its codec's own scale, and where the codec has rate
+// control it is also the share of the source's bitrate the result may spend
+// (rate.ts). `fps` and `width` are the animated-image formats': absent, a
+// format applies its own defaults, which suit a conversion (GIF: up to 30 fps
+// and 640px, AVIF: 30 fps and 800px); a null width keeps the pictures' size.
+// `everyFrame` says the pictures already come at `fps`, one for each frame
+// the result is to have, so they are not resampled to that rate. (Resampling
+// is not harmless: ffmpeg's fps filter loses the last frame of anything
+// that went through an overlay.) `lossless` and `chroma444` are AVIF's, for
+// pictures that are worth it: stills, which have no chroma subsampling or
+// quantization behind them yet.
 export type EncodeOptions = {
   quality: number;
   fps?: number | null;
-  width?: number;
+  width?: number | null;
+  everyFrame?: boolean;
+  lossless?: boolean;
+  chroma444?: boolean;
 };
 
-// Writes `inputFile` (any video ffmpeg reads) to `outputFile` in one format.
+// Writes what a tool rendered (render.ts) to `outputFile` in one format.
+// `cap` is null for the formats without rate control and for pictures with
+// no source to measure them by.
 export type Encoder = (
   ff: FFmpeg,
-  inputFile: string,
+  render: Render,
   outputFile: string,
   options: EncodeOptions,
+  cap: RateCap | null,
 ) => Promise<void>;
 
-// The app's output stage: the one way a video becomes each format, whichever
-// tool asks. Video targets keep audio; animated-image targets drop it.
-// Mirrored in client/src/pages/Convert/Convert.tsx (CONVERT_TARGETS).
-export const ENCODERS = {
+// The video codec of each format that has rate control. GIF and WebP have
+// none: gifski and libwebp take a quality and the size is what it is.
+const CODECS: Partial<Record<FormatId, string>> = {
+  mp4: "h264",
+  mov: "h264",
+  webm: "vp9",
+  avif: "av1",
+};
+
+// The app's output stage: the one way pictures become each format, whichever
+// tool asks. Video formats can keep audio; animated-image formats drop it.
+// The formats themselves are shared/formats.ts.
+export const ENCODERS: Record<FormatId, Encoder> = {
   mp4: encodeMp4,
   webm: encodeWebm,
   mov: encodeMov,
   gif: encodeGif,
   webp: encodeWebp,
   avif: encodeAvif,
-} satisfies Record<string, Encoder>;
+};
 
-export type EncodeTarget = keyof typeof ENCODERS;
+export const ENCODE_TARGETS = FORMAT_IDS;
 
-export const ENCODE_TARGETS = Object.keys(ENCODERS) as EncodeTarget[];
-
-export async function encodeVideo(
+// For the tools that hand their source's format back: nothing about the
+// pictures changes that the tool didn't change itself, so no format gets to
+// apply a conversion's frame rate and size defaults.
+export function encodePreserved(
   ff: FFmpeg,
-  inputFile: string,
+  render: Render,
   workDir: string,
-  target: EncodeTarget,
+  format: FormatId,
+  quality: number,
+): Promise<string> {
+  return encodeRender(ff, render, workDir, format, {
+    quality,
+    fps: render.fps,
+    width: null,
+    everyFrame: true,
+  });
+}
+
+export async function encodeRender(
+  ff: FFmpeg,
+  render: Render,
+  workDir: string,
+  target: FormatId,
   options: EncodeOptions,
 ): Promise<string> {
   if (target !== "gif") {
-    console.log(`Converting to ${target} (quality ${options.quality})...`);
+    console.log(`Encoding ${target} (quality ${options.quality})...`);
   }
+  const codec = CODECS[target];
+  const cap =
+    codec && render.source
+      ? rateCap(
+          await sourceVideoKbps(ff, render.source),
+          options.quality,
+          render.duration,
+          codecFactor(render.source.profile.codec, codec),
+        )
+      : null;
+  if (cap) console.log(`At most ${cap.maxrate} kb/s, going by the source`);
   const outputFile = path.join(workDir, `output.${target}`);
-  await ENCODERS[target](ff, inputFile, outputFile, options);
+  await ENCODERS[target](ff, render, outputFile, options, cap);
   return outputFile;
 }

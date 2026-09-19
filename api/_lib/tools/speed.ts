@@ -1,53 +1,53 @@
-import path from "node:path";
-import type { FFmpeg } from "../ffmpeg.js";
-import { h264 } from "../encode/h264.js";
+import { encodePreserved } from "../encode/index.js";
+import { MAX_GIF_FPS } from "../encode/gif.js";
+import {
+  frameRate,
+  sourceRender,
+  videoPad,
+  type Render,
+} from "../encode/render.js";
 import { clamp, singleVideo } from "../request.js";
+import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
 
-export async function changeSpeed(
-  ff: FFmpeg,
-  inputFile: string,
-  multiplier: number,
-): Promise<string> {
-  console.log(`Changing playback speed by ${multiplier}x...`);
-
-  const outputFile = `${inputFile}_speed.mp4`;
-  const fps = await ff.fps(inputFile);
-
-  // setpts rescales frame timestamps; keeping the source frame rate via
-  // -r makes speed-ups drop frames (instead of raising the output fps)
-  // and slow-downs duplicate frames. Audio is dropped like in the other
-  // tools.
-  await ff.runFFmpeg([
-    "-y",
-    "-i",
-    inputFile,
-    "-vf",
-    `setpts=PTS/${multiplier}`,
-    "-r",
-    fps.toString(),
-    "-an",
-    ...h264("22"),
-    "-pix_fmt",
-    "yuv420p",
-    outputFile,
-  ]);
-
-  return outputFile;
+// setpts rescales the frame timestamps; the fps filter then settles what is
+// shown at the new pace.
+export function changeSpeed(source: Source, multiplier: number): Render {
+  const sourceFps = source.profile.fps ?? 30;
+  // Video keeps its frame rate: speed-ups drop frames (rather than raising
+  // the rate past what screens show) and slow-downs repeat them. A GIF is a
+  // list of frames with delays, so there the delays change and every frame
+  // stays, up to the 50 a second a GIF can show.
+  const fps =
+    source.format === "gif"
+      ? Math.min(sourceFps * multiplier, MAX_GIF_FPS)
+      : sourceFps;
+  return sourceRender(source, {
+    filter: `${videoPad(source)}setpts=PTS/${multiplier},fps=${frameRate(fps)}[out]`,
+    // Like the other tools that change a clip's timing, without its audio.
+    keepAudio: false,
+    duration: source.profile.duration / multiplier,
+    fps,
+  });
 }
 
 export const speed: Tool = {
   inputs: singleVideo,
-  async run({ ff, workDir, inputs, options, download }) {
+  async run(job) {
+    const { ff, workDir, inputs, options } = job;
     // Signed ratio: ±1 → 2× faster/slower, ±3 → 4×. Mirrored in
     // client/src/pages/Speed/Speed.tsx.
     const ratio = clamp(options.speed, -3, 3, 0);
     const multiplier = ratio >= 0 ? 1 + ratio : 1 / (1 - ratio);
 
-    const inputPath = path.join(workDir, "input.mp4");
-    await download(inputs[0], inputPath);
+    const source = await openSource(job, inputs[0]);
+    // Comes back in the format it came in, and at the quality: the tool has
+    // no slider, so it spends what the source spends.
+    const format = preservedFormat(source);
+    console.log(`Changing playback speed of ${format} by ${multiplier}x...`);
 
-    const outputPath = await changeSpeed(ff, inputPath, multiplier);
-    return { outputPath, suffix: "speed", ext: "mp4" };
+    const render = changeSpeed(source, multiplier);
+    const outputPath = await encodePreserved(ff, render, workDir, format, 100);
+    return { outputPath, suffix: "speed", ext: format };
   },
 };

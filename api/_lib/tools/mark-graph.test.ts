@@ -180,6 +180,37 @@ describe("watermarkGraph", () => {
     }
   });
 
+  it("keeps an RGBA base out of YUV, and whole", () => {
+    const odd = info(321, 241, "gif");
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(odd, logo, filter, undefined, {
+        base: "rgba",
+      });
+      expect(graph).not.toMatch(/yuv|color_matrix/);
+      expect(graph).toMatch(/^\[0:v\]format=rgba[,[]/);
+      expect(graph).toMatch(/:format=auto,format=rgba\[out\]$/);
+    }
+  });
+
+  it("composites video in yuv420p, cropped to even dimensions", () => {
+    const odd = info(321, 241, "h264");
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(odd, logo, filter);
+      expect(graph).toMatch(/^\[0:v\]format=yuv420p,crop=320:240:0:0/);
+      expect(graph).toMatch(/,format=yuv420p\[out\]$/);
+    }
+  });
+
+  it("takes the video from the stream it is told to", () => {
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        pad: "[0:v:1]",
+      });
+      expect(graph).toMatch(/^\[0:v:1\]format=yuv420p/);
+      expect(graph).not.toContain("[0:v]");
+    }
+  });
+
   it("leaves a logo that fills its canvas alone", () => {
     for (const filter of [false, true]) {
       const graph = watermarkGraph(video, logo, filter);

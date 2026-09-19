@@ -9,6 +9,11 @@
   background-color: var(--bg-1);
 }
 
+/* The canvas of an animated image: sized by the frame drawn on it. */
+.framePreviewCanvas {
+  height: auto;
+}
+
 .framePreviewError {
   font-size: 10px;
   padding: 2em;

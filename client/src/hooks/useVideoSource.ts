@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 
+// The sources an <img> shows and a <video> doesn't.
+export const isAnimatedImage = (file: File) =>
+  file.type === "image/gif" || file.type === "image/avif";
+
 export interface Dims {
   w: number;
   h: number;
@@ -7,10 +11,10 @@ export interface Dims {
 
 // The picked source of a single-video tool, plus what the browser can tell
 // about it: an object URL (shared by the probe and any preview), the
-// duration and the frame size. `gif` also takes an animated GIF as the
-// source (the mark tool): it gets a URL but no probe, since <video> won't
-// decode it — its size is read from the preview's <img> when that loads,
-// hence `setDims`.
+// duration and the frame size. `gif` also gives an animated image (GIF,
+// AVIF) a URL, for the mark tool's preview, but no probe, since <video>
+// won't decode it — its size is read from the preview's <img> when that
+// loads, hence `setDims`.
 export function useVideoSource({ gif = false }: { gif?: boolean } = {}) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState<string>("");
@@ -30,7 +34,7 @@ export function useVideoSource({ gif = false }: { gif?: boolean } = {}) {
     setDims(null);
     setUrl("");
 
-    const isGif = gif && picked.type === "image/gif";
+    const isGif = gif && isAnimatedImage(picked);
     if (!picked.type.startsWith("video/") && !isGif) return;
     const next = URL.createObjectURL(picked);
     setUrl(next);

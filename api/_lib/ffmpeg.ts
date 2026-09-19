@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import { InputError } from "./errors.js";
 
 // Only `cwd` is ever passed through to spawn.
 type RunOptions = { cwd?: string };
@@ -21,6 +22,30 @@ export type MediaInfo = {
   matrix: "bt709" | "bt601" | "bt2020" | null;
 };
 
+// The video stream to work on, and its place among the file's video streams
+// (ffmpeg's `v:N`). Nearly always the only one. The exceptions are why this
+// exists: ffmpeg 7 lists an animated AVIF as two, its one-frame cover image
+// first and the animation second (ffmpeg 6 only showed the animation), and
+// audio files and some mp4s carry cover art as an "attached pic" stream.
+// The animation is the one with a bitrate of its own; failing that, the
+// higher frame rate; failing that, the first.
+function mainVideo(summary: string): { line: string; index: number } | null {
+  const streams = summary
+    .split("\n")
+    .filter((line) => /Stream #\d+:\d+.*: Video: /.test(line))
+    .map((line, index) => ({ line, index }));
+  const real = streams.filter((s) => !s.line.includes("(attached pic)"));
+  const score = ({ line }: { line: string }) =>
+    (/, \d+x\d+\b.*\b\d+ kb\/s/.test(line) ? 1e6 : 0) +
+    Number(/, ([\d.]+) fps\b/.exec(line)?.[1] ?? 0);
+  return (
+    (real.length ? real : streams).reduce<(typeof streams)[number] | null>(
+      (best, s) => (best === null || score(s) > score(best) ? s : best),
+      null,
+    ) ?? null
+  );
+}
+
 // Parses the `-i` summary, e.g.
 //   Duration: 00:00:03.00, start: 0.000000, bitrate: 46 kb/s
 //   Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661),
@@ -30,9 +55,7 @@ export type MediaInfo = {
 // codec tag (`0x31637661`) never starts a field. Stills report
 // "Duration: N/A", which reads as 0.
 export function parseMediaInfo(summary: string): MediaInfo | null {
-  const video = summary
-    .split("\n")
-    .find((line) => /Stream #\d+:\d+.*: Video: /.test(line));
+  const video = mainVideo(summary)?.line;
   if (!video) return null;
   const fields = video.slice(video.indexOf(": Video: ")).split(", ");
   const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
@@ -73,6 +96,68 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
   };
 }
 
+export type VideoPacket = { time: number; size: number; key: boolean };
+
+// What else the same summary says about a source: enough to tell which
+// format it is (source.ts) and what it spends per second, which is what the
+// output stage holds a result to (encode/rate.ts).
+export type SourceProfile = MediaInfo & {
+  // Which of the file's video streams all of this is about (mainVideo): the
+  // N of ffmpeg's `0:v:N`. Anything that names the source's video has to go
+  // by it, since "the first video stream" can be a cover image.
+  videoIndex: number;
+  // The demuxer's names, e.g. ["mov", "mp4", "m4a", "3gp", "3g2", "mj2"]:
+  // a family of containers rather than one.
+  formatNames: string[];
+  // What tells that family apart: the ftyp brand ("isom", "qt", "avis").
+  // Null outside it, where the tag is only ever a leftover (a webm made
+  // from an mp4 carries the mp4's as MAJOR_BRAND, in capitals).
+  majorBrand: string | null;
+  // kb/s of the whole file, and of the video stream alone. ffmpeg prints
+  // the latter for the mov family only; FFmpeg.videoBytes measures it for
+  // the rest.
+  bitrateKbps: number | null;
+  videoKbps: number | null;
+  pixFmt: string;
+  audio: { codec: string; kbps: number | null } | null;
+};
+
+export function parseSourceProfile(output: string): SourceProfile | null {
+  // ffmpeg on Windows ends its lines in CRLF.
+  const summary = output.replace(/\r/g, "");
+  const info = parseMediaInfo(summary);
+  if (!info) return null;
+  const lines = summary.split("\n");
+  const formatNames =
+    /^Input #0, (.+?), from /m.exec(summary)?.[1].split(",") ?? [];
+  const brand = formatNames.includes("mov")
+    ? /^\s*major_brand\s*:\s*(\S+)/m.exec(summary)?.[1]
+    : undefined;
+  const kbps = (text: string | undefined) => {
+    const match = /(\d+) kb\/s/.exec(text ?? "");
+    return match ? Number(match[1]) : null;
+  };
+  const main = mainVideo(summary);
+  const video = main?.line ?? "";
+  const audio = lines.find((l) => /Stream #\d+:\d+.*: Audio: /.test(l));
+  return {
+    ...info,
+    videoIndex: main?.index ?? 0,
+    formatNames,
+    majorBrand: brand ?? null,
+    bitrateKbps: kbps(/Duration: .*bitrate: ([^\n]*)/.exec(summary)?.[1]),
+    // Past the WxH field, so the codec tag's digits never match.
+    videoKbps: kbps(/, \d+x\d+\b(.*)$/.exec(video)?.[1]),
+    pixFmt: /, ([a-z]\w*)(?:\([^)]*\))?, \d+x\d+/.exec(video)?.[1] ?? "",
+    audio: audio
+      ? {
+          codec: /: Audio: (\w+)/.exec(audio)?.[1] ?? "",
+          kbps: kbps(audio),
+        }
+      : null,
+  };
+}
+
 /**
  * Runs the binaries for one job and probes its inputs: pure-Node ffmpeg
  * (ffmpeg-static, a real binary, no shell) plus the vendored gifski. The
@@ -84,8 +169,11 @@ export class FFmpeg {
   gifski: string;
   signal: AbortSignal | null;
   gifskiChmodDone = false;
+  // When the job began: what is left of the function's time limit decides
+  // whether an optional second pass is worth starting (encode/gif.ts).
+  startedAt = Date.now();
   // Inputs are immutable for the life of a job, so probe each file once.
-  private infoCache = new Map<string, MediaInfo>();
+  private infoCache = new Map<string, SourceProfile>();
 
   // `signal` (optional AbortSignal) cancels the pipeline: the running child
   // process is killed and every later command rejects right away.
@@ -111,7 +199,7 @@ export class FFmpeg {
   // so there is no separate ffprobe binary to ship. `ffmpeg -i` with no
   // output prints the stream summary to stderr and exits non-zero, which is
   // the expected outcome here rather than a failure.
-  async mediaInfo(inputFile: string): Promise<MediaInfo> {
+  async mediaInfo(inputFile: string): Promise<SourceProfile> {
     const cached = this.infoCache.get(inputFile);
     if (cached) return cached;
     const { stderr } = await this.run(this.ffmpeg, [
@@ -119,12 +207,87 @@ export class FFmpeg {
       "-i",
       inputFile,
     ]);
-    const info = parseMediaInfo(stderr);
+    const info = parseSourceProfile(stderr);
     if (!info) {
+      // ffmpeg reads a WebP still but has no decoder for the animated kind:
+      // it finds the stream and no picture in it.
+      if (/^Input #0, webp_pipe,/m.test(stderr)) {
+        throw new InputError(
+          "Animated WebP can't be read (ffmpeg has no decoder for it). " +
+            "Use the file it was made from instead.",
+          "unreadable-source",
+        );
+      }
       throw new Error(`Could not read media info: ${stderr.trim()}`);
     }
     this.infoCache.set(inputFile, info);
     return info;
+  }
+
+  // The packets of the video stream, in the order they are stored: when
+  // each is shown (seconds), its size, and whether it is a keyframe. A
+  // stream copy into the framecrc muxer only demuxes, so this takes
+  // milliseconds and decodes nothing; it prints a line per packet,
+  //   0,       -1000,          0,     1000,    15373, 0xea0a89e8
+  //   0,           0,       2000,     1000,    14397, 0xf34943f6, F=0x0
+  // (stream, dts, pts, duration, size, crc, and the flags of any packet that
+  // is not a plain keyframe) under a header that has the time base,
+  //   #tb 0: 1/30000
+  // Null when the stream cannot be listed.
+  async videoPackets(inputFile: string): Promise<VideoPacket[] | null> {
+    const { videoIndex } = await this.mediaInfo(inputFile);
+    const { code, stdout } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-i",
+      inputFile,
+      "-map",
+      `0:v:${videoIndex}`,
+      "-c",
+      "copy",
+      "-f",
+      "framecrc",
+      "-",
+    ]);
+    const tb = /^#tb 0: (\d+)\/(\d+)/m.exec(stdout);
+    if (code !== 0 || !tb) return null;
+    const timeBase = Number(tb[1]) / Number(tb[2]);
+    const packets = stdout
+      .split("\n")
+      .filter((line) => /^\d/.test(line))
+      .map((line) => {
+        const fields = line.split(",").map((f) => f.trim());
+        return {
+          time: Number(fields[2]) * timeBase,
+          size: Number(fields[4]),
+          key: !fields.some((f) => f.startsWith("F=")),
+        };
+      });
+    const readable = packets.every(
+      (p) => Number.isFinite(p.time) && Number.isFinite(p.size),
+    );
+    return packets.length && readable ? packets : null;
+  }
+
+  // How many frames of the video stream actually decode. Unlike the packet
+  // count this reads every frame, at decoding speed.
+  async decodedFrames(inputFile: string): Promise<number | null> {
+    const { videoIndex } = await this.mediaInfo(inputFile);
+    const { code, stderr } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-i",
+      inputFile,
+      "-map",
+      `0:v:${videoIndex}`,
+      "-fps_mode",
+      "passthrough",
+      "-f",
+      "null",
+      "-",
+    ]);
+    const frames = [...stderr.matchAll(/\bframe=\s*(\d+)/g)].pop();
+    return code === 0 && frames ? Number(frames[1]) : null;
   }
 
   runFFmpeg(args: string[], options: RunOptions = {}): Promise<string> {

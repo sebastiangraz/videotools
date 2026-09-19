@@ -1,5 +1,11 @@
+// Animated GIF and AVIF are videos to ffmpeg, and formats the app writes
+// (shared/formats.ts), so every single-source tool takes them too. The list
+// is wider than what the tools can hand back on purpose: an .avi is picked
+// like any other file, and the page then says why it has to go through
+// convert first (components/OutputFormat).
 const VIDEO_ACCEPT =
-  "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts";
+  "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts," +
+  "image/gif,.gif,image/avif,.avif";
 
 // Available tools. Mirrored in api/_lib/tools/index.ts (TOOLS); each tool's
 // page (its options and request payload) is a component under pages/,
@@ -55,8 +61,7 @@ export const TOOLS = [
     label: "Mark",
     description: "Watermark a video with your logo",
     input: {
-      // Animated GIFs are videos to ffmpeg, so they can be marked too.
-      accept: `${VIDEO_ACCEPT},image/gif,.gif`,
+      accept: VIDEO_ACCEPT,
       multiple: false,
       pickerLabel: "choose video",
     },

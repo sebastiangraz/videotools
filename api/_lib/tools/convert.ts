@@ -1,20 +1,24 @@
-import path from "node:path";
-import { ENCODE_TARGETS, encodeVideo } from "../encode/index.js";
-import { blobExt, clamp, pick, singleVideo } from "../request.js";
+import { ENCODE_TARGETS, encodeRender } from "../encode/index.js";
+import { sourceRender } from "../encode/render.js";
+import { clamp, pick, singleVideo } from "../request.js";
+import { openSource } from "../source.js";
 import type { Tool } from "./types.js";
 
 // No transformation of its own: the source goes straight to the output stage
 // (encode/), with the format and quality the user picked.
 export const convert: Tool = {
   inputs: singleVideo,
-  async run({ ff, workDir, inputs, options, download }) {
+  async run(job) {
+    const { ff, workDir, inputs, options } = job;
     const target = pick(options.target, ENCODE_TARGETS, "mp4");
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
-    const inputPath = path.join(workDir, `input${blobExt(inputs[0], ".mp4")}`);
-    await download(inputs[0], inputPath);
+    // Any source ffmpeg reads will do here: this is the tool that turns the
+    // ones no other tool can hand back (avi, mkv, ...) into ones they can.
+    const source = await openSource(job, inputs[0]);
+    const render = sourceRender(source);
 
-    const outputPath = await encodeVideo(ff, inputPath, workDir, target, {
+    const outputPath = await encodeRender(ff, render, workDir, target, {
       quality,
       ...(target === "gif"
         ? {

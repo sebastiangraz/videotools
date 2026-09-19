@@ -155,11 +155,23 @@ export function watermarkLayout(
 // [out]). Every dimension is computed here from the probed sizes rather
 // than with filter expressions, so the glass pipeline can crop just the
 // patch of video under the logo instead of blurring whole frames.
+//
+// `base` is the pixel format the frame is composited in. Video is yuv420p,
+// which is what its encoders write. A GIF goes back out as RGB frames, so it
+// stays RGBA from end to end: through yuv420p it would lose its
+// transparency, have its colours subsampled, and an odd-sized one a pixel.
+//
+// `pad` names the video among the inputs: the first input's first video
+// stream unless the caller knows better (encode/render.ts, videoPad).
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
   filter: boolean,
   bounds: Bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
+  {
+    base = "yuv420p",
+    pad = "[0:v]",
+  }: { base?: "yuv420p" | "rgba"; pad?: string } = {},
 ): string {
   const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
     video,
@@ -182,11 +194,19 @@ export function watermarkGraph(
   // full-range sources (JPEG stills from the preview's frame grab, some
   // phone footage) would otherwise reach the final overlay through a
   // different conversion than the glass patch and leave a faint box.
+  // An RGBA base needs none of that, nor the crop to even dimensions; the
+  // overlays then have to be told not to fall back to their yuv420 default.
+  const rgb = base === "rgba";
+  const open = rgb ? "format=rgba" : `format=yuv420p,crop=${VW}:${VH}:0:0`;
+  const onto = (x: number, y: number) =>
+    rgb
+      ? `overlay=x=${x}:y=${y}:format=auto,format=rgba`
+      : `overlay=x=${x}:y=${y},format=yuv420p`;
   if (!filter) {
     return [
-      `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0[base]`,
+      `${pad}${open}[base]`,
       `[1:v]format=rgba${trim},${scaleLogo}[logo]`,
-      `[base][logo]overlay=x=${LX}:y=${LY},format=yuv420p[out]`,
+      `[base][logo]${onto(LX, LY)}[out]`,
     ].join(";");
   }
 
@@ -322,13 +342,16 @@ export function watermarkGraph(
   ].join(",");
 
   return [
-    `[0:v]format=yuv420p,crop=${VW}:${VH}:0:0,split[base][src]`,
+    `${pad}${open},split[base][src]`,
     // The patch of video under the cell, to refract, and a transparent
     // canvas of the same size and timing to stack the layers on. Both
     // colour conversions (here and on the way back) name their matrix:
     // left to auto, the way in follows the source's tag (bt709 on most HD
     // files) and the way back falls to bt601, which shifts the hue.
-    `[src]crop=${CW}:${CH}:${CX}:${CY},scale=in_color_matrix=${matrix}:in_range=tv,format=rgba,split[cellA][cellB]`,
+    // (An RGBA base has no conversion to name. What the glass refracts is
+    // the colour of the pixels under it, so over transparent ones it shows
+    // whatever colour the file keeps there.)
+    `[src]crop=${CW}:${CH}:${CX}:${CY},${rgb ? "" : `scale=in_color_matrix=${matrix}:in_range=tv,`}format=rgba,split[cellA][cellB]`,
     `[cellB]colorchannelmixer=aa=0[canvas]`,
     // The logo scaled and centred in a transparent cell-sized canvas, at
     // 1× (the faint copy and the masks) and at 2× (the lens maps). The
@@ -398,8 +421,8 @@ export function watermarkGraph(
     `[c1][glass]overlay=format=auto[c2a]`,
     `[c2a][ambient]overlay=format=auto[c2]`,
     `[c2][rim]overlay=format=auto[c3]`,
-    `[c3][faint]overlay=format=auto,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p[cell]`,
-    `[base][cell]overlay=x=${CX}:y=${CY},format=yuv420p[out]`,
+    `[c3][faint]overlay=format=auto${rgb ? "" : `,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p`}[cell]`,
+    `[base][cell]${onto(CX, CY)}[out]`,
   ].join(";");
 }
 

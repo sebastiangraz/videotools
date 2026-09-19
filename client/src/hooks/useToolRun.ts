@@ -98,8 +98,11 @@ export function useToolRun(tool: ToolId) {
       }
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
-      const downloadName =
-        resultName || files[0].name.replace(/\.[^.]+$/, "") + "_loop.mp4";
+      // The server names the result; the stand-in keeps the source's name
+      // and extension, which is the format every tool hands back unless it
+      // was asked for another.
+      const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
+      const downloadName = resultName || `${base}_${tool}${ext}`;
 
       setMsg(`Downloading ${downloadName.slice(0, 28)}`);
       // Result lives on Blob storage (cross-origin), where the anchor

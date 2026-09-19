@@ -120,4 +120,40 @@ describe("Loop", () => {
       screen.queryByLabelText(/start frame preview/i),
     ).not.toBeInTheDocument();
   });
+
+  it("says a picked file comes back in its own format", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "anim.gif", { type: "image/gif" }),
+    );
+
+    expect(screen.getByText(/GIF, same as the source/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+  });
+
+  it("sends a format the app doesn't write through convert, before any upload", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /AVI files can be read but not written/i,
+    );
+    expect(
+      screen.getByRole("link", { name: /convert it first/i }),
+    ).toHaveAttribute("href", "/convert");
+
+    const button = screen.getByRole("button", { name: /^loop$/i });
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    await user.click(button);
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
 });

@@ -7,16 +7,17 @@ import { Slider } from "../../components/Slider/Slider";
 import { useToolRun } from "../../hooks/useToolRun";
 import type { Dims } from "../../hooks/useVideoSource";
 import { toolById } from "../../tools";
+import { SEQUENCE_FORMATS, formatById } from "../../../../shared/formats";
 import form from "../form.module.css";
 
 const TOOL = toolById("sequence");
 
-// Mirrored in api/_lib/tools/sequence.ts (VALID_FORMATS)
-const FORMATS = [
-  { value: "mp4", label: "MP4" },
-  { value: "gif", label: "GIF" },
-  { value: "avif", label: "AVIF" },
-];
+// Stills have no format of their own to keep, so this tool asks for one
+// (shared/formats.ts, which the functions validate against too).
+const FORMATS = SEQUENCE_FORMATS.map((id) => ({
+  value: id,
+  label: formatById(id).label,
+}));
 
 // Rough output-size model: bytes per pixel per frame at quality 0 → 100.
 // Real encoders vary wildly with content, so this is an order-of-magnitude
@@ -151,7 +152,7 @@ export const Sequence = () => {
           }
           value={quality}
           onValueChange={setQuality}
-          min={0}
+          min={1}
           max={100}
           step={1}
           disabled={run.busy}

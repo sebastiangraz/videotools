@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
+import { OutputFormat } from "../../components/OutputFormat/OutputFormat";
 import { Slider } from "../../components/Slider/Slider";
 import { Switch } from "../../components/Switch/Switch";
 import { useToolRun } from "../../hooks/useToolRun";
-import { useVideoSource } from "../../hooks/useVideoSource";
+import { isAnimatedImage, useVideoSource } from "../../hooks/useVideoSource";
+import { keptFormatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { useMarkPreview } from "./useMarkPreview";
 import form from "../form.module.css";
@@ -38,7 +40,7 @@ export const Mark = () => {
   }, [watermarkUrl]);
 
   const sourceFile = source.file;
-  const gifSource = sourceFile?.type === "image/gif";
+  const gifSource = sourceFile != null && isAnimatedImage(sourceFile);
   const aspectRatio = source.dims
     ? `${source.dims.w} / ${source.dims.h}`
     : "16 / 9";
@@ -92,13 +94,14 @@ export const Mark = () => {
       blocker={
         !source.file
           ? "Upload a file"
-          : !watermark
-            ? "Upload a watermark"
-            : null
+          : (keptFormatBlocker(source.file) ??
+            (!watermark ? "Upload a watermark" : null))
       }
       run={run}
       onSubmit={submit}
     >
+      {source.file && <OutputFormat file={source.file} />}
+
       {/* Frames of the clip, watermarked by the server with the real
           graph; moving the pointer across the box scrubs through
           them. The bare first frame shows until a render lands (and
@@ -219,10 +222,14 @@ export const Mark = () => {
 
       <div className={form.formGroup}>
         <Slider
-          label={<>Quality {quality}%</>}
+          label={
+            <>
+              {quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}
+            </>
+          }
           value={quality}
           onValueChange={setQuality}
-          min={0}
+          min={1}
           max={100}
           step={1}
           disabled={run.busy}

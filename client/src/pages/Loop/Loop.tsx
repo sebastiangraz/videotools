@@ -2,11 +2,14 @@ import { useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
+import { AnimationFramePreview } from "../../components/FramePreview/AnimationFramePreview";
+import { OutputFormat } from "../../components/OutputFormat/OutputFormat";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useToolRun } from "../../hooks/useToolRun";
-import { useVideoSource } from "../../hooks/useVideoSource";
+import { isAnimatedImage, useVideoSource } from "../../hooks/useVideoSource";
+import { keptFormatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
 
@@ -59,10 +62,12 @@ export const Loop = () => {
           onFiles={pick}
         />
       }
-      blocker={source.file ? null : "Upload a file"}
+      blocker={source.file ? keptFormatBlocker(source.file) : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
+      {source.file && <OutputFormat file={source.file} />}
+
       <div className={form.formGroup}>
         <label htmlFor="technique" className={form.label}>
           Technique
@@ -106,8 +111,16 @@ export const Loop = () => {
               largeStep={0.5}
               disabled={run.busy}
               preview={
-                source.url && (
+                source.url ? (
                   <FramePreview src={source.url} second={startSecond ?? 0} />
+                ) : (
+                  source.file &&
+                  isAnimatedImage(source.file) && (
+                    <AnimationFramePreview
+                      file={source.file}
+                      second={startSecond ?? 0}
+                    />
+                  )
                 )
               }
             />
@@ -117,10 +130,14 @@ export const Loop = () => {
 
       <div className={form.formGroup}>
         <Slider
-          label={<>Quality {quality}%</>}
+          label={
+            <>
+              {quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}
+            </>
+          }
           value={quality}
           onValueChange={setQuality}
-          min={0}
+          min={1}
           max={100}
           step={1}
           disabled={run.busy}

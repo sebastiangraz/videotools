@@ -20,6 +20,11 @@
 // deliberate encoding change shows up as exactly the commands that were
 // meant to change, and the results table says what it did to the sizes.
 // Outputs stay in .smoke/<label>/runs/<case>/ to look at.
+//
+// Apart from the comparison, every case carries what must hold for it
+// whatever the encoders do (`expect` in CASES): the format that comes back,
+// how big it may get next to its source, or the rejection a source the app
+// cannot write back has to get. A run that breaks one exits 1 and lists them.
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -41,38 +46,107 @@ const smokeDir = path.join(root, ".smoke");
 //                                      filename order (1–100 files)
 //   frame      —                       always the first frame of `video`
 //                                      (what the browser sends /api/preview)
+//   mov, webm  —                       always `video` again, as source.mov
+//                                      (remuxed) and source.webm (VP9/Opus):
+//                                      sources in the other video formats
+//   avif       —                       the first two seconds of `video` as
+//                                      a small source.avif (AV1 is slow)
+//   mkv        —                       `video` remuxed to reject.mkv, a
+//                                      container the app reads but never
+//                                      writes
 const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 
 // Every case is a /api/process request: the tool, its uploads (asset roles)
 // and its options. `preview` is the one exception, /api/preview's single
 // frame.
+//
+// `expect` is what has to hold for the result:
+//   ext        its extension; "source" = the same as the first upload's,
+//              which is every tool's rule but convert's and sequence's
+//   maxRatio   its size next to the source's, at most (quality is relative
+//   minRatio   to the source: 100 spends the source's bitrate, so size only
+//              follows duration — a reverse loop is twice its source)
+//   frames     "source": as many frames as the source has, for the results
+//              that only rearrange or redraw them; "double": twice as many,
+//              for the reverse loops
+//   errorCode  the run has to be refused, with this InputError code
 const CASES = {
-  "loop-reverse": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 100 } },
-  "loop-reverse-q60": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 60 } },
-  "loop-reverse-gif-source": { tool: "loop", files: ["animation"], options: { technique: "reverse", quality: 100 } },
-  "loop-crossfade": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 80 } },
-  "loop-crossfade-start": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 1.5, quality: 100 } },
-  "loop-reorder": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 } },
-  "sequence-mp4": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "mp4", quality: 90 } },
-  "sequence-gif": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "gif", quality: 90 } },
-  "sequence-gif-q50": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "gif", quality: 50 } },
-  "sequence-avif": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 85 } },
-  "sequence-avif-lossless": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 100 } },
-  "convert-mp4": { tool: "convert", files: ["video"], options: { target: "mp4", quality: 60 } },
-  "convert-mov": { tool: "convert", files: ["video"], options: { target: "mov", quality: 90 } },
-  "convert-webm": { tool: "convert", files: ["video"], options: { target: "webm", quality: 90 } },
-  "convert-webp": { tool: "convert", files: ["video"], options: { target: "webp", quality: 90 } },
-  "convert-webp-lossless": { tool: "convert", files: ["video"], options: { target: "webp", quality: 100 } },
-  "convert-avif": { tool: "convert", files: ["video"], options: { target: "avif", quality: 70 } },
-  "convert-gif": { tool: "convert", files: ["video"], options: { target: "gif", quality: 90, width: 200 } },
-  "convert-gif-fps": { tool: "convert", files: ["video"], options: { target: "gif", quality: 70, fps: 10, width: 160 } },
-  "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 } },
-  "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 } },
-  "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: false, quality: 90 } },
-  "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: true, quality: 100 } },
-  "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: true, quality: 90 } },
+  "loop-reverse": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 } },
+  "loop-reverse-q60": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 60 }, expect: { ext: "source", frames: "double", maxRatio: 1.4 } },
+  "loop-reverse-gif-source": { tool: "loop", files: ["animation"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 } },
+  "loop-reverse-mov-source": { tool: "loop", files: ["mov"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 } },
+  // One-pass VP9 lands well under the bitrate it is given, hence a range.
+  "loop-reverse-webm-source": { tool: "loop", files: ["webm"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2, minRatio: 0.8 } },
+  // A few dozen kB, where the container counts and libaom holds its one-pass
+  // rate only loosely: more headroom than the other reverse loops get.
+  "loop-reverse-avif-source": { tool: "loop", files: ["avif"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.5 } },
+  "loop-reject-mkv-source": { tool: "loop", files: ["mkv"], options: { technique: "reverse", quality: 100 }, expect: { errorCode: "unsupported-source" } },
+  "loop-crossfade": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 80 }, expect: { ext: "source", maxRatio: 0.9 } },
+  "loop-crossfade-start": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 1.5, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
+  "loop-crossfade-gif-source": { tool: "loop", files: ["animation"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
+  "loop-reorder": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
+  // A start point next to a keyframe of the footage in scripts/smoke-assets
+  // (2.03s), where the streams are reordered without decoding. Test patterns
+  // have no keyframe there and are encoded, like loop-reorder.
+  "loop-reorder-keyframe": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 2, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
+  // The same in WebM, whose VP9 has no B-frames for a cut to break: the first
+  // keyframe past the start of source.webm is at 4.27s.
+  "loop-reorder-webm-keyframe": { tool: "loop", files: ["webm"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 4.2, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
+  "loop-reorder-gif-source": { tool: "loop", files: ["animation"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "sequence-mp4": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "mp4", quality: 90 }, expect: { ext: "mp4" } },
+  "sequence-gif": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "gif", quality: 90 }, expect: { ext: "gif" } },
+  "sequence-gif-q50": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "gif", quality: 50 }, expect: { ext: "gif" } },
+  "sequence-avif": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 85 }, expect: { ext: "avif" } },
+  "sequence-avif-lossless": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 100 }, expect: { ext: "avif" } },
+  "convert-mp4": { tool: "convert", files: ["video"], options: { target: "mp4", quality: 60 }, expect: { ext: "mp4", maxRatio: 0.75, frames: "source" } },
+  "convert-mov": { tool: "convert", files: ["video"], options: { target: "mov", quality: 90 }, expect: { ext: "mov", maxRatio: 1.05, frames: "source" } },
+  "convert-webm": { tool: "convert", files: ["video"], options: { target: "webm", quality: 90 }, expect: { ext: "webm", maxRatio: 1, minRatio: 0.4, frames: "source" } },
+  "convert-webp": { tool: "convert", files: ["video"], options: { target: "webp", quality: 90 }, expect: { ext: "webp" } },
+  "convert-webp-lossless": { tool: "convert", files: ["video"], options: { target: "webp", quality: 100 }, expect: { ext: "webp" } },
+  "convert-avif": { tool: "convert", files: ["video"], options: { target: "avif", quality: 70 }, expect: { ext: "avif", maxRatio: 0.75 } },
+  "convert-gif": { tool: "convert", files: ["video"], options: { target: "gif", quality: 90, width: 200 }, expect: { ext: "gif" } },
+  "convert-gif-fps": { tool: "convert", files: ["video"], options: { target: "gif", quality: 70, fps: 10, width: 160 }, expect: { ext: "gif" } },
+  "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 0.6 } },
+  "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 2.2 } },
+  "speed-gif-source": { tool: "speed", files: ["animation"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 } },
+  "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: false, quality: 90 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: false, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: true } },
 };
+
+// What a result does to its case's `expect`, as lines to print; none = holds.
+function violations(expect, result, sourceFile) {
+  if (!expect) return [];
+  if (expect.errorCode) {
+    return result.code === expect.errorCode
+      ? []
+      : [
+          `has to be refused as "${expect.errorCode}", but ` +
+            (result.error ? `failed with: ${result.error}` : `came back as ${result.output}`),
+        ];
+  }
+  if (result.error) return [`failed: ${result.error}`];
+  const found = [];
+  const ext = path.extname(result.output).slice(1);
+  const wanted =
+    expect.ext === "source" ? path.extname(sourceFile).slice(1).toLowerCase() : expect.ext;
+  if (wanted && ext !== wanted) found.push(`came back as .${ext}, has to be .${wanted}`);
+  if (expect.maxRatio != null && result.ratio > expect.maxRatio) {
+    found.push(`${result.ratio}x its source, at most ${expect.maxRatio}x allowed`);
+  }
+  if (expect.minRatio != null && result.ratio < expect.minRatio) {
+    found.push(`${result.ratio}x its source, at least ${expect.minRatio}x expected`);
+  }
+  const wantedFrames = result.sourceFrames * (expect.frames === "double" ? 2 : 1);
+  if (expect.frames && result.frames !== wantedFrames) {
+    found.push(
+      `${result.frames} frames, has to be ${wantedFrames} (its source has ${result.sourceFrames})`,
+    );
+  }
+  return found;
+}
 
 function parseArgs(argv) {
   const args = { label: null, diff: null, only: null, ffmpeg: null, assets: null };
@@ -103,7 +177,8 @@ function build(outDir) {
       "-p", path.join(root, "tsconfig.json"),
       "--noEmit", "false",
       "--outDir", outDir,
-      "--rootDir", path.join(root, "api"),
+      // The repo, not api/: the functions import shared/ from next to it.
+      "--rootDir", root,
     ],
     { stdio: "inherit" },
   );
@@ -185,13 +260,55 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   ff("-i", video, "-frames:v", "1", made("frame.jpg"));
   assets.frame = [made("frame.jpg")];
 
+  // The same clip in the other containers. A remux where the streams fit;
+  // footage that doesn't (say, a video.webm) is encoded instead.
+  const remux = (name, ...streams) => {
+    try {
+      ff("-i", video, ...streams, "-c", "copy", made(name));
+    } catch {
+      ff("-i", video, ...streams, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", made(name));
+    }
+    return [made(name)];
+  };
+  assets.mov = remux("source.mov");
+  assets.mkv = remux("reject.mkv", "-map", "0:v:0");
+  ff(
+    "-i", video,
+    "-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-cpu-used", "5", "-row-mt", "1",
+    "-pix_fmt", "yuv420p", "-c:a", "libopus", "-ac", "2", made("source.webm"),
+  );
+  assets.webm = [made("source.webm")];
+  ff(
+    "-i", video, "-t", "2",
+    "-vf", "fps=15,scale=320:-2",
+    "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "8", "-row-mt", "1",
+    "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("source.avif"),
+  );
+  assets.avif = [made("source.avif")];
+
   return { assets, owned };
 }
 
+// x264 under a bitrate ceiling is not bit-exact from run to run (its rate
+// control reacts to how the encoder's threads happen to interleave), so the
+// same command lands within about a percent of itself. Sizes this close are
+// the same result.
+const SIZE_TOLERANCE = 0.02;
+function sameResult(before, after) {
+  const keys = Object.keys({ ...before, ...after });
+  return keys.every((k) => {
+    if (k === "bytes") {
+      return Math.abs(before.bytes - after.bytes) <= SIZE_TOLERANCE * before.bytes;
+    }
+    if (k === "ratio") return Math.abs(before.ratio - after.ratio) <= 0.05;
+    return before[k] === after[k];
+  });
+}
+
 // Old and new side by side, case by case; only what differs is printed.
-function diff(name, before, after, format) {
+function diff(name, before, after, format, same = (a, b) => format(a) === format(b)) {
   const changed = Object.keys({ ...before, ...after }).filter(
-    (k) => k in before && k in after && format(before[k]) !== format(after[k]),
+    (k) => k in before && k in after && !same(before[k], after[k]),
   );
   if (!changed.length) {
     console.log(`${name}: identical`);
@@ -214,12 +331,12 @@ const buildDir = path.join(outDir, "build");
 build(buildDir);
 
 const load = (rel) => import(pathToFileURL(path.join(buildDir, rel)).href);
-const { FFmpeg } = await load("_lib/ffmpeg.js");
-const { TOOLS } = await load("_lib/tools/index.js");
-const { renderWatermarkFrame } = await load("_lib/tools/mark.js");
+const { FFmpeg } = await load("api/_lib/ffmpeg.js");
+const { TOOLS } = await load("api/_lib/tools/index.js");
+const { renderWatermarkFrame } = await load("api/_lib/tools/mark.js");
 // binaries.js resolves gifski from the cwd, as it does on Vercel.
 process.chdir(root);
-const binaries = await load("_lib/binaries.js");
+const binaries = await load("api/_lib/binaries.js");
 const ffmpegPath = args.ffmpeg ?? binaries.ffmpegPath;
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
@@ -272,6 +389,7 @@ say(
 );
 
 const commands = {};
+const broken = {};
 // Part of the results, so comparing runs made from different inputs says so.
 const results = {
   "(assets)": Object.fromEntries(
@@ -281,7 +399,7 @@ const results = {
 const only = args.only?.split(",").filter(Boolean);
 const names = Object.keys(CASES).filter((n) => !only || only.some((o) => n.includes(o)));
 for (const name of names) {
-  const { tool, preview, files: roles, options } = CASES[name];
+  const { tool, preview, files: roles, options, expect } = CASES[name];
   const files = roles.flatMap((role) => assets[role]);
   // What the result is measured against: the tool's source, not the logo.
   const source = assets[roles[0]];
@@ -320,11 +438,18 @@ for (const name of names) {
       .mediaInfo(outputPath)
       .catch(() => null);
     const bytes = fs.statSync(outputPath).size;
+    // Counted, not computed from duration and rate: a frame lost at a cut
+    // shows in neither.
+    const prober = new FFmpeg(ffmpegPath, "");
+    const countFrames = (file) => prober.decodedFrames(file);
     results[name] = {
       source: describe(source),
       output: downloadName,
       bytes,
       ratio: Number((bytes / bytesOf(source)).toFixed(2)),
+      ...(expect?.frames
+        ? { frames: await countFrames(outputPath), sourceFrames: await countFrames(source[0]) }
+        : {}),
       ...(info
         ? {
             codec: info.codec,
@@ -335,14 +460,20 @@ for (const name of names) {
         : { codec: "NO VIDEO STREAM" }),
     };
   } catch (err) {
-    results[name] = { error: String(err?.message ?? err).trim().split("\n").pop() };
+    results[name] = {
+      error: String(err?.message ?? err).trim().split("\n").pop(),
+      ...(typeof err?.code === "string" ? { code: err.code } : {}),
+    };
   }
   commands[name] = [...recorded];
   const r = results[name];
+  const found = violations(expect, r, source[0]);
+  if (found.length) broken[name] = found;
   say(
     `${name.padEnd(26)} ${String(((Date.now() - started) / 1000).toFixed(1) + "s").padStart(6)}  ` +
+      (found.length ? "✗ " : "  ") +
       (r.error
-        ? `ERROR ${r.error.slice(0, 90)}`
+        ? `${expect?.errorCode && !found.length ? "refused:" : "ERROR"} ${r.error.slice(0, 90)}`
         : `${r.output.padEnd(24)} ${String(r.bytes).padStart(9)} B  ${String(r.ratio).padStart(6)}x source  ` +
           (r.size ? `${r.codec} ${r.size} ${r.duration}s` : r.codec)),
   );
@@ -353,14 +484,29 @@ fs.writeFileSync(path.join(outDir, "results.json"), JSON.stringify(results, null
 fs.rmSync(buildDir, { recursive: true, force: true });
 say(`\nsaved to ${path.relative(root, outDir)}`);
 
+const brokenNames = Object.keys(broken);
+if (brokenNames.length) {
+  say(`\n${brokenNames.length} case(s) break what is expected of them:`);
+  for (const name of brokenNames) {
+    for (const line of broken[name]) say(`  ✗ ${name}: ${line}`);
+  }
+} else {
+  say("\nevery expectation holds");
+}
+
 if (args.diff) {
   const read = (file) =>
     JSON.parse(fs.readFileSync(path.join(smokeDir, args.diff, file), "utf8"));
   say(`\ncompared with "${args.diff}":`);
   console.log = say;
   const sameCommands = diff("commands", read("commands.json"), commands, (c) => c.join("\n"));
-  const sameResults = diff("results", read("results.json"), results, (r) =>
-    Object.entries(r).map(([k, v]) => `${k}: ${v}`).join("\n"),
+  const sameResults = diff(
+    "results",
+    read("results.json"),
+    results,
+    (r) => Object.entries(r).map(([k, v]) => `${k}: ${v}`).join("\n"),
+    sameResult,
   );
-  process.exit(sameCommands && sameResults ? 0 : 1);
+  process.exit(sameCommands && sameResults && !brokenNames.length ? 0 : 1);
 }
+process.exit(brokenNames.length ? 1 : 0);

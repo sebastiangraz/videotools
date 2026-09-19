@@ -8,14 +8,17 @@ footage here for that:
 | File                    | Used as                                                        |
 | ----------------------- | -------------------------------------------------------------- |
 | `video.<any extension>` | The clip every video tool works on (Loop, Speed, Convert, Mark) |
-| `animation.gif`         | GIF source for Loop / Mark. Made from `video` when absent       |
+| `animation.gif`         | GIF source for Loop / Speed / Mark. Made from `video` when absent |
 | `logo.png`              | The Mark tool's watermark (PNG with alpha)                      |
 | `images/*`              | The Sequence tool's stills, in natural filename order (1–100)   |
 
-The preview frame is always taken from `video`, like the browser does.
+The preview frame is always taken from `video`, like the browser does. So are
+the sources in the other formats the tools have to hand back (`source.mov`,
+`source.webm`, a small `source.avif`) and `reject.mkv`, a container they have
+to refuse.
 
 Keep clips short (about 4–10 s, the loop cases need at least ~4 s): the slow
-encoders (AVIF, lossless WebP) run on them too, GIF stops at 600 frames and
+encoders (AVIF, lossless WebP) run on them too, GIF stops at 1500 frames and
 AVIF at 60 s. Another folder can be used with `--assets <dir>`.
 
 The folder's contents are gitignored (footage is large). Runs record each

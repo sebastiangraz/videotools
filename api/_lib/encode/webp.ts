@@ -1,4 +1,5 @@
 import type { Encoder } from "./index.js";
+import { graphArgs } from "./render.js";
 
 // Animated WebP is intra-only (every frame is a standalone lossy still), so
 // output often exceeds the source video's size — inherent to the format, not
@@ -7,23 +8,23 @@ import type { Encoder } from "./index.js";
 // only a few percent.
 export const encodeWebp: Encoder = async (
   ff,
-  inputFile,
+  render,
   outputFile,
   { quality },
 ) => {
-  const fps = Math.min(await ff.fps(inputFile), 30);
-  const webpScale = `fps=${fps},scale='min(800,iw)':-2:flags=lanczos`;
+  const fps = Math.min(render.fps, 30);
+  const input = graphArgs(
+    render,
+    [`fps=${fps}`, "scale='min(800,iw)':-2:flags=lanczos"],
+    "bgra",
+  );
   if (quality >= 100) {
     // True lossless (relative to the decoded RGB frames): no VP8
     // quantization at all, so none of its block-grid artifacts on solid
     // colors. -q:v in lossless mode means compression effort, not fidelity.
     // Expect large files.
     await ff.runFFmpeg([
-      "-y",
-      "-i",
-      inputFile,
-      "-vf",
-      webpScale,
+      ...input,
       "-c:v",
       "libwebp_anim",
       "-lossless",
@@ -45,11 +46,7 @@ export const encodeWebp: Encoder = async (
     // "equal" quality).
     const webpQuality = Math.round(65 + (quality / 100) * 35);
     await ff.runFFmpeg([
-      "-y",
-      "-i",
-      inputFile,
-      "-vf",
-      webpScale,
+      ...input,
       "-c:v",
       "libwebp_anim",
       "-q:v",

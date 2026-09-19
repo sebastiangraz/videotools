@@ -1,0 +1,179 @@
+// @vitest-environment node
+import { describe, expect, it } from "vitest";
+import { parseSourceProfile, type SourceProfile } from "./ffmpeg.js";
+import { InputError } from "./errors.js";
+import { preservedFormat, sourceFormat } from "./source.js";
+
+// `ffmpeg -i` summaries of real files (6.1.1), one per kind of source.
+const SUMMARIES = {
+  mp4: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'video.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 3050 kb/s
+  Stream #0:0[0x1](eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1600x1080, 2723 kb/s, 30 fps, 30 tbr, 30k tbn (default)
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 317 kb/s (default)`,
+  mov: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'source.mov':
+  Metadata:
+    major_brand     : qt${"  "}
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 3050 kb/s
+  Stream #0:0[0x1](eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1600x1080, 2723 kb/s, 30 fps, 30 tbr, 30k tbn (default)
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 317 kb/s (default)`,
+  // Made from an mp4, whose brand the muxer carried over in capitals.
+  webm: `Input #0, matroska,webm, from 'source.webm':
+  Metadata:
+    COMPATIBLE_BRANDS: isomiso2avc1mp41
+    MAJOR_BRAND     : isom
+  Duration: 00:00:05.03, start: -0.007000, bitrate: 1334 kb/s
+  Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, bt709, progressive), 1600x1080, SAR 1:1 DAR 40:27, 30 fps, 30 tbr, 1k tbn (default)
+  Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)`,
+  mkv: `Input #0, matroska,webm, from 'reject.mkv':
+  Metadata:
+    MAJOR_BRAND     : isom
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 2726 kb/s
+  Stream #0:0(eng): Video: h264 (Main), yuv420p(tv, bt709, progressive), 1600x1080, 30 fps, 30 tbr, 1k tbn (default)`,
+  gif: `Input #0, gif, from 'animation.gif':
+  Duration: 00:00:02.48, start: 0.000000, bitrate: 8629 kb/s
+  Stream #0:0: Video: gif, bgra, 1600x1200, 12.50 fps, 12.50 tbr, 100 tbn`,
+  avif: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'output.avif':
+  Metadata:
+    major_brand     : avis
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 450 kb/s
+  Stream #0:0[0x1](eng): Video: av1 (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 800x540 [SAR 1:1 DAR 40:27], 448 kb/s, 30 fps, 30 tbr, 15360 tbn (default)`,
+  avi: `Input #0, avi, from 'clip.avi':
+  Duration: 00:00:04.05, start: 0.000000, bitrate: 464 kb/s
+  Stream #0:0: Video: mpeg4 (Simple Profile) (FMP4 / 0x34504D46), yuv420p, 320x240 [SAR 1:1 DAR 4:3], 372 kb/s, 30 fps, 30 tbr, 30 tbn
+  Stream #0:1: Audio: mp3 (U[0][0][0] / 0x0055), 44100 Hz, mono, fltp, 64 kb/s`,
+  "3gp": `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'clip.3gp':
+  Metadata:
+    major_brand     : 3gp4
+  Duration: 00:00:04.00, start: 0.000000, bitrate: 351 kb/s
+  Stream #0:0[0x1](und): Video: h263 (s263 / 0x33363273), yuv420p(progressive), 176x144 [SAR 12:11 DAR 4:3], 349 kb/s, SAR 1:1 DAR 11:9, 15 fps, 15 tbr, 15360 tbn (default)`,
+  // A still: readable, but nothing a video tool can hand back.
+  png: `Input #0, png_pipe, from 'logo.png':
+  Duration: N/A, bitrate: N/A
+  Stream #0:0: Video: png, rgba(pc, gbr/unknown/unknown), 300x120 [SAR 1:1 DAR 5:2], 25 fps, 25 tbr, 25 tbn`,
+} as const;
+
+const profile = (kind: keyof typeof SUMMARIES): SourceProfile => {
+  const parsed = parseSourceProfile(SUMMARIES[kind]);
+  if (!parsed) throw new Error(`no profile for ${kind}`);
+  return parsed;
+};
+
+describe("parseSourceProfile", () => {
+  it("reads what an mp4 spends, as a whole and on its video", () => {
+    expect(profile("mp4")).toMatchObject({
+      formatNames: ["mov", "mp4", "m4a", "3gp", "3g2", "mj2"],
+      majorBrand: "isom",
+      bitrateKbps: 3050,
+      videoKbps: 2723,
+      pixFmt: "yuv420p",
+      audio: { codec: "aac", kbps: 317 },
+      codec: "h264",
+      width: 1600,
+      height: 1080,
+    });
+  });
+
+  it("has no video bitrate where ffmpeg prints none", () => {
+    expect(profile("webm")).toMatchObject({
+      bitrateKbps: 1334,
+      videoKbps: null,
+      audio: { codec: "opus", kbps: null },
+    });
+    expect(profile("gif")).toMatchObject({
+      bitrateKbps: 8629,
+      videoKbps: null,
+      pixFmt: "bgra",
+      audio: null,
+    });
+  });
+
+  it("ignores a brand outside the mov family", () => {
+    expect(profile("webm").majorBrand).toBeNull();
+    expect(profile("mkv").majorBrand).toBeNull();
+  });
+
+  it("reads the CRLF lines ffmpeg prints on Windows", () => {
+    const windows = SUMMARIES.mp4.replace(/\n/g, "\r\n");
+    expect(parseSourceProfile(windows)).toMatchObject({
+      majorBrand: "isom",
+      bitrateKbps: 3050,
+      videoKbps: 2723,
+      audio: { codec: "aac", kbps: 317 },
+    });
+  });
+
+  it("works on an AVIF's animation, not the cover image ffmpeg 7 lists first", () => {
+    const v7 = `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'source.avif':
+  Metadata:
+    major_brand     : avis
+  Duration: 00:00:02.00, start: 0.000000, bitrate: 104 kb/s
+  Stream #0:0[0x1]: Video: av1 (libaom-av1) (Main) (av01 / 0x31307661), yuv420p(tv, bt709), 320x216 [SAR 1:1 DAR 40:27], 1 fps, 1 tbr, 1 tbn (default)
+  Stream #0:1[0x1](eng): Video: av1 (libaom-av1) (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 320x216 [SAR 1:1 DAR 40:27], 100 kb/s, 15 fps, 15 tbr, 15360 tbn (default)`;
+    expect(parseSourceProfile(v7)).toMatchObject({
+      videoIndex: 1,
+      fps: 15,
+      videoKbps: 100,
+      codec: "av1",
+    });
+    expect(profile("avif").videoIndex).toBe(0);
+  });
+
+  it("skips cover art", () => {
+    const covered = `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'clip.mp4':
+  Metadata:
+    major_brand     : isom
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 3050 kb/s
+  Stream #0:0[0x0]: Video: mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 600x600 [SAR 1:1 DAR 1:1], 90k tbr, 90k tbn (attached pic)
+  Stream #0:1[0x1](eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1600x1080, 2723 kb/s, 30 fps, 30 tbr, 30k tbn (default)`;
+    expect(parseSourceProfile(covered)).toMatchObject({
+      videoIndex: 1,
+      codec: "h264",
+      width: 1600,
+    });
+  });
+
+  it("trims QuickTime's padded brand", () => {
+    expect(profile("mov").majorBrand).toBe("qt");
+  });
+});
+
+describe("sourceFormat", () => {
+  it.each([
+    ["mp4", "mp4"],
+    ["mov", "mov"],
+    ["webm", "webm"],
+    ["gif", "gif"],
+    ["avif", "avif"],
+  ] as const)("knows %s content as %s", (kind, format) => {
+    expect(sourceFormat(profile(kind))).toBe(format);
+  });
+
+  it.each(["mkv", "avi", "3gp", "png"] as const)(
+    "has no format for %s content",
+    (kind) => {
+      expect(sourceFormat(profile(kind))).toBeNull();
+    },
+  );
+});
+
+describe("preservedFormat", () => {
+  it("refuses a source the app cannot write back, pointing at convert", () => {
+    const source = { path: "/work/input.mkv", profile: profile("mkv"), format: null };
+    expect(() => preservedFormat(source)).toThrowError(InputError);
+    expect(() => preservedFormat(source)).toThrowError(/MKV file.*Convert first/);
+    try {
+      preservedFormat(source);
+    } catch (err) {
+      expect((err as InputError).code).toBe("unsupported-source");
+    }
+  });
+
+  it("gives back the format of one it can", () => {
+    expect(
+      preservedFormat({ path: "/work/input.gif", profile: profile("gif"), format: "gif" }),
+    ).toBe("gif");
+  });
+});
