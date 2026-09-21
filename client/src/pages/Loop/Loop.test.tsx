@@ -211,8 +211,9 @@ describe("Loop", () => {
       new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
     );
 
-    // Said over the title, not in the panel.
-    const message = within(screen.getByRole("banner")).getByRole("alert");
+    // Said in the message area over the title, not in the panel.
+    const message = screen.getByRole("alert");
+    expect(screen.getByRole("main")).not.toContainElement(message);
     expect(message).toHaveTextContent(/AVI files can be read but not written/i);
     expect(
       within(message).getByRole("link", { name: /convert it first/i }),

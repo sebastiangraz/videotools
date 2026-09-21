@@ -41,13 +41,3 @@
   width: calc(var(--active-tab-width) - 1rem);
   border-top: 1px solid var(--fg);
 }
-
-.previewCardDescription {
-  padding: 2px;
-  color: var(--fg);
-  letter-spacing: 0.05em;
-  text-align: right;
-  text-wrap: balance;
-  font-size: 10px;
-  background-color: var(--bg);
-}

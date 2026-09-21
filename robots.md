@@ -30,7 +30,7 @@ videotools/
 ├─ client/               # React + Vite frontend
 │  └─ src/
 │     ├─ App.tsx            # Routes (/$tool); App.test.tsx covers routing, drop zone and the run pipeline
-│     ├─ Layout.tsx         # Header (title + the message slot over it) + tabs; ToolPage resolves the tool's page from pages/index.ts
+│     ├─ Layout.tsx         # Header (title, which anchors the message area) + tabs; ToolPage resolves the tool's page from pages/index.ts
 │     ├─ tools.ts           # TOOLS registry (tab label, description, input accept, action label)
 │     ├─ sourceFormat.ts    # Whether a picked file is one a format-keeping tool can take, going by its name (before any upload)
 │     ├─ frameSource.ts     # A picked file's frames by time: an off-page <video> for video, ImageDecoder for GIF/AVIF (an <img>'s first frame without it); what FramePreview draws and the mark preview grabs
@@ -85,7 +85,7 @@ Each tool is a tab with its own URL (`/loop`, `/sequence`, `/speed`, `/convert`,
 
 ## In-app messages
 
-The header's title is the one spot the app talks from. Hovering a tab shows that tool's description there (a `PreviewCard` anchored to `titleRef` in `Layout.tsx`), and any component below the layout can put a message in the same place by rendering `<Message kind="default" | "error">…</Message>` (`components/Message`). `Message` takes no space where it is rendered: it portals into a slot the layout keeps over the title (`useMessageHost` + `MessageContext` in `components/Message/messageHost.ts`), so its content stays live (links, state) and needs no props threaded up. A message is up for exactly as long as it is mounted, which is what makes it persistent: the page renders it while the problem holds and stops when it is fixed (another file picked) or the page goes (tab change). While one is up it overrides the tab descriptions; with several, the newest shows. `error` messages get a warning mark in front (a placeholder emoji for now) and `role="alert"`, `default` ones `role="status"`. `FormatNotice` is the first user.
+The header's title is the one spot the app talks from, and everything said there goes through one card: `MessageArea` (`components/Message`), a single Base UI preview card anchored to `titleRef` in `Layout.tsx`, built from the same `PreviewCardPopup` as every other preview card, so it has their enter/exit animation and one style declaration (`Message.module.css`) whoever is speaking. Two things speak through it. A `MessageTrigger` says its `message` while it is hovered or focused: the tabs are these, with the tool's description (detached Base UI triggers on a shared handle, the description as the payload). And any component can render `<Message kind="default" | "error">…</Message>`, which renders nothing where it stands and posts its content to a small store (`messageStore.ts`) the area reads; no props threaded up, no context. A message is up for exactly as long as it is mounted, which is what makes it persistent: the page renders it while the problem holds and stops when it is fixed (another file picked) or the page goes (tab change). While one is up the card is held open and the message overrides the triggers; with several, the newest shows; once it goes, the card keeps showing it until its exit animation is done. `error` messages get a warning mark in front (a placeholder emoji for now) and `role="alert"`, `default` ones `role="status"`; a trigger's say has no role, as before. `FormatNotice` is the first user.
 
 ## Setup
 
