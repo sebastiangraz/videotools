@@ -11,13 +11,15 @@
   position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
+  display: grid;
   overflow: hidden;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   box-shadow: var(--raised);
   cursor: pointer;
+  container-type: inline-size;
+  container-name: mark-preview-container;
 }
 
 .markPreviewZoomed figure {
@@ -27,6 +29,7 @@
 
 .markPreview {
   display: grid;
+  grid-area: 1 / 1;
   position: relative;
   width: 100%;
   height: 100%;
@@ -61,11 +64,10 @@
     width: 100%;
     height: 100%;
     box-shadow: var(--raised);
-    z-index: 1;
+    z-index: 3;
     pointer-events: none;
     border-radius: var(--radius);
     corner-shape: superellipse(1.45);
-    mix-blend-mode: plus-lighter;
   }
 }
 
@@ -89,8 +91,7 @@
 /* The scrub strips: one equal, invisible column per grabbed frame, over the
    whole box and above the (transformed) figure. */
 .markPreviewScrub {
-  position: absolute;
-  inset: 0;
+  grid-area: 1 / 1;
   z-index: 2;
   display: flex;
   & > div {
@@ -100,12 +101,9 @@
 
 .markPreviewRender {
   position: absolute;
-  /* right: 4rem;
-  bottom: 4rem; */
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* border-radius: calc(var(--radius) / 2); */
   transition: opacity 0.5s ease-in-out;
   opacity: 1;
   @starting-style {
@@ -118,25 +116,40 @@
    Fades both ways (see .stopButton for the pattern). */
 .markPreviewLoading {
   --fade: 0.25s;
-  position: absolute;
-  inset: 50% auto auto 50%;
-  translate: -50% -50%;
+  position: relative;
+  grid-area: 1 / 1;
   z-index: 3;
   display: flex;
-  padding: 0.75rem;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
+  justify-content: center;
+  align-items: center;
+  place-self: end end;
+  padding-right: 6cqw;
+  padding-bottom: 6cqw;
+  width: 8.25cqw;
+  height: 8.25cqw;
   color: var(--fg);
-  background-color: color-mix(in srgb, var(--bg) 75%, transparent);
-  backdrop-filter: blur(4px);
   pointer-events: none;
   opacity: 1;
   transition:
     opacity var(--fade) ease,
     display var(--fade) allow-discrete;
-
   @starting-style {
     opacity: 0;
+  }
+
+  &:after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 28rem;
+    height: 12rem;
+    background-image: radial-gradient(
+      farthest-corner at 0% 0%,
+      transparent 70%,
+      var(--bg) 100%
+    );
+    z-index: -1;
   }
 }
 

@@ -148,13 +148,14 @@ export const Mark = () => {
               second={0}
               label="first frame"
               className={styles.markPreviewFrame}
-            />
+            />{" "}
+            <div
+              className={styles.markPreviewLoading}
+              hidden={!preview.loading}
+            >
+              <Spinner />
+            </div>
           </figure>
-          {/* Outside the figure, so its zoom leaves it alone, and always
-              there, so it can fade both ways. */}
-          <div className={styles.markPreviewLoading} hidden={!preview.loading}>
-            <Spinner />
-          </div>
           {/* One invisible strip per grabbed frame, side by side
               across the box: the one under the pointer picks the frame.
               They sit outside the figure too. */}
