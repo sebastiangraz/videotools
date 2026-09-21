@@ -148,6 +148,47 @@ describe("Loop", () => {
     await waitFor(() => expect(drawn()).toEqual([0, 15, 19]));
   });
 
+  it("keeps Start at inside the video's length", async () => {
+    const user = userEvent.setup();
+    stubProperties(HTMLMediaElement.prototype, {
+      duration: { get: () => 10.57 },
+    });
+    const createElement = vi.spyOn(document, "createElement");
+    await renderApp();
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "tiny.mp4", { type: "video/mp4" }),
+    );
+    // jsdom never loads media: the pick's probe is the one <video> not in
+    // the page
+    const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
+    fireEvent.change(start, { target: { value: "99" } });
+    fireEvent.blur(start);
+    expect(start.value).toMatch(/^99/);
+    createElement.mock.results
+      .map(({ value }) => value as HTMLElement)
+      .filter((element) => element instanceof HTMLVideoElement)
+      .forEach((video) => video.dispatchEvent(new Event("loadedmetadata")));
+
+    // Down to the last whole step the clip has room for
+    await waitFor(() => expect(start.value).toMatch(/^10[.,]5/));
+  });
+
+  it("keeps Start at inside a GIF's length, summed off its frames", async () => {
+    const user = userEvent.setup();
+    // 20 frames of 0.1 s
+    stubImageDecoder(20, 100);
+    stubCanvas();
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), gifFile("a.gif"));
+
+    const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
+    // Typed text is the user's until the field is left
+    fireEvent.change(start, { target: { value: "9" } });
+    fireEvent.blur(start);
+    await waitFor(() => expect(start.value).toMatch(/^2[.,]0/));
+  });
+
   it("wheel-scrubs the preview-wrapped Start at field after picking a video", async () => {
     const user = userEvent.setup();
     const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });

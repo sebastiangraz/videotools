@@ -45,12 +45,21 @@ export const Loop = () => {
         options: {
           technique,
           fadeDuration: fadeDuration ?? 0.5,
-          startSecond: startSecond ?? 0,
+          startSecond: start ?? 0,
           quality,
         },
       }),
     });
   };
+
+  // The last start the source has room for, in the field's steps; open-ended
+  // while the length isn't known (0: see useVideoSource). The server clamps
+  // to the clip as well.
+  const maxStart =
+    source.duration > 0 ? Math.floor(source.duration * 10) / 10 : undefined;
+  // A start typed for an earlier, longer file
+  const start =
+    startSecond === null ? null : Math.min(startSecond, maxStart ?? Infinity);
 
   return (
     <ToolPanel
@@ -102,16 +111,17 @@ export const Loop = () => {
             </label>
             <NumberField
               id="startSecond"
-              value={startSecond}
+              value={start}
               onValueChange={setStartSecond}
               min={0}
+              max={maxStart}
               step={0.1}
               largeStep={0.5}
               disabled={run.busy}
               preview={
                 source.file &&
                 hasFrames(source.file) && (
-                  <FramePreview file={source.file} second={startSecond ?? 0} />
+                  <FramePreview file={source.file} second={start ?? 0} />
                 )
               }
             />
