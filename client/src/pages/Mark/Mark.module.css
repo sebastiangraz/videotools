@@ -7,6 +7,12 @@
   initial-value: 100%;
 }
 
+.markInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .markPreviewContainer {
   position: relative;
   width: 100%;

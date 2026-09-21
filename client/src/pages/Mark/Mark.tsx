@@ -74,7 +74,7 @@ export const Mark = () => {
     <ToolPanel
       tool={TOOL}
       inputs={
-        <>
+        <div className={styles.markInputs}>
           <DropZone
             {...TOOL.input}
             files={source.file ? [source.file] : []}
@@ -88,7 +88,7 @@ export const Mark = () => {
             onFiles={pickWatermark}
             thumbnail={watermarkUrl}
           />
-        </>
+        </div>
       }
       blocker={
         !source.file
