@@ -308,7 +308,7 @@ describe("Loop", () => {
     );
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("link", { name: /convert it first/i }));
+    await user.click(screen.getByRole("link", { name: /converted/i }));
     await screen.findByRole("button", { name: /^convert$/i });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
