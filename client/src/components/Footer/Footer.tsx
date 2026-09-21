@@ -1,9 +1,9 @@
 import { VersionLabel } from "../VersionLabel/VersionLabel";
-import styles from "./Credits.module.css";
+import styles from "./Footer.module.css";
 
-export const Credits = () => (
-  <div className={styles.credits}>
-    <div className={styles.creditsGroup}>
+export const Footer = () => (
+  <div className={styles.footer}>
+    <div className={styles.footerGroup}>
       <a
         href="https://graz.io"
         target="_blank"

@@ -1,6 +1,6 @@
 import { useRef, MouseEvent, ReactNode } from "react";
 import { Tooltip } from "../Tooltip/Tooltip";
-import { Credits } from "../Credits/Credits";
+import { Footer } from "../Footer/Footer";
 import { Spinner } from "../Spinner/Spinner";
 import type { Tool } from "../../tools";
 import type { ToolRun } from "../../hooks/useToolRun";
@@ -8,7 +8,7 @@ import styles from "./ToolPanel.module.css";
 
 // The frame every tool page fills in: `inputs` (the drop zones) in the first
 // container, then the page's options (`children`), the action and Stop
-// buttons, the error box and the credits in the second. The options must
+// buttons, the error box and the footer in the second. The options must
 // land as direct children of their container — the tab-change transition
 // staggers them by position (see the stylesheet) — so pages pass a fragment,
 // not a wrapper.
@@ -92,7 +92,7 @@ export const ToolPanel = ({
           </div>
         )}
 
-        <Credits />
+        <Footer />
       </div>
     </>
   );
