@@ -21,6 +21,6 @@
   color: var(--error);
 }
 
-svg {
+.icon {
   margin-inline-end: 0.5ch;
 }

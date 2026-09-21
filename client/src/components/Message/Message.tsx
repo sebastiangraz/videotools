@@ -21,6 +21,7 @@ const WarningIcon = () => (
     fill="none"
     viewBox="0 0 8 8"
     width="8px"
+    className={styles.icon}
   >
     <path
       fill="currentColor"
