@@ -216,11 +216,12 @@ describe("Mark", () => {
       new File(["00"], "logo.png", { type: "image/png" }),
     );
 
+    const preview = screen.getByLabelText(/watermark preview/i);
     expect(
-      await within(screen.getByLabelText(/watermark preview/i)).findByText(
-        /can.t preview this format/i,
-      ),
+      await within(preview).findByText(/can.t preview this format/i),
     ).toBeInTheDocument();
+    // Nothing is on its way, so nothing says loading
+    await waitFor(() => expect(preview).toHaveAttribute("aria-busy", "false"));
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -309,6 +310,80 @@ describe("Mark", () => {
 
     fireEvent.pointerEnter(strips[0]);
     expect(within(preview).getByAltText(/watermarked frame/i)).toBe(first);
+  });
+
+  it("says it is loading until every render of a set has landed, and keeps the last set up meanwhile", async () => {
+    const user = userEvent.setup();
+    stubMediaLoading("decodes");
+    stubProperties(HTMLVideoElement.prototype, {
+      videoWidth: { get: () => 1280 },
+      videoHeight: { get: () => 720 },
+      duration: { get: () => 10 },
+      currentTime: { get: () => 0, set: () => {} },
+    });
+    stubCanvas();
+    // A URL of its own per blob, to tell the sets apart
+    let urls = 0;
+    URL.createObjectURL = vi.fn(() => `blob:url-${urls++}`);
+    // The server answers when the test says so
+    const answers: Array<() => void> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (input !== "/api/preview")
+        throw new Error(`Unexpected fetch: ${input}`);
+      return new Promise<Response>((resolve) =>
+        answers.push(() =>
+          resolve(
+            new Response(new Blob(["jpg"], { type: "image/jpeg" }), {
+              status: 200,
+            }),
+          ),
+        ),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const answer = (count: number) =>
+      answers.splice(0, count).forEach((respond) => respond());
+    const sources = (preview: HTMLElement) =>
+      [...preview.querySelectorAll("img")].map((img) => img.src);
+
+    await renderApp("/mark");
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mp4", { type: "video/mp4" }),
+    );
+    await user.upload(
+      screen.getByLabelText(/choose watermark/i),
+      new File(["00"], "logo.png", { type: "image/png" }),
+    );
+
+    // Loading from the first logo on; four renders of five put nothing up
+    const preview = screen.getByLabelText(/watermark preview/i);
+    expect(preview).toHaveAttribute("aria-busy", "true");
+    await waitFor(() => expect(answers).toHaveLength(5));
+    answer(4);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(sources(preview)).toEqual([]);
+    expect(preview).toHaveAttribute("aria-busy", "true");
+
+    answer(1);
+    await waitFor(() => expect(sources(preview)).toHaveLength(5));
+    expect(preview).toHaveAttribute("aria-busy", "false");
+    const firstSet = sources(preview);
+
+    // A change asks for a new set: the last one stays whole until then
+    await user.click(screen.getByRole("switch", { name: /glass/i }));
+    expect(preview).toHaveAttribute("aria-busy", "true");
+    await waitFor(() => expect(answers).toHaveLength(5));
+    answer(4);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(sources(preview)).toEqual(firstSet);
+    expect(preview).toHaveAttribute("aria-busy", "true");
+
+    answer(1);
+    await waitFor(() => expect(preview).toHaveAttribute("aria-busy", "false"));
+    const secondSet = sources(preview);
+    expect(secondSet).toHaveLength(5);
+    expect(secondSet.filter((src) => firstSet.includes(src))).toEqual([]);
   });
 
   it("uploads the video then the watermark and requests a glass watermark", async () => {

@@ -1,6 +1,7 @@
 import { useRef, MouseEvent, ReactNode } from "react";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { Credits } from "../Credits/Credits";
+import { Spinner } from "../Spinner/Spinner";
 import type { Tool } from "../../tools";
 import type { ToolRun } from "../../hooks/useToolRun";
 import styles from "./ToolPanel.module.css";
@@ -67,7 +68,7 @@ export const ToolPanel = ({
             }
           >
             {busy ? status && status : tool.actionLabel}
-            {busy && <div className={styles.spinner} />}
+            {busy && <Spinner className={styles.spinner} />}
           </Tooltip>
 
           <button

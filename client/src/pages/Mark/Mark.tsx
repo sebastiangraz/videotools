@@ -4,6 +4,7 @@ import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { Slider } from "../../components/Slider/Slider";
+import { Spinner } from "../../components/Spinner/Spinner";
 import { Switch } from "../../components/Switch/Switch";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
@@ -102,10 +103,13 @@ export const Mark = () => {
 
       {/* Frames of the clip, watermarked by the server with the real
           graph; moving the pointer across the box scrubs through
-          them. The bare first frame shows until a render lands (and
-          stays as the fallback if it fails); a format the browser
-          can't decode shows the frame's own note instead. The aspect
-          box waits for the source's metadata. */}
+          them. The bare first frame shows until the renders land (and
+          stays as the fallback if they fail); a format the browser
+          can't decode shows the frame's own note instead. While a set
+          of renders is on its way (first logo, new logo, glass toggled)
+          a spinner is up and the last set stays, so the frames never
+          disagree with each other. The aspect box waits for the source's
+          metadata. */}
       {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
         <div
           className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
@@ -114,13 +118,14 @@ export const Mark = () => {
         >
           <figure
             aria-label="watermark preview"
+            aria-busy={preview.loading}
             className={styles.markPreview}
             style={{ aspectRatio }}
           >
-            {/* Every landed render is stacked here and only the
+            {/* Every render of the set is stacked here and only the
                 scrubbed one shown, so scrubbing never waits on an image
-                decode. A slot's last render stays up, unchanged, until
-                the next one replaces it. */}
+                decode. The set stays up, unchanged, until the next one
+                replaces it. */}
             {preview.previewUrls.map(
               (url, i) =>
                 url && (
@@ -136,9 +141,8 @@ export const Mark = () => {
                   />
                 ),
             )}
-            {/* The bare frame is the render's stand-in, so once a
-                render is up it is hidden rather than left showing
-                through. */}
+            {/* The bare frame is the renders' stand-in: it lies under
+                them, so they fade in over it when they land. */}
             <FramePreview
               file={sourceFile}
               second={0}
@@ -146,10 +150,14 @@ export const Mark = () => {
               className={styles.markPreviewFrame}
             />
           </figure>
+          {/* Outside the figure, so its zoom leaves it alone, and always
+              there, so it can fade both ways. */}
+          <div className={styles.markPreviewLoading} hidden={!preview.loading}>
+            <Spinner />
+          </div>
           {/* One invisible strip per grabbed frame, side by side
               across the box: the one under the pointer picks the frame.
-              They sit outside the figure so its zoom doesn't stretch
-              them. */}
+              They sit outside the figure too. */}
           {preview.frameCount > 1 && (
             <div className={styles.markPreviewScrub} aria-hidden="true">
               {Array.from({ length: preview.frameCount }, (_, i) => (

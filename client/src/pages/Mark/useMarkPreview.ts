@@ -39,9 +39,10 @@ const toDataUrl = (blob: Blob) =>
   });
 
 // The mark preview: frames grabbed off `source`, and the server's render of
-// each (object URLs, slot for slot; "" until one lands), refreshed whenever
-// the frames, logo or filter change. `scrubIndex` is the slot the pointer's
-// horizontal position picks.
+// each (object URLs, slot for slot; none until the first set lands),
+// refreshed as a set whenever the frames, logo or filter change, with
+// `loading` up in between. `scrubIndex` is the slot the pointer's horizontal
+// position picks.
 export function useMarkPreview(
   source: File | null,
   watermark: File | null,
@@ -51,8 +52,17 @@ export function useMarkPreview(
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
   const [previewError, setPreviewError] = useState(false);
+  // What the last finished round of renders (landed or failed) was asked
+  // for; anything else on the table is still on its way.
+  const [settled, setSettled] = useState<{
+    frameBlobs: Blob[];
+    watermark: File;
+    filterMode: boolean;
+  } | null>(null);
+  // The source no frame could be grabbed off, so there is nothing to wait for.
+  const [failedSource, setFailedSource] = useState<File | null>(null);
 
-  // A slot's URL is revoked once a newer render (or a reset) has pushed it
+  // A set's URLs are revoked once a newer set (or a reset) has pushed them
   // out, and whatever is left goes on unmount.
   const liveUrls = useRef<string[]>([]);
   useEffect(() => {
@@ -68,45 +78,46 @@ export function useMarkPreview(
     [],
   );
 
-  // Asks the server for the composited frames. The first goes alone, so the
-  // preview is up as fast as a single render allows; the rest follow
-  // together. A change while renders are in flight abandons them (the
-  // function stops encoding when the disconnect reaches it) and starts over.
+  // Asks the server for the composited frames, all at once, and puts them up
+  // as one set when the last has landed: scrubbing never crosses a mix of
+  // new renders and ones from before the change. Until then the previous set
+  // stays up (`loading` says so); if one fails, it stays for good. A change
+  // while renders are in flight abandons them (the function stops encoding
+  // when the disconnect reaches it) and starts over.
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
     const controller = new AbortController();
     (async () => {
       setPreviewError(false);
       const logo = await toDataUrl(watermark);
-      const render = async (blob: Blob, slot: number) => {
-        const res = await fetch("/api/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            frame: await toDataUrl(blob),
-            logo,
-            filter: filterMode,
-          }),
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`Preview failed (${res.status})`);
-        const rendered = await res.blob();
-        if (controller.signal.aborted) return;
-        const url = URL.createObjectURL(rendered);
-        // The slot's last render stays up until this one replaces it.
-        setPreviewUrls((prev) =>
-          frameBlobs.map((_, i) => (i === slot ? url : (prev[i] ?? ""))),
-        );
-      };
-      await render(frameBlobs[0], 0);
-      await Promise.all(
-        frameBlobs.slice(1).map((blob, i) => render(blob, i + 1)),
+      const renders = await Promise.all(
+        frameBlobs.map(async (blob) => {
+          const res = await fetch("/api/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              frame: await toDataUrl(blob),
+              logo,
+              filter: filterMode,
+            }),
+            signal: controller.signal,
+          });
+          if (!res.ok) throw new Error(`Preview failed (${res.status})`);
+          return res.blob();
+        }),
       );
-    })().catch((err: unknown) => {
       if (controller.signal.aborted) return;
-      console.error(err);
-      setPreviewError(true);
-    });
+      setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
+    })()
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        console.error(err);
+        setPreviewError(true);
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setSettled({ frameBlobs, watermark, filterMode });
+      });
     return () => controller.abort();
   }, [frameBlobs, watermark, filterMode]);
 
@@ -134,9 +145,12 @@ export function useMarkPreview(
         if (cancelled) return;
         if (blob) blobs.push(blob);
       }
+      if (blobs.length === 0) throw new Error("No frame to grab");
       setFrameBlobs(blobs);
     })()
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setFailedSource(source);
+      })
       .finally(() => frames?.close());
     return () => {
       cancelled = true;
@@ -150,16 +164,30 @@ export function useMarkPreview(
     setScrubIndex(0);
   };
 
-  // The render on show: the scrubbed slot's, or while that one is still on
-  // its way, the first that has landed. -1 = none yet (the bare frame shows).
+  // The render on show: the scrubbed slot's, or the first where the set up
+  // has no such slot. -1 = no set yet (the bare frame shows).
   const shownRender = previewUrls[scrubIndex]
     ? scrubIndex
     : previewUrls.findIndex(Boolean);
+
+  // Frames are being grabbed or rendered for what is picked now: from the
+  // moment there is a source and a logo until a set of renders for exactly
+  // these frames, this logo and this filter has landed (or failed).
+  const loading =
+    source !== null &&
+    watermark !== null &&
+    failedSource !== source &&
+    !(
+      settled?.frameBlobs === frameBlobs &&
+      settled.watermark === watermark &&
+      settled.filterMode === filterMode
+    );
 
   return {
     frameCount: frameBlobs.length,
     previewUrls,
     shownRender,
+    loading,
     previewError,
     setScrubIndex,
     reset,

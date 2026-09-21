@@ -81,8 +81,7 @@
   /* border-radius: calc(var(--radius) / 2); */
 }
 
-/* Out of sight, but still laid out: the bare frame once a render is up, and
-   every render but the scrubbed one. */
+/* Out of sight, but still laid out: every render but the scrubbed one. */
 .markPreviewFrameHidden {
   visibility: hidden;
 }
@@ -112,6 +111,38 @@
   @starting-style {
     opacity: 0;
   }
+}
+
+/* The spinner while a set of renders is on its way: a frosted chip in the
+   middle of the box, above the scrub strips but out of the pointer's way.
+   Fades both ways (see .stopButton for the pattern). */
+.markPreviewLoading {
+  --fade: 0.25s;
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  z-index: 3;
+  display: flex;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  color: var(--fg);
+  background-color: color-mix(in srgb, var(--bg) 75%, transparent);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  opacity: 1;
+  transition:
+    opacity var(--fade) ease,
+    display var(--fade) allow-discrete;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+.markPreviewLoading[hidden] {
+  display: none;
+  opacity: 0;
 }
 
 .markPreviewNote {
