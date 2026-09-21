@@ -2,16 +2,13 @@
   display: flex;
   width: 14rem;
   max-width: 100%;
+  /* The canvas is sized by the frame drawn on it. */
+  height: auto;
   box-shadow: var(--raised);
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   overflow: hidden;
   background-color: var(--bg-1);
-}
-
-/* The canvas of an animated image: sized by the frame drawn on it. */
-.framePreviewCanvas {
-  height: auto;
 }
 
 .framePreviewError {

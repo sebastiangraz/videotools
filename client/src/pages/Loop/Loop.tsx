@@ -2,13 +2,13 @@ import { useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
-import { AnimationFramePreview } from "../../components/FramePreview/AnimationFramePreview";
 import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useToolRun } from "../../hooks/useToolRun";
-import { isAnimatedImage, useVideoSource } from "../../hooks/useVideoSource";
+import { useVideoSource } from "../../hooks/useVideoSource";
+import { hasFrames } from "../../frameSource";
 import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
@@ -111,16 +111,9 @@ export const Loop = () => {
               largeStep={0.5}
               disabled={run.busy}
               preview={
-                source.url ? (
-                  <FramePreview src={source.url} second={startSecond ?? 0} />
-                ) : (
-                  source.file &&
-                  isAnimatedImage(source.file) && (
-                    <AnimationFramePreview
-                      file={source.file}
-                      second={startSecond ?? 0}
-                    />
-                  )
+                source.file &&
+                hasFrames(source.file) && (
+                  <FramePreview file={source.file} second={startSecond ?? 0} />
                 )
               }
             />

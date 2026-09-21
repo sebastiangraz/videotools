@@ -1,27 +1,32 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  openFrameSource,
+  type Frame,
+  type FrameSource,
+} from "../../frameSource";
 
 // The mark preview is rendered by the server with the real ffmpeg graph, so
-// it always matches the encode. The browser sends frames of the video
-// (grabbed off a <video>, downscaled: the geometry is relative to the
-// frame, so a smaller one previews the same) and the logo inline.
+// it always matches the encode. The browser sends frames of the source
+// (grabbed through a frame source, downscaled: the geometry is relative to
+// the frame, so a smaller one previews the same) and the logo inline.
 const PREVIEW_MAX_WIDTH = 1280;
 
 // How many frames the mark preview grabs, evenly spaced from the start of
 // the clip, so hovering across it scrubs through time.
 const SCRUB_FRAMES = 5;
 
-// Draws `source` onto a canvas and encodes it as a JPEG. Null when there is
-// nothing to draw (no size yet) or the canvas is unavailable.
-const grabFrame = (source: CanvasImageSource, w: number, h: number) =>
+// Draws a frame onto a canvas and encodes it as a JPEG. Null when there is
+// nothing to draw (no size) or the canvas is unavailable.
+const grabFrame = ({ image, width, height }: Frame) =>
   new Promise<Blob | null>((resolve) => {
-    if (!w || !h) return resolve(null);
-    const scale = Math.min(1, PREVIEW_MAX_WIDTH / w);
+    if (!width || !height) return resolve(null);
+    const scale = Math.min(1, PREVIEW_MAX_WIDTH / width);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(w * scale);
-    canvas.height = Math.round(h * scale);
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
     const ctx = canvas.getContext("2d");
     if (!ctx) return resolve(null);
-    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(resolve, "image/jpeg", 0.9);
   });
 
@@ -33,18 +38,19 @@ const toDataUrl = (blob: Blob) =>
     reader.readAsDataURL(blob);
   });
 
-// The mark preview: the grabbed frames, and the server's render of each
-// (object URLs, slot for slot; "" until one lands), refreshed whenever the
-// frames, logo or filter change. `scrubIndex` is the slot the pointer's
+// The mark preview: frames grabbed off `source`, and the server's render of
+// each (object URLs, slot for slot; "" until one lands), refreshed whenever
+// the frames, logo or filter change. `scrubIndex` is the slot the pointer's
 // horizontal position picks.
-export function useMarkPreview(watermark: File | null, filterMode: boolean) {
+export function useMarkPreview(
+  source: File | null,
+  watermark: File | null,
+  filterMode: boolean,
+) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
   const [previewError, setPreviewError] = useState(false);
-  // Bumped per grab (and per picked file), so a grab still seeking through
-  // the previous source drops its frames instead of landing them.
-  const grabRun = useRef(0);
 
   // A slot's URL is revoked once a newer render (or a reset) has pushed it
   // out, and whatever is left goes on unmount.
@@ -104,77 +110,41 @@ export function useMarkPreview(watermark: File | null, filterMode: boolean) {
     return () => controller.abort();
   }, [frameBlobs, watermark, filterMode]);
 
-  // Grabs SCRUB_FRAMES frames off the grab <video>, evenly spaced from the
-  // start (0, 1/5, 2/5… of the clip: the end itself rarely seeks to a
-  // drawable frame). A source without a usable duration gives just the
-  // frame it has loaded.
-  const grabVideoFrames = async (video: HTMLVideoElement) => {
-    const run = ++grabRun.current;
-    const count =
-      Number.isFinite(video.duration) && video.duration > 0 ? SCRUB_FRAMES : 1;
-    const blobs: Blob[] = [];
-    for (let i = 0; i < count; i++) {
-      if (i > 0) {
-        const seeked = new Promise((resolve) =>
-          video.addEventListener("seeked", resolve, { once: true }),
-        );
-        video.currentTime = (video.duration * i) / count;
-        await seeked;
+  // Grabs SCRUB_FRAMES frames of the source, evenly spaced from the start
+  // (0, 1/5, 2/5… of the clip: the end itself rarely seeks to a drawable
+  // frame), through a frame source of its own, so its seeking never shows
+  // in the bare frame. A source without a usable duration (or an animated
+  // image where there is no ImageDecoder) gives just its first frame. A
+  // source picked meanwhile drops the grab instead of landing its frames; one
+  // the browser can't decode gives none, and the bare frame's note says so.
+  useEffect(() => {
+    if (!source) return;
+    let cancelled = false;
+    let frames: FrameSource | undefined;
+    (async () => {
+      frames = await openFrameSource(source);
+      if (cancelled) return;
+      const duration = await frames.duration();
+      const count = duration > 0 ? SCRUB_FRAMES : 1;
+      const blobs: Blob[] = [];
+      for (let i = 0; i < count; i++) {
+        const frame = await frames.frameAt((duration * i) / count);
+        const blob = await grabFrame(frame);
+        frame.close();
+        if (cancelled) return;
+        if (blob) blobs.push(blob);
       }
-      const blob = await grabFrame(video, video.videoWidth, video.videoHeight);
-      if (run !== grabRun.current) return;
-      if (blob) blobs.push(blob);
-    }
-    setFrameBlobs(blobs);
-  };
+      setFrameBlobs(blobs);
+    })()
+      .catch(() => {})
+      .finally(() => frames?.close());
+    return () => {
+      cancelled = true;
+    };
+  }, [source]);
 
-  // Same for a GIF source. ImageDecoder reaches any frame of it; without it
-  // the <img> is all there is, and a canvas always draws an animated
-  // image's first frame, so that one frame is the whole preview.
-  const grabGifFrames = async (file: File, img: HTMLImageElement) => {
-    const run = ++grabRun.current;
-    const blobs: Blob[] = [];
-    if ("ImageDecoder" in window) {
-      try {
-        const decoder = new ImageDecoder({
-          data: await file.arrayBuffer(),
-          type: file.type,
-        });
-        // `completed` = every byte is in, so the frame count is final;
-        // the track (and that count) only exists once `tracks.ready` is.
-        await Promise.all([decoder.completed, decoder.tracks.ready]);
-        const total = decoder.tracks.selectedTrack?.frameCount ?? 1;
-        const count = Math.min(SCRUB_FRAMES, total);
-        for (let i = 0; i < count; i++) {
-          const { image } = await decoder.decode({
-            frameIndex: Math.floor((total * i) / count),
-          });
-          const blob = await grabFrame(
-            image,
-            image.displayWidth,
-            image.displayHeight,
-          );
-          image.close();
-          if (blob) blobs.push(blob);
-        }
-        decoder.close();
-      } catch (err) {
-        console.error(err);
-        blobs.length = 0;
-      }
-    }
-    if (blobs.length === 0) {
-      const blob = await grabFrame(img, img.naturalWidth, img.naturalHeight);
-      if (blob) blobs.push(blob);
-    }
-    if (run !== grabRun.current) return;
-    setFrameBlobs(blobs);
-  };
-
-  // For a newly picked source: drops the frames and renders of the last one,
-  // and any grab still under way.
+  // For a newly picked source: drops the frames and renders of the last one.
   const reset = () => {
-    grabRun.current++;
     setFrameBlobs([]);
     setPreviewUrls([]);
     setScrubIndex(0);
@@ -192,8 +162,6 @@ export function useMarkPreview(watermark: File | null, filterMode: boolean) {
     shownRender,
     previewError,
     setScrubIndex,
-    grabVideoFrames,
-    grabGifFrames,
     reset,
   };
 }

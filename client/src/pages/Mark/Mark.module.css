@@ -86,11 +86,6 @@
   visibility: hidden;
 }
 
-/* The <video> the frames are grabbed off: loaded and seeked, never shown. */
-.markPreviewGrab {
-  display: none;
-}
-
 /* The scrub strips: one equal, invisible column per grabbed frame, over the
    whole box and above the (transformed) figure. */
 .markPreviewScrub {

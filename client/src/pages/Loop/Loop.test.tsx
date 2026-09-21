@@ -2,6 +2,14 @@ import { screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import { renderApp, uploadMock } from "../../test/renderApp";
+import {
+  gifFile,
+  stubCanvas,
+  stubImageDecoder,
+  stubMediaLoading,
+  stubProperties,
+  type FakeFrame,
+} from "../../test/media";
 
 describe("Loop", () => {
   // NumberField parses typed values with the runtime locale, so type the
@@ -65,6 +73,19 @@ describe("Loop", () => {
 
   it("shows a start-frame preview card when hovering the Start at input", async () => {
     const user = userEvent.setup();
+    // jsdom neither decodes nor seeks: answer the load and every seek, and
+    // stand in for the canvas
+    const seeks: number[] = [];
+    stubMediaLoading("decodes");
+    stubProperties(HTMLVideoElement.prototype, {
+      videoWidth: { get: () => 1280 },
+      videoHeight: { get: () => 720 },
+      currentTime: {
+        get: () => 0,
+        set: (time: number) => seeks.push(time),
+      },
+    });
+    const drawImage = stubCanvas();
     const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
@@ -76,8 +97,55 @@ describe("Loop", () => {
 
     // The preview lives in a Base UI PreviewCard triggered from the input
     await user.hover(screen.getByLabelText(/start at/i));
+    // One canvas, whatever the source: the frame is drawn off a <video>
+    // that is never in the page
     const preview = await screen.findByLabelText(/start frame preview/i);
-    expect(preview).toHaveAttribute("src", "blob:mock");
+    expect(preview.tagName).toBe("CANVAS");
+    await waitFor(() =>
+      expect(drawImage).toHaveBeenCalledWith(
+        expect.any(HTMLVideoElement),
+        0,
+        0,
+      ),
+    );
+    expect(preview).toHaveProperty("width", 1280);
+    expect(document.querySelector("video")).not.toBeInTheDocument();
+
+    // The frame follows the field
+    const sep = (1.1).toLocaleString().charAt(1);
+    fireEvent.change(screen.getByLabelText(/start at/i), {
+      target: { value: `1${sep}5` },
+    });
+    await waitFor(() => expect(seeks).toEqual([1.5]));
+    await waitFor(() => expect(drawImage).toHaveBeenCalledTimes(2));
+  });
+
+  it("draws the frame of a GIF showing at the start second, through ImageDecoder", async () => {
+    const user = userEvent.setup();
+    // 20 frames of 0.1 s
+    stubImageDecoder(20, 100);
+    const drawImage = stubCanvas();
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), gifFile("a.gif"));
+
+    await user.hover(screen.getByLabelText(/start at/i));
+    const preview = await screen.findByLabelText(/start frame preview/i);
+    expect(preview.tagName).toBe("CANVAS");
+    const drawn = () =>
+      drawImage.mock.calls.map(([image]) => (image as FakeFrame).frameIndex);
+    await waitFor(() => expect(drawn()).toEqual([0]));
+
+    const sep = (1.1).toLocaleString().charAt(1);
+    fireEvent.change(screen.getByLabelText(/start at/i), {
+      target: { value: `1${sep}5` },
+    });
+    await waitFor(() => expect(drawn()).toEqual([0, 15]));
+
+    // Past the end, the last frame (a <video> clamps the same way)
+    fireEvent.change(screen.getByLabelText(/start at/i), {
+      target: { value: "9" },
+    });
+    await waitFor(() => expect(drawn()).toEqual([0, 15, 19]));
   });
 
   it("wheel-scrubs the preview-wrapped Start at field after picking a video", async () => {
@@ -104,15 +172,13 @@ describe("Loop", () => {
   it("shows an error in the preview card when the browser can't decode the video", async () => {
     const user = userEvent.setup();
     const file = new File(["00"], "clip.avi", { type: "video/x-msvideo" });
+    // jsdom never decodes media; simulate the failure browsers report for
+    // containers <video> can't play (AVI, WMV, …)
+    stubMediaLoading("fails");
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
 
     await user.hover(screen.getByLabelText(/start at/i));
-    const preview = await screen.findByLabelText(/start frame preview/i);
-    // jsdom never decodes media; simulate the failure browsers report for
-    // containers <video> can't play (AVI, WMV, …)
-    fireEvent.error(preview);
-
     expect(
       await screen.findByText(/can.t preview this format/i),
     ).toBeInTheDocument();

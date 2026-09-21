@@ -6,7 +6,8 @@ import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { Slider } from "../../components/Slider/Slider";
 import { Switch } from "../../components/Switch/Switch";
 import { useToolRun } from "../../hooks/useToolRun";
-import { isAnimatedImage, useVideoSource } from "../../hooks/useVideoSource";
+import { useVideoSource } from "../../hooks/useVideoSource";
+import { hasFrames } from "../../frameSource";
 import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { useMarkPreview } from "./useMarkPreview";
@@ -21,15 +22,13 @@ const WATERMARK_ACCEPT = "image/png";
 
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
-  // The source may also be a GIF: previewed through an <img>, since <video>
-  // won't decode it.
-  const source = useVideoSource({ gif: true });
+  const source = useVideoSource();
   // The logo, and its frosted-glass switch.
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState(false);
   const [quality, setQuality] = useState<number>(100);
-  const preview = useMarkPreview(watermark, filterMode);
+  const preview = useMarkPreview(source.file, watermark, filterMode);
   const [previewZoomed, setPreviewZoomed] = useState(false);
 
   // Object URL for the watermark thumbnail. Revoked when replaced or on
@@ -40,7 +39,6 @@ export const Mark = () => {
   }, [watermarkUrl]);
 
   const sourceFile = source.file;
-  const gifSource = sourceFile != null && isAnimatedImage(sourceFile);
   const aspectRatio = source.dims
     ? `${source.dims.w} / ${source.dims.h}`
     : "16 / 9";
@@ -107,8 +105,8 @@ export const Mark = () => {
           them. The bare first frame shows until a render lands (and
           stays as the fallback if it fails); a format the browser
           can't decode shows the frame's own note instead. The aspect
-          box waits for the video's metadata. */}
-      {sourceFile && source.url && watermarkUrl && (
+          box waits for the source's metadata. */}
+      {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
         <div
           className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
           onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
@@ -121,50 +119,17 @@ export const Mark = () => {
           >
             {/* The bare frame is the render's stand-in, so once a
                 render is up it is hidden rather than left showing
-                through — a GIF would otherwise be seen playing
-                underneath. */}
-            {gifSource ? (
-              <img
-                src={source.url}
-                alt="first frame"
-                className={
-                  shownRender >= 0
-                    ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
-                    : styles.markPreviewFrame
-                }
-                onLoad={(e) => {
-                  const img = e.currentTarget;
-                  source.setDims({
-                    w: img.naturalWidth,
-                    h: img.naturalHeight,
-                  });
-                  preview.grabGifFrames(sourceFile, img);
-                }}
-              />
-            ) : (
-              <>
-                <FramePreview
-                  src={source.url}
-                  second={0}
-                  label="first frame"
-                  className={
-                    shownRender >= 0
-                      ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
-                      : styles.markPreviewFrame
-                  }
-                />
-                {/* The frames are grabbed off a second, undisplayed
-                    <video>, so its seeking never shows through the bare
-                    frame above. */}
-                <FramePreview
-                  src={source.url}
-                  second={0}
-                  label="frame grab source"
-                  className={styles.markPreviewGrab}
-                  onFrame={preview.grabVideoFrames}
-                />
-              </>
-            )}
+                through. */}
+            <FramePreview
+              file={sourceFile}
+              second={0}
+              label="first frame"
+              className={
+                shownRender >= 0
+                  ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
+                  : styles.markPreviewFrame
+              }
+            />
             {/* Every landed render is stacked here and only the
                 scrubbed one shown, so scrubbing never waits on an image
                 decode. A slot's last render stays up, unchanged, until

@@ -1,59 +1,78 @@
 import { useEffect, useRef, useState } from "react";
+import { openFrameSource, type FrameSource } from "../../frameSource";
 import styles from "./FramePreview.module.css";
 
-// Paused <video> seeked to the loop start, shown while choosing "Start at" —
-// usually the frame that becomes a social post's thumbnail. The seek waits
-// for metadata so it lands on a decodable frame; the browser clamps
-// out-of-range times to the clip length. The accept list is broader than
-// what browsers can decode (server-side ffmpeg handles the rest), so a
-// decode error swaps the frame for a short note. Tracking the failed src
-// rather than a boolean resets the error when a new file is picked.
-// `className` swaps the default card look for the caller's own (the mark
-// preview lays it out as a frame to draw on) and `label` names the video.
-// `onFrame` fires once a frame is decoded and drawable (the mark preview
-// grabs it for the server-side render).
+// The frame of a picked file showing at `second`, drawn on a canvas: shown
+// while choosing the loop's "Start at" (usually the frame that becomes a
+// social post's thumbnail) and as the mark preview's bare first frame. Video
+// and animated images (GIF, AVIF) alike come through a frame source (see
+// frameSource.ts), so there is one element and one set of states for both.
+// The accept list is broader than what browsers can decode (server-side
+// ffmpeg handles the rest), so a file the source can't open or seek swaps the
+// frame for a short note. Tracking the failed file rather than a boolean
+// resets the error when a new file is picked. `className` swaps the default
+// card look for the caller's own (the mark preview lays it out as a frame
+// under its renders) and `label` names the frame.
 export const FramePreview = ({
-  src,
+  file,
   second,
   label = "start frame preview",
   className = styles.framePreview,
-  onFrame,
 }: {
-  src: string;
+  file: File;
   second: number;
   label?: string;
   className?: string;
-  onFrame?: (video: HTMLVideoElement) => void;
 }) => {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [failedFile, setFailedFile] = useState<File | null>(null);
+  // Kept with its file, so a frame is never asked of the previous source.
+  const [opened, setOpened] = useState<{
+    file: File;
+    frames: FrameSource;
+  } | null>(null);
 
   useEffect(() => {
-    const video = ref.current;
-    if (!video) return;
-    const seek = () => {
-      video.currentTime = second;
+    let cancelled = false;
+    let frames: FrameSource | undefined;
+    openFrameSource(file)
+      .then((source) => {
+        if (cancelled) return source.close();
+        frames = source;
+        setOpened({ file, frames: source });
+      })
+      .catch(() => {
+        if (!cancelled) setFailedFile(file);
+      });
+    return () => {
+      cancelled = true;
+      frames?.close();
     };
-    if (video.readyState >= video.HAVE_METADATA) seek();
-    else video.addEventListener("loadedmetadata", seek, { once: true });
-    return () => video.removeEventListener("loadedmetadata", seek);
-  }, [second]);
+  }, [file]);
 
-  // The latest callback without re-subscribing on every render.
-  const onFrameRef = useRef(onFrame);
   useEffect(() => {
-    onFrameRef.current = onFrame;
-  });
-  useEffect(() => {
-    const video = ref.current;
-    if (!video) return;
-    const handle = () => onFrameRef.current?.(video);
-    video.addEventListener("loadeddata", handle);
-    if (video.readyState >= video.HAVE_CURRENT_DATA) handle();
-    return () => video.removeEventListener("loadeddata", handle);
-  }, [src]);
+    if (opened?.file !== file) return;
+    let cancelled = false;
+    opened.frames
+      .frameAt(second)
+      .then((frame) => {
+        const canvas = canvasRef.current;
+        if (canvas && !cancelled) {
+          canvas.width = frame.width;
+          canvas.height = frame.height;
+          canvas.getContext("2d")?.drawImage(frame.image, 0, 0);
+        }
+        frame.close();
+      })
+      .catch(() => {
+        if (!cancelled) setFailedFile(file);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opened, file, second]);
 
-  if (failedSrc === src) {
+  if (failedFile === file) {
     return (
       <p className={`${className} ${styles.framePreviewError}`}>
         Can&rsquo;t preview this format.
@@ -62,14 +81,10 @@ export const FramePreview = ({
   }
 
   return (
-    <video
-      ref={ref}
-      src={src}
-      muted
-      playsInline
-      preload="auto"
+    <canvas
+      ref={canvasRef}
+      role="img"
       aria-label={label}
-      onError={() => setFailedSrc(src)}
       className={className}
     />
   );
