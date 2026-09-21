@@ -2,14 +2,13 @@ import { useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
-import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
+import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames } from "../../frameSource";
-import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
 
@@ -24,6 +23,7 @@ const TECHNIQUES = [
 export const Loop = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
+  const formatBlocker = useFormatBlocker(source.file);
   const [technique, setTechnique] = useState<string>("crossfade");
   // NumberField reports null while its input is empty; submit falls back to
   // each field's default.
@@ -62,12 +62,10 @@ export const Loop = () => {
           onFiles={pick}
         />
       }
-      blocker={source.file ? formatBlocker(source.file) : "Upload a file"}
+      blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
-      {source.file && <FormatNotice file={source.file} />}
-
       <div className={form.formGroup}>
         <label htmlFor="technique" className={form.label}>
           Technique

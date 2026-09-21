@@ -2,10 +2,9 @@ import { useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { Slider } from "../../components/Slider/Slider";
-import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
+import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
 
@@ -14,6 +13,7 @@ const TOOL = toolById("speed");
 export const Speed = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
+  const formatBlocker = useFormatBlocker(source.file);
   const [speed, setSpeed] = useState<number>(0);
 
   // Signed speed ratio → playback multiplier: ±1 → 2× faster/slower,
@@ -46,12 +46,10 @@ export const Speed = () => {
           onFiles={pick}
         />
       }
-      blocker={source.file ? formatBlocker(source.file) : "Upload a file"}
+      blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
-      {source.file && <FormatNotice file={source.file} />}
-
       <div className={form.formGroup}>
         <Slider
           label={

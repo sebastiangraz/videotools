@@ -2,14 +2,13 @@ import { useEffect, useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
-import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { Slider } from "../../components/Slider/Slider";
 import { Spinner } from "../../components/Spinner/Spinner";
 import { Switch } from "../../components/Switch/Switch";
+import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames } from "../../frameSource";
-import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { useMarkPreview } from "./useMarkPreview";
 import form from "../form.module.css";
@@ -24,6 +23,7 @@ const WATERMARK_ACCEPT = "image/png";
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
+  const formatBlocker = useFormatBlocker(source.file);
   // The logo, and its frosted-glass switch.
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
@@ -93,14 +93,11 @@ export const Mark = () => {
       blocker={
         !source.file
           ? "Upload a file"
-          : (formatBlocker(source.file) ??
-            (!watermark ? "Upload a watermark" : null))
+          : (formatBlocker ?? (!watermark ? "Upload a watermark" : null))
       }
       run={run}
       onSubmit={submit}
     >
-      {source.file && <FormatNotice file={source.file} />}
-
       {/* Frames of the clip, watermarked by the server with the real
           graph; moving the pointer across the box scrubs through
           them. The bare first frame shows until the renders land (and

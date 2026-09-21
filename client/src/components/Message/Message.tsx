@@ -2,7 +2,6 @@ import {
   ReactNode,
   RefObject,
   useEffect,
-  useId,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -11,6 +10,7 @@ import {
   type PreviewCardTriggerProps,
 } from "@base-ui/react/preview-card";
 import { PreviewCardPopup } from "../PreviewCard/PreviewCard";
+import { useMessage } from "../../hooks/useMessage";
 import { messageHandle, messages, type MessageKind } from "./messageStore";
 import styles from "./Message.module.css";
 
@@ -120,9 +120,9 @@ export const MessageTrigger = ({
   </BasePreviewCard.Trigger>
 );
 
-// A message in the area, from anywhere in the app. It is up while it is
-// mounted, so render it for as long as what it says holds. It renders nothing
-// where it stands.
+// A message in the area, from anywhere in the app: useMessage for markup. It
+// is up while it is mounted, so render it for as long as what it says holds.
+// It renders nothing where it stands.
 export const Message = ({
   kind = "default",
   children,
@@ -130,12 +130,6 @@ export const Message = ({
   kind?: MessageKind;
   children: ReactNode;
 }) => {
-  const id = useId();
-  // Every render, so the content follows its props. The area is no ancestor
-  // of this, so telling it can't come back round as another render.
-  useEffect(() => {
-    messages.set(id, { kind, content: children });
-  });
-  useEffect(() => () => messages.remove(id), [id]);
+  useMessage(children, kind);
   return null;
 };

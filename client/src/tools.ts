@@ -2,7 +2,7 @@
 // (shared/formats.ts), so every single-source tool takes them too. The list
 // is wider than what the tools can hand back on purpose: an .avi is picked
 // like any other file, and the app then says, over the title, why it has to
-// go through convert first (components/FormatNotice).
+// go through convert first (hooks/useFormatBlocker).
 const VIDEO_ACCEPT =
   "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts," +
   "image/gif,.gif,image/avif,.avif";
