@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
-import { OutputFormat } from "../../components/OutputFormat/OutputFormat";
+import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { Slider } from "../../components/Slider/Slider";
 import { Switch } from "../../components/Switch/Switch";
 import { useToolRun } from "../../hooks/useToolRun";
 import { isAnimatedImage, useVideoSource } from "../../hooks/useVideoSource";
-import { keptFormatBlocker } from "../../sourceFormat";
+import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { useMarkPreview } from "./useMarkPreview";
 import form from "../form.module.css";
@@ -94,13 +94,13 @@ export const Mark = () => {
       blocker={
         !source.file
           ? "Upload a file"
-          : (keptFormatBlocker(source.file) ??
+          : (formatBlocker(source.file) ??
             (!watermark ? "Upload a watermark" : null))
       }
       run={run}
       onSubmit={submit}
     >
-      {source.file && <OutputFormat file={source.file} />}
+      {source.file && <FormatNotice file={source.file} />}
 
       {/* Frames of the clip, watermarked by the server with the real
           graph; moving the pointer across the box scrubs through

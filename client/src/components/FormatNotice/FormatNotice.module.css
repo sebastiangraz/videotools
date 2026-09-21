@@ -4,14 +4,10 @@
   font-size: 11px;
   line-height: 1.5;
   text-wrap: pretty;
-  color: var(--fg-primary, inherit);
-}
-
-.blocked {
   color: var(--fg-secondary);
 }
 
-.blocked a {
+.text a {
   color: inherit;
   text-decoration: underline;
   text-underline-offset: 0.2em;

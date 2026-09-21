@@ -121,7 +121,7 @@ describe("Loop", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("says a picked file comes back in its own format", async () => {
+  it("says nothing about a file that comes back in its own format", async () => {
     const user = userEvent.setup();
     await renderApp();
     await user.upload(
@@ -129,7 +129,7 @@ describe("Loop", () => {
       new File(["00"], "anim.gif", { type: "image/gif" }),
     );
 
-    expect(screen.getByText(/GIF, same as the source/i)).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
       "aria-disabled",
       "false",

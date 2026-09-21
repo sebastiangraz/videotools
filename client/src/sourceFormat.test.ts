@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fileFormat, keptFormat, keptFormatBlocker } from "./sourceFormat";
+import { fileFormat, formatBlock, formatBlocker } from "./sourceFormat";
 
 const file = (name: string, type = "") => new File(["00"], name, { type });
 
@@ -11,26 +11,26 @@ describe("fileFormat", () => {
   });
 });
 
-describe("keptFormat", () => {
-  it("hands a format of the app's back as it came", () => {
-    expect(keptFormat(file("anim.gif", "image/gif"))).toMatchObject({
-      state: "kept",
-      format: { id: "gif" },
-    });
-    expect(keptFormatBlocker(file("anim.gif", "image/gif"))).toBeNull();
+describe("formatBlock", () => {
+  it("has nothing to say about a format of the app's", () => {
+    expect(formatBlock(file("anim.gif", "image/gif"))).toBeNull();
+    expect(formatBlocker(file("anim.gif", "image/gif"))).toBeNull();
   });
 
   it("sends any other format through convert first", () => {
-    expect(keptFormat(file("clip.mkv"))).toEqual({
+    expect(formatBlock(file("clip.mkv"))).toEqual({
       state: "foreign",
       name: "MKV",
     });
-    expect(keptFormatBlocker(file("clip.mkv"))).toMatch(/convert/i);
+    expect(formatBlocker(file("clip.mkv"))).toMatch(/convert/i);
   });
 
   it("turns animated WebP away: there is nothing to read", () => {
-    expect(keptFormat(file("anim.webp", "image/webp")).state).toBe("unreadable");
-    expect(keptFormatBlocker(file("anim.webp", "image/webp"))).toMatch(
+    expect(formatBlock(file("anim.webp", "image/webp"))).toMatchObject({
+      state: "unreadable",
+      format: { id: "webp" },
+    });
+    expect(formatBlocker(file("anim.webp", "image/webp"))).toMatch(
       /can't be read/,
     );
   });

@@ -3,13 +3,13 @@ import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { AnimationFramePreview } from "../../components/FramePreview/AnimationFramePreview";
-import { OutputFormat } from "../../components/OutputFormat/OutputFormat";
+import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useToolRun } from "../../hooks/useToolRun";
 import { isAnimatedImage, useVideoSource } from "../../hooks/useVideoSource";
-import { keptFormatBlocker } from "../../sourceFormat";
+import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
 
@@ -62,11 +62,11 @@ export const Loop = () => {
           onFiles={pick}
         />
       }
-      blocker={source.file ? keptFormatBlocker(source.file) : "Upload a file"}
+      blocker={source.file ? formatBlocker(source.file) : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
-      {source.file && <OutputFormat file={source.file} />}
+      {source.file && <FormatNotice file={source.file} />}
 
       <div className={form.formGroup}>
         <label htmlFor="technique" className={form.label}>

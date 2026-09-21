@@ -2,10 +2,10 @@ import { useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { Slider } from "../../components/Slider/Slider";
-import { OutputFormat } from "../../components/OutputFormat/OutputFormat";
+import { FormatNotice } from "../../components/FormatNotice/FormatNotice";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { keptFormatBlocker } from "../../sourceFormat";
+import { formatBlocker } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
 
@@ -46,13 +46,11 @@ export const Speed = () => {
           onFiles={pick}
         />
       }
-      blocker={
-        source.file ? keptFormatBlocker(source.file) : "Upload a file"
-      }
+      blocker={source.file ? formatBlocker(source.file) : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
-      {source.file && <OutputFormat file={source.file} />}
+      {source.file && <FormatNotice file={source.file} />}
 
       <div className={form.formGroup}>
         <Slider
