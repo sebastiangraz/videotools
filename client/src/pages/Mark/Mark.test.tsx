@@ -143,6 +143,138 @@ describe("Mark", () => {
     ).toMatch(/^data:image\/jpeg;base64,/);
   });
 
+  it("takes a photo as the mark source and previews it off an image, whatever decoders the browser has", async () => {
+    const user = userEvent.setup();
+    stubMediaLoading("decodes");
+    // The size the <img> reports is the one the photo is shown at, turned by
+    // EXIF: a phone's upright shot
+    stubProperties(HTMLImageElement.prototype, {
+      naturalWidth: { get: () => 1080 },
+      naturalHeight: { get: () => 1920 },
+    });
+    // There to be passed over: an <img> is what draws a photo as EXIF holds it
+    stubImageDecoder(1, 0);
+    const drawImage = stubCanvas();
+    const fetchMock = stubPreviewFetch();
+
+    await renderApp("/mark");
+    const picker = screen.getByLabelText(/choose video or image/i);
+    expect(picker.getAttribute("accept")).toMatch(/image\/jpeg.*\.webp/);
+    await user.upload(
+      picker,
+      new File(["00"], "photo.jpg", { type: "image/jpeg" }),
+    );
+    // A still is the tool's to take: nothing to say, nothing in the way
+    expect(screen.getByText("photo.jpg")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.upload(
+      screen.getByLabelText(/choose watermark/i),
+      new File(["00"], "logo.png", { type: "image/png" }),
+    );
+    expect(screen.getByRole("button", { name: /^mark$/i })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+
+    await waitFor(() =>
+      expect(screen.getByAltText(/watermarked frame/i)).toHaveAttribute(
+        "src",
+        "blob:mock",
+      ),
+    );
+    expect(screen.getByLabelText(/watermark preview/i)).toHaveStyle({
+      aspectRatio: "1080 / 1920",
+    });
+    // One picture, so one render and nothing to scrub through
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    for (const [image] of drawImage.mock.calls) {
+      expect(image).toBeInstanceOf(HTMLImageElement);
+    }
+    // A JPEG has a quality to ask for
+    expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
+  });
+
+  it("asks no quality of a PNG, which comes back lossless, and sends it like any source", async () => {
+    const user = userEvent.setup();
+    const image = new File(["00"], "shot.png", { type: "image/png" });
+    const logo = new File(["00"], "logo.png", { type: "image/png" });
+    uploadMock.mockImplementation(async (name: string) => ({
+      url: blobFor(name),
+    }));
+    const fetchMock = markFetchMock(blobFor("results/shot_marked-xyz.png"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderApp("/mark");
+    expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
+    await user.upload(screen.getByLabelText(/choose video/i), image);
+    expect(
+      screen.queryByRole("slider", { hidden: true }),
+    ).not.toBeInTheDocument();
+
+    await user.upload(screen.getByLabelText(/choose watermark/i), logo);
+    await user.click(screen.getByRole("button", { name: /^mark$/i }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/process",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+    const processBody = JSON.parse(
+      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
+        ?.body as string) ?? "{}",
+    );
+    expect(processBody).toMatchObject({
+      tool: "mark",
+      filename: "shot.png",
+      blobUrl: blobFor("shot.png"),
+      watermarkUrl: blobFor("logo.png"),
+    });
+  });
+
+  it("turns an animated WebP away once its header is read, and lets a still one through", async () => {
+    const user = userEvent.setup();
+    // "RIFF" size "WEBP" "VP8X" size flags: animation is bit 1 of the flags
+    const webp = (name: string, flags: number) =>
+      new File(
+        [
+          new Uint8Array([
+            ...[..."RIFF\0\0\0\0WEBPVP8X"].map((c) => c.charCodeAt(0)),
+            ...[10, 0, 0, 0],
+            flags,
+          ]),
+        ],
+        name,
+        { type: "image/webp" },
+      );
+
+    await renderApp("/mark");
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      webp("sticker.webp", 0x02),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /animated webp format not supported/i,
+    );
+    await user.upload(
+      screen.getByLabelText(/choose watermark/i),
+      new File(["00"], "logo.png", { type: "image/png" }),
+    );
+    const button = screen.getByRole("button", { name: /^mark$/i });
+    expect(button).toHaveAttribute("aria-disabled", "true");
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      webp("photo.webp", 0x10),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+    );
+    // Its header is in by now, and said nothing against it
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-disabled", "false");
+  });
+
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
     const user = userEvent.setup();
     // jsdom neither decodes video nor draws: answer the load, give the

@@ -1,12 +1,17 @@
-// The sources an <img> shows and a <video> doesn't.
+import { STILLS } from "../../shared/formats";
+
+// The sources an <img> shows and a <video> doesn't: the animated images, and
+// the stills the mark tool takes (one frame, which is all there is to show).
 export const isAnimatedImage = (file: File) =>
   file.type === "image/gif" || file.type === "image/avif";
+export const isStillImage = (file: File) =>
+  STILLS.some((still) => still.mime === file.type);
 
 // Whether the browser may have frames of a picked file to show, going by the
 // type it reports. The accept list is broader than what browsers can decode
 // (server-side ffmpeg handles the rest), so opening one can still fail.
 export const hasFrames = (file: File) =>
-  file.type.startsWith("video/") || isAnimatedImage(file);
+  file.type.startsWith("video/") || isAnimatedImage(file) || isStillImage(file);
 
 // A frame to draw on a canvas, and its size. `close` frees a decoded one.
 export interface Frame {
@@ -130,7 +135,9 @@ const openAnimation = async (file: File): Promise<FrameSource> => {
 
 // An animated image where there is no ImageDecoder (or it can't read the
 // file): an <img> is all there is, and a canvas always draws an animated
-// image's first frame, so that one frame is the whole source.
+// image's first frame, so that one frame is the whole source. It is for a
+// still anyway, which comes through here whatever the browser has: an <img>
+// is drawn the way EXIF says a photo is held, as the server will mark it.
 const openStill = async (file: File): Promise<FrameSource> => {
   const url = URL.createObjectURL(file);
   const img = new Image();
@@ -158,6 +165,7 @@ const openStill = async (file: File): Promise<FrameSource> => {
 
 // Rejects when the browser can't decode the file.
 export const openFrameSource = (file: File): Promise<FrameSource> => {
+  if (isStillImage(file)) return openStill(file);
   if (!isAnimatedImage(file)) return openVideo(file);
   return typeof ImageDecoder !== "undefined"
     ? openAnimation(file).catch(() => openStill(file))

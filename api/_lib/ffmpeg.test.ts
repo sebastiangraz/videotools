@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { parseMediaInfo } from "./ffmpeg.js";
+import { parseMediaInfo, parseOutputSize } from "./ffmpeg.js";
 
 describe("parseMediaInfo", () => {
   // The watermark's PNG check goes by this, so the lines are ffmpeg's own:
@@ -25,5 +25,31 @@ describe("parseMediaInfo", () => {
       width: 200,
       height: 100,
     });
+  });
+});
+
+describe("parseOutputSize", () => {
+  // `ffmpeg -i turned.jpg -frames:v 1 -f null -` (7.0.2) on a 320x240 JPEG
+  // whose EXIF orientation stands it on end: the input line has the size as
+  // stored, the output line the size the picture is decoded to.
+  const log = `Input #0, image2, from 'turned.jpg':
+  Duration: 00:00:00.04, start: 0.000000, bitrate: 3061 kb/s
+  Stream #0:0: Video: mjpeg (Baseline), yuvj444p(pc, bt470bg/unknown/unknown), 320x240 [SAR 1:1 DAR 4:3], 25 fps, 25 tbr, 25 tbn
+Stream mapping:
+  Stream #0:0 -> #0:0 (mjpeg (native) -> wrapped_avframe (native))
+Press [q] to stop, [?] for help
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.1.100
+  Stream #0:0: Video: wrapped_avframe, yuvj444p(pc, bt470bg/unknown/unknown, progressive), 240x320 [SAR 1:1 DAR 3:4], q=2-31, 200 kb/s, 25 fps, 25 tbn
+      Metadata:
+        encoder         : Lavc61.3.100 wrapped_avframe`;
+
+  it("reads the size the pictures were written at, not the input's", () => {
+    expect(parseOutputSize(log)).toEqual({ width: 240, height: 320 });
+  });
+
+  it("has none for a run that never got to its output", () => {
+    expect(parseOutputSize(log.slice(0, log.indexOf("Stream mapping")))).toBeNull();
   });
 });

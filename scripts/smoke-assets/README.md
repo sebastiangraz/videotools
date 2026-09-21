@@ -14,8 +14,10 @@ footage here for that:
 
 The preview frame is always taken from `video`, like the browser does. So are
 the sources in the other formats the tools have to hand back (`source.mov`,
-`source.webm`, a small `source.avif`) and `reject.mkv`, a container they have
-to refuse.
+`source.webm`, a small `source.avif`), `reject.mkv`, a container they have
+to refuse, and the Mark tool's still sources: the first frame as `still.png`,
+`still.jpg`, `still.webp` and `turned.jpg` (the JPEG again, with an EXIF
+orientation that stands it on end).
 
 Keep clips short (about 4–10 s, the loop cases need at least ~4 s): the slow
 encoders (AVIF, lossless WebP) run on them too, GIF stops at 1500 frames and

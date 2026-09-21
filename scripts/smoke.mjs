@@ -54,6 +54,11 @@ const smokeDir = path.join(root, ".smoke");
 //   mkv        —                       `video` remuxed to reject.mkv, a
 //                                      container the app reads but never
 //                                      writes
+//   png, jpg,  —                       the first frame of `video` as still.png,
+//   webp                               still.jpg and still.webp (lossy): the
+//                                      mark tool's still sources
+//   turned     —                       still.jpg again as turned.jpg, with an
+//                                      EXIF orientation that stands it on end
 const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 
 // Every case is a /api/process request: the tool, its uploads (asset roles)
@@ -69,6 +74,8 @@ const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 //   frames     "source": as many frames as the source has, for the results
 //              that only rearrange or redraw them; "double": twice as many,
 //              for the reverse loops
+//   turned     the picture has to come back on end: its source's height wide
+//              and its width high (a JPEG that EXIF says to show that way)
 //   errorCode  the run has to be refused, with this InputError code
 const CASES = {
   "loop-reverse": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 } },
@@ -113,6 +120,14 @@ const CASES = {
   "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: false, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  // Stills come back as the image they are. A PNG is lossless both ways; a
+  // JPEG or lossy WebP is held to its source's size (encode/still.ts), which
+  // the codecs' finest settings would pass several times over.
+  "mark-plain-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: false, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-glass-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-glass-jpg-source": { tool: "mark", files: ["jpg", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-plain-jpg-turned": { tool: "mark", files: ["turned", "logo"], options: { filter: false, quality: 90 }, expect: { ext: "source", turned: true } },
+  "mark-glass-webp-source": { tool: "mark", files: ["webp", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: true } },
 };
 
@@ -138,6 +153,9 @@ function violations(expect, result, sourceFile) {
   }
   if (expect.minRatio != null && result.ratio < expect.minRatio) {
     found.push(`${result.ratio}x its source, at least ${expect.minRatio}x expected`);
+  }
+  if (expect.turned && result.size !== result.sourceSize.split("x").reverse().join("x")) {
+    found.push(`came back ${result.size}, has to be its source's ${result.sourceSize} on end`);
   }
   const wantedFrames = result.sourceFrames * (expect.frames === "double" ? 2 : 1);
   if (expect.frames && result.frames !== wantedFrames) {
@@ -285,6 +303,25 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("source.avif"),
   );
   assets.avif = [made("source.avif")];
+
+  ff("-i", video, "-frames:v", "1", made("still.png"));
+  assets.png = [made("still.png")];
+  ff("-i", video, "-frames:v", "1", "-q:v", "4", made("still.jpg"));
+  assets.jpg = [made("still.jpg")];
+  ff("-i", video, "-frames:v", "1", "-c:v", "libwebp", "-q:v", "85", made("still.webp"));
+  assets.webp = [made("still.webp")];
+  // An EXIF block (APP1, right behind the SOI marker) of one tag:
+  // Orientation (0x0112) = 6, "show me turned a quarter clockwise", the way
+  // a phone held upright saves its photos.
+  const tiff = Buffer.alloc(26);
+  tiff.write("II");
+  [[42, 2], [1, 8], [0x0112, 10], [3, 12], [6, 18]].forEach(([v, at]) => tiff.writeUInt16LE(v, at));
+  [[8, 4], [1, 14]].forEach(([v, at]) => tiff.writeUInt32LE(v, at));
+  const exif = Buffer.concat([Buffer.from("Exif\0\0", "latin1"), tiff]);
+  const app1 = Buffer.from([0xff, 0xe1, 0, exif.length + 2]);
+  const jpeg = fs.readFileSync(made("still.jpg"));
+  fs.writeFileSync(made("turned.jpg"), Buffer.concat([jpeg.subarray(0, 2), app1, exif, jpeg.subarray(2)]));
+  assets.turned = [made("turned.jpg")];
 
   return { assets, owned };
 }
@@ -449,6 +486,9 @@ for (const name of names) {
       ratio: Number((bytes / bytesOf(source)).toFixed(2)),
       ...(expect?.frames
         ? { frames: await countFrames(outputPath), sourceFrames: await countFrames(source[0]) }
+        : {}),
+      ...(expect?.turned
+        ? await prober.mediaInfo(source[0]).then((s) => ({ sourceSize: `${s.width}x${s.height}` }))
         : {}),
       ...(info
         ? {

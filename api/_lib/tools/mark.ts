@@ -2,6 +2,7 @@ import path from "node:path";
 import { InputError } from "../errors.js";
 import type { FFmpeg, MediaInfo } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
+import { encodeStill } from "../encode/still.js";
 import { sourceRender, videoPad, type Render } from "../encode/render.js";
 import { clamp, isBlobUrl } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
@@ -9,9 +10,9 @@ import { parseBounds, watermarkGraph, type Bounds } from "./mark-graph.js";
 import type { Tool } from "./types.js";
 
 /**
- * Stamps `logoFile` (a PNG) onto the bottom-right corner of `source`. With
- * `filter` the logo's alpha becomes the shape of a glass lens (see MARK)
- * instead of a plain overlay. Audio is kept.
+ * Stamps `logoFile` (a PNG) onto the bottom-right corner of `source`, a
+ * video or a still. With `filter` the logo's alpha becomes the shape of a
+ * glass lens (see MARK) instead of a plain overlay. Audio is kept.
  */
 export async function addWatermark(
   ff: FFmpeg,
@@ -20,15 +21,22 @@ export async function addWatermark(
   filter = false,
 ): Promise<Render> {
   const logo = await logoInfo(ff, logoFile);
+  // A still is laid out by the size it decodes to: a JPEG that EXIF says
+  // to turn reaches the graph turned (FFmpeg.shownSize).
+  const frame = source.still
+    ? { ...source.profile, ...(await ff.shownSize(source.path)) }
+    : source.profile;
   const graph = watermarkGraph(
-    source.profile,
+    frame,
     logo,
     filter,
     await logoBounds(ff, logoFile, logo),
     {
       // A GIF is RGB going in and coming out, so it is never taken through
-      // yuv420p in between (mark-graph.ts).
-      base: source.format === "gif" ? "rgba" : "yuv420p",
+      // yuv420p in between (mark-graph.ts). Nor is a still: its alpha, its
+      // odd row or column of pixels and its full chroma resolution are all
+      // its format's to keep.
+      base: source.format === "gif" || source.still ? "rgba" : "yuv420p",
       pad: videoPad(source),
     },
   );
@@ -38,6 +46,8 @@ export async function addWatermark(
     inputArgs: ["-i", source.path, "-i", logoFile],
     filter: graph,
     keepAudio: true,
+    width: frame.width,
+    height: frame.height,
   });
 }
 
@@ -138,8 +148,9 @@ export const mark: Tool = {
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     const source = await openSource(job, inputs[0]);
-    // A marked file comes back in the format it came in.
-    const format = preservedFormat(source);
+    // A marked file comes back in the format it came in: a still as the
+    // kind of image it is, the one tool that takes them.
+    const format = source.still ?? preservedFormat(source);
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
     console.log(
@@ -147,7 +158,9 @@ export const mark: Tool = {
     );
 
     const render = await addWatermark(ff, source, logoPath, filter);
-    const outputPath = await encodePreserved(ff, render, workDir, format, quality);
+    const outputPath = source.still
+      ? await encodeStill(ff, render, workDir, source.still, quality)
+      : await encodePreserved(ff, render, workDir, preservedFormat(source), quality);
     return { outputPath, suffix: "marked", ext: format };
   },
 };

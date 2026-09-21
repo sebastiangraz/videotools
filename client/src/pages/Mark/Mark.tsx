@@ -9,6 +9,7 @@ import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames } from "../../frameSource";
+import { stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { useMarkPreview } from "./useMarkPreview";
 import form from "../form.module.css";
@@ -23,7 +24,9 @@ const WATERMARK_ACCEPT = "image/png";
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  const formatBlocker = useFormatBlocker(source.file);
+  // The one tool that takes stills as well: a PNG, JPEG or (still) WebP comes
+  // back marked as the image it is.
+  const formatBlocker = useFormatBlocker(source.file, { stills: true });
   // The logo, and its frosted-glass switch.
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
@@ -40,6 +43,8 @@ export const Mark = () => {
   }, [watermarkUrl]);
 
   const sourceFile = source.file;
+  // A PNG is lossless whatever is asked of it, so it isn't asked.
+  const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
   const aspectRatio = source.dims
     ? `${source.dims.w} / ${source.dims.h}`
     : "16 / 9";
@@ -100,7 +105,7 @@ export const Mark = () => {
     >
       {/* Frames of the clip, watermarked by the server with the real
           graph; moving the pointer across the box scrubs through
-          them. The bare first frame shows until the renders land (and
+          them (a still has the one, itself). The bare first frame shows until the renders land (and
           stays as the fallback if they fail); a format the browser
           can't decode shows the frame's own note instead. While a set
           of renders is on its way (first logo, new logo, glass toggled)
@@ -187,21 +192,25 @@ export const Mark = () => {
         </div>
       )}
 
-      <div className={form.formGroup}>
-        <Slider
-          label={
-            <>
-              {quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}
-            </>
-          }
-          value={quality}
-          onValueChange={setQuality}
-          min={1}
-          max={100}
-          step={1}
-          disabled={run.busy}
-        />
-      </div>
+      {!lossless && (
+        <div className={form.formGroup}>
+          <Slider
+            label={
+              <>
+                {quality === 100
+                  ? `Lossless ${quality}%`
+                  : `Quality ${quality}%`}
+              </>
+            }
+            value={quality}
+            onValueChange={setQuality}
+            min={1}
+            max={100}
+            step={1}
+            disabled={run.busy}
+          />
+        </div>
+      )}
     </ToolPanel>
   );
 };

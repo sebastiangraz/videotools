@@ -1,4 +1,4 @@
-import type { FormatId } from "../../../shared/formats.js";
+import type { FormatId, StillId } from "../../../shared/formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
 
 // The part of the /api/process body a tool gets to look at. It is untyped
@@ -25,11 +25,11 @@ export type ToolJob = {
 // `suffix` and `ext` name the download (`<source name>_<suffix>.<ext>`);
 // `ext` is the result's format, which also gives the content type. Every
 // tool hands back the format of its source, except the two that are asked
-// for one: convert and sequence.
+// for one: convert and sequence. Only mark's can be a still.
 export type ToolResult = {
   outputPath: string;
   suffix: string;
-  ext: FormatId;
+  ext: FormatId | StillId;
 };
 
 // One tool of /api/process. `inputs` picks the uploads the tool works on out

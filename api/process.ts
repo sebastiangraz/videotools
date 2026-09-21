@@ -6,7 +6,7 @@ import path from "path";
 import os from "os";
 import { nanoid } from "nanoid";
 
-import { formatById } from "../shared/formats.js";
+import { mimeOf } from "../shared/formats.js";
 import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
@@ -102,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fs.createReadStream(outputPath),
       {
         access: "public",
-        contentType: formatById(ext).mime,
+        contentType: mimeOf(ext),
         addRandomSuffix: true,
         abortSignal: signal,
       },

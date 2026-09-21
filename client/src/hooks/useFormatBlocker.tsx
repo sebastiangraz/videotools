@@ -1,5 +1,11 @@
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { formatBlock, formatBlocker } from "../sourceFormat";
+import {
+  formatBlock,
+  formatBlocker,
+  isAnimatedWebp,
+  stillFormat,
+} from "../sourceFormat";
 import { useMessage } from "./useMessage";
 
 // For the tools that hand their source's format back: why the picked file
@@ -10,8 +16,33 @@ import { useMessage } from "./useMessage";
 // until another file is picked or the tab is left. A file the tool can take
 // gets no message at all — it comes back in the format it came in, which is
 // the rule everywhere and needs no announcing.
-export const useFormatBlocker = (file: File | null): string | null => {
-  const block = file && formatBlock(file);
+//
+// `stills`: the tool takes raster images as well (mark). A .webp is then
+// taken for a still until its first bytes say it is animated, which no tool
+// can read: they are in a moment after the pick, long before a run could be.
+export const useFormatBlocker = (
+  file: File | null,
+  { stills = false }: { stills?: boolean } = {},
+): string | null => {
+  // The file, rather than a flag, so the answer can't outlive its file.
+  const [animated, setAnimated] = useState<File | null>(null);
+  useEffect(() => {
+    if (!stills || !file || stillFormat(file)?.id !== "webp") return;
+    let cancelled = false;
+    isAnimatedWebp(file).then(
+      (is) => {
+        if (is && !cancelled) setAnimated(file);
+      },
+      // Unreadable here: the server has the last word on it anyway.
+      () => {},
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [file, stills]);
+
+  const asStill = stills && animated !== file;
+  const block = file && formatBlock(file, asStill);
   useMessage(
     block &&
       (block.state === "foreign" ? (
@@ -22,9 +53,12 @@ export const useFormatBlocker = (file: File | null): string | null => {
           </Link>
         </>
       ) : (
-        <>{block.format.label} format not supported.</>
+        <>
+          {stills ? "Animated " : ""}
+          {block.format.label} format not supported.
+        </>
       )),
     "error",
   );
-  return file && formatBlocker(file);
+  return file && formatBlocker(file, asStill);
 };

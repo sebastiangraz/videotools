@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { hasFrames, isAnimatedImage } from "../frameSource";
+import { hasFrames, isAnimatedImage, isStillImage } from "../frameSource";
 
 export interface Dims {
   w: number;
@@ -9,7 +9,8 @@ export interface Dims {
 // The picked source of a single-video tool, plus what the browser can tell
 // about it: the duration and the frame size, probed off an object URL. An
 // animated image (GIF, AVIF) is probed through an <img>, since <video> won't
-// decode it, and has a size but no duration.
+// decode it, and has a size but no duration; so is a still (the mark tool's
+// PNG, JPEG or WebP), whose size is the one it is shown at, turned by EXIF.
 export function useVideoSource() {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState<string>("");
@@ -32,7 +33,7 @@ export function useVideoSource() {
     if (!hasFrames(picked)) return;
     const next = URL.createObjectURL(picked);
     setUrl(next);
-    if (isAnimatedImage(picked)) {
+    if (isAnimatedImage(picked) || isStillImage(picked)) {
       const img = new Image();
       img.onload = () => {
         if (img.naturalWidth > 0 && img.naturalHeight > 0) {

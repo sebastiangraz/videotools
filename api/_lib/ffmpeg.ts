@@ -96,6 +96,18 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
   };
 }
 
+// The size of the pictures a run wrote, off its log's output stream line:
+//   Output #0, null, to 'pipe:':
+//     Stream #0:0: Video: wrapped_avframe, yuvj444p(pc, bt470bg/unknown/
+//       unknown, progressive), 240x320 [SAR 1:1 DAR 3:4], q=2-31, ...
+export function parseOutputSize(
+  log: string,
+): { width: number; height: number } | null {
+  const size =
+    /^Output #0,[^]*?^\s*Stream #0:0.*: Video: .*?, (\d+)x(\d+)\b/m.exec(log);
+  return size ? { width: Number(size[1]), height: Number(size[2]) } : null;
+}
+
 export type VideoPacket = { time: number; size: number; key: boolean };
 
 // What else the same summary says about a source: enough to tell which
@@ -222,6 +234,27 @@ export class FFmpeg {
     }
     this.infoCache.set(inputFile, info);
     return info;
+  }
+
+  // The size a still's picture has once decoded, which is not always the
+  // summary's: ffmpeg turns a JPEG by its EXIF orientation on the way in (as
+  // browsers do when they show one), and the summary gives the size as
+  // stored. Nothing says so before a run, so this is one, of the one frame,
+  // to nowhere. Null when its log can't be read.
+  async shownSize(
+    inputFile: string,
+  ): Promise<{ width: number; height: number } | null> {
+    const { stderr } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-i",
+      inputFile,
+      "-frames:v",
+      "1",
+      "-f",
+      "null",
+      "-",
+    ]);
+    return parseOutputSize(stderr.replace(/\r/g, ""));
   }
 
   // The packets of the video stream, in the order they are stored: when

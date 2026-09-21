@@ -4,9 +4,12 @@ import {
   FORMATS,
   FORMAT_IDS,
   SEQUENCE_FORMATS,
+  STILLS,
   extensionOf,
   formatById,
   formatFromFilename,
+  mimeOf,
+  stillFromFilename,
 } from "./formats.js";
 
 describe("formats", () => {
@@ -36,6 +39,28 @@ describe("formats", () => {
     expect(formatFromFilename("noextension")).toBeNull();
     expect(extensionOf("noextension")).toBe("");
     expect(extensionOf("folder.v2/clip")).toBe("");
+  });
+
+  it("reads a still off a file name, and only a still", () => {
+    expect(stillFromFilename("photo.JPEG")?.id).toBe("jpg");
+    expect(stillFromFilename("photo.jpg")?.id).toBe("jpg");
+    expect(stillFromFilename("logo.png")?.id).toBe("png");
+    expect(stillFromFilename("anim.gif")).toBeNull();
+    expect(stillFromFilename("clip.mp4")).toBeNull();
+    // A result is named by its still's id, so that has to be an extension.
+    for (const still of STILLS) expect(still.extensions).toContain(still.id);
+  });
+
+  it("has .webp in both tables, under one content type", () => {
+    expect(stillFromFilename("photo.webp")?.id).toBe("webp");
+    expect(formatFromFilename("photo.webp")?.id).toBe("webp");
+    expect(mimeOf("webp")).toBe("image/webp");
+  });
+
+  it("gives a result's content type from either table", () => {
+    expect(mimeOf("jpg")).toBe("image/jpeg");
+    expect(mimeOf("png")).toBe("image/png");
+    expect(mimeOf("mov")).toBe("video/quicktime");
   });
 
   it("knows WebP as a format it writes but cannot read", () => {

@@ -1,5 +1,9 @@
 import path from "node:path";
-import { formatById, type FormatId } from "../../shared/formats.js";
+import {
+  formatById,
+  type FormatId,
+  type StillId,
+} from "../../shared/formats.js";
 import { InputError } from "./errors.js";
 import type { FFmpeg, SourceProfile } from "./ffmpeg.js";
 import { blobExt } from "./request.js";
@@ -8,10 +12,13 @@ import type { ToolJob } from "./tools/types.js";
 // An upload, on disk and probed. `format` is the one of the app's formats it
 // is, or null for anything else ffmpeg reads (avi, mkv, ts, a still, ...):
 // fine as something to convert, but no tool can hand it back as it came.
+// `still` is the raster image it is instead (PNG, JPEG, a WebP that is not
+// animated), which the mark tool takes and hands back; null for the rest.
 export type Source = {
   path: string;
   profile: SourceProfile;
   format: FormatId | null;
+  still: StillId | null;
 };
 
 // ftyp brands of the mov family that are no video the app writes: 3GPP, and
@@ -42,6 +49,19 @@ export function sourceFormat(profile: SourceProfile): FormatId | null {
   return null;
 }
 
+// Which still a source is, by content like sourceFormat. ffmpeg reads a
+// .jpg through image2 (it goes by the name there) and one under any other
+// name through jpeg_pipe; Motion JPEG video has the codec but not the
+// demuxer. An animated PNG is "apng" on both counts, and an animated WebP
+// never gets this far (FFmpeg.mediaInfo).
+export function sourceStill(profile: SourceProfile): StillId | null {
+  const { formatNames, codec } = profile;
+  if (formatNames.includes("png_pipe") && codec === "png") return "png";
+  if (formatNames.includes("webp_pipe") && codec === "webp") return "webp";
+  const jpeg = formatNames.includes("image2") || formatNames.includes("jpeg_pipe");
+  return jpeg && codec === "mjpeg" ? "jpg" : null;
+}
+
 // Downloads an upload into the job's work dir and probes it.
 export async function openSource(
   { ff, workDir, download }: Pick<ToolJob, "ff" | "workDir" | "download">,
@@ -51,7 +71,12 @@ export async function openSource(
   const file = path.join(workDir, `${name}${blobExt(url, ".mp4")}`);
   await download(url, file);
   const profile = await ff.mediaInfo(file);
-  return { path: file, profile, format: sourceFormat(profile) };
+  return {
+    path: file,
+    profile,
+    format: sourceFormat(profile),
+    still: sourceStill(profile),
+  };
 }
 
 // The format a tool that keeps its source's format has to write. There is

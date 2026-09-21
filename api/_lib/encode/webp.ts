@@ -1,6 +1,14 @@
 import type { Encoder } from "./index.js";
 import { graphArgs } from "./render.js";
 
+// The slider maps to 65–100 rather than libwebp's raw scale: below ~83
+// VP8 quantizes fine texture down to per-block averages, which reads as
+// a block grid on solid colors (x264 at the same slider position
+// preserves texture, so the formats would look wildly different at
+// "equal" quality). The same for a still (still.ts).
+export const webpQuality = (quality: number) =>
+  Math.round(65 + (quality / 100) * 35);
+
 // Animated WebP is intra-only (every frame is a standalone lossy still), so
 // output often exceeds the source video's size — inherent to the format, not
 // the settings. Don't be tempted by cr_threshold: its block skipping leaves
@@ -39,18 +47,12 @@ export const encodeWebp: Encoder = async (
       outputFile,
     ]);
   } else {
-    // The slider maps to 65–100 rather than libwebp's raw scale: below ~83
-    // VP8 quantizes fine texture down to per-block averages, which reads as
-    // a block grid on solid colors (x264 at the same slider position
-    // preserves texture, so the formats would look wildly different at
-    // "equal" quality).
-    const webpQuality = Math.round(65 + (quality / 100) * 35);
     await ff.runFFmpeg([
       ...input,
       "-c:v",
       "libwebp_anim",
       "-q:v",
-      String(webpQuality),
+      String(webpQuality(quality)),
       // "icon" despite the name: it disables spatial noise shaping, which
       // otherwise starves flat/solid regions of bits and leaves a faint
       // block grid there. Measured better PSNR than the default on both

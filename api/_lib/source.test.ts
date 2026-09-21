@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { parseSourceProfile, type SourceProfile } from "./ffmpeg.js";
 import { InputError } from "./errors.js";
-import { preservedFormat, sourceFormat } from "./source.js";
+import { preservedFormat, sourceFormat, sourceStill } from "./source.js";
 
 // `ffmpeg -i` summaries of real files (6.1.1), one per kind of source.
 const SUMMARIES = {
@@ -53,6 +53,20 @@ const SUMMARIES = {
   png: `Input #0, png_pipe, from 'logo.png':
   Duration: N/A, bitrate: N/A
   Stream #0:0: Video: png, rgba(pc, gbr/unknown/unknown), 300x120 [SAR 1:1 DAR 5:2], 25 fps, 25 tbr, 25 tbn`,
+  // The other stills. A .jpg is read by name (image2) and given a duration.
+  jpg: `Input #0, image2, from 'photo.jpg':
+  Duration: 00:00:00.04, start: 0.000000, bitrate: 3054 kb/s
+  Stream #0:0: Video: mjpeg (Baseline), yuvj444p(pc, bt470bg/unknown/unknown), 320x240 [SAR 1:1 DAR 4:3], 25 fps, 25 tbr, 25 tbn`,
+  webp: `Input #0, webp_pipe, from 'photo.webp':
+  Duration: N/A, bitrate: N/A
+  Stream #0:0: Video: webp, yuv420p(tv, bt470bg/unknown/unknown), 320x240, 25 fps, 25 tbr, 25 tbn`,
+  // Motion JPEG video: a JPEG's codec, in a container.
+  mjpeg: `Input #0, avi, from 'camera.avi':
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 1391 kb/s
+  Stream #0:0: Video: mjpeg (Baseline) (MJPG / 0x47504A4D), yuvj420p(pc, bt470bg/unknown/unknown), 320x240 [SAR 1:1 DAR 4:3], 1385 kb/s, 30 fps, 30 tbr, 30 tbn`,
+  apng: `Input #0, apng, from 'anim.png':
+  Duration: N/A, bitrate: N/A
+  Stream #0:0: Video: apng, rgb24(pc, gbr/unknown/unknown), 300x120 [SAR 1:1 DAR 5:2], 10 fps, 10 tbr, 100k tbn`,
 } as const;
 
 const profile = (kind: keyof typeof SUMMARIES): SourceProfile => {
@@ -159,9 +173,27 @@ describe("sourceFormat", () => {
   );
 });
 
+describe("sourceStill", () => {
+  it.each([
+    ["png", "png"],
+    ["jpg", "jpg"],
+    ["webp", "webp"],
+  ] as const)("knows %s content as the still %s", (kind, still) => {
+    expect(sourceStill(profile(kind))).toBe(still);
+    expect(sourceFormat(profile(kind))).toBeNull();
+  });
+
+  it.each(["mp4", "gif", "mjpeg", "apng"] as const)(
+    "takes %s content for no still",
+    (kind) => {
+      expect(sourceStill(profile(kind))).toBeNull();
+    },
+  );
+});
+
 describe("preservedFormat", () => {
   it("refuses a source the app cannot write back, pointing at convert", () => {
-    const source = { path: "/work/input.mkv", profile: profile("mkv"), format: null };
+    const source = { path: "/work/input.mkv", profile: profile("mkv"), format: null, still: null };
     expect(() => preservedFormat(source)).toThrowError(InputError);
     expect(() => preservedFormat(source)).toThrowError(/MKV file.*Convert first/);
     try {
@@ -173,7 +205,7 @@ describe("preservedFormat", () => {
 
   it("gives back the format of one it can", () => {
     expect(
-      preservedFormat({ path: "/work/input.gif", profile: profile("gif"), format: "gif" }),
+      preservedFormat({ path: "/work/input.gif", profile: profile("gif"), format: "gif", still: null }),
     ).toBe("gif");
   });
 });

@@ -39,10 +39,41 @@ export function formatById(id: FormatId): Format {
   return FORMATS.find((f) => f.id === id) as Format;
 }
 
+// The stills: raster images, which only the mark tool takes and, like every
+// format-keeping tool, hands back as what they came as. A table of their own
+// because nothing converts to them and they are no video to any other tool.
+// "webp" is in both tables: the still here, the animation above (which
+// ffmpeg cannot read), and only the content tells which one a file is.
+export type StillId = "png" | "jpg" | "webp";
+
+export type Still = {
+  id: StillId;
+  label: string;
+  extensions: readonly string[];
+  mime: string;
+};
+
+export const STILLS: readonly Still[] = [
+  { id: "png", label: "PNG", extensions: ["png"], mime: "image/png" },
+  { id: "jpg", label: "JPEG", extensions: ["jpg", "jpeg"], mime: "image/jpeg" },
+  { id: "webp", label: "WebP", extensions: ["webp"], mime: "image/webp" },
+];
+
+// The content type of a result, whichever table its format is in.
+export function mimeOf(id: FormatId | StillId): string {
+  return (STILLS.find((s) => s.id === id) ?? formatById(id as FormatId)).mime;
+}
+
 // "clip.final.MOV" → "mov"; "" when the name has no extension.
 export function extensionOf(filename: string): string {
   const match = /\.([^./\\]+)$/.exec(filename);
   return match ? match[1].toLowerCase() : "";
+}
+
+// The still a file name claims, or null.
+export function stillFromFilename(filename: string): Still | null {
+  const ext = extensionOf(filename);
+  return STILLS.find((s) => s.extensions.includes(ext)) ?? null;
 }
 
 // The format a file name claims, or null when it is none the app writes
