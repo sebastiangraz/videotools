@@ -117,19 +117,6 @@ export const Mark = () => {
             className={styles.markPreview}
             style={{ aspectRatio }}
           >
-            {/* The bare frame is the render's stand-in, so once a
-                render is up it is hidden rather than left showing
-                through. */}
-            <FramePreview
-              file={sourceFile}
-              second={0}
-              label="first frame"
-              className={
-                shownRender >= 0
-                  ? `${styles.markPreviewFrame} ${styles.markPreviewFrameHidden}`
-                  : styles.markPreviewFrame
-              }
-            />
             {/* Every landed render is stacked here and only the
                 scrubbed one shown, so scrubbing never waits on an image
                 decode. A slot's last render stays up, unchanged, until
@@ -149,6 +136,15 @@ export const Mark = () => {
                   />
                 ),
             )}
+            {/* The bare frame is the render's stand-in, so once a
+                render is up it is hidden rather than left showing
+                through. */}
+            <FramePreview
+              file={sourceFile}
+              second={0}
+              label="first frame"
+              className={styles.markPreviewFrame}
+            />
           </figure>
           {/* One invisible strip per grabbed frame, side by side
               across the box: the one under the pointer picks the frame.
