@@ -1,0 +1,37 @@
+/* Set like the tab descriptions, which show in the same spot (Layout's
+   previewCardDescription); the background covers the title underneath. */
+.message {
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 18rem;
+  margin: 0;
+  padding: 2px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-align: right;
+  text-wrap: balance;
+  color: var(--fg);
+  background-color: var(--bg);
+  transition:
+    opacity 150ms,
+    translate 150ms;
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 -0.25rem;
+  }
+}
+
+.message a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.error {
+  color: var(--error);
+}
+
+.icon {
+  margin-inline-end: 0.5em;
+}

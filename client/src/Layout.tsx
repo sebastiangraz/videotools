@@ -3,6 +3,10 @@ import { useRef } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
 import { PreviewCard } from "./components/PreviewCard/PreviewCard";
+import {
+  MessageContext,
+  useMessageHost,
+} from "./components/Message/messageHost";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import appStyles from "./index.module.css";
 import styles from "./Layout.module.css";
@@ -41,58 +45,66 @@ export const Layout = () => {
   // Every preview card is positioned over the title rather than its own tab, so
   // the card never moves regardless of which tab is hovered
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+  // The same spot carries the app's messages (components/Message). One that
+  // is up stays up, so it overrides the tab descriptions until it is gone.
+  const { host, setSlot, active } = useMessageHost();
   // The route is the source of truth for the active tab: each tab is a Link,
   // so clicking navigates and the strip follows the URL (deep links, back and
   // forward included). Before the index redirect lands no tab is active.
   const { tool } = useParams({ strict: false });
 
   return (
-    <div className={appStyles.app}>
-      <header className={appStyles.header}>
-        <Logo />
-        <h1 ref={titleRef} className={appStyles.title}>
-          Video tools
-        </h1>
-      </header>
+    <MessageContext.Provider value={host}>
+      <div className={appStyles.app}>
+        <header className={appStyles.header}>
+          <Logo />
+          <div className={appStyles.titleArea}>
+            <h1 ref={titleRef} className={appStyles.title}>
+              Video tools
+            </h1>
+            <div ref={setSlot} className={appStyles.messages} />
+          </div>
+        </header>
 
-      <Tabs
-        value={tool ?? null}
-        className={styles.tabContainer}
-        listClassName={styles.tabs}
-        indicatorClassName={styles.tabIndicator}
-      >
-        {TOOLS.map((t) => (
-          <PreviewCard
-            key={t.value}
-            render={
-              <Tab
-                value={t.value}
-                nativeButton={false}
-                className={styles.tab}
-                render={<Link to="/$tool" params={{ tool: t.value }} />}
-              />
-            }
-            content={t.description}
-            popupClassName={styles.previewCardDescription}
-            anchor={titleRef}
-            side="bottom"
-            align="end"
-            sideOffset={centerOverAnchor}
-            alignOffset={-2}
-            collisionAvoidance={{
-              side: "none",
-              align: "none",
-              fallbackAxisSide: "none",
-            }}
-          >
-            {t.label}
-          </PreviewCard>
-        ))}
-      </Tabs>
-      <main className={appStyles.main}>
-        <Outlet />
-      </main>
-    </div>
+        <Tabs
+          value={tool ?? null}
+          className={styles.tabContainer}
+          listClassName={styles.tabs}
+          indicatorClassName={styles.tabIndicator}
+        >
+          {TOOLS.map((t) => (
+            <PreviewCard
+              key={t.value}
+              render={
+                <Tab
+                  value={t.value}
+                  nativeButton={false}
+                  className={styles.tab}
+                  render={<Link to="/$tool" params={{ tool: t.value }} />}
+                />
+              }
+              content={active ? null : t.description}
+              popupClassName={styles.previewCardDescription}
+              anchor={titleRef}
+              side="bottom"
+              align="end"
+              sideOffset={centerOverAnchor}
+              alignOffset={-2}
+              collisionAvoidance={{
+                side: "none",
+                align: "none",
+                fallbackAxisSide: "none",
+              }}
+            >
+              {t.label}
+            </PreviewCard>
+          ))}
+        </Tabs>
+        <main className={appStyles.main}>
+          <Outlet />
+        </main>
+      </div>
+    </MessageContext.Provider>
   );
 };
 

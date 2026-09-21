@@ -1,4 +1,4 @@
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import { renderApp, uploadMock } from "../../test/renderApp";
@@ -195,6 +195,7 @@ describe("Loop", () => {
       new File(["00"], "anim.gif", { type: "image/gif" }),
     );
 
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
       "aria-disabled",
@@ -210,16 +211,63 @@ describe("Loop", () => {
       new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      /AVI files can be read but not written/i,
-    );
+    // Said over the title, not in the panel.
+    const message = within(screen.getByRole("banner")).getByRole("alert");
+    expect(message).toHaveTextContent(/AVI files can be read but not written/i);
     expect(
-      screen.getByRole("link", { name: /convert it first/i }),
+      within(message).getByRole("link", { name: /convert it first/i }),
     ).toHaveAttribute("href", "/convert");
 
     const button = screen.getByRole("button", { name: /^loop$/i });
     expect(button).toHaveAttribute("aria-disabled", "true");
     await user.click(button);
     expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the message up over the tab descriptions until the file is replaced", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
+    expect(await screen.findByText(/change video speed/i)).toBeInTheDocument();
+    await user.unhover(screen.getByRole("tab", { name: /^speed$/i }));
+    await waitFor(() =>
+      expect(screen.queryByText(/change video speed/i)).not.toBeInTheDocument(),
+    );
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mkv", { type: "video/x-matroska" }),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(/MKV files/i);
+
+    // The description would land on the same spot; the message has it.
+    await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(screen.queryByText(/change video speed/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    await user.unhover(screen.getByRole("tab", { name: /^speed$/i }));
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mp4", { type: "video/mp4" }),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
+    expect(await screen.findByText(/change video speed/i)).toBeInTheDocument();
+  });
+
+  it("takes the message down when the tab is left", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("link", { name: /convert it first/i }));
+    await screen.findByRole("button", { name: /^convert$/i });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

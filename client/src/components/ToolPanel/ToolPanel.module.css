@@ -169,7 +169,6 @@
 }
 
 .errorBox {
-  --error: light-dark(hsl(4, 55%, 40%), hsl(4, 65%, 74%));
   padding: 0.75em 1em;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);

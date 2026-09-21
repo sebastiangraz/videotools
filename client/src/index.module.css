@@ -24,6 +24,27 @@
   margin: 0;
 }
 
+/* The title and, over it, the slot in-app messages render into (see
+   components/Message). Placed like the tab descriptions' popup: centred on
+   the title, right edges flush (the 2px is the message's own padding). */
+.titleArea {
+  position: relative;
+}
+
+.messages {
+  position: absolute;
+  z-index: 10;
+  top: 50%;
+  right: -2px;
+  translate: 0 -50%;
+}
+
+/* One message at a time: portals land in the order they mounted, so the
+   newest is the last child. */
+.messages > :not(:last-child) {
+  display: none;
+}
+
 .main {
   display: flex;
   flex-direction: column;
