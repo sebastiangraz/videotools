@@ -14,6 +14,7 @@ import { toolById } from "../../tools";
 import { useMarkPreview } from "./useMarkPreview";
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
+import { Tooltip } from "../../components/Tooltip/Tooltip";
 
 const TOOL = toolById("mark");
 
@@ -113,10 +114,17 @@ export const Mark = () => {
           disagree with each other. The aspect box waits for the source's
           metadata. */}
       {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
-        <div
-          className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
-          onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
-          style={{ aspectRatio }}
+        <Tooltip
+          content={"Toggle zoom"}
+          delay={100}
+          disabled={previewZoomed}
+          render={
+            <div
+              className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
+              onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
+              style={{ aspectRatio }}
+            />
+          }
         >
           <figure
             aria-label="watermark preview"
@@ -125,9 +133,9 @@ export const Mark = () => {
             style={{ aspectRatio }}
           >
             {/* Every render of the set is stacked here and only the
-                scrubbed one shown, so scrubbing never waits on an image
-                decode. The set stays up, unchanged, until the next one
-                replaces it. */}
+              scrubbed one shown, so scrubbing never waits on an image
+              decode. The set stays up, unchanged, until the next one
+              replaces it. */}
             {preview.previewUrls.map(
               (url, i) =>
                 url && (
@@ -144,7 +152,7 @@ export const Mark = () => {
                 ),
             )}
             {/* The bare frame is the renders' stand-in: it lies under
-                them, so they fade in over it when they land. */}
+              them, so they fade in over it when they land. */}
             <FramePreview
               file={sourceFile}
               second={0}
@@ -159,8 +167,8 @@ export const Mark = () => {
             </div>
           </figure>
           {/* One invisible strip per grabbed frame, side by side
-              across the box: the one under the pointer picks the frame.
-              They sit outside the figure too. */}
+            across the box: the one under the pointer picks the frame.
+            They sit outside the figure too. */}
           {preview.frameCount > 1 && (
             <div className={styles.markPreviewScrub} aria-hidden="true">
               {Array.from({ length: preview.frameCount }, (_, i) => (
@@ -173,7 +181,7 @@ export const Mark = () => {
               Preview unavailable
             </figcaption>
           )}
-        </div>
+        </Tooltip>
       )}
 
       {/* The glass takes its shape from the logo, so the switch waits
