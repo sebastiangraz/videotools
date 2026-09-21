@@ -49,7 +49,7 @@ export const useFormatBlocker = (
         <>
           {block.name} files need to be{" "}
           <Link to="/$tool" params={{ tool: "convert" }}>
-            Converted
+            converted
           </Link>
         </>
       ) : (

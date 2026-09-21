@@ -255,9 +255,9 @@ describe("Loop", () => {
     // Said in the message area over the title, not in the panel.
     const message = screen.getByRole("alert");
     expect(screen.getByRole("main")).not.toContainElement(message);
-    expect(message).toHaveTextContent(/AVI files can be read but not written/i);
+    expect(message).toHaveTextContent(/AVI files need to be/i);
     expect(
-      within(message).getByRole("link", { name: /convert it first/i }),
+      within(message).getByRole("link", { name: /converted/i }),
     ).toHaveAttribute("href", "/convert");
 
     const button = screen.getByRole("button", { name: /^loop$/i });
