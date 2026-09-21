@@ -16,9 +16,17 @@ import styles from "./Message.module.css";
 
 // Placeholder until the real SVG lands.
 const WarningIcon = () => (
-  <span aria-hidden="true" className={styles.icon}>
-    ⚠
-  </span>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 8 8"
+    width="8px"
+  >
+    <path
+      fill="currentColor"
+      d="m4.329 1.19 3.62 6.27a.38.38 0 0 1-.33.57H.38a.38.38 0 0 1-.33-.57l3.62-6.27a.38.38 0 0 1 .659 0M3.62 6.13v.76h.76v-.76zm0-2.66v1.9h.76v-1.9z"
+    />
+  </svg>
 );
 
 // Pulls the card back up over its anchor so it sits centred on the anchor

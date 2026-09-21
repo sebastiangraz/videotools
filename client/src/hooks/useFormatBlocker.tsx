@@ -16,16 +16,13 @@ export const useFormatBlocker = (file: File | null): string | null => {
     block &&
       (block.state === "foreign" ? (
         <>
-          {block.name} files can be read but not written.{" "}
+          {block.name} files need to be{" "}
           <Link to="/$tool" params={{ tool: "convert" }}>
-            Convert it first
+            Converted
           </Link>
         </>
       ) : (
-        <>
-          Animated {block.format.label} can&rsquo;t be read. Use the file it was
-          made from
-        </>
+        <>{block.format.label} format not supported.</>
       )),
     "error",
   );
