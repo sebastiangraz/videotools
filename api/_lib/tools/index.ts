@@ -1,3 +1,4 @@
+import type { ToolId } from "../../../shared/tools.js";
 import type { Tool } from "./types.js";
 import { loop } from "./loop.js";
 import { sequence } from "./sequence.js";
@@ -5,9 +6,8 @@ import { speed } from "./speed.js";
 import { convert } from "./convert.js";
 import { mark } from "./mark.js";
 
-// The tools /api/process runs, by the `tool` id of the request. Mirrored in
-// client/src/tools.ts (TOOLS) and client/src/pages/index.ts (PAGES).
-export const TOOLS: Record<string, Tool> = {
+// The tools /api/process runs, one per id in shared/tools.ts.
+export const TOOLS: Record<ToolId, Tool> = {
   loop,
   sequence,
   speed,

@@ -31,6 +31,20 @@ export function stillFormat(file: File): Still | null {
   );
 }
 
+// The sources an <img> shows and a <video> doesn't: the stills the mark tool
+// takes (one frame, which is all there is to show) and the animated images.
+// A .webp is a still here, as it is to the picker, until its content says
+// otherwise (isAnimatedWebp).
+export const isStillImage = (file: File) => stillFormat(file) !== null;
+export const isAnimatedImage = (file: File) =>
+  !isStillImage(file) && fileFormat(file)?.kind === "animation";
+
+// Whether the browser may have frames of a picked file to show. The accept
+// list is broader than what browsers can decode (server-side ffmpeg handles
+// the rest), so opening one can still fail.
+export const hasFrames = (file: File) =>
+  file.type.startsWith("video/") || isAnimatedImage(file) || isStillImage(file);
+
 // Whether a WebP is the animated kind, which ffmpeg cannot read: the
 // animation bit (0x02) in the flags of the VP8X chunk, which an animated file
 // has to start with ("RIFF" size "WEBP" "VP8X" size flags, so byte 20). A

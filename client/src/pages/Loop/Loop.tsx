@@ -8,7 +8,7 @@ import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { hasFrames } from "../../frameSource";
+import { hasFrames } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
 

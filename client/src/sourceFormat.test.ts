@@ -3,7 +3,10 @@ import {
   fileFormat,
   formatBlock,
   formatBlocker,
+  hasFrames,
+  isAnimatedImage,
   isAnimatedWebp,
+  isStillImage,
   stillFormat,
 } from "./sourceFormat";
 
@@ -101,5 +104,26 @@ describe("stills", () => {
     expect(await isAnimatedWebp(webp("VP8X", 0x10))).toBe(false);
     expect(await isAnimatedWebp(webp("VP8 ", 0x02))).toBe(false);
     expect(await isAnimatedWebp(file("photo.webp", "image/webp"))).toBe(false);
+  });
+});
+
+describe("hasFrames", () => {
+  it("tells the sources an <img> shows from the ones a <video> does", () => {
+    expect(isAnimatedImage(file("anim.gif", "image/gif"))).toBe(true);
+    expect(isAnimatedImage(file("anim.avif", "image/avif"))).toBe(true);
+    expect(isStillImage(file("photo.jpg", "image/jpeg"))).toBe(true);
+    // A .webp is a still until its content says otherwise
+    expect(isStillImage(file("anim.webp", "image/webp"))).toBe(true);
+    expect(isAnimatedImage(file("anim.webp", "image/webp"))).toBe(false);
+    expect(isAnimatedImage(file("clip.mp4", "video/mp4"))).toBe(false);
+    expect(isStillImage(file("clip.mp4", "video/mp4"))).toBe(false);
+  });
+
+  it("has frames for whatever the browser may decode, by type when unnamed", () => {
+    expect(hasFrames(file("clip.mp4", "video/mp4"))).toBe(true);
+    expect(hasFrames(file("clip.avi", "video/x-msvideo"))).toBe(true);
+    expect(hasFrames(file("download", "image/gif"))).toBe(true);
+    expect(hasFrames(file("photo.png", "image/png"))).toBe(true);
+    expect(hasFrames(file("notes.txt", "text/plain"))).toBe(false);
   });
 });

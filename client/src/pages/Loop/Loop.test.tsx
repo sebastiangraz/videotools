@@ -159,14 +159,16 @@ describe("Loop", () => {
     stubProperties(HTMLMediaElement.prototype, {
       duration: { get: () => 10.57 },
     });
+    // The probe unloads its <video> once it has read it; jsdom has no load
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
     const createElement = vi.spyOn(document, "createElement");
     await renderApp();
     await user.upload(
       screen.getByLabelText(/choose video/i),
       new File(["00"], "tiny.mp4", { type: "video/mp4" }),
     );
-    // jsdom never loads media: the pick's probe is the one <video> not in
-    // the page
+    // jsdom never loads media: the pick's probe (a frame source) is the one
+    // <video> not in the page
     const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
     fireEvent.change(start, { target: { value: "99" } });
     fireEvent.blur(start);
@@ -174,7 +176,7 @@ describe("Loop", () => {
     createElement.mock.results
       .map(({ value }) => value as HTMLElement)
       .filter((element) => element instanceof HTMLVideoElement)
-      .forEach((video) => fireEvent(video, new Event("loadedmetadata")));
+      .forEach((video) => fireEvent(video, new Event("loadeddata")));
 
     // Down to the last whole step the clip has room for
     await waitFor(() => expect(start.value).toMatch(/^10[.,]5/));

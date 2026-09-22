@@ -7,6 +7,7 @@ import os from "os";
 import { nanoid } from "nanoid";
 
 import { mimeOf } from "../shared/formats.js";
+import { isToolId } from "../shared/tools.js";
 import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
@@ -57,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error });
   };
 
-  if (typeof tool !== "string" || !Object.hasOwn(TOOLS, tool)) {
+  if (!isToolId(tool)) {
     return reject("Unknown tool");
   }
   const { inputs, run } = TOOLS[tool];

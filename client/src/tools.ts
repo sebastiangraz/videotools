@@ -1,72 +1,79 @@
-import { STILLS } from "../../shared/formats";
+import { FORMATS, STILLS } from "../../shared/formats";
+import { TOOL_IDS, type ToolId } from "../../shared/tools";
 
-// Animated GIF and AVIF are videos to ffmpeg, and formats the app writes
-// (shared/formats.ts), so every single-source tool takes them too. The list
-// is wider than what the tools can hand back on purpose: an .avi is picked
-// like any other file, and the app then says, over the title, why it has to
-// go through convert first (hooks/useFormatBlocker).
-const VIDEO_ACCEPT =
-  "video/*,.avi,.mkv,.mov,.webm,.m4v,.wmv,.mpg,.mpeg,.3gp,.ts," +
-  "image/gif,.gif,image/avif,.avif";
+export type { ToolId };
 
-// The stills (shared/formats.ts), which only the mark tool takes as well. An
-// animated .webp gets in with them and is turned away once picked.
-const STILL_ACCEPT = STILLS.flatMap((still) => [
-  still.mime,
-  ...still.extensions.map((ext) => `.${ext}`),
-]).join(",");
+// An accept list for a file input: each format's content type and its
+// extensions, so a picker follows the table without a copy of it.
+const acceptOf = (
+  formats: readonly { mime: string; extensions: readonly string[] }[],
+) =>
+  formats
+    .flatMap((f) => [f.mime, ...f.extensions.map((ext) => `.${ext}`)])
+    .join(",");
 
-// Available tools. Mirrored in api/_lib/tools/index.ts (TOOLS); each tool's
-// page (its options and request payload) is a component under pages/,
-// registered in pages/index.ts. Also drives the routes and tab navigation
-// in App.tsx, where `description` fills the tab's preview card (keep it
-// under 100 characters).
+// Every format ffmpeg reads (shared/formats.ts): animated GIF and AVIF are
+// videos to it, so every single-source tool takes them too. The list is wider
+// than what the tools can hand back on purpose: video/* and the extensions
+// after it let an .avi or .mkv be picked like any other file, and the app
+// then says, over the title, why it has to go through convert first
+// (hooks/useFormatBlocker).
+const VIDEO_ACCEPT = [
+  "video/*,.avi,.mkv,.wmv,.mpg,.mpeg,.3gp,.ts",
+  acceptOf(FORMATS.filter((f) => f.readable)),
+].join(",");
+
+// The stills, which only the mark tool takes as well. An animated .webp gets
+// in with them and is turned away once picked.
+const STILL_ACCEPT = acceptOf(STILLS);
+
+const VIDEO_INPUT = {
+  accept: VIDEO_ACCEPT,
+  multiple: false,
+  pickerLabel: "choose video",
+};
+
+// What each tool's tab and page show for it; the page itself (its options
+// and request payload) is a component under pages/, registered in
+// pages/index.ts. `description` fills the tab's preview card (keep it under
+// 100 characters).
 //
 // Lives in its own module (not next to a component) so Vite Fast Refresh can
 // hot-swap the components that import it.
-export const TOOLS = [
+const TOOL_META: Record<
+  ToolId,
   {
-    value: "loop",
+    label: string;
+    description: string;
+    input: { accept: string; multiple: boolean; pickerLabel: string };
+    actionLabel: string;
+  }
+> = {
+  loop: {
     label: "Loop",
     description: "Seamlessly loop a video",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
+    input: VIDEO_INPUT,
     actionLabel: "Loop",
   },
-  {
-    value: "sequence",
+  sequence: {
     label: "Sequence",
     description: "Convert images to video",
     input: { accept: "image/*", multiple: true, pickerLabel: "choose images" },
     actionLabel: "Create video",
   },
-  {
-    value: "speed",
+  speed: {
     label: "Speed",
     description: "Change video speed",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
+    input: VIDEO_INPUT,
     actionLabel: "Change speed",
   },
-  {
-    value: "convert",
+  convert: {
     label: "Convert",
     description: "Convert a video to another format",
-    input: {
-      accept: VIDEO_ACCEPT,
-      multiple: false,
-      pickerLabel: "choose video",
-    },
+    input: VIDEO_INPUT,
     actionLabel: "Convert",
   },
-  {
-    value: "mark",
+  mark: {
     label: "Mark",
     description: "Watermark on your video or image",
     input: {
@@ -76,10 +83,12 @@ export const TOOLS = [
     },
     actionLabel: "Mark",
   },
-] as const;
+};
+
+// The tools in tab order (shared/tools.ts), each with its id as `value`:
+// the tabs and routes in Layout.tsx and App.tsx go by this list.
+export const TOOLS = TOOL_IDS.map((value) => ({ value, ...TOOL_META[value] }));
 
 export type Tool = (typeof TOOLS)[number];
-export type ToolId = Tool["value"];
 
-export const toolById = (id: ToolId): Tool =>
-  TOOLS.find((t) => t.value === id)!;
+export const toolById = (id: ToolId): Tool => ({ value: id, ...TOOL_META[id] });

@@ -1,17 +1,4 @@
-import { STILLS } from "../../shared/formats";
-
-// The sources an <img> shows and a <video> doesn't: the animated images, and
-// the stills the mark tool takes (one frame, which is all there is to show).
-export const isAnimatedImage = (file: File) =>
-  file.type === "image/gif" || file.type === "image/avif";
-export const isStillImage = (file: File) =>
-  STILLS.some((still) => still.mime === file.type);
-
-// Whether the browser may have frames of a picked file to show, going by the
-// type it reports. The accept list is broader than what browsers can decode
-// (server-side ffmpeg handles the rest), so opening one can still fail.
-export const hasFrames = (file: File) =>
-  file.type.startsWith("video/") || isAnimatedImage(file) || isStillImage(file);
+import { isAnimatedImage, isStillImage } from "./sourceFormat";
 
 // A frame to draw on a canvas, and its size. `close` frees a decoded one.
 export interface Frame {

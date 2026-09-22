@@ -6,7 +6,7 @@ import {
   type RouterHistory,
 } from "@tanstack/react-router";
 import { Layout, ToolPage } from "./Layout";
-import { TOOLS } from "./tools";
+import { TOOL_IDS, isToolId } from "../../shared/tools";
 
 const rootRoute = createRootRoute({ component: Layout });
 
@@ -14,7 +14,7 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: () => {
-    throw redirect({ to: "/$tool", params: { tool: TOOLS[0].value } });
+    throw redirect({ to: "/$tool", params: { tool: TOOL_IDS[0] } });
   },
 });
 
@@ -22,8 +22,8 @@ const toolRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/$tool",
   beforeLoad: ({ params }) => {
-    if (!TOOLS.some((t) => t.value === params.tool)) {
-      throw redirect({ to: "/$tool", params: { tool: TOOLS[0].value } });
+    if (!isToolId(params.tool)) {
+      throw redirect({ to: "/$tool", params: { tool: TOOL_IDS[0] } });
     }
   },
   component: ToolPage,
