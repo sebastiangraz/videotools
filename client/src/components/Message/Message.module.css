@@ -1,0 +1,26 @@
+/* The message area's card, whoever is speaking: a tab's description or a
+   <Message>. Its size, place and animation are the PreviewCard's; the
+   background covers the title underneath. */
+.message {
+  padding: 2px;
+  color: var(--fg);
+  letter-spacing: 0.05em;
+  text-align: right;
+  text-wrap: balance;
+  font-size: 10px;
+  background-color: var(--bg);
+}
+
+.message a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.error {
+  color: var(--error);
+}
+
+.icon {
+  margin-inline-end: 0.5ch;
+}

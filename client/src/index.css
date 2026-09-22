@@ -63,6 +63,7 @@
     color-mix(in srgb, var(--fg) 8%, transparent),
     color-mix(in srgb, var(--fg) 4%, transparent)
   );
+  --error: light-dark(hsl(4, 55%, 40%), hsl(4, 65%, 74%));
   --width: 32em;
   /* Light fg-tinted shadows glow on dark; drop with black instead */
   --shadow: color-mix(in srgb, #000 30%, transparent);

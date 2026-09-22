@@ -1,11 +1,11 @@
 import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useRef } from "react";
-import { VideoToolUploader } from "./VideoToolUploader";
-import { TOOLS } from "./tools";
-import { PreviewCard } from "./components/PreviewCard/PreviewCard";
+import { PAGES } from "./pages";
+import { TOOLS, type ToolId } from "./tools";
+import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import appStyles from "./index.module.css";
-import styles from "./VideoToolUploader.module.css";
+import styles from "./Layout.module.css";
 
 const Logo = () => {
   return (
@@ -27,19 +27,10 @@ const Logo = () => {
   );
 };
 
-// Pulls the popup back up over its anchor so it sits centred on the anchor
-// instead of below it
-const centerOverAnchor = ({
-  anchor,
-  positioner,
-}: {
-  anchor: { height: number };
-  positioner: { height: number };
-}) => -(anchor.height + positioner.height) / 2;
-
 export const Layout = () => {
-  // Every preview card is positioned over the title rather than its own tab, so
-  // the card never moves regardless of which tab is hovered
+  // The title anchors the app's message area (components/Message). The tabs'
+  // descriptions show there rather than at their own tab, so the card never
+  // moves regardless of which tab is hovered, and so does any <Message>.
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   // The route is the source of truth for the active tab: each tab is a Link,
   // so clicking navigates and the strip follows the URL (deep links, back and
@@ -53,6 +44,7 @@ export const Layout = () => {
         <h1 ref={titleRef} className={appStyles.title}>
           Video tools
         </h1>
+        <MessageArea anchor={titleRef} />
       </header>
 
       <Tabs
@@ -62,8 +54,9 @@ export const Layout = () => {
         indicatorClassName={styles.tabIndicator}
       >
         {TOOLS.map((t) => (
-          <PreviewCard
+          <MessageTrigger
             key={t.value}
+            message={t.description}
             render={
               <Tab
                 value={t.value}
@@ -72,21 +65,9 @@ export const Layout = () => {
                 render={<Link to="/$tool" params={{ tool: t.value }} />}
               />
             }
-            content={t.description}
-            popupClassName={styles.previewCardDescription}
-            anchor={titleRef}
-            side="bottom"
-            align="end"
-            sideOffset={centerOverAnchor}
-            alignOffset={-2}
-            collisionAvoidance={{
-              side: "none",
-              align: "none",
-              fallbackAxisSide: "none",
-            }}
           >
             {t.label}
-          </PreviewCard>
+          </MessageTrigger>
         ))}
       </Tabs>
       <main className={appStyles.main}>
@@ -97,7 +78,10 @@ export const Layout = () => {
 };
 
 export const ToolPage = () => {
+  // The route only lets known tools through (see beforeLoad in App.tsx).
+  // Every tool is its own component, so a tab change unmounts the old page
+  // and all of its state — picked files included — goes with it.
   const { tool } = useParams({ from: "/$tool" });
-  // Keyed remount resets all uploader state when the tool changes
-  return <VideoToolUploader key={tool} tool={tool} />;
+  const Page = PAGES[tool as ToolId];
+  return <Page />;
 };

@@ -1,0 +1,83 @@
+.dropZone {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75em;
+  padding: 0 1em;
+  min-height: 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  font-size: 8.5px;
+  letter-spacing: 0.05em;
+  color: var(--fg);
+  cursor: pointer;
+  outline: 1px solid transparent;
+  transition:
+    outline 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+
+  &:hover,
+  &:has(:focus-visible) {
+    outline: 1px solid var(--border);
+    outline-offset: 2px;
+  }
+}
+
+.dropZoneActive {
+  /* border-color: var(--fg); */
+  color: var(--fg);
+  background-color: var(--border-subtle);
+  outline: 1px solid var(--border);
+  outline-offset: 2px;
+}
+
+/* Kept in the tree (and focusable) for the label click-through, screen
+   readers, and tests, but never seen. */
+.dropZoneInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+.dropZoneFile {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75em;
+  color: var(--fg);
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+/* Watermark thumbnail. The faint backing keeps a white logo visible on the
+   light theme. */
+.dropZoneThumb {
+  height: 1.5rem;
+  max-width: 3rem;
+  padding: 2px;
+  object-fit: contain;
+  border-radius: 4px;
+  background-color: var(--border-subtle);
+}
+
+.dropZoneLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  svg {
+    width: 8px;
+    height: 8px;
+  }
+}
+
+.dropZoneHint {
+  color: var(--fg-tertiary);
+}

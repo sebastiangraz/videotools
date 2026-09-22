@@ -1,0 +1,59 @@
+.versionLabel {
+  --fade: 0.25s;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  font-size: 8.5px;
+  letter-spacing: 0.05em;
+  color: var(--fg-tertiary);
+  text-decoration: none;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.versionStack {
+  display: grid;
+  min-width: 0;
+}
+
+.versionTime,
+.versionMessage {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 32em;
+  transition:
+    opacity var(--fade) ease,
+    display var(--fade) allow-discrete;
+}
+
+.versionTime {
+  transition-delay: var(--fade);
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+.versionMessage {
+  display: none;
+  opacity: 0;
+}
+
+.versionLabel:hover {
+  .versionTime {
+    display: none;
+    opacity: 0;
+    transition-delay: 0ms;
+  }
+
+  .versionMessage {
+    display: block;
+    opacity: 1;
+    transition-delay: var(--fade);
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+}

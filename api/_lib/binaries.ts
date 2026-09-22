@@ -12,7 +12,7 @@ export const ffmpegPath: string = maybeFfmpegPath;
 
 // Vendored gifski CLI (see api/_bin/gifski/README.md). The linux binary is
 // static-pie linked, so it runs on the function runtime as-is; the exec bit
-// is restored at spawn time in VideoProcessor.
+// is restored at spawn time (FFmpeg.runGifski in ffmpeg.ts).
 export const gifskiPath: string = path.join(
   process.cwd(),
   "api",
