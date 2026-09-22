@@ -4,7 +4,9 @@ import {
   blockerText,
   formatBlock,
   isAnimatedWebp,
+  pickedFormats,
   stillFormat,
+  type FormatBlock,
   type FormatOptions,
 } from "../sourceFormat";
 import { useMessage } from "./useMessage";
@@ -19,15 +21,17 @@ import { useMessage } from "./useMessage";
 //
 // A tool that picks many files (sequence) hands them all over; the first one
 // that can't go through speaks for the pick, since none of them will run.
+// With every file fit to go, the pick as a whole gets its turn (`oneFormat`).
 //
 // `stills`: the tool takes raster images as well (mark, sequence). A .webp is
 // then taken for a still until its first bytes say it is animated, which no
 // tool can read: they are in a moment after the pick, long before a run could
 // be. `foreign` (sourceFormat.ts): false where the tool is asked for a format
-// rather than keeping its source's (convert, sequence).
+// rather than keeping its source's (convert, sequence). `oneFormat`: the pick
+// must not mix formats (sequence).
 export const useFormatBlocker = (
   source: File | File[] | null,
-  { stills = false, foreign = true }: FormatOptions = {},
+  { stills = false, foreign = true, oneFormat = false }: FormatOptions = {},
 ): string | null => {
   const files = useMemo(
     () => (source === null ? [] : Array.isArray(source) ? source : [source]),
@@ -59,9 +63,14 @@ export const useFormatBlocker = (
     stills: stills && !animated.includes(file),
     foreign,
   });
+  const mixed = (): FormatBlock | null => {
+    if (!oneFormat) return null;
+    const labels = pickedFormats(files);
+    return labels.length > 1 ? { state: "mixed", labels } : null;
+  };
   const block =
     files.map((file) => formatBlock(file, optionsFor(file))).find(Boolean) ??
-    null;
+    mixed();
 
   useMessage(
     block &&
@@ -72,6 +81,8 @@ export const useFormatBlocker = (
             converted
           </Link>
         </>
+      ) : block.state === "mixed" ? (
+        <>Mixed formats are not supported.</>
       ) : (
         <>
           {stills ? "Animated " : ""}

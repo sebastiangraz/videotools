@@ -117,4 +117,35 @@ describe("Sequence", () => {
       screen.getByRole("button", { name: /create video/i }),
     ).toHaveAttribute("aria-disabled", "false");
   });
+
+  // ffmpeg reads a sequence through one image demuxer, so a pick that mixes
+  // formats comes back with frames blank or missing: it is turned away.
+  it("turns a pick of mixed formats away", async () => {
+    const user = userEvent.setup();
+    await renderApp("/sequence");
+    const picker = screen.getByLabelText(/choose images/i);
+    await user.upload(picker, [
+      new File(["00"], "a.png", { type: "image/png" }),
+      new File(["00"], "b.jpg", { type: "image/jpeg" }),
+    ]);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /mixed formats are not supported/i,
+    );
+    expect(
+      screen.getByRole("button", { name: /create video/i }),
+    ).toHaveAttribute("aria-disabled", "true");
+
+    // Files of one format go through
+    await user.upload(picker, [
+      new File(["00"], "c.jpg", { type: "image/jpeg" }),
+      new File(["00"], "d.jpeg", { type: "image/jpeg" }),
+    ]);
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: /create video/i }),
+    ).toHaveAttribute("aria-disabled", "false");
+  });
 });

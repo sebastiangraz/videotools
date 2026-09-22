@@ -54,10 +54,13 @@ export const Sequence = () => {
   const run = useToolRun(TOOL.value);
   const [files, setFiles] = useState<File[]>([]);
   // The zone takes any image; a still is handed back as no format of its own,
-  // so only an animated WebP — which ffmpeg cannot read — is in the way.
+  // so an animated WebP — which ffmpeg cannot read — is in the way, and so is
+  // a pick that mixes formats (PNG with JPEG, WebP or GIF): ffmpeg reads a
+  // sequence through one image demuxer, and frames come back blank or gone.
   const formatBlocker = useFormatBlocker(files, {
     stills: true,
     foreign: false,
+    oneFormat: true,
   });
   const [imageDims, setImageDims] = useState<Dims | null>(null);
   // NumberField reports null while its input is empty; submit falls back to

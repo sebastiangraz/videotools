@@ -77,14 +77,24 @@ export type FormatBlock =
   | { state: "unreadable"; format: Format }
   // Readable, but nothing the app writes (.avi, .mkv, ...): there is no
   // format to hand back, and picking another one is the convert tool's job.
-  | { state: "foreign"; name: string };
+  | { state: "foreign"; name: string }
+  // A pick of more than one format (sequence), which ffmpeg reads through one
+  // image demuxer: frames come back blank or missing. `labels` are the
+  // formats picked (pickedFormats).
+  | { state: "mixed"; labels: string[] };
 
 // `stills`: the tool takes raster images too (mark), so a file that is one
 // goes through. `foreign`: false for the tools that are asked for a format
 // (convert, sequence) rather than handing their source's back — a file in
 // none of the app's formats is their job, not a dead end, and pointing it at
-// convert from the convert page would be a circle.
-export type FormatOptions = { stills?: boolean; foreign?: boolean };
+// convert from the convert page would be a circle. `oneFormat`: the tool
+// takes many files but only of one format at a time (sequence); it is the
+// pick's option, not any file's (useFormatBlocker).
+export type FormatOptions = {
+  stills?: boolean;
+  foreign?: boolean;
+  oneFormat?: boolean;
+};
 
 export function formatBlock(
   file: File,
@@ -102,9 +112,27 @@ export function formatBlock(
 
 // A block as the action button's tooltip.
 export function blockerText(block: FormatBlock): string {
-  return block.state === "foreign"
-    ? "Convert this file first"
-    : `${block.format.label} can't be read`;
+  switch (block.state) {
+    case "foreign":
+      return "Convert this file first";
+    case "mixed":
+      return "Use images of one format";
+    case "unreadable":
+      return `${block.format.label} can't be read`;
+  }
+}
+
+// The formats of a pick, by label, one entry each ("PNG", "JPEG", ...): a
+// still's, else a format's, else the extension the file goes by.
+export function pickedFormats(files: readonly File[]): string[] {
+  const labels = new Set<string>();
+  for (const file of files) {
+    const known = stillFormat(file) ?? fileFormat(file);
+    labels.add(
+      known?.label ?? (extensionOf(file.name).toUpperCase() || "Unknown"),
+    );
+  }
+  return [...labels];
 }
 
 // The two in one, for a lone file; null = the run can start.
