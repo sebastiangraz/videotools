@@ -24,9 +24,9 @@ export type MediaInfo = {
 
 // The video stream to work on, and its place among the file's video streams
 // (ffmpeg's `v:N`). Nearly always the only one. The exceptions are why this
-// exists: ffmpeg 7 lists an animated AVIF as two, its one-frame cover image
-// first and the animation second (ffmpeg 6 only showed the animation), and
-// audio files and some mp4s carry cover art as an "attached pic" stream.
+// exists: ffmpeg lists an animated AVIF as two, its one-frame cover image
+// first and the animation second, and audio files and some mp4s carry
+// cover art as an "attached pic" stream.
 // The animation is the one with a bitrate of its own; failing that, the
 // higher frame rate; failing that, the first.
 function mainVideo(summary: string): { line: string; index: number } | null {

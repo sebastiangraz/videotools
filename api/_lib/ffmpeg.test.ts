@@ -29,24 +29,26 @@ describe("parseMediaInfo", () => {
 });
 
 describe("parseOutputSize", () => {
-  // `ffmpeg -i turned.jpg -frames:v 1 -f null -` (7.0.2) on a 320x240 JPEG
+  // `ffmpeg -i turned.jpg -frames:v 1 -f null -` (9.0.2) on a 1600x1080 JPEG
   // whose EXIF orientation stands it on end: the input line has the size as
   // stored, the output line the size the picture is decoded to.
   const log = `Input #0, image2, from 'turned.jpg':
-  Duration: 00:00:00.04, start: 0.000000, bitrate: 3061 kb/s
-  Stream #0:0: Video: mjpeg (Baseline), yuvj444p(pc, bt470bg/unknown/unknown), 320x240 [SAR 1:1 DAR 4:3], 25 fps, 25 tbr, 25 tbn
+  Duration: 00:00:00.04, start: 0.000000, bitrate: 9712 kb/s
+  Stream #0:0: Video: mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 1600x1080, 25 fps, 25 tbr, 25 tbn
 Stream mapping:
   Stream #0:0 -> #0:0 (mjpeg (native) -> wrapped_avframe (native))
 Press [q] to stop, [?] for help
 Output #0, null, to 'pipe:':
   Metadata:
-    encoder         : Lavf61.1.100
-  Stream #0:0: Video: wrapped_avframe, yuvj444p(pc, bt470bg/unknown/unknown, progressive), 240x320 [SAR 1:1 DAR 3:4], q=2-31, 200 kb/s, 25 fps, 25 tbn
-      Metadata:
-        encoder         : Lavc61.3.100 wrapped_avframe`;
+    encoder         : Lavf63.1.102
+  Stream #0:0: Video: wrapped_avframe, yuvj420p(pc, bt470bg/unknown/unknown, progressive), 1080x1600, q=2-31, 200 kb/s, 25 fps, 25 tbn
+    Metadata:
+      encoder         : Lavc63.1.102 wrapped_avframe
+    Side data:
+      EXIF metadata: (14 bytes)`;
 
   it("reads the size the pictures were written at, not the input's", () => {
-    expect(parseOutputSize(log)).toEqual({ width: 240, height: 320 });
+    expect(parseOutputSize(log)).toEqual({ width: 1080, height: 1600 });
   });
 
   it("has none for a run that never got to its output", () => {

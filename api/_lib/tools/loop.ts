@@ -30,8 +30,8 @@ const KEYFRAME_SNAP_SECONDS = 0.5;
 // is no other way to play a stream backwards). This is what that may come
 // to, in the encoder's own pixel format; past it the function would run out
 // of memory mid-encode, so the clip is refused up front instead. Measured: the
-// buffer costs what this estimate says on top of a plain encode (ffmpeg 6 and
-// 7 alike), which leaves the encoder its share of a 2GB function. Raise it
+// buffer costs what this estimate says on top of a plain encode (on ffmpeg 6
+// and 7, before the pin), which leaves the encoder its share of a 2GB function. Raise it
 // together with the memory the function gets, not on its own.
 const MAX_REVERSE_BYTES = 1.2e9;
 
@@ -109,14 +109,6 @@ function crossfadeLoop(
       .filter(Boolean)
       .join(":") +
     ",setpts=PTS-STARTPTS";
-  // setpts leaves its output without a frame rate as of ffmpeg 7 (it could
-  // be retiming anything), and two things downstream need one: xfade, which
-  // refuses to run without, and the encoder, which assumes 25 fps and drops
-  // the frames that don't fit. The frames are on the grid already, so
-  // stating the rate again changes none of them. ffmpeg 6 carried the rate
-  // through and never showed either problem: test graph changes on both.
-  const faded = (from: number | null, to: number | null) =>
-    `${piece(from, to)},${rate}`;
 
   // Input 0 runs from the start point to the end of the clip: what plays
   // before the fade, then the frames that fade out. Input 1 is the opening:
@@ -133,12 +125,12 @@ function crossfadeLoop(
     graph.push(
       body
         ? `${first}${open},split[a0][a1];[a0]${piece(start, frames - fade)}[body];` +
-            `[a1]${faded(frames - fade, null)}[end]`
-        : `${first}${open},${faded(frames - fade, null)}[end]`,
+            `[a1]${piece(frames - fade, null)}[end]`
+        : `${first}${open},${piece(frames - fade, null)}[end]`,
       rest
-        ? `${second}${open},split[b0][b1];[b0]${faded(null, fade)}[begin];` +
+        ? `${second}${open},split[b0][b1];[b0]${piece(null, fade)}[begin];` +
             `[b1]${piece(fade, start)}[rest]`
-        : `${second}${open},${faded(null, fade)}[begin]`,
+        : `${second}${open},${piece(null, fade)}[begin]`,
       `[end][begin]xfade=transition=fade:duration=${fade / fps}:offset=0[fade]`,
     );
     order.push(...(body ? ["[body]"] : []), "[fade]", ...(rest ? ["[rest]"] : []));
@@ -151,8 +143,8 @@ function crossfadeLoop(
   }
   graph.push(
     order.length > 1
-      ? `${order.join("")}concat=n=${order.length}:v=1:a=0,${rate}[out]`
-      : `${order[0]}${rate}[out]`,
+      ? `${order.join("")}concat=n=${order.length}:v=1:a=0[out]`
+      : `${order[0]}null[out]`,
   );
 
   return sourceRender(source, {

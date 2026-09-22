@@ -4,7 +4,8 @@ import { parseSourceProfile, type SourceProfile } from "./ffmpeg.js";
 import { InputError } from "./errors.js";
 import { preservedFormat, sourceFormat, sourceStill } from "./source.js";
 
-// `ffmpeg -i` summaries of real files (6.1.1), one per kind of source.
+// `ffmpeg -i` summaries of real files, one per kind of source (the AVIF
+// from 9.0.2, the rest from 6.1.1: 9.0 prints those lines alike).
 const SUMMARIES = {
   mp4: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'video.mp4':
   Metadata:
@@ -38,8 +39,9 @@ const SUMMARIES = {
   avif: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'output.avif':
   Metadata:
     major_brand     : avis
-  Duration: 00:00:05.03, start: 0.000000, bitrate: 450 kb/s
-  Stream #0:0[0x1](eng): Video: av1 (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 800x540 [SAR 1:1 DAR 40:27], 448 kb/s, 30 fps, 30 tbr, 15360 tbn (default)`,
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 494 kb/s
+  Stream #0:0[0x1]: Video: av1 (libdav1d) (Main) (av01 / 0x31307661), yuv420p(tv, bt709), 800x540 [SAR 1:1 DAR 40:27], 1 fps, 1 tbr, 1 tbn (default)
+  Stream #0:1[0x1](eng): Video: av1 (libdav1d) (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 800x540 [SAR 1:1 DAR 40:27], 491 kb/s, 30 fps, 30 tbr, 15360 tbn (default)`,
   avi: `Input #0, avi, from 'clip.avi':
   Duration: 00:00:04.05, start: 0.000000, bitrate: 464 kb/s
   Stream #0:0: Video: mpeg4 (Simple Profile) (FMP4 / 0x34504D46), yuv420p, 320x240 [SAR 1:1 DAR 4:3], 372 kb/s, 30 fps, 30 tbr, 30 tbn
@@ -119,20 +121,13 @@ describe("parseSourceProfile", () => {
     });
   });
 
-  it("works on an AVIF's animation, not the cover image ffmpeg 7 lists first", () => {
-    const v7 = `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'source.avif':
-  Metadata:
-    major_brand     : avis
-  Duration: 00:00:02.00, start: 0.000000, bitrate: 104 kb/s
-  Stream #0:0[0x1]: Video: av1 (libaom-av1) (Main) (av01 / 0x31307661), yuv420p(tv, bt709), 320x216 [SAR 1:1 DAR 40:27], 1 fps, 1 tbr, 1 tbn (default)
-  Stream #0:1[0x1](eng): Video: av1 (libaom-av1) (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 320x216 [SAR 1:1 DAR 40:27], 100 kb/s, 15 fps, 15 tbr, 15360 tbn (default)`;
-    expect(parseSourceProfile(v7)).toMatchObject({
+  it("works on an AVIF's animation, not the cover image listed first", () => {
+    expect(profile("avif")).toMatchObject({
       videoIndex: 1,
-      fps: 15,
-      videoKbps: 100,
+      fps: 30,
+      videoKbps: 491,
       codec: "av1",
     });
-    expect(profile("avif").videoIndex).toBe(0);
   });
 
   it("skips cover art", () => {

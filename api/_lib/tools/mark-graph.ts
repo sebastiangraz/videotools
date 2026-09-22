@@ -222,9 +222,9 @@ export function watermarkGraph(
   // One YUV↔RGB matrix for the cell's way in and back: the source's own
   // when it is tagged (a JPEG frame grab is bt601 at any size), else the
   // usual HD/SD convention. Being the same both ways is what keeps the
-  // cell's colours; matching the tag matters on ffmpeg 7, where links
-  // carry a colour space and a cell tagged differently from the base makes
-  // overlay convert the whole frame (and a JPEG cannot say it is bt709).
+  // cell's colours; matching the tag matters too, as links carry a colour
+  // space and a cell tagged differently from the base makes overlay
+  // convert the whole frame (and a JPEG cannot say it is bt709).
   const matrix = video.matrix ?? (VH >= 720 ? "bt709" : "bt601");
   const sigma = (shorter * MARK.blurRatio).toFixed(2);
   const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
@@ -249,15 +249,8 @@ export function watermarkGraph(
   // pixels of displacement (in 2× space) around 128, which displace reads
   // as none. The kernels are the negated derivatives: the backdrop is
   // sampled outward, down the slope, like light bending in at a lens's rim.
-  // The scale does not go through convolution's rdiv: ffmpeg 6.1 ignores
-  // a given rdiv and divides by the kernel's sum (1 for these), 7.0 and
-  // later apply it, and this kept the lens the same on both back when
-  // localhost and Vercel ran different versions. So rdiv stays 1 and the
-  // gain is split: its fraction scales the heightfield beforehand, its
-  // whole part multiplies the integer taps. That runs in 16 bits so the
-  // fraction costs no precision, with a lut bringing the result back to
-  // the 8-bit map (×256+128: exact through the gray16→gray conversion
-  // whether or not it dithers).
+  // convolution sums the integer taps in full and only then applies rdiv
+  // and rounds, so the scale costs no precision there.
   const refractPx = shorter * MARK.refractRatio * SS;
   const SOBEL = {
     x: [1, 0, -1, 2, 0, -2, 1, 0, -1],
@@ -265,21 +258,14 @@ export function watermarkGraph(
   };
   const sobel = (axis: "x" | "y", gain: number) => {
     const scale = (refractPx * gain) / (8 * edgeSlope);
-    const whole = Math.max(1, Math.ceil(scale));
-    return [
-      "format=gray16le",
-      `lut=c0='val*${(scale / whole).toFixed(5)}'`,
-      `convolution=0m='${SOBEL[axis].map((k) => k * whole).join(" ")}':0rdiv=1:0bias=32768`,
-      "lut=c0='clip(round((val-32768)/257)+128,0,255)*256+128'",
-      "format=gray",
-    ].join(",");
+    return `convolution=0m='${SOBEL[axis].join(" ")}':0rdiv=${scale.toFixed(5)}:0bias=128`;
   };
   const chroma = { r: 1 - MARK.chroma, g: 1, b: 1 + MARK.chroma };
   // Edge light: the heightfield's derivative towards the light, as one
   // kernel (the two Sobels weighted by the light vector, ×100 for integer
   // taps). Left at that gain it saturates: any edge facing the light at
   // all is fully lit, any facing away fully dark, and the downscale to 1×
-  // softens the line between them. (rdiv=1 for the same reason as above.)
+  // softens the line between them.
   const angle = (MARK.lightAngle * Math.PI) / 180;
   const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
   // Ambient gradient over the fill: radial, centred one logo radius off

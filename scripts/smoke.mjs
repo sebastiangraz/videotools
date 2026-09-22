@@ -9,7 +9,7 @@
 //   npm run smoke -- gif --only gif,webp
 //                                      only the cases with "gif" or "webp" in
 //                                      their name
-//   npm run smoke -- v7 --ffmpeg C:/ffmpeg-7.0.2/bin/ffmpeg.exe
+//   npm run smoke -- next --ffmpeg C:/ffmpeg-9.1/bin/ffmpeg.exe
 //                                      another ffmpeg than the one ffmpeg.json
 //                                      pins (say, the next version to pin)
 //   npm run smoke -- real --assets D:/footage/smoke
@@ -480,9 +480,8 @@ for (const name of names) {
       downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
     }
     // Probed with a fresh instance, so the probe isn't part of the record.
-    // Best effort: ffmpeg before 9.0 had no decoder for animated WebP, so
-    // there those read as having no video. Otherwise "no video stream" is a
-    // finding.
+    // Best effort: a result ffmpeg cannot read shows as "no video stream",
+    // a finding in any case.
     const info = await new FFmpeg(ffmpegPath, "")
       .mediaInfo(outputPath)
       .catch(() => null);
