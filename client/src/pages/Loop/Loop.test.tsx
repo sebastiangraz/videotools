@@ -1,4 +1,10 @@
-import { screen, waitFor, fireEvent, within } from "@testing-library/react";
+import {
+  act,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import { renderApp, uploadMock } from "../../test/renderApp";
@@ -168,7 +174,7 @@ describe("Loop", () => {
     createElement.mock.results
       .map(({ value }) => value as HTMLElement)
       .filter((element) => element instanceof HTMLVideoElement)
-      .forEach((video) => video.dispatchEvent(new Event("loadedmetadata")));
+      .forEach((video) => fireEvent(video, new Event("loadedmetadata")));
 
     // Down to the last whole step the clip has room for
     await waitFor(() => expect(start.value).toMatch(/^10[.,]5/));
@@ -284,7 +290,10 @@ describe("Loop", () => {
 
     // The description would land on the same spot; the message has it.
     await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    // Long enough for the description to have opened if it were going to.
+    // Base UI animates the card open over a frame and a timer of its own, so
+    // the wait is act-wrapped: whatever it sets belongs to this step.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
     expect(screen.queryByText(/change video speed/i)).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
     await user.unhover(screen.getByRole("tab", { name: /^speed$/i }));
