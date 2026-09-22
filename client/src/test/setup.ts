@@ -30,4 +30,14 @@ beforeEach(() => {
   // jsdom implements neither of these
   URL.createObjectURL = vi.fn(() => "blob:mock");
   URL.revokeObjectURL = vi.fn();
+  // Nor, in the browser tests, scrolling or navigation: the router scrolls
+  // the new route to the top on every render (always, whatever
+  // `scrollRestoration` is set to), and a finished run hands the result over
+  // by clicking an anchor (useToolRun). jsdom has neither to offer and says
+  // so on its virtual console, which vitest prints as a stderr error. Both
+  // are beside what the tests are about; nothing is asserted on either.
+  if (typeof window !== "undefined") {
+    window.scrollTo = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  }
 });
