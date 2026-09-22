@@ -31,6 +31,16 @@ describe("formatBlock", () => {
     expect(formatBlocker(file("clip.mkv"))).toMatch(/convert/i);
   });
 
+  // The tools that are asked for a format (convert, sequence): a source in
+  // none of the app's is what they are for, and only a dead end stops them.
+  it("lets a foreign source through where there is no format to keep", () => {
+    expect(formatBlock(file("clip.mkv"), { foreign: false })).toBeNull();
+    expect(formatBlocker(file("clip.mkv"), { foreign: false })).toBeNull();
+    expect(
+      formatBlock(file("anim.webp", "image/webp"), { foreign: false }),
+    ).toMatchObject({ state: "unreadable" });
+  });
+
   it("turns animated WebP away: there is nothing to read", () => {
     expect(formatBlock(file("anim.webp", "image/webp"))).toMatchObject({
       state: "unreadable",
@@ -53,12 +63,14 @@ describe("stills", () => {
   it("lets one through only where the tool takes stills", () => {
     const photo = file("photo.jpg", "image/jpeg");
     expect(formatBlock(photo)).toEqual({ state: "foreign", name: "JPG" });
-    expect(formatBlock(photo, true)).toBeNull();
-    expect(formatBlocker(photo, true)).toBeNull();
+    expect(formatBlock(photo, { stills: true })).toBeNull();
+    expect(formatBlocker(photo, { stills: true })).toBeNull();
     // Taken for a still until its content says otherwise (isAnimatedWebp)
-    expect(formatBlock(file("photo.webp", "image/webp"), true)).toBeNull();
+    expect(
+      formatBlock(file("photo.webp", "image/webp"), { stills: true }),
+    ).toBeNull();
     // What no tool takes stays out either way
-    expect(formatBlock(file("clip.mkv"), true)).toMatchObject({
+    expect(formatBlock(file("clip.mkv"), { stills: true })).toMatchObject({
       state: "foreign",
     });
   });

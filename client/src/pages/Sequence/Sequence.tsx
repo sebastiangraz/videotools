@@ -4,6 +4,7 @@ import { DropZone } from "../../components/DropZone/DropZone";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
+import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import type { Dims } from "../../hooks/useVideoSource";
 import { toolById } from "../../tools";
@@ -52,6 +53,12 @@ function formatBytes(bytes: number): string {
 export const Sequence = () => {
   const run = useToolRun(TOOL.value);
   const [files, setFiles] = useState<File[]>([]);
+  // The zone takes any image; a still is handed back as no format of its own,
+  // so only an animated WebP — which ffmpeg cannot read — is in the way.
+  const formatBlocker = useFormatBlocker(files, {
+    stills: true,
+    foreign: false,
+  });
   const [imageDims, setImageDims] = useState<Dims | null>(null);
   // NumberField reports null while its input is empty; submit falls back to
   // the default.
@@ -99,7 +106,7 @@ export const Sequence = () => {
     <ToolPanel
       tool={TOOL}
       inputs={<DropZone {...TOOL.input} files={files} onFiles={pick} />}
-      blocker={files.length > 0 ? null : "Upload a file"}
+      blocker={files.length > 0 ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
     >

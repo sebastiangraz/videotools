@@ -55,10 +55,9 @@ export function isAnimatedWebp(file: File): Promise<boolean> {
   });
 }
 
-// Why a tool that hands its source's format back can't take a picked file.
-// Every tool does but convert and sequence, which are asked for a format.
-// Null = it can, which the app says nothing about: the result is the format
-// that was picked, and only a dead end is worth a word.
+// Why a tool can't take a picked file. Null = it can, which the app says
+// nothing about: a tool that hands its source's format back gives it back as
+// it came, and only a dead end is worth a word.
 export type FormatBlock =
   // One of the app's formats, but ffmpeg cannot read it (animated WebP).
   | { state: "unreadable"; format: Format }
@@ -67,22 +66,38 @@ export type FormatBlock =
   | { state: "foreign"; name: string };
 
 // `stills`: the tool takes raster images too (mark), so a file that is one
-// goes through.
-export function formatBlock(file: File, stills = false): FormatBlock | null {
+// goes through. `foreign`: false for the tools that are asked for a format
+// (convert, sequence) rather than handing their source's back — a file in
+// none of the app's formats is their job, not a dead end, and pointing it at
+// convert from the convert page would be a circle.
+export type FormatOptions = { stills?: boolean; foreign?: boolean };
+
+export function formatBlock(
+  file: File,
+  { stills = false, foreign = true }: FormatOptions = {},
+): FormatBlock | null {
   if (stills && stillFormat(file)) return null;
   const format = fileFormat(file);
   if (!format) {
+    if (!foreign) return null;
     const ext = extensionOf(file.name);
     return { state: "foreign", name: ext ? ext.toUpperCase() : "This" };
   }
   return format.readable ? null : { state: "unreadable", format };
 }
 
-// The same, as the action button's tooltip; null = the run can start.
-export function formatBlocker(file: File, stills = false): string | null {
-  const block = formatBlock(file, stills);
-  if (!block) return null;
+// A block as the action button's tooltip.
+export function blockerText(block: FormatBlock): string {
   return block.state === "foreign"
     ? "Convert this file first"
     : `${block.format.label} can't be read`;
+}
+
+// The two in one, for a lone file; null = the run can start.
+export function formatBlocker(
+  file: File,
+  options?: FormatOptions,
+): string | null {
+  const block = formatBlock(file, options);
+  return block && blockerText(block);
 }

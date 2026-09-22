@@ -75,4 +75,46 @@ describe("Sequence", () => {
       options: { frameDuration: 1, format: "gif", quality: 100 },
     });
   });
+
+  // The zone takes any image, and an animated WebP is one to the browser:
+  // only its header tells it apart, and ffmpeg has no decoder for it.
+  it("turns a pick with an animated WebP in it away once its header is read", async () => {
+    const user = userEvent.setup();
+    // "RIFF" size "WEBP" "VP8X" size flags: animation is bit 1 of the flags
+    const webp = (name: string, flags: number) =>
+      new File(
+        [
+          new Uint8Array([
+            ...[..."RIFF\0\0\0\0WEBPVP8X"].map((c) => c.charCodeAt(0)),
+            ...[10, 0, 0, 0],
+            flags,
+          ]),
+        ],
+        name,
+        { type: "image/webp" },
+      );
+
+    await renderApp("/sequence");
+    const picker = screen.getByLabelText(/choose images/i);
+    await user.upload(picker, [
+      new File(["00"], "a.png", { type: "image/png" }),
+      webp("b.webp", 0x02),
+    ]);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /animated webp format not supported/i,
+    );
+    expect(
+      screen.getByRole("button", { name: /create video/i }),
+    ).toHaveAttribute("aria-disabled", "true");
+
+    // A still WebP is an image like any other
+    await user.upload(picker, [webp("c.webp", 0x10)]);
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: /create video/i }),
+    ).toHaveAttribute("aria-disabled", "false");
+  });
 });

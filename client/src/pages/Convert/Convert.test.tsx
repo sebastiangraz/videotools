@@ -128,4 +128,25 @@ describe("Convert", () => {
     // Exact match: fps/width must not tag along for non-GIF targets
     expect(processBody.options).toEqual({ target: "webm", quality: 100 });
   });
+
+  // The other tools hand their source's format back, so one in none of the
+  // app's is a dead end they send here. Here it is the job: no message, no
+  // blocker, and every target on offer.
+  it("takes a source in a format of no tool's and offers the full target list", async () => {
+    const user = userEvent.setup();
+
+    await renderApp("/convert");
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^convert$/i })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+    await user.click(screen.getByLabelText(/convert to/i));
+    expect(await screen.findAllByRole("option")).toHaveLength(6);
+  });
 });

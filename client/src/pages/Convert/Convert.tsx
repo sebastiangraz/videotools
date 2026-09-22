@@ -6,6 +6,7 @@ import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
+import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { fileFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { FORMATS } from "../../../../shared/formats";
@@ -21,6 +22,9 @@ const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
 export const Convert = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
+  // Foreign sources (.avi, .mkv, ...) are this tool's whole point, so only a
+  // format ffmpeg cannot read blocks the run.
+  const formatBlocker = useFormatBlocker(source.file, { foreign: false });
   const [target, setTarget] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the server probes it, capped at 30)
@@ -38,9 +42,6 @@ export const Convert = () => {
   const targetOptions = CONVERT_TARGETS.filter(
     (t) => t.value !== sourceFormat?.id,
   );
-  // The one source that is a format of the app's and still no use: ffmpeg
-  // has no decoder for animated WebP.
-  const unreadable = sourceFormat !== null && !sourceFormat.readable;
   const effectiveTarget = targetOptions.some((t) => t.value === target)
     ? target
     : targetOptions[0].value;
@@ -82,13 +83,7 @@ export const Convert = () => {
           onFiles={pick}
         />
       }
-      blocker={
-        !source.file
-          ? "Upload a file"
-          : unreadable
-            ? `${sourceFormat.label} can't be read`
-            : null
-      }
+      blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
