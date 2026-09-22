@@ -249,10 +249,10 @@ export function watermarkGraph(
   // pixels of displacement (in 2× space) around 128, which displace reads
   // as none. The kernels are the negated derivatives: the backdrop is
   // sampled outward, down the slope, like light bending in at a lens's rim.
-  // The scale cannot go through convolution's rdiv: ffmpeg 6.1 (the
-  // Windows ffmpeg-static binary) ignores a given rdiv and divides by the
-  // kernel's sum (1 for these), 7.0 (the Linux one, so Vercel) applies it,
-  // and the lens has to come out the same on both. So rdiv stays 1 and the
+  // The scale does not go through convolution's rdiv: ffmpeg 6.1 ignores
+  // a given rdiv and divides by the kernel's sum (1 for these), 7.0 and
+  // later apply it, and this kept the lens the same on both back when
+  // localhost and Vercel ran different versions. So rdiv stays 1 and the
   // gain is split: its fraction scales the heightfield beforehand, its
   // whole part multiplies the integer taps. That runs in 16 bits so the
   // fraction costs no precision, with a lut bringing the result back to

@@ -1,14 +1,25 @@
+import fs from "node:fs";
 import path from "node:path";
-import ffmpegStatic from "ffmpeg-static";
 
-// ffmpeg-static is CommonJS (`module.exports = path | null`) but its .d.ts says
-// `export default`, so under NodeNext TypeScript types the default import as
-// the module namespace. At runtime Node hands ESM importers the string itself.
-const maybeFfmpegPath = ffmpegStatic as unknown as string | null;
-if (!maybeFfmpegPath) {
-  throw new Error("ffmpeg-static has no ffmpeg binary for this platform");
+const platformDir = process.platform === "win32" ? "win" : "linux";
+
+// The ffmpeg that ffmpeg.json pins, one version on every platform, fetched
+// by the postinstall (scripts/ffmpeg-install.mjs). FFMPEG_BIN points
+// elsewhere, e.g. at another version to compare against.
+const pinnedFfmpeg = path.join(
+  process.cwd(),
+  "api",
+  "_bin",
+  "ffmpeg",
+  `${process.platform}-${process.arch}`,
+  process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
+);
+export const ffmpegPath: string = process.env.FFMPEG_BIN || pinnedFfmpeg;
+if (!fs.existsSync(ffmpegPath)) {
+  throw new Error(
+    `No ffmpeg at ${ffmpegPath}; run \`node scripts/ffmpeg-install.mjs\` (npm install does)`,
+  );
 }
-export const ffmpegPath: string = maybeFfmpegPath;
 
 // Vendored gifski CLI (see api/_bin/gifski/README.md). The linux binary is
 // static-pie linked, so it runs on the function runtime as-is; the exec bit
@@ -18,6 +29,6 @@ export const gifskiPath: string = path.join(
   "api",
   "_bin",
   "gifski",
-  process.platform === "win32" ? "win" : "linux",
+  platformDir,
   process.platform === "win32" ? "gifski.exe" : "gifski",
 );

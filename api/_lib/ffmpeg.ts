@@ -172,7 +172,7 @@ export function parseSourceProfile(output: string): SourceProfile | null {
 
 /**
  * Runs the binaries for one job and probes its inputs: pure-Node ffmpeg
- * (ffmpeg-static, a real binary, no shell) plus the vendored gifski. The
+ * (the ffmpeg.json-pinned binary, no shell) plus the vendored gifski. The
  * tools (tools/) and encoders (encode/) are functions that take one of
  * these; it is the only state a job has.
  */

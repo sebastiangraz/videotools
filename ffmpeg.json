@@ -1,0 +1,18 @@
+{
+  "version": "8.1.3",
+  "source": "BtbN/FFmpeg-Builds autobuild-2026-09-22-13-18: ffmpeg-n8.1.3-win64-gpl-8.1.zip, ffmpeg-n8.1.3-linux64-gpl-8.1.tar.xz",
+  "platforms": {
+    "win32-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-8.1.3/ffmpeg-win32-x64.gz",
+      "sha256": "e88ba6699c9053788e277567d5bddf40442547223675ff6d9d2a43080c4c1580",
+      "binarySha256": "52a4165ed9987e54de628595075ab2da96cf37ef272cbe70b1d8b0e304895163",
+      "bin": "ffmpeg.exe"
+    },
+    "linux-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-8.1.3/ffmpeg-linux-x64.gz",
+      "sha256": "28a2c35cc89a7e504ee64400d221503c0d5d6edccf46f45d01ef3cc39392d5bb",
+      "binarySha256": "8aa04f6726d6e6525215d6851c7beaa09e85f997d08cefcdc3a2f75cdd1a1026",
+      "bin": "ffmpeg"
+    }
+  }
+}

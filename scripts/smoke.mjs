@@ -10,8 +10,8 @@
 //                                      only the cases with "gif" or "webp" in
 //                                      their name
 //   npm run smoke -- v7 --ffmpeg C:/ffmpeg-7.0.2/bin/ffmpeg.exe
-//                                      another ffmpeg than ffmpeg-static's
-//                                      (Vercel runs 7.0.2, Windows gets 6.1.1)
+//                                      another ffmpeg than the one ffmpeg.json
+//                                      pins (say, the next version to pin)
 //   npm run smoke -- real --assets D:/footage/smoke
 //                                      your own inputs (default folder:
 //                                      scripts/smoke-assets; roles below)
@@ -30,6 +30,7 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { checkFfmpeg, pinnedVersion } from "./ffmpeg-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const smokeDir = path.join(root, ".smoke");
@@ -375,6 +376,15 @@ const { renderWatermarkFrame } = await load("api/_lib/tools/mark.js");
 process.chdir(root);
 const binaries = await load("api/_lib/binaries.js");
 const ffmpegPath = args.ffmpeg ?? binaries.ffmpegPath;
+// Before any case: the pinned version (unless --ffmpeg asks for another), with
+// every encoder and filter the api uses.
+const ffmpegCheck = checkFfmpeg(ffmpegPath, { version: args.ffmpeg ? undefined : pinnedVersion() });
+if (ffmpegCheck.problems.length) {
+  console.error(
+    `${ffmpegPath} (${ffmpegCheck.version}) won't do:\n  ${ffmpegCheck.problems.join("\n  ")}`,
+  );
+  process.exit(1);
+}
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
 const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
@@ -429,6 +439,7 @@ const commands = {};
 const broken = {};
 // Part of the results, so comparing runs made from different inputs says so.
 const results = {
+  "(ffmpeg)": ffmpegCheck.version,
   "(assets)": Object.fromEntries(
     Object.entries(assets).map(([role, paths]) => [role, describe(paths)]),
   ),

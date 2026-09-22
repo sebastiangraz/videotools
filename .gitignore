@@ -4,6 +4,8 @@ dist/
 .env*.local
 tmp/
 .smoke/
+# Fetched by the postinstall from ffmpeg.json
+api/_bin/ffmpeg/
 # Own footage for `npm run smoke`; large, so not versioned
 scripts/smoke-assets/*
 !scripts/smoke-assets/README.md
