@@ -1,17 +1,17 @@
 {
-  "version": "8.1.3",
-  "source": "BtbN/FFmpeg-Builds autobuild-2026-09-22-13-18: ffmpeg-n8.1.3-win64-gpl-8.1.zip, ffmpeg-n8.1.3-linux64-gpl-8.1.tar.xz",
+  "version": "9.0.2",
+  "source": "BtbN/FFmpeg-Builds autobuild-2026-09-19-13-11: ffmpeg-n9.0.2-win64-gpl-9.0.zip, ffmpeg-n9.0.2-linux64-gpl-9.0.tar.xz",
   "platforms": {
     "win32-x64": {
-      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-8.1.3/ffmpeg-win32-x64.gz",
-      "sha256": "e88ba6699c9053788e277567d5bddf40442547223675ff6d9d2a43080c4c1580",
-      "binarySha256": "52a4165ed9987e54de628595075ab2da96cf37ef272cbe70b1d8b0e304895163",
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-9.0.2/ffmpeg-win32-x64.gz",
+      "sha256": "1c77587e486c4ca35fffe42733ca04418e718564eebaa04143351b3ad0fc6746",
+      "binarySha256": "c0206dea70e1dd0e759ebbc61fc826834a943cd9c93c7c094c529b685f0b8f67",
       "bin": "ffmpeg.exe"
     },
     "linux-x64": {
-      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-8.1.3/ffmpeg-linux-x64.gz",
-      "sha256": "28a2c35cc89a7e504ee64400d221503c0d5d6edccf46f45d01ef3cc39392d5bb",
-      "binarySha256": "8aa04f6726d6e6525215d6851c7beaa09e85f997d08cefcdc3a2f75cdd1a1026",
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-9.0.2/ffmpeg-linux-x64.gz",
+      "sha256": "0dacbb8d904430da60a3998c303cdedcd517e8b849b0bad7dc0d76b8f64962cb",
+      "binarySha256": "a4ffb15bfd918552ecac91353a87d777175d820a6ac4aa4898dfaf9c90bed704",
       "bin": "ffmpeg"
     }
   }

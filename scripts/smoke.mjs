@@ -480,8 +480,9 @@ for (const name of names) {
       downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
     }
     // Probed with a fresh instance, so the probe isn't part of the record.
-    // Best effort: ffmpeg has no decoder for animated WebP, so those read
-    // as having no video. Anywhere else, "no video stream" is a finding.
+    // Best effort: ffmpeg before 9.0 had no decoder for animated WebP, so
+    // there those read as having no video. Otherwise "no video stream" is a
+    // finding.
     const info = await new FFmpeg(ffmpegPath, "")
       .mediaInfo(outputPath)
       .catch(() => null);
