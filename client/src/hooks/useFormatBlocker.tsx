@@ -12,12 +12,13 @@ import {
 import { useMessage } from "./useMessage";
 
 // Why the picked file can't go through, from before anything is uploaded.
-// One call gives both halves, so they can't disagree: the return value blocks
-// the run (it is the action button's tooltip; null = the file can go on, or
-// there is none yet), and the reason goes up as an error message over the
-// title, where it stays until another file is picked or the tab is left. A
-// file the tool can take gets no message at all — it comes back in the format
-// it came in, which is the rule everywhere and needs no announcing.
+// One call gives both halves, so they can't disagree: both wordings are
+// blockerText's. The return is `short`, which blocks the run (it is the
+// action button's tooltip; null = the file can go on, or there is none yet),
+// and `long` goes up as an error message over the title, where it stays until
+// another file is picked or the tab is left. A file the tool can take gets no
+// message at all — it comes back in the format it came in, which is the rule
+// everywhere and needs no announcing.
 //
 // A tool that picks many files (sequence) hands them all over; the first one
 // that can't go through speaks for the pick, since none of them will run.
@@ -72,24 +73,22 @@ export const useFormatBlocker = (
     files.map((file) => formatBlock(file, optionsFor(file))).find(Boolean) ??
     mixed();
 
+  const text = block && blockerText(block, { stills });
+  // Plain text, except a foreign file: its line stops before "converted", and
+  // the link to the convert tool is affixed there.
   useMessage(
-    block &&
-      (block.state === "foreign" ? (
+    text &&
+      (block?.state === "foreign" ? (
         <>
-          {block.name} files need to be{" "}
+          {text.long}{" "}
           <Link to="/$tool" params={{ tool: "convert" }}>
             converted
           </Link>
         </>
-      ) : block.state === "mixed" ? (
-        <>Mixed formats are not supported.</>
       ) : (
-        <>
-          {stills ? "Animated " : ""}
-          {block.format.label} format not supported.
-        </>
+        text.long
       )),
     "error",
   );
-  return block && blockerText(block);
+  return text ? text.short : null;
 };

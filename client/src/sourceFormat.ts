@@ -110,15 +110,36 @@ export function formatBlock(
   return format.readable ? null : { state: "unreadable", format };
 }
 
-// A block as the action button's tooltip.
-export function blockerText(block: FormatBlock): string {
+// A block in words. `short` is the action button's tooltip; `long` is the
+// error over the title, as plain text. A foreign line stops before
+// "converted": the link to the convert tool is affixed there
+// (useFormatBlocker). `stills` is that option on the tool: one that takes
+// stills has just found the file animated, and the long line says so.
+export type BlockerText = {
+  short: string;
+  long: string;
+};
+
+export function blockerText(
+  block: FormatBlock,
+  { stills = false }: Pick<FormatOptions, "stills"> = {},
+): BlockerText {
   switch (block.state) {
     case "foreign":
-      return "Convert this file first";
+      return {
+        short: "Convert this file first",
+        long: `${block.name} files need to be`,
+      };
     case "mixed":
-      return "Use images of one format";
+      return {
+        short: "Use images of one format",
+        long: "Mixed formats are not supported.",
+      };
     case "unreadable":
-      return `${block.format.label} can't be read`;
+      return {
+        short: `${block.format.label} can't be read`,
+        long: `${stills ? "Animated " : ""}${block.format.label} format not supported.`,
+      };
   }
 }
 
@@ -141,5 +162,5 @@ export function formatBlocker(
   options?: FormatOptions,
 ): string | null {
   const block = formatBlock(file, options);
-  return block && blockerText(block);
+  return block && blockerText(block, options).short;
 }
