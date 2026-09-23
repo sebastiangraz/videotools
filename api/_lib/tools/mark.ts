@@ -32,11 +32,14 @@ export async function addWatermark(
     filter,
     await logoBounds(ff, logoFile, logo),
     {
-      // A GIF is RGB going in and coming out, so it is never taken through
-      // yuv420p in between (mark-graph.ts). Nor is a still: its alpha, its
-      // odd row or column of pixels and its full chroma resolution are all
-      // its format's to keep.
-      base: source.format === "gif" || source.still ? "rgba" : "yuv420p",
+      // A GIF or animated WebP is RGB(A) going in and coming out, so it is
+      // never taken through yuv420p in between (mark-graph.ts). Nor is a
+      // still: its alpha, its odd row or column of pixels and its full
+      // chroma resolution are all its format's to keep.
+      base:
+        source.format === "gif" || source.format === "webp" || source.still
+          ? "rgba"
+          : "yuv420p",
       pad: videoPad(source),
     },
   );

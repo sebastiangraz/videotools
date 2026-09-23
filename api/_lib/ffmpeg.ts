@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
-import { InputError } from "./errors.js";
 
 // Only `cwd` is ever passed through to spawn.
 type RunOptions = { cwd?: string };
@@ -108,7 +107,12 @@ export function parseOutputSize(
   return size ? { width: Number(size[1]), height: Number(size[2]) } : null;
 }
 
-export type VideoPacket = { time: number; size: number; key: boolean };
+export type VideoPacket = {
+  time: number;
+  duration: number;
+  size: number;
+  key: boolean;
+};
 
 // What else the same summary says about a source: enough to tell which
 // format it is (source.ts) and what it spends per second, which is what the
@@ -220,19 +224,18 @@ export class FFmpeg {
       inputFile,
     ]);
     const info = parseSourceProfile(stderr);
-    if (!info) {
-      // ffmpeg reads a WebP still but has no decoder for the animated kind:
-      // it finds the stream and no picture in it.
-      if (/^Input #0, webp_pipe,/m.test(stderr)) {
-        throw new InputError(
-          "Animated WebP can't be read (ffmpeg has no decoder for it). " +
-            "Use the file it was made from instead.",
-          "unreadable-source",
-        );
-      }
-      throw new Error(`Could not read media info: ${stderr.trim()}`);
-    }
+    if (!info) throw new Error(`Could not read media info: ${stderr.trim()}`);
     this.infoCache.set(inputFile, info);
+    // The animated WebP demuxer prints "Duration: N/A": the length is the
+    // sum of the frames' delays, which the packet listing has.
+    if (!info.duration && info.formatNames.includes("webp_anim")) {
+      const packets = await this.videoPackets(inputFile);
+      if (packets) {
+        const start = Math.min(...packets.map((p) => p.time));
+        const end = Math.max(...packets.map((p) => p.time + p.duration));
+        info.duration = end - start;
+      }
+    }
     return info;
   }
 
@@ -293,12 +296,16 @@ export class FFmpeg {
         const fields = line.split(",").map((f) => f.trim());
         return {
           time: Number(fields[2]) * timeBase,
+          duration: Number(fields[3]) * timeBase,
           size: Number(fields[4]),
           key: !fields.some((f) => f.startsWith("F=")),
         };
       });
     const readable = packets.every(
-      (p) => Number.isFinite(p.time) && Number.isFinite(p.size),
+      (p) =>
+        Number.isFinite(p.time) &&
+        Number.isFinite(p.duration) &&
+        Number.isFinite(p.size),
     );
     return packets.length && readable ? packets : null;
   }

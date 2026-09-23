@@ -8,6 +8,7 @@ import {
   stubImageDecoder,
   stubMediaLoading,
   stubProperties,
+  webpFile,
   type FakeFrame,
 } from "../../test/media";
 
@@ -231,48 +232,28 @@ describe("Mark", () => {
     });
   });
 
-  it("turns an animated WebP away once its header is read, and lets a still one through", async () => {
+  it("takes a WebP whichever kind it is", async () => {
     const user = userEvent.setup();
-    // "RIFF" size "WEBP" "VP8X" size flags: animation is bit 1 of the flags
-    const webp = (name: string, flags: number) =>
-      new File(
-        [
-          new Uint8Array([
-            ...[..."RIFF\0\0\0\0WEBPVP8X"].map((c) => c.charCodeAt(0)),
-            ...[10, 0, 0, 0],
-            flags,
-          ]),
-        ],
-        name,
-        { type: "image/webp" },
-      );
-
     await renderApp("/mark");
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webp("sticker.webp", 0x02),
-    );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /animated webp format not supported/i,
-    );
     await user.upload(
       screen.getByLabelText(/choose watermark/i),
       new File(["00"], "logo.png", { type: "image/png" }),
     );
     const button = screen.getByRole("button", { name: /^mark$/i });
-    expect(button).toHaveAttribute("aria-disabled", "true");
 
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webp("photo.webp", 0x10),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
-    );
-    // Its header is in by now, and said nothing against it
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(button).toHaveAttribute("aria-disabled", "false");
+    for (const [name, animated] of [
+      ["sticker.webp", true],
+      ["photo.webp", false],
+    ] as const) {
+      await user.upload(
+        screen.getByLabelText(/choose video/i),
+        webpFile(name, animated),
+      );
+      // Its header is in by now, and said nothing against it
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(button).toHaveAttribute("aria-disabled", "false");
+    }
   });
 
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {

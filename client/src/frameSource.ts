@@ -1,4 +1,9 @@
-import { isAnimatedImage, isStillImage } from "./sourceFormat";
+import {
+  isAnimatedImage,
+  isAnimatedWebp,
+  isStillImage,
+  stillFormat,
+} from "./sourceFormat";
 
 // A frame to draw on a canvas, and its size. `close` frees a decoded one.
 export interface Frame {
@@ -72,8 +77,8 @@ const openVideo = async (file: File): Promise<FrameSource> => {
   };
 };
 
-// An animated image (GIF, AVIF): the browser's ImageDecoder takes it apart
-// into frames with timestamps.
+// An animated image (GIF, WebP, AVIF): the browser's ImageDecoder takes it
+// apart into frames with timestamps.
 const openAnimation = async (file: File): Promise<FrameSource> => {
   const decoder = new ImageDecoder({ data: file.stream(), type: file.type });
   // `completed` = every byte is in, so the frame count is final; the track
@@ -150,11 +155,19 @@ const openStill = async (file: File): Promise<FrameSource> => {
   };
 };
 
+// Whether a picked file is an animated image. A .webp is a still by its
+// name, and only its header tells (isAnimatedWebp).
+const isAnimation = async (file: File) =>
+  isAnimatedImage(file) ||
+  (stillFormat(file)?.id === "webp" &&
+    (await isAnimatedWebp(file).catch(() => false)));
+
 // Rejects when the browser can't decode the file.
-export const openFrameSource = (file: File): Promise<FrameSource> => {
-  if (isStillImage(file)) return openStill(file);
-  if (!isAnimatedImage(file)) return openVideo(file);
-  return typeof ImageDecoder !== "undefined"
-    ? openAnimation(file).catch(() => openStill(file))
-    : openStill(file);
+export const openFrameSource = async (file: File): Promise<FrameSource> => {
+  if (await isAnimation(file)) {
+    return typeof ImageDecoder !== "undefined"
+      ? openAnimation(file).catch(() => openStill(file))
+      : openStill(file);
+  }
+  return isStillImage(file) ? openStill(file) : openVideo(file);
 };

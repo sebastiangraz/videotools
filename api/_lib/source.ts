@@ -34,6 +34,8 @@ const WEBM_AUDIO = ["opus", "vorbis"];
 export function sourceFormat(profile: SourceProfile): FormatId | null {
   const { formatNames, majorBrand, codec, audio } = profile;
   if (formatNames.includes("gif")) return "gif";
+  // A still WebP is webp_pipe's (sourceStill).
+  if (formatNames.includes("webp_anim")) return "webp";
   if (formatNames.includes("mov")) {
     if (majorBrand === "avis") return "avif";
     // QuickTime writes "qt"; files from before the brand existed have none.
@@ -53,7 +55,7 @@ export function sourceFormat(profile: SourceProfile): FormatId | null {
 // .jpg through image2 (it goes by the name there) and one under any other
 // name through jpeg_pipe; Motion JPEG video has the codec but not the
 // demuxer. An animated PNG is "apng" on both counts, and an animated WebP
-// never gets this far (FFmpeg.mediaInfo).
+// has a demuxer of its own, webp_anim (sourceFormat).
 export function sourceStill(profile: SourceProfile): StillId | null {
   const { formatNames, codec } = profile;
   if (formatNames.includes("png_pipe") && codec === "png") return "png";

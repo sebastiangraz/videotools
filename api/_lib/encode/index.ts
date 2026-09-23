@@ -15,7 +15,8 @@ import { encodeAvif } from "./avif.js";
 // control it is also the share of the source's bitrate the result may spend
 // (rate.ts). `fps` and `width` are the animated-image formats': absent, a
 // format applies its own defaults, which suit a conversion (GIF: up to 30 fps
-// and 640px, AVIF: 30 fps and 800px); a null width keeps the pictures' size.
+// and 640px, WebP and AVIF: 30 fps and 800px); a null width keeps the
+// pictures' size.
 // `everyFrame` says the pictures already come at `fps`, one for each frame
 // the result is to have, so they are not resampled to that rate. (Resampling
 // is not harmless: ffmpeg's fps filter loses the last frame of anything

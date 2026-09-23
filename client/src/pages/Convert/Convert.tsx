@@ -6,7 +6,6 @@ import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { fileFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { FORMATS } from "../../../../shared/formats";
@@ -22,9 +21,6 @@ const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
 export const Convert = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  // Foreign sources (.avi, .mkv, ...) are this tool's whole point, so only a
-  // format ffmpeg cannot read blocks the run.
-  const formatBlocker = useFormatBlocker(source.file, { foreign: false });
   const [target, setTarget] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the server probes it, capped at 30)
@@ -83,7 +79,9 @@ export const Convert = () => {
           onFiles={pick}
         />
       }
-      blocker={source.file ? formatBlocker : "Upload a file"}
+      // Foreign sources (.avi, .mkv, ...) are this tool's whole point, so no
+      // file ffmpeg reads is turned away.
+      blocker={source.file ? null : "Upload a file"}
       run={run}
       onSubmit={submit}
     >

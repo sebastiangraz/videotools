@@ -41,9 +41,11 @@ const MAX_REVERSE_BYTES = 1.2e9;
 function reverseLoop(source: Source): Render {
   const { duration, fps, width, height, pixFmt } = source.profile;
   // A GIF's frames are files that gifski reads twice; everything else
-  // buffers decoded frames, at 1.5 bytes a pixel (yuv420p).
+  // buffers decoded frames in the encoder's pixel format: 1.5 bytes a pixel
+  // (yuv420p), or a WebP's 4 (bgra, which keeps its alpha).
   if (source.format !== "gif") {
-    const bytes = duration * (fps ?? 30) * width * height * 1.5;
+    const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
+    const bytes = duration * (fps ?? 30) * width * height * bytesPerPixel;
     if (bytes > MAX_REVERSE_BYTES) {
       throw new InputError(
         `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
@@ -98,8 +100,9 @@ function crossfadeLoop(
     return sourceRender(source, { keepAudio: false });
   }
 
-  // xfade works on planar formats only. RGB sources (GIF) get the planar RGB
-  // one, alpha included, rather than the YUV it would pick by itself.
+  // xfade works on planar formats only. RGB sources (GIF, WebP) get the
+  // planar RGB one, alpha included, rather than the YUV it would pick by
+  // itself.
   const rgb = /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
   const rate = `fps=${frameRate(fps)}`;
   const open = `${rate}${rgb ? ",format=gbrap" : ""}`;

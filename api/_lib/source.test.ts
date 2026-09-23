@@ -62,6 +62,11 @@ const SUMMARIES = {
   webp: `Input #0, webp_pipe, from 'photo.webp':
   Duration: N/A, bitrate: N/A
   Stream #0:0: Video: webp, yuv420p(tv, bt470bg/unknown/unknown), 320x240, 25 fps, 25 tbr, 25 tbn`,
+  // An animated WebP has a demuxer of its own, and no duration in the
+  // summary (FFmpeg.mediaInfo measures it).
+  animwebp: `Input #0, webp_anim, from 'anim.webp':
+  Duration: N/A, start: 0.000000, bitrate: N/A
+  Stream #0:0: Video: webp_anim, argb, 160x120, 10 fps, 10 tbr, 1k tbn`,
   // Motion JPEG video: a JPEG's codec, in a container.
   mjpeg: `Input #0, avi, from 'camera.avi':
   Duration: 00:00:01.00, start: 0.000000, bitrate: 1391 kb/s
@@ -155,6 +160,7 @@ describe("sourceFormat", () => {
     ["mov", "mov"],
     ["webm", "webm"],
     ["gif", "gif"],
+    ["animwebp", "webp"],
     ["avif", "avif"],
   ] as const)("knows %s content as %s", (kind, format) => {
     expect(sourceFormat(profile(kind))).toBe(format);
@@ -178,7 +184,7 @@ describe("sourceStill", () => {
     expect(sourceFormat(profile(kind))).toBeNull();
   });
 
-  it.each(["mp4", "gif", "mjpeg", "apng"] as const)(
+  it.each(["mp4", "gif", "animwebp", "mjpeg", "apng"] as const)(
     "takes %s content for no still",
     (kind) => {
       expect(sourceStill(profile(kind))).toBeNull();

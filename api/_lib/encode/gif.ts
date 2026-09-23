@@ -18,7 +18,7 @@ export const MAX_GIF_FPS = 50;
 
 // Keeps the run inside the function's 300s (vercel.json), with room to
 // upload the result.
-const TIME_BUDGET_MS = 240_000;
+export const TIME_BUDGET_MS = 240_000;
 
 // Width and height of a PNG, from its IHDR chunk.
 async function pngSize(file: string): Promise<[number, number]> {

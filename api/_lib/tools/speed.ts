@@ -1,5 +1,6 @@
 import { encodePreserved } from "../encode/index.js";
 import { MAX_GIF_FPS } from "../encode/gif.js";
+import { MAX_WEBP_FPS } from "../encode/webp.js";
 import {
   frameRate,
   sourceRender,
@@ -15,13 +16,17 @@ import type { Tool } from "./types.js";
 export function changeSpeed(source: Source, multiplier: number): Render {
   const sourceFps = source.profile.fps ?? 30;
   // Video keeps its frame rate: speed-ups drop frames (rather than raising
-  // the rate past what screens show) and slow-downs repeat them. A GIF is a
-  // list of frames with delays, so there the delays change and every frame
-  // stays, up to the 50 a second a GIF can show.
-  const fps =
+  // the rate past what screens show) and slow-downs repeat them. A GIF or
+  // WebP is a list of frames with delays, so there the delays change and
+  // every frame stays, up to the 50 a second either can show.
+  const maxFps =
     source.format === "gif"
-      ? Math.min(sourceFps * multiplier, MAX_GIF_FPS)
-      : sourceFps;
+      ? MAX_GIF_FPS
+      : source.format === "webp"
+        ? MAX_WEBP_FPS
+        : null;
+  const fps =
+    maxFps === null ? sourceFps : Math.min(sourceFps * multiplier, maxFps);
   return sourceRender(source, {
     filter: `${videoPad(source)}setpts=PTS/${multiplier},fps=${frameRate(fps)}[out]`,
     // Like the other tools that change a clip's timing, without its audio.

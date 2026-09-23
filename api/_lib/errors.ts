@@ -5,7 +5,6 @@
 // that gets thrown is a server fault (500).
 export type InputErrorCode =
   | "unsupported-source"
-  | "unreadable-source"
   | "too-long"
   | "too-large"
   | "invalid-option"

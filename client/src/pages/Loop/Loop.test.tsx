@@ -14,6 +14,7 @@ import {
   stubImageDecoder,
   stubMediaLoading,
   stubProperties,
+  webpFile,
   type FakeFrame,
 } from "../../test/media";
 
@@ -272,6 +273,33 @@ describe("Loop", () => {
     expect(button).toHaveAttribute("aria-disabled", "true");
     await user.click(button);
     expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  // A .webp is either kind, and a still is no format this tool can hand
+  // back: it goes the way of any other still once its header says so.
+  it("takes an animated WebP and sends a still one through convert", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    const button = screen.getByRole("button", { name: /^loop$/i });
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      webpFile("sticker.webp", true),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-disabled", "false");
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      webpFile("photo.webp", false),
+    );
+    const message = await screen.findByRole("alert");
+    expect(message).toHaveTextContent(/still webp files need to be/i);
+    expect(
+      within(message).getByRole("link", { name: /converted/i }),
+    ).toHaveAttribute("href", "/convert");
+    expect(button).toHaveAttribute("aria-disabled", "true");
   });
 
   it("keeps the message up over the tab descriptions until the file is replaced", async () => {

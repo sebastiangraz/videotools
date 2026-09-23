@@ -24,8 +24,8 @@ const WATERMARK_ACCEPT = "image/png";
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  // The one tool that takes stills as well: a PNG, JPEG or (still) WebP comes
-  // back marked as the image it is.
+  // The one tool that takes stills as well: a PNG, JPEG or WebP (still or
+  // animated) comes back marked as the image it is.
   const formatBlocker = useFormatBlocker(source.file, { stills: true });
   // The logo, and its frosted-glass switch.
   const [watermark, setWatermark] = useState<File | null>(null);
