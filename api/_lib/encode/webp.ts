@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import type { Source } from "../source.js";
 import type { Encoder } from "./index.js";
 import { TIME_BUDGET_MS, graphArgs, sourceBytesBudget } from "./render.js";
 
@@ -56,6 +57,33 @@ export async function isLosslessWebp(file: string): Promise<boolean> {
   }
 }
 
+// Codecs that keep every pixel they are given. The lossy ones (H.264, VP9,
+// AV1, ...) only do in their RGB mode, which decodes as planar gbr.
+const LOSSLESS_CODECS = [
+  "gif",
+  "png",
+  "apng",
+  "ffv1",
+  "utvideo",
+  "huffyuv",
+  "ffvhuff",
+  "qtrle",
+  "rawvideo",
+];
+
+// Whether a source's pictures are still as they were made, so a lossless
+// WebP keeps something: pictures a tool drew from nothing but stills (no
+// source) are, and so is a GIF, a lossless WebP, or lossless AV1. A lossy
+// source written lossless would be many times its size for nothing: its
+// losses are in the pixels already, and lossless stores them as detail
+// (AVIF at 100 came to 31× its source).
+export async function isLosslessSource(source: Source | null): Promise<boolean> {
+  if (!source) return true;
+  if (source.format === "webp") return isLosslessWebp(source.path);
+  const { codec, pixFmt } = source.profile;
+  return LOSSLESS_CODECS.includes(codec) || pixFmt.startsWith("gbr");
+}
+
 // Animated WebP is intra-only (every frame is a standalone lossy still), so
 // output often exceeds the source video's size — inherent to the format, not
 // the settings. Don't be tempted by cr_threshold: its block skipping leaves
@@ -80,12 +108,10 @@ export const encodeWebp: Encoder = async (
     ],
     "bgra",
   );
-  // A lossy WebP written lossless would be several times its size for
-  // nothing: its losses are in the pixels already (as for a still, still.ts).
-  const { source } = render;
-  const lossless =
-    quality >= 100 &&
-    (source?.format !== "webp" || (await isLosslessWebp(source.path)));
+  // Lossless only for pictures that are (isLosslessSource); a lossy source
+  // at 100 gets libwebp's finest lossy setting instead (as a still does,
+  // still.ts).
+  const lossless = quality >= 100 && (await isLosslessSource(render.source));
   if (lossless) {
     // True lossless (relative to the decoded RGB frames): no VP8
     // quantization at all, so none of its block-grid artifacts on solid

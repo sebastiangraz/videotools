@@ -119,8 +119,15 @@ const CASES = {
   "convert-mov": { tool: "convert", files: ["video"], options: { target: "mov", quality: 90 }, expect: { ext: "mov", maxRatio: 1.05, frames: "source" } },
   "convert-webm": { tool: "convert", files: ["video"], options: { target: "webm", quality: 90 }, expect: { ext: "webm", maxRatio: 1, minRatio: 0.4, frames: "source" } },
   "convert-webp": { tool: "convert", files: ["video"], options: { target: "webp", quality: 90 }, expect: { ext: "webp" } },
-  "convert-webp-lossless": { tool: "convert", files: ["video"], options: { target: "webp", quality: 100 }, expect: { ext: "webp" } },
+  // 100 is lossless only for a lossless source (encode/webp.ts): a lossy one
+  // written lossless stores its artifacts as detail (9x its source, 31x an
+  // AVIF's). Animated WebP is intra-only, so it still weighs more than video
+  // that predicts between frames, the synthesized AV1 most of all.
+  "convert-webp-q100": { tool: "convert", files: ["video"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 3 } },
+  "convert-gif-to-webp": { tool: "convert", files: ["animation"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 2 } },
   "convert-avif": { tool: "convert", files: ["video"], options: { target: "avif", quality: 70 }, expect: { ext: "avif", maxRatio: 0.75 } },
+  "convert-avif-to-webp": { tool: "convert", files: ["avif"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 14 } },
+  "convert-avif-to-webp-q90": { tool: "convert", files: ["avif"], options: { target: "webp", quality: 90 }, expect: { ext: "webp", maxRatio: 11 } },
   "convert-webp-source": { tool: "convert", files: ["animwebp"], options: { target: "mp4", quality: 90 }, expect: { ext: "mp4", frames: "source" } },
   "convert-gif": { tool: "convert", files: ["video"], options: { target: "gif", quality: 90, width: 200 }, expect: { ext: "gif" } },
   "convert-gif-fps": { tool: "convert", files: ["video"], options: { target: "gif", quality: 70, fps: 10, width: 160 }, expect: { ext: "gif" } },

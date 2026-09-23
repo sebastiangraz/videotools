@@ -145,7 +145,12 @@ export const Convert = () => {
             <Slider
               label={
                 <>
-                  {effectiveTarget === "webp" && quality === 100
+                  {/* WebP at 100 is lossless only from a lossless source
+                      (api/_lib/encode/webp.ts); of those, only a GIF shows
+                      by its name. */}
+                  {effectiveTarget === "webp" &&
+                  quality === 100 &&
+                  sourceFormat?.id === "gif"
                     ? `Lossless ${quality}%`
                     : `Quality ${quality}%`}
                 </>
