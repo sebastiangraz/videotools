@@ -3,83 +3,55 @@ import type { MediaInfo } from "../ffmpeg.js";
 export type Bounds = { x: number; y: number; width: number; height: number };
 
 export const MARK = {
-  // Layout (see watermarkLayout). Lengths are fractions of the frame's "unit", the geometric mean of its width and height, so the mark takes the same share of a landscape, portrait or square picture. The logo is measured by its visible pixels (see logoBounds), not its canvas. Size is an area budget rather than a fitting box: a 1:1 logo is drawn this fraction of the unit on each side, and every other shape gets the same area times elongation^elongationGain, where elongation is the long side over the short one (so wide and tall are treated alike, and no ratio is special). At gain 0 every logo covers the same area; at 1 every logo has the same short side (all logotypes one height, however long). In between, elongated logos, which are mostly thin strokes and gaps, gain some area so they don't read lighter than a dense square.
+  // Square logo side fraction of the width and height geometric mean.
   sizeRatio: 0.064,
+  // Long logo area exponent from equal area at 0 to equal short side at 1.
   elongationGain: 0.5,
-  // Safety bound for banner-like logos (and wide ones on portrait video): neither side is drawn past this fraction of the frame's matching side. A third still clears a 4:1 logotype on portrait video.
+  // Long logo side cap fraction of the matching frame side.
   maxSpan: 0.33,
-  // The gap to the frame edges, a fraction of the unit and the same for
-  // every logo: sizes are already evened out, so nothing about the shape
-  // needs to feed back into it. It is also the glass cell's padding, the
-  // room the shadow and blur spill into.
+  // Edge gap and glass padding fraction of the width and height geometric mean.
   paddingRatio: 0.05,
-  // Glass mode. The logo's alpha becomes a lens: a heightfield that rises
-  // from 0 at the edge to full over the bevel, whose slope refracts the video
-  // underneath (each pixel is pulled in from just outside the edge, the way a
-  // thick slab bends what's behind its rim) and catches the light along the
-  // rim; the flat interior is frosted.
-  // Frost: the refracted backdrop is blurred by this sigma (fraction of the
-  // shorter side; the CSS analogue is backdrop-filter: blur()), then
-  // saturated and mixed with white. Light enough that the bending at the
-  // bevel still reads through it.
+
+  // Frost blur fraction of the width and height minimum.
   blurRatio: 0.012, //0.012
-  // Floor for the blur, same unit (1.6px at 1080p): what the bevel gets
-  // instead of the full frost. Small islands and thin strokes are bevel all
-  // the way through, so without it hard backdrop edges cut straight across
-  // them; big shapes still ramp from this at the rim to blurRatio inside.
+  // Bevel blur floor fraction of the width and height minimum.
   minBlurRatio: 0.0008, //0.0015
+  // Frost saturation multiplier with no change at 1.
   saturation: 1.8, //1.35
+  // Frost white mix.
   tint: 0.12, //0.22
-  // Bevel width, as a fraction of the logo's shorter drawn side rather than
-  // of the frame: a bevel wider than a logotype's strokes would flatten them
-  // away. The profile is the mean of a wide and a narrow (÷3) blur of the
-  // alpha, so thick shapes get a steep rim easing into the flat middle and
-  // thin strokes still keep a usable slope.
+  // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1, //0.1
-  // Displacement of the backdrop at the steepest part of the bevel, as a
-  // fraction of the shorter side; it eases to none over the bevel. displace
-  // moves at most 127 map px (63px of video at the 2× the lens runs at), so
-  // anything past about 0.059 also flattens the top of the curve: more of
-  // the bevel bends by the full amount, which is the thick-lens look.
+  // Steep bevel backdrop shift fraction of the width and height minimum.
   refractRatio: 0.088, //0.088
-  // Chromatic split: red is displaced (1 − chroma)×, blue (1 + chroma)×,
-  // green as is. Subtle on purpose, a hint of colour on contrasty edges.
+  // Red and blue edge shift split around green.
   chroma: 0.08, //0.15
-  // Where the light comes from, in degrees clockwise from the top (−45 is
-  // top-left), and the rim it lights: a stroke along the inside of the edge
-  // (1px at 720p, scaling up) at rimOpacity where the edge faces the light,
-  // easing down around the shape to the glint: the level (this fraction of
-  // it) the rest of the rim holds, so the outline never breaks.
+  // Light direction in degrees clockwise from the top.
   lightAngle: -45, //-45
+  // Lit rim opacity.
   rimOpacity: 0.85, //0.85
+  // Unlit rim brightness share of the lit rim.
   glint: 0.66, //0.35
-  // What the rim is painted with: not white but the backdrop under it,
-  // saturated by rimSaturation (the same scale as `saturation`: 1 leaves
-  // it, 0 is grey), brightened by rimGain like a colour dodge, then mixed
-  // this far towards white. The gain does most of the work: it keeps the
-  // hue and lifts the rim clear of the video, where more saturation alone
-  // turns the rim into the backdrop's own colour and it disappears. At
-  // rimWhite 1 it is a plain white rim.
+  // Rim backdrop saturation multiplier with no change at 1.
   rimSaturation: 2, //1.4
+  // Rim brightness multiplier.
   rimGain: 7, //3
+  // Rim white mix with a plain white rim at 1.
   rimWhite: 0.6, //0.15
-  // Ambient light across the glass, for depth when the video under it is
-  // flat: a radial gradient from the side opposite lightAngle (bottom-right
-  // under the default top-left light), white there at this opacity, fading
-  // through nothing to black on the light's own side at ambientShade
-  // of it (shade reads heavier than light, so it gets less). ambientReach is
-  // the gradient's radius in logo radii; the centre sits one radius outside
-  // the logo, so at 2 it would end at the logo's far edge, and a bit more
-  // keeps the far side from going fully dark and the curve shallow.
+  // Glass light opacity on the side opposite the light.
   ambient: 0.16, //0.16
+  // Shade side opacity share of the bright side.
   ambientShade: 0.5, //0.5
+  // Ambient gradient radius in logo radii from a point outside the logo.
   ambientReach: 2.4, //2.4
-  // Soft drop shadow behind the glass shape, offset downwards.
+
+  // Drop shadow blur fraction of the width and height minimum.
   shadowBlurRatio: 0.016, //0.012
+  // Downward y-axis shadow offset fraction of the width and height minimum.
   shadowOffsetRatio: 0.016, //0.006
+  // Drop shadow opacity.
   shadowOpacity: 0.08, //0.35
-  // The logo's own pixels over the glass: a white logo brightens it, a dark
-  // one smokes it, a coloured one tints it.
+  // Logo pixel opacity over the glass.
   logoOpacity: 0.07, //0.45
 };
 
