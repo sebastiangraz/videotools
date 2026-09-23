@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
-import { TIME_BUDGET_MS } from "./gif.js";
 import type { Encoder } from "./index.js";
-import { graphArgs, type Render } from "./render.js";
+import { TIME_BUDGET_MS, graphArgs, sourceBytesBudget } from "./render.js";
 
 // A frame's delay is whole milliseconds, but browsers slow anything under
 // 20 down, as they do a GIF's: 50 is the most frames a second it can show.
@@ -24,29 +23,14 @@ export const webpLevels = (quality: number) =>
     (_, i) => webpQuality(quality) - i,
   );
 
-// What a WebP that went in as a WebP may weigh, as a still is held to its
-// source's bytes (still.ts): the source's, by the frame (a sped-up WebP
-// keeps all of its frames), times the slider's share, plus a tenth for what
-// a tool adds. Null for every other source: a WebP of a video is never the
-// video's size.
-async function webpBudget(render: Render, quality: number): Promise<number | null> {
-  const { source } = render;
-  if (source?.format !== "webp") return null;
-  const { duration, fps } = source.profile;
-  const sourceFrames = duration * (fps ?? 0);
-  if (!(sourceFrames > 0)) return null;
-  const frames = render.duration * render.fps;
-  const { size } = await fs.stat(source.path);
-  return size * (frames / sourceFrames) * (quality / 100) * 1.1;
-}
-
-// Whether an animated WebP was saved lossless: its first frame's picture is
-// a VP8L chunk, where a lossy one is "VP8 " (behind an ALPH chunk if it has
-// alpha). ffmpeg decodes both kinds to argb, so the probe can't tell. The
-// file is "RIFF" size "WEBP", then chunks of fourcc, little-endian size and
-// data padded to an even length; an ANMF chunk's data is a 16-byte frame
-// header followed by the frame's own chunks. The headers are read one at a
-// time, skipping the data: an ICC profile in front can be any size.
+// Whether an animated WebP was saved lossless: every frame's picture is a
+// VP8L chunk, where a lossy one is "VP8 " (behind an ALPH chunk if it has
+// alpha), and a mixed file (gif2webp -mixed) has both. ffmpeg decodes every
+// kind to argb, so the probe can't tell. The file is "RIFF" size "WEBP",
+// then chunks of fourcc, little-endian size and data padded to an even
+// length; an ANMF chunk's data is a 16-byte frame header followed by the
+// frame's own chunks, which the walk steps into. Only the headers are read,
+// a few per frame: the pictures (and an ICC profile) are skipped.
 export async function isLosslessWebp(file: string): Promise<boolean> {
   const handle = await fs.open(file, "r");
   try {
@@ -59,17 +43,14 @@ export async function isLosslessWebp(file: string): Promise<boolean> {
         size: new DataView(header.buffer).getUint32(4, true),
       };
     };
+    let lossless = false;
     let at = 12;
     for (let chunk = await chunkAt(at); chunk; chunk = await chunkAt(at)) {
-      if (chunk.tag === "ANMF") {
-        at += 8 + 16;
-        continue;
-      }
-      if (chunk.tag === "VP8L") return true;
       if (chunk.tag === "VP8 ") return false;
-      at += 8 + chunk.size + (chunk.size % 2);
+      if (chunk.tag === "VP8L") lossless = true;
+      at += chunk.tag === "ANMF" ? 8 + 16 : 8 + chunk.size + (chunk.size % 2);
     }
-    return false;
+    return lossless;
   } finally {
     await handle.close();
   }
@@ -88,12 +69,13 @@ export const encodeWebp: Encoder = async (
 ) => {
   // No explicit fps → match the pictures, up to 30; no width → as they are.
   // A conversion caps the width at 800 like the other animated-image
-  // formats. (A tool that hands a WebP back asks for the WebP's own.)
-  fps = Math.min(fps ?? Math.min(render.fps, 30), MAX_WEBP_FPS);
+  // formats. (A tool that hands a WebP back asks for the WebP's own, and
+  // its pictures already come at that rate.)
+  const rate = Math.min(fps ?? Math.min(render.fps, 30), MAX_WEBP_FPS);
   const input = graphArgs(
     render,
     [
-      ...(everyFrame ? [] : [`fps=${fps}`]),
+      ...(everyFrame ? [] : [`fps=${rate}`]),
       ...(width == null ? [] : [`scale='min(${width},iw)':-2:flags=lanczos`]),
     ],
     "bgra",
@@ -127,7 +109,10 @@ export const encodeWebp: Encoder = async (
     return;
   }
 
-  const encode = (level: number) =>
+  // Each try is written next to the result and kept only if it is better:
+  // the finest one that fits, or failing that the smallest one yet.
+  const tryFile = `${outputFile}.try.webp`;
+  const encode = (level: number, to = outputFile) =>
     ff.runFFmpeg([
       ...input,
       "-c:v",
@@ -143,38 +128,48 @@ export const encodeWebp: Encoder = async (
       "-loop",
       "0",
       "-an",
-      outputFile,
+      to,
     ]);
   const levels = webpLevels(quality);
-  const budget = await webpBudget(render, quality);
+  const budget = await sourceBytesBudget(
+    render,
+    "webp",
+    render.duration * render.fps,
+    quality / 100,
+  );
   let started = Date.now();
   await encode(levels[0]);
-  const fits = async () => (await fs.stat(outputFile)).size <= (budget ?? Infinity);
-  if (await fits()) return;
+  const fits = async (file: string) =>
+    (await fs.stat(file)).size <= (budget ?? Infinity);
+  if (await fits(outputFile)) return;
 
   // libwebp has no rate control, and at the slider's top its finest setting
-  // encodes a lossy source's artifacts as detail (it came to over twice
-  // the source's bytes a frame). So a result over its source's ceiling is encoded again coarser,
-  // bisecting the settings the slider has left, while the function's time
-  // allows (a try costs what the first one did). `over` is the coarsest
-  // setting known to be too big, `pick` the finest one that may fit.
+  // encodes a lossy source's artifacts as detail (it came to over twice the
+  // source's bytes a frame). So a result over its source's ceiling is
+  // encoded again coarser, bisecting the settings the slider has left, while
+  // the function's time allows (a try costs about what the last one did).
+  // `over` is the coarsest setting known to be too big, `pick` the finest
+  // one that may fit.
   let over = 0;
   let pick = levels.length - 1;
-  let written = 0;
+  let fitted = false;
   while (pick - over > 1) {
     const took = Date.now() - started;
-    // Room for this try and, should it not fit, the one at `pick`.
-    if (Date.now() - ff.startedAt + 2 * took > TIME_BUDGET_MS) break;
+    if (Date.now() - ff.startedAt + took > TIME_BUDGET_MS) break;
     const middle = Math.floor((over + pick) / 2);
     started = Date.now();
-    await encode(levels[middle]);
-    written = middle;
-    if (await fits()) pick = middle;
+    await encode(levels[middle], tryFile);
+    const fit = await fits(tryFile);
+    if (fit) pick = middle;
     else over = middle;
+    // A try that fits is finer than any before it that did; one that
+    // doesn't is coarser, so smaller, than everything tried so far.
+    if (fit || !fitted) await fs.rename(tryFile, outputFile);
+    fitted ||= fit;
   }
+  await fs.rm(tryFile, { force: true });
   console.log(
     `Over the ${Math.round(budget ?? 0)} bytes its source allows at ` +
-      `${levels[0]}: settled on ${levels[pick]}`,
+      `${levels[0]}: settled on ${fitted ? levels[pick] : levels[over]}`,
   );
-  if (written !== pick) await encode(levels[pick]);
 };

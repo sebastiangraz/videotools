@@ -29,8 +29,8 @@ import { useMessage } from "./useMessage";
 // animation until its first bytes say it is a still, which such a tool has
 // no format for: they are in a moment after the pick, long before a run
 // could be. `foreign` (sourceFormat.ts): false where the tool is asked for a
-// format rather than keeping its source's (convert, sequence). `oneFormat`:
-// the pick must not mix formats (sequence).
+// format rather than keeping its source's (sequence). `oneFormat`: the pick
+// must not mix formats (sequence).
 export const useFormatBlocker = (
   source: File | File[] | null,
   { stills = false, foreign = true, oneFormat = false }: FormatOptions = {},
@@ -43,7 +43,8 @@ export const useFormatBlocker = (
   // file it was read from.
   const [stillWebps, setStillWebps] = useState<readonly File[]>([]);
   useEffect(() => {
-    if (stills) return;
+    // Nothing to tell apart where both kinds go through.
+    if (stills || !foreign) return;
     let cancelled = false;
     for (const file of files) {
       if (stillFormat(file)?.id !== "webp") continue;
@@ -59,7 +60,7 @@ export const useFormatBlocker = (
     return () => {
       cancelled = true;
     };
-  }, [files, stills]);
+  }, [files, stills, foreign]);
 
   const mixed = (): FormatBlock | null => {
     if (!oneFormat) return null;

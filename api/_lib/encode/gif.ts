@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { InputError } from "../errors.js";
 import type { Encoder } from "./index.js";
-import { graphArgs, hasAlpha, type Render } from "./render.js";
+import {
+  TIME_BUDGET_MS,
+  graphArgs,
+  hasAlpha,
+  sourceBytesBudget,
+} from "./render.js";
 
 // Two budgets for a GIF, both about the PNG frames gifski reads: their
 // number (the list is gifski's command line, and Windows ends those at 32k
@@ -16,10 +21,6 @@ export const MAX_GIF_PIXELS = 600 * 800 * 800;
 // down, so 50 is the most frames a second it can show.
 export const MAX_GIF_FPS = 50;
 
-// Keeps the run inside the function's 300s (vercel.json), with room to
-// upload the result.
-export const TIME_BUDGET_MS = 240_000;
-
 // Width and height of a PNG, from its IHDR chunk.
 async function pngSize(file: string): Promise<[number, number]> {
   const handle = await fs.open(file, "r");
@@ -31,19 +32,6 @@ async function pngSize(file: string): Promise<[number, number]> {
   } finally {
     await handle.close();
   }
-}
-
-// What a GIF that went in as a GIF may weigh: what it weighed, by the frame.
-// (Frames rather than seconds: a sped-up GIF keeps all of its frames.) Null
-// for every other source — a GIF of a video is never the video's size.
-async function gifBudget(render: Render, frames: number): Promise<number | null> {
-  const { source } = render;
-  if (source?.format !== "gif") return null;
-  const { duration, fps } = source.profile;
-  const sourceFrames = Math.round(duration * (fps ?? 0));
-  if (sourceFrames < 1) return null;
-  const { size } = await fs.stat(source.path);
-  return size * (frames / sourceFrames) * 1.1;
 }
 
 // Every GIF goes through the vendored gifski binary rather than ffmpeg's own
@@ -125,7 +113,7 @@ export const encodeGif: Encoder = async (
     // size in steps (hardly anything between 90 and 70, a lot at 100 → 90
     // and again at 50). So a GIF that outgrows its source is encoded again
     // one step down, from the frames already on disk — while there is time.
-    const budget = await gifBudget(render, frames.length);
+    const budget = await sourceBytesBudget(render, "gif", frames.length);
     const ladder = [...new Set([quality, Math.min(quality, 90), Math.min(quality, 50)])];
     for (const [i, step] of ladder.entries()) {
       const started = Date.now();

@@ -1,9 +1,4 @@
-import {
-  isAnimatedImage,
-  isAnimatedWebp,
-  isStillImage,
-  stillFormat,
-} from "./sourceFormat";
+import { isAnimation, isStillImage } from "./sourceFormat";
 
 // A frame to draw on a canvas, and its size. `close` frees a decoded one.
 export interface Frame {
@@ -154,13 +149,6 @@ const openStill = async (file: File): Promise<FrameSource> => {
     close: () => {},
   };
 };
-
-// Whether a picked file is an animated image. A .webp is a still by its
-// name, and only its header tells (isAnimatedWebp).
-const isAnimation = async (file: File) =>
-  isAnimatedImage(file) ||
-  (stillFormat(file)?.id === "webp" &&
-    (await isAnimatedWebp(file).catch(() => false)));
 
 // Rejects when the browser can't decode the file.
 export const openFrameSource = async (file: File): Promise<FrameSource> => {

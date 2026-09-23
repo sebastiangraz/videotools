@@ -49,8 +49,19 @@ export const hasFrames = (file: File) =>
 // bit (0x02) in the flags of the VP8X chunk, which an animated file
 // has to start with ("RIFF" size "WEBP" "VP8X" size flags, so byte 20). A
 // file too short or without the chunk is a plain still. (Through FileReader:
-// jsdom's Blob has no arrayBuffer.)
+// jsdom's Blob has no arrayBuffer.) Read once per file: everything that
+// opens a pick asks (the blocker, the frame sources).
+const webpHeaders = new WeakMap<File, Promise<boolean>>();
 export function isAnimatedWebp(file: File): Promise<boolean> {
+  let answer = webpHeaders.get(file);
+  if (!answer) {
+    answer = readWebpHeader(file);
+    webpHeaders.set(file, answer);
+  }
+  return answer;
+}
+
+function readWebpHeader(file: File): Promise<boolean> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -69,6 +80,13 @@ export function isAnimatedWebp(file: File): Promise<boolean> {
   });
 }
 
+// Whether a picked file is an animated image: a GIF or AVIF by its name or
+// type, a .webp by its header (a still to go by, if that can't be read).
+export const isAnimation = async (file: File) =>
+  isAnimatedImage(file) ||
+  (stillFormat(file)?.id === "webp" &&
+    (await isAnimatedWebp(file).catch(() => false)));
+
 // Why a tool can't take a picked file. Null = it can, which the app says
 // nothing about: a tool that hands its source's format back gives it back as
 // it came, and only a dead end is worth a word.
@@ -83,10 +101,9 @@ export type FormatBlock =
   | { state: "mixed"; labels: string[] };
 
 // `stills`: the tool takes raster images too (mark), so a file that is one
-// goes through. `foreign`: false for the tools that are asked for a format
-// (convert, sequence) rather than handing their source's back — a file in
-// none of the app's formats is their job, not a dead end, and pointing it at
-// convert from the convert page would be a circle. `oneFormat`: the tool
+// goes through. `foreign`: false for a tool that is asked for a format
+// (sequence) rather than handing its source's back — a file in none of the
+// app's formats is its job, not a dead end. `oneFormat`: the tool
 // takes many files but only of one format at a time (sequence); it is the
 // pick's option, not any file's (useFormatBlocker).
 export type FormatOptions = {
@@ -104,11 +121,9 @@ export function formatBlock(
   { stills = false, foreign = true }: FormatOptions = {},
   stillWebp = false,
 ): FormatBlock | null {
-  if (stills && stillFormat(file)) return null;
-  if (stillWebp) {
-    return foreign ? { state: "foreign", name: "Still WebP" } : null;
-  }
-  if (fileFormat(file) || !foreign) return null;
+  if ((stills && stillFormat(file)) || !foreign) return null;
+  if (stillWebp) return { state: "foreign", name: "Still WebP" };
+  if (fileFormat(file)) return null;
   const ext = extensionOf(file.name);
   return { state: "foreign", name: ext ? ext.toUpperCase() : "This" };
 }
@@ -154,7 +169,8 @@ export function pickedFormats(files: readonly File[]): string[] {
 export function formatBlocker(
   file: File,
   options?: FormatOptions,
+  stillWebp = false,
 ): string | null {
-  const block = formatBlock(file, options);
+  const block = formatBlock(file, options, stillWebp);
   return block && blockerText(block).short;
 }

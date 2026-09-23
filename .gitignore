@@ -12,3 +12,4 @@ scripts/smoke-assets/*
 
 .vercel
 .env*
+*.tsbuildinfo

@@ -29,7 +29,10 @@ const NEEDS = {
     "libwebp", "libwebp_anim", "mjpeg", "png",
   ],
   muxers: ["mp4", "webm", "avif", "webp", "image2", "framecrc", "null"],
-  demuxers: ["concat", "image2"],
+  demuxers: ["concat", "image2", "webp_anim"],
+  // What the sources are read with where a build could lack it: animated
+  // WebP has a decoder of its own (source.ts goes by its demuxer)
+  decoders: ["webp", "webp_anim"],
   // lavfi, which the smoke run synthesizes its inputs through, is a device
   devices: ["lavfi"],
   filters: [
@@ -56,7 +59,8 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
   const problems = [];
   const found = ffmpegVersion(ffmpeg);
   // BtbN builds say "n8.1.3-20260922", a branch head "n9.0.2-3-ga5923073bf-…".
-  if (version && !found.replace(/^n/, "").startsWith(version)) {
+  const bare = found.replace(/^n/, "");
+  if (version && !(bare === version || bare.startsWith(`${version}-`))) {
     problems.push(`version ${found}, ffmpeg.json pins ${version}`);
   }
   for (const [kind, names] of Object.entries(NEEDS)) {

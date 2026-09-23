@@ -90,8 +90,9 @@ const CASES = {
   "loop-reverse-webm-source": { tool: "loop", files: ["webm"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2, minRatio: 0.8 } },
   // A few dozen kB, where the container counts and libaom holds its one-pass
   // rate only loosely: more headroom than the other reverse loops get.
-  // No frame count: libwebp_anim merges the two identical frames where the
-  // palindrome turns (one frame, twice as long), so a WebP has one fewer.
+  // No frame count for a WebP result: libwebp_anim merges identical frames
+  // in a row (one frame, twice as long), such as the two where the
+  // palindrome turns, or a hold in real footage.
   "loop-reverse-webp-source": { tool: "loop", files: ["animwebp"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", maxRatio: 2.2 } },
   "loop-reverse-avif-source": { tool: "loop", files: ["avif"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.5 } },
   "loop-reject-mkv-source": { tool: "loop", files: ["mkv"], options: { technique: "reverse", quality: 100 }, expect: { errorCode: "unsupported-source" } },
@@ -126,14 +127,15 @@ const CASES = {
   "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 0.6 } },
   "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 2.2 } },
   "speed-gif-source": { tool: "speed", files: ["animation"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 } },
-  // Every frame stays and only the delays change; lossy stays lossy (the
-  // speed tool runs at 100, which is lossless only for a lossless source).
-  "speed-webp-source": { tool: "speed", files: ["animwebp"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.3 } },
-  "speed-webp-lossless-source": { tool: "speed", files: ["animwebp-lossless"], options: { speed: -1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 } },
+  // Only the delays change; lossy stays lossy (the speed tool runs at 100,
+  // which is lossless only for a lossless source). No frame counts: see
+  // loop-reverse-webp-source.
+  "speed-webp-source": { tool: "speed", files: ["animwebp"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 1.3 } },
+  "speed-webp-lossless-source": { tool: "speed", files: ["animwebp-lossless"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 1.2 } },
   "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: false, quality: 90 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
-  "mark-glass-webp-anim-source": { tool: "mark", files: ["animwebp", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-glass-webp-anim-source": { tool: "mark", files: ["animwebp", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2 } },
   "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: false, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   // Stills come back as the image they are. A PNG is lossless both ways; a
   // JPEG or lossy WebP is held to its source's size (encode/still.ts), which

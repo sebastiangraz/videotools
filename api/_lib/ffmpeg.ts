@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import { InputError } from "./errors.js";
 
 // Only `cwd` is ever passed through to spawn.
 type RunOptions = { cwd?: string };
@@ -224,18 +225,28 @@ export class FFmpeg {
       inputFile,
     ]);
     const info = parseSourceProfile(stderr);
+    // A WebP is the one image the client passes on unchecked (it can't tell
+    // a damaged one), so its failure is the user's to hear about.
+    if (!info && /^Input #0, webp_(pipe|anim),/m.test(stderr)) {
+      throw new InputError("This WebP file can't be read.", "unreadable-source");
+    }
     if (!info) throw new Error(`Could not read media info: ${stderr.trim()}`);
-    this.infoCache.set(inputFile, info);
     // The animated WebP demuxer prints "Duration: N/A": the length is the
     // sum of the frames' delays, which the packet listing has.
     if (!info.duration && info.formatNames.includes("webp_anim")) {
-      const packets = await this.videoPackets(inputFile);
-      if (packets) {
-        const start = Math.min(...packets.map((p) => p.time));
-        const end = Math.max(...packets.map((p) => p.time + p.duration));
-        info.duration = end - start;
+      const packets = await this.listPackets(inputFile, info.videoIndex);
+      if (!packets) {
+        throw new InputError("This WebP file can't be read.", "unreadable-source");
       }
+      let start = Infinity;
+      let end = 0;
+      for (const p of packets) {
+        start = Math.min(start, p.time);
+        end = Math.max(end, p.time + p.duration);
+      }
+      info.duration = end - start;
     }
+    this.infoCache.set(inputFile, info);
     return info;
   }
 
@@ -272,6 +283,15 @@ export class FFmpeg {
   // Null when the stream cannot be listed.
   async videoPackets(inputFile: string): Promise<VideoPacket[] | null> {
     const { videoIndex } = await this.mediaInfo(inputFile);
+    return this.listPackets(inputFile, videoIndex);
+  }
+
+  // videoPackets, of the stream given: what mediaInfo measures a length
+  // from, before there is a profile to ask.
+  private async listPackets(
+    inputFile: string,
+    videoIndex: number,
+  ): Promise<VideoPacket[] | null> {
     const { code, stdout } = await this.run(this.ffmpeg, [
       "-hide_banner",
       "-loglevel",

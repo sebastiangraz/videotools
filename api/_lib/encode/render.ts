@@ -1,4 +1,11 @@
+import fs from "node:fs/promises";
+import type { FormatId } from "../../../shared/formats.js";
 import type { Source } from "../source.js";
+
+// How long the encoders that retry (gif.ts, webp.ts) may keep at it: the
+// run has to stay inside the function's 300s (vercel.json), with room to
+// upload the result.
+export const TIME_BUDGET_MS = 240_000;
 
 // What a tool asks the output stage to encode: the pictures, not the format.
 // A tool describes its transformation as ffmpeg inputs plus a filtergraph and
@@ -74,7 +81,8 @@ export function sourceRender(source: Source, extra: Partial<Render> = {}): Rende
 // the encoder's own `chain` (frame rate, scaling: what its format needs).
 // A plain source stays the plain `-vf` command. `pixFmt` is the format the
 // encoder writes; a palindrome converts to it before buffering the reversed
-// half, so that buffer holds 1.5 bytes a pixel (yuv420p) and not RGBA's 4.
+// half, so that buffer holds 1.5 bytes a pixel (yuv420p) and not RGBA's 4
+// wherever the format has no alpha to keep (WebP's bgra does).
 export function graphArgs(
   render: Render,
   chain: string[],
@@ -121,4 +129,24 @@ export function audioArgs(
   const codec = render.source?.profile.audio?.codec;
   const copy = codec !== undefined && fits.includes(codec);
   return [...mapped, ...(copy ? ["-c:a", "copy"] : encode)];
+}
+
+// What a result may weigh when it went in as the same frame-list format,
+// which has no rate control (GIF, WebP): what its source weighed, by the
+// frame (a sped-up one keeps all of its frames), times `share`, plus a tenth
+// for what a tool adds. Null for any other source: a GIF of a video is never
+// the video's size.
+export async function sourceBytesBudget(
+  render: Render,
+  format: FormatId,
+  frames: number,
+  share = 1,
+): Promise<number | null> {
+  const { source } = render;
+  if (source?.format !== format) return null;
+  const { duration, fps } = source.profile;
+  const sourceFrames = Math.round(duration * (fps ?? 0));
+  if (sourceFrames < 1) return null;
+  const { size } = await fs.stat(source.path);
+  return size * (frames / sourceFrames) * share * 1.1;
 }
