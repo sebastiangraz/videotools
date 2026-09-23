@@ -1,33 +1,12 @@
 import type { MediaInfo } from "../ffmpeg.js";
 
-// The pure half of the mark tool: where the logo goes and the filtergraph
-// that puts it there. No I/O, so the tests drive it directly.
-
-// A rectangle inside an image, in its pixels.
 export type Bounds = { x: number; y: number; width: number; height: number };
 
-// Watermark layout and look, all relative to the video so the mark reads the
-// same at every resolution. Position is fixed to the bottom-right corner.
-// (Exported for the tests, which check the layout against these values
-// rather than pinning numbers, so tuning them here doesn't break anything.)
 export const MARK = {
-  // Layout (see watermarkLayout). Lengths are fractions of the frame's
-  // "unit", the geometric mean of its width and height, so the mark takes
-  // the same share of a landscape, portrait or square picture. The logo is
-  // measured by its visible pixels (see logoBounds), not its canvas.
-  // Size is an area budget rather than a fitting box: a 1:1 logo is drawn
-  // this fraction of the unit on each side, and every other shape gets the
-  // same area times elongation^elongationGain, where elongation is the long
-  // side over the short one (so wide and tall are treated alike, and no
-  // ratio is special). At gain 0 every logo covers the same area; at 1
-  // every logo has the same short side (all logotypes one height, however
-  // long). In between, elongated logos, which are mostly thin strokes and
-  // gaps, gain some area so they don't read lighter than a dense square.
+  // Layout (see watermarkLayout). Lengths are fractions of the frame's "unit", the geometric mean of its width and height, so the mark takes the same share of a landscape, portrait or square picture. The logo is measured by its visible pixels (see logoBounds), not its canvas. Size is an area budget rather than a fitting box: a 1:1 logo is drawn this fraction of the unit on each side, and every other shape gets the same area times elongation^elongationGain, where elongation is the long side over the short one (so wide and tall are treated alike, and no ratio is special). At gain 0 every logo covers the same area; at 1 every logo has the same short side (all logotypes one height, however long). In between, elongated logos, which are mostly thin strokes and gaps, gain some area so they don't read lighter than a dense square.
   sizeRatio: 0.064,
   elongationGain: 0.5,
-  // Safety bound for banner-like logos (and wide ones on portrait video):
-  // neither side is drawn past this fraction of the frame's matching side.
-  // A third still clears a 4:1 logotype on portrait video.
+  // Safety bound for banner-like logos (and wide ones on portrait video): neither side is drawn past this fraction of the frame's matching side. A third still clears a 4:1 logotype on portrait video.
   maxSpan: 0.33,
   // The gap to the frame edges, a fraction of the unit and the same for
   // every logo: sizes are already evened out, so nothing about the shape
@@ -130,8 +109,7 @@ export function watermarkLayout(
 
   const aspect = bounds.width / bounds.height;
   const elongation = Math.max(aspect, 1 / aspect);
-  const area =
-    (unit * MARK.sizeRatio) ** 2 * elongation ** MARK.elongationGain;
+  const area = (unit * MARK.sizeRatio) ** 2 * elongation ** MARK.elongationGain;
   const w = Math.sqrt(area * aspect);
   const h = Math.sqrt(area / aspect);
   const clamp = Math.min(1, (MARK.maxSpan * VW) / w, (MARK.maxSpan * VH) / h);
@@ -173,10 +151,7 @@ export function watermarkGraph(
     pad = "[0:v]",
   }: { base?: "yuv420p" | "rgba"; pad?: string } = {},
 ): string {
-  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
-    video,
-    bounds,
-  );
+  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(video, bounds);
   const shorter = Math.min(VW, VH);
   // The logo cut down to its visible pixels, which is what the layout
   // measured; nothing to cut when they fill the canvas.
@@ -417,7 +392,11 @@ export function watermarkGraph(
 //     y2:239 w:300 h:80 crop=300:80:50:160 drawbox=50:160:300:80
 // A logo with nothing visible logs no coordinates; the bounds are then the
 // whole image.
-export function parseBounds(log: string, width: number, height: number): Bounds {
+export function parseBounds(
+  log: string,
+  width: number,
+  height: number,
+): Bounds {
   const m = / x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/.exec(log);
   const [x1, x2, y1, y2] = (m ?? []).slice(1).map(Number);
   if (!m || x2 < x1 || y2 < y1 || x2 >= width || y2 >= height) {
