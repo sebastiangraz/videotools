@@ -129,10 +129,7 @@ describe("Convert", () => {
     expect(processBody.options).toEqual({ target: "webm", quality: 100 });
   });
 
-  // The other tools hand their source's format back, so one in none of the
-  // app's is a dead end they send here. Here it is the job: no message, no
-  // blocker, and every target on offer.
-  it("takes a source in a format of no tool's and offers the full target list", async () => {
+  it("accepts a format the app does not write, with no blocker and every target", async () => {
     const user = userEvent.setup();
 
     await renderApp("/convert");
