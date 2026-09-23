@@ -52,6 +52,9 @@ const smokeDir = path.join(root, ".smoke");
 //                                      sources in the other video formats
 //   avif       —                       the first two seconds of `video` as
 //                                      a small source.avif (AV1 is slow)
+//   slides     —                       three frames of `video` a second
+//                                      apart as slides.avif, at 1 fps: the
+//                                      AVIF a slideshow is
 //   animwebp,  —                       the first two seconds of `video` as
 //   animwebp-                          animated WebPs: anim.webp (lossy)
 //   lossless                           and anim-lossless.webp
@@ -139,6 +142,12 @@ const CASES = {
   // loop-reverse-webp-source.
   "speed-webp-source": { tool: "speed", files: ["animwebp"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 1.3 } },
   "speed-webp-lossless-source": { tool: "speed", files: ["animwebp-lossless"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 1.2 } },
+  // An AVIF is a frame list too: every frame stays, at the source's bytes
+  // (a speed-up once dropped a third of a slideshow's frames and gave the
+  // rest half their bits, a quarter of the size and visibly worse).
+  "speed-avif-source": { tool: "speed", files: ["avif"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
+  "speed-avif-slides": { tool: "speed", files: ["slides"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
+  "speed-slower-avif-slides": { tool: "speed", files: ["slides"], options: { speed: -1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
   "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: false, quality: 90 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
@@ -327,6 +336,13 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("source.avif"),
   );
   assets.avif = [made("source.avif")];
+  ff(
+    "-i", video, "-t", "3",
+    "-vf", "fps=1,scale=320:-2",
+    "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "8", "-row-mt", "1",
+    "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("slides.avif"),
+  );
+  assets.slides = [made("slides.avif")];
   const animWebp = (name, ...codec) => {
     ff(
       "-i", video, "-t", "2", "-vf", "fps=10,scale=160:-2",

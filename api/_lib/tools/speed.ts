@@ -1,4 +1,5 @@
 import { encodePreserved } from "../encode/index.js";
+import { MAX_AVIF_FPS } from "../encode/avif.js";
 import { MAX_GIF_FPS } from "../encode/gif.js";
 import { MAX_WEBP_FPS } from "../encode/webp.js";
 import {
@@ -16,15 +17,18 @@ import type { Tool } from "./types.js";
 export function changeSpeed(source: Source, multiplier: number): Render {
   const sourceFps = source.profile.fps ?? 30;
   // Video keeps its frame rate: speed-ups drop frames (rather than raising
-  // the rate past what screens show) and slow-downs repeat them. A GIF or
-  // WebP is a list of frames with delays, so there the delays change and
-  // every frame stays, up to the 50 a second either can show.
+  // the rate past what screens show) and slow-downs repeat them. A GIF,
+  // WebP or AVIF is a list of frames with delays (a slideshow's AVIF holds
+  // three pictures a second apart), so there the delays change and every
+  // frame stays, up to what the format can show.
   const maxFps =
     source.format === "gif"
       ? MAX_GIF_FPS
       : source.format === "webp"
         ? MAX_WEBP_FPS
-        : null;
+        : source.format === "avif"
+          ? MAX_AVIF_FPS
+          : null;
   const fps =
     maxFps === null ? sourceFps : Math.min(sourceFps * multiplier, maxFps);
   return sourceRender(source, {
@@ -33,6 +37,8 @@ export function changeSpeed(source: Source, multiplier: number): Render {
     keepAudio: false,
     duration: source.profile.duration / multiplier,
     fps,
+    // The frames that stay go by this much faster, and keep their bits.
+    pace: fps / sourceFps,
   });
 }
 

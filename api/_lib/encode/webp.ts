@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import type { Source } from "../source.js";
 import type { Encoder } from "./index.js";
-import { TIME_BUDGET_MS, graphArgs, sourceBytesBudget } from "./render.js";
+import { encodeWithinBudget, graphArgs, sourceBytesBudget } from "./render.js";
 
 // A frame's delay is whole milliseconds, but browsers slow anything under
 // 20 down, as they do a GIF's: 50 is the most frames a second it can show.
@@ -135,10 +135,7 @@ export const encodeWebp: Encoder = async (
     return;
   }
 
-  // Each try is written next to the result and kept only if it is better:
-  // the finest one that fits, or failing that the smallest one yet.
-  const tryFile = `${outputFile}.try.webp`;
-  const encode = (level: number, to = outputFile) =>
+  const encode = (level: number, to: string) =>
     ff.runFFmpeg([
       ...input,
       "-c:v",
@@ -156,46 +153,20 @@ export const encodeWebp: Encoder = async (
       "-an",
       to,
     ]);
-  const levels = webpLevels(quality);
-  const budget = await sourceBytesBudget(
-    render,
-    "webp",
-    render.duration * render.fps,
-    quality / 100,
-  );
-  let started = Date.now();
-  await encode(levels[0]);
-  const fits = async (file: string) =>
-    (await fs.stat(file)).size <= (budget ?? Infinity);
-  if (await fits(outputFile)) return;
-
   // libwebp has no rate control, and at the slider's top its finest setting
   // encodes a lossy source's artifacts as detail (it came to over twice the
   // source's bytes a frame). So a result over its source's ceiling is
-  // encoded again coarser, bisecting the settings the slider has left, while
-  // the function's time allows (a try costs about what the last one did).
-  // `over` is the coarsest setting known to be too big, `pick` the finest
-  // one that may fit.
-  let over = 0;
-  let pick = levels.length - 1;
-  let fitted = false;
-  while (pick - over > 1) {
-    const took = Date.now() - started;
-    if (Date.now() - ff.startedAt + took > TIME_BUDGET_MS) break;
-    const middle = Math.floor((over + pick) / 2);
-    started = Date.now();
-    await encode(levels[middle], tryFile);
-    const fit = await fits(tryFile);
-    if (fit) pick = middle;
-    else over = middle;
-    // A try that fits is finer than any before it that did; one that
-    // doesn't is coarser, so smaller, than everything tried so far.
-    if (fit || !fitted) await fs.rename(tryFile, outputFile);
-    fitted ||= fit;
-  }
-  await fs.rm(tryFile, { force: true });
-  console.log(
-    `Over the ${Math.round(budget ?? 0)} bytes its source allows at ` +
-      `${levels[0]}: settled on ${fitted ? levels[pick] : levels[over]}`,
+  // encoded again coarser (encodeWithinBudget).
+  await encodeWithinBudget(
+    ff,
+    outputFile,
+    webpLevels(quality),
+    encode,
+    await sourceBytesBudget(
+      render,
+      "webp",
+      render.duration * render.fps,
+      quality / 100,
+    ),
   );
 };
