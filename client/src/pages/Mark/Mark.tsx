@@ -215,7 +215,7 @@ export const Mark = () => {
             }
             value={quality}
             onValueChange={setQuality}
-            min={1}
+            min={0}
             max={100}
             step={1}
             disabled={run.busy}
