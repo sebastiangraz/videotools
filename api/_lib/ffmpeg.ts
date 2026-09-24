@@ -12,6 +12,8 @@ type RunResult = { code: number | null; stdout: string; stderr: string };
 // `matrix` is the YUV↔RGB matrix the stream is tagged with, in the scale
 // filter's names; RGB inputs (PNG, GIF) count as bt601, which is what their
 // conversion to YUV produces, and null means an untagged YUV stream.
+// `sar` is a pixel's width over its height; 1 where none is set, which
+// ffmpeg reads as square.
 export type MediaInfo = {
   duration: number;
   width: number;
@@ -19,6 +21,7 @@ export type MediaInfo = {
   fps: number | null;
   codec: string;
   matrix: "bt709" | "bt601" | "bt2020" | null;
+  sar: number;
 };
 
 // The video stream to work on, and its place among the file's video streams
@@ -80,6 +83,11 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
     fields.map((f) => /^([\d.]+) tbr\b/.exec(f)).find(Boolean);
   const fps = rate ? parseFloat(rate[1]) : NaN;
 
+  // The codec's own ratio is in the WxH field's brackets; a container that
+  // sets another prints it after them, and that one is what ffmpeg goes by.
+  const ratios = [...video.matchAll(/\bSAR (\d+):(\d+)/g)];
+  const [, num = 0, den = 0] = ratios.at(-1)?.map(Number) ?? [];
+
   const dur = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(summary);
   const duration = dur
     ? Number(dur[1]) * 3600 + Number(dur[2]) * 60 + Number(dur[3])
@@ -92,6 +100,7 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
     fps: Number.isFinite(fps) && fps > 0 ? fps : null,
     codec,
     matrix,
+    sar: num && den ? num / den : 1,
   };
 }
 

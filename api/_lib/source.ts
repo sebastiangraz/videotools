@@ -64,6 +64,21 @@ export function sourceStill(profile: SourceProfile): StillId | null {
   return jpeg && codec === "mjpeg" ? "jpg" : null;
 }
 
+// Refuses a video with non-square pixels (an anamorphic export): GIF, WebP
+// and AVIF would show it as stored, and the mark tool draws on it that way.
+// Stills and animations are shown as stored anyway, whatever the tag says.
+export function checkSquarePixels({ format, still, profile }: Source): void {
+  if (still || (format && formatById(format).kind === "animation")) return;
+  const { sar, width, height } = profile;
+  if (sar === 1) return;
+  throw new InputError(
+    `This video has non-square pixels: it is stored at ${width}×${height} ` +
+      `but plays at ${Math.round(width * sar)}×${height}. Re-export it with ` +
+      `square pixels (in HandBrake: Dimensions → Anamorphic: None).`,
+    "unsupported-source",
+  );
+}
+
 // Downloads an upload into the job's work dir and probes it.
 export async function openSource(
   { ff, workDir, download }: Pick<ToolJob, "ff" | "workDir" | "download">,
@@ -73,12 +88,14 @@ export async function openSource(
   const file = path.join(workDir, `${name}${blobExt(url, ".mp4")}`);
   await download(url, file);
   const profile = await ff.mediaInfo(file);
-  return {
+  const source = {
     path: file,
     profile,
     format: sourceFormat(profile),
     still: sourceStill(profile),
   };
+  checkSquarePixels(source);
+  return source;
 }
 
 // The format a tool that keeps its source's format has to write. There is

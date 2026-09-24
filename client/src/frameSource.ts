@@ -14,6 +14,9 @@ export interface FrameSource {
   duration(): Promise<number>;
   // The frame on screen at `second`; past the end, the last one.
   frameAt(second: number): Promise<Frame>;
+  // Whether the pixels aren't square: stored at another shape than they play
+  // at. Videos only, where the browser has VideoFrame to tell.
+  nonSquare?(): boolean;
   close(): void;
 }
 
@@ -67,6 +70,20 @@ const openVideo = async (file: File): Promise<FrameSource> => {
         height: video.videoHeight,
         close: () => {},
       };
+    },
+    nonSquare: () => {
+      if (typeof VideoFrame === "undefined") return false;
+      try {
+        const frame = new VideoFrame(video);
+        const stored = frame.visibleRect;
+        frame.close();
+        return (
+          !!stored &&
+          stored.width * video.videoHeight !== video.videoWidth * stored.height
+        );
+      } catch {
+        return false;
+      }
     },
     close,
   };

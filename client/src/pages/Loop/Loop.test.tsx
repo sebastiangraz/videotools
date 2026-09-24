@@ -14,6 +14,7 @@ import {
   stubImageDecoder,
   stubMediaLoading,
   stubProperties,
+  stubVideoFrame,
   webpFile,
   type FakeFrame,
 } from "../../test/media";
@@ -251,6 +252,42 @@ describe("Loop", () => {
       "aria-disabled",
       "false",
     );
+  });
+
+  // Played at 1710×1710, stored at `stored`.
+  const pickVideo = async (stored: [number, number]) => {
+    stubMediaLoading("decodes");
+    stubProperties(HTMLVideoElement.prototype, {
+      videoWidth: { get: () => 1710 },
+      videoHeight: { get: () => 1710 },
+    });
+    stubVideoFrame(...stored);
+    const user = userEvent.setup();
+    await renderApp();
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mp4", { type: "video/mp4" }),
+    );
+    return user;
+  };
+
+  it("refuses a video with non-square pixels, before any upload", async () => {
+    const user = await pickVideo([1710, 1080]);
+
+    const message = await screen.findByRole("alert");
+    expect(message).toHaveTextContent(/non-square pixels/i);
+    const button = screen.getByRole("button", { name: /^loop$/i });
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    await user.click(button);
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it("takes a video with square pixels", async () => {
+    await pickVideo([1710, 1710]);
+
+    const button = screen.getByRole("button", { name: /^loop$/i });
+    await waitFor(() => expect(button).toHaveAttribute("aria-disabled", "false"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("sends a format the app doesn't write through convert, before any upload", async () => {

@@ -98,7 +98,11 @@ export type FormatBlock =
   // A pick of more than one format (sequence), which ffmpeg reads through one
   // image demuxer: frames come back blank or missing. `labels` are the
   // formats picked (pickedFormats).
-  | { state: "mixed"; labels: string[] };
+  | { state: "mixed"; labels: string[] }
+  // A video with non-square pixels (an anamorphic export), which GIF, WebP
+  // and AVIF can't show in shape. Not the file's format: the browser sees it
+  // once the video opens (useVideoSource).
+  | { state: "nonSquare" };
 
 // `stills`: the tool takes raster images too (mark), so a file that is one
 // goes through. `foreign`: false for a tool that is asked for a format
@@ -148,6 +152,11 @@ export function blockerText(block: FormatBlock): BlockerText {
       return {
         short: "Use images of one format",
         long: "Mixed formats are not supported.",
+      };
+    case "nonSquare":
+      return {
+        short: "Re-export with square pixels",
+        long: "Non-square pixels are not supported.",
       };
   }
 }

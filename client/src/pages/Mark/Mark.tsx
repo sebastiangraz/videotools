@@ -26,7 +26,11 @@ export const Mark = () => {
   const source = useVideoSource();
   // The one tool that takes stills as well: a PNG, JPEG or WebP (still or
   // animated) comes back marked as the image it is.
-  const formatBlocker = useFormatBlocker(source.file, { stills: true });
+  const formatBlocker = useFormatBlocker(
+    source.file,
+    { stills: true },
+    source.nonSquare,
+  );
   // The logo, and its frosted-glass switch.
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");

@@ -30,10 +30,12 @@ import { useMessage } from "./useMessage";
 // no format for: they are in a moment after the pick, long before a run
 // could be. `foreign` (sourceFormat.ts): false where the tool is asked for a
 // format rather than keeping its source's (sequence). `oneFormat`: the pick
-// must not mix formats (sequence).
+// must not mix formats (sequence). `nonSquare`: the picked video has
+// non-square pixels (useVideoSource), which no tool takes, whatever it allows.
 export const useFormatBlocker = (
   source: File | File[] | null,
   { stills = false, foreign = true, oneFormat = false }: FormatOptions = {},
+  nonSquare = false,
 ): string | null => {
   const files = useMemo(
     () => (source === null ? [] : Array.isArray(source) ? source : [source]),
@@ -67,12 +69,13 @@ export const useFormatBlocker = (
     const labels = pickedFormats(files);
     return labels.length > 1 ? { state: "mixed", labels } : null;
   };
-  const block =
-    files
-      .map((file) =>
-        formatBlock(file, { stills, foreign }, stillWebps.includes(file)),
-      )
-      .find(Boolean) ?? mixed();
+  const block: FormatBlock | null = nonSquare
+    ? { state: "nonSquare" }
+    : (files
+        .map((file) =>
+          formatBlock(file, { stills, foreign }, stillWebps.includes(file)),
+        )
+        .find(Boolean) ?? mixed());
 
   const text = block && blockerText(block);
   // Plain text, except a foreign file: its line stops before "converted", and

@@ -100,6 +100,21 @@ export const stubImageDecoder = (frameCount: number, frameMs: number) => {
   });
 };
 
+// A VideoFrame off a <video> that is stored at `width`×`height`, whatever
+// size the element says it plays at.
+export const stubVideoFrame = (width: number, height: number) => {
+  vi.stubGlobal(
+    "VideoFrame",
+    class {
+      visibleRect = { width, height };
+      close() {}
+    },
+  );
+  onTestFinished(() => {
+    Reflect.deleteProperty(globalThis, "VideoFrame");
+  });
+};
+
 // A picked WebP: its header as far as the animation flag, which is all that
 // is read of it ("RIFF" size "WEBP" "VP8X" size flags; animation is bit 1).
 export const webpFile = (name: string, animated: boolean) =>

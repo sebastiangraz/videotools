@@ -166,6 +166,7 @@ describe("watermarkGraph", () => {
     fps: null,
     codec,
     matrix: null,
+    sar: 1,
   });
   const video = info(1920, 1080, "h264");
   const logo = info(400, 400, "png");

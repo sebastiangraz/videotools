@@ -12,6 +12,7 @@ const profile = (fps: number): SourceProfile => ({
   fps,
   codec: "av1",
   matrix: null,
+  sar: 1,
   videoIndex: 0,
   formatNames: [],
   majorBrand: null,

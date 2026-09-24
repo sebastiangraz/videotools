@@ -61,6 +61,9 @@ const smokeDir = path.join(root, ".smoke");
 //   mkv        —                       `video` remuxed to reject.mkv, a
 //                                      container the app reads but never
 //                                      writes
+//   anamorphic —                       two seconds of `video` as
+//                                      reject-anamorphic.mp4, its pixels
+//                                      tagged 4:3: a video the app refuses
 //   png, jpg,  —                       the first frame of `video` as still.png,
 //   webp                               still.jpg and still.webp (lossy): the
 //                                      mark tool's still sources
@@ -134,6 +137,7 @@ const CASES = {
   "convert-webp-source": { tool: "convert", files: ["animwebp"], options: { target: "mp4", quality: 90 }, expect: { ext: "mp4", frames: "source" } },
   "convert-gif": { tool: "convert", files: ["video"], options: { target: "gif", quality: 90, width: 200 }, expect: { ext: "gif" } },
   "convert-gif-fps": { tool: "convert", files: ["video"], options: { target: "gif", quality: 70, fps: 10, width: 160 }, expect: { ext: "gif" } },
+  "convert-reject-anamorphic-source": { tool: "convert", files: ["anamorphic"], options: { target: "gif", quality: 90 }, expect: { errorCode: "unsupported-source" } },
   "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 0.6 } },
   "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 2.2 } },
   "speed-gif-source": { tool: "speed", files: ["animation"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 } },
@@ -323,6 +327,12 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   };
   assets.mov = remux("source.mov");
   assets.mkv = remux("reject.mkv", "-map", "0:v:0");
+  ff(
+    "-i", video, "-t", "2", "-vf", "scale=160:-2,setsar=4/3",
+    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-an",
+    made("reject-anamorphic.mp4"),
+  );
+  assets.anamorphic = [made("reject-anamorphic.mp4")];
   ff(
     "-i", video,
     "-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-cpu-used", "5", "-row-mt", "1",

@@ -2,7 +2,13 @@
 import { describe, expect, it } from "vitest";
 import { parseSourceProfile, type SourceProfile } from "./ffmpeg.js";
 import { InputError } from "./errors.js";
-import { preservedFormat, sourceFormat, sourceStill } from "./source.js";
+import {
+  checkSquarePixels,
+  preservedFormat,
+  type Source,
+  sourceFormat,
+  sourceStill,
+} from "./source.js";
 
 // `ffmpeg -i` summaries of real files, one per kind of source (the AVIF
 // from 9.0.2, the rest from 6.1.1: 9.0 prints those lines alike).
@@ -14,6 +20,12 @@ const SUMMARIES = {
   Duration: 00:00:05.03, start: 0.000000, bitrate: 3050 kb/s
   Stream #0:0[0x1](eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1600x1080, 2723 kb/s, 30 fps, 30 tbr, 30k tbn (default)
   Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 317 kb/s (default)`,
+  // A HandBrake export with anamorphic output left on: played 1080×1080.
+  anamorphic: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'video.mp4':
+  Metadata:
+    major_brand     : mp42
+  Duration: 00:00:10.02, start: 0.000000, bitrate: 784 kb/s
+  Stream #0:0[0x1](und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1710x1080 [SAR 12:19 DAR 1:1], 778 kb/s, 60 fps, 60 tbr, 90k tbn (default)`,
   mov: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'source.mov':
   Metadata:
     major_brand     : qt${"  "}
@@ -208,5 +220,40 @@ describe("preservedFormat", () => {
     expect(
       preservedFormat({ path: "/work/input.gif", profile: profile("gif"), format: "gif", still: null }),
     ).toBe("gif");
+  });
+});
+
+describe("checkSquarePixels", () => {
+  const source = (kind: keyof typeof SUMMARIES): Source => {
+    const p = profile(kind);
+    return { path: "/work/input", profile: p, format: sourceFormat(p), still: sourceStill(p) };
+  };
+
+  it("refuses an anamorphic video, saying the size it plays at", () => {
+    expect(() => checkSquarePixels(source("anamorphic"))).toThrowError(
+      /stored at 1710×1080 but plays at 1080×1080/,
+    );
+    try {
+      checkSquarePixels(source("anamorphic"));
+    } catch (err) {
+      expect((err as InputError).code).toBe("unsupported-source");
+    }
+  });
+
+  it("goes by the container's ratio over the codec's", () => {
+    expect(() => checkSquarePixels(source("3gp"))).not.toThrow();
+  });
+
+  it.each(["mp4", "webm", "gif", "avif", "png", "jpg"] as const)(
+    "takes %s content with square or unset pixels",
+    (kind) => {
+      expect(() => checkSquarePixels(source(kind))).not.toThrow();
+    },
+  );
+
+  it("leaves an animation's ratio alone: browsers show it as stored", () => {
+    const gif = source("gif");
+    gif.profile.sar = 12 / 19;
+    expect(() => checkSquarePixels(gif)).not.toThrow();
   });
 });
