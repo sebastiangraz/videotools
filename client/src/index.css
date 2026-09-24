@@ -96,7 +96,7 @@
 
 body {
   margin: 0;
-  font-family: var(--font-sans), monospace, menlo, monaco;
+  font-family: var(--font-sans), menlo, monaco, monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -126,6 +126,7 @@ button {
   font-family: inherit;
   text-transform: inherit;
   font-size: 10px;
+  /* eslint-disable-next-line css/no-invalid-properties */
   min-height: var(--quantize);
   &:focus-visible {
     outline: 1px solid var(--border);
