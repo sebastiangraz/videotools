@@ -6,6 +6,11 @@
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   min-height: 2.5rem;
+  &:disabled,
+  &[data-disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 }
 
 .input {
