@@ -1,0 +1,62 @@
+.root {
+  display: flex;
+  box-sizing: border-box;
+  min-height: 2.5rem;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  background-color: var(--bg-1);
+
+  &[data-disabled] {
+    opacity: 0.4;
+  }
+}
+
+.item {
+  flex: 1;
+  appearance: none;
+  margin: 0;
+  padding: 0 1em;
+  border: 0;
+  border-radius: calc(var(--radius) - 3px - 1px);
+  corner-shape: superellipse(1.45);
+  background: none;
+  font: inherit;
+  font-size: 10px;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    color: var(--fg);
+  }
+
+  &[data-pressed] {
+    background-color: var(--fg-tertiary);
+    color: var(--fg);
+  }
+
+  :root[data-theme-invert] &[data-pressed] {
+    background-color: var(--fg-secondary);
+    color: var(--bg);
+  }
+
+  &[data-disabled] {
+    cursor: not-allowed;
+  }
+
+  &[data-disabled]:hover:not([data-pressed]) {
+    color: var(--fg-secondary);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--border);
+    outline-offset: 3px;
+  }
+}

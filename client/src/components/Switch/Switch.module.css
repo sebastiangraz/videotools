@@ -10,7 +10,7 @@
   width: var(--track-w);
   height: var(--track-h);
   padding: var(--pad);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
   border-radius: calc(var(--track-h) / 3);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);

@@ -6,6 +6,7 @@ import { NumberField } from "../../components/NumberField/NumberField";
 import { Select } from "../../components/Select/Select";
 import { Slider } from "../../components/Slider/Slider";
 import { Switch } from "../../components/Switch/Switch";
+import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import form from "../form.module.css";
 
@@ -15,6 +16,12 @@ const OPTIONS = [
   { value: "three", label: "Three" },
 ];
 
+const TOGGLE_OPTIONS = [
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+  { value: "auto", label: "Auto" },
+];
+
 // A scratch page for the shared components, outside any tool (dev only, see
 // pages/site.ts). The disabled switch turns every control off at once.
 export const Test = () => {
@@ -22,6 +29,7 @@ export const Test = () => {
   const [message, setMessage] = useState(false);
   const [error, setError] = useState(false);
   const [option, setOption] = useState("one");
+  const [toggle, setToggle] = useState("on");
   const [number, setNumber] = useState<number | null>(1.5);
   const [slider, setSlider] = useState(50);
   const [centered, setCentered] = useState(0);
@@ -102,6 +110,19 @@ export const Test = () => {
             disabled={disabled}
           />
         </div>
+      </div>
+
+      <div className={form.formGroup}>
+        <span id="toggle-group" className={form.label}>
+          Toggle group
+        </span>
+        <ToggleGroup
+          labelledBy="toggle-group"
+          options={TOGGLE_OPTIONS}
+          value={toggle}
+          onValueChange={setToggle}
+          disabled={disabled}
+        />
       </div>
 
       <div className={form.formGroup}>

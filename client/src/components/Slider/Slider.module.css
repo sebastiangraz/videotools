@@ -69,6 +69,12 @@
   }
 }
 
+:root[data-theme-invert] .thumb {
+  background-image:
+    linear-gradient(to bottom, var(--fg-secondary), var(--fg-secondary)),
+    linear-gradient(to bottom, var(--bg), var(--bg));
+}
+
 .withTicks {
   /* margin-bottom: 0; */
   gap: 1.75em;
