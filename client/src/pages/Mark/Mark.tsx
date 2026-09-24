@@ -5,12 +5,13 @@ import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { Slider } from "../../components/Slider/Slider";
 import { Spinner } from "../../components/Spinner/Spinner";
 import { Switch } from "../../components/Switch/Switch";
+import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import { useMarkPreview } from "./useMarkPreview";
+import { useMarkPreview, type MarkSize } from "./useMarkPreview";
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
@@ -20,6 +21,11 @@ const TOOL = toolById("mark");
 // Watermark images: PNG only. SVG in particular is left out: the server's
 // ffmpeg has no SVG decoder, so export the logo as PNG first.
 const WATERMARK_ACCEPT = "image/png";
+
+const SIZE_OPTIONS: { value: MarkSize; label: string }[] = [
+  { value: "small", label: "Small" },
+  { value: "large", label: "Large" },
+];
 
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
@@ -35,8 +41,9 @@ export const Mark = () => {
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState(false);
+  const [size, setSize] = useState<MarkSize>("large");
   const [quality, setQuality] = useState<number>(100);
-  const preview = useMarkPreview(source.file, watermark, filterMode);
+  const preview = useMarkPreview(source.file, watermark, filterMode, size);
   const [previewZoomed, setPreviewZoomed] = useState(false);
 
   // Object URL for the watermark thumbnail. Revoked when replaced or on
@@ -74,7 +81,7 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, quality },
+        options: { filter: filterMode, size, quality },
       }),
     });
   };
@@ -186,6 +193,19 @@ export const Mark = () => {
           )}
         </Tooltip>
       )}
+
+      <div className={form.formGroup}>
+        <span id="markSize" className={form.label}>
+          Size
+        </span>
+        <ToggleGroup
+          labelledBy="markSize"
+          options={SIZE_OPTIONS}
+          value={size}
+          onValueChange={setSize}
+          disabled={run.busy}
+        />
+      </div>
 
       {/* The glass takes its shape from the logo, so the switch waits
           for one. */}

@@ -55,6 +55,15 @@ export const MARK = {
   logoOpacity: 0.07, //0.45
 };
 
+// The mark's size choice: MARK is tuned as the large one, and the small one
+// is it scaled down. Every length MARK gives as a fraction of the frame (the
+// logo, the gap, the frost, the refraction, the shadow) scales alike, so a
+// small glass is the large one shrunk rather than a heavier-edged one.
+export const MARK_SIZES = { small: 0.6, large: 1 };
+export type MarkSize = keyof typeof MARK_SIZES;
+export const isMarkSize = (value: unknown): value is MarkSize =>
+  typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
+
 // Where the logo goes and how big, from the frame and the logo's visible
 // bounds alone (see MARK for the model). One continuous formula: the
 // logo's aspect ratio sets how an area budget is split between its sides,
@@ -62,6 +71,7 @@ export const MARK = {
 export function watermarkLayout(
   video: { width: number; height: number },
   bounds: { width: number; height: number },
+  size: MarkSize = "large",
 ): {
   VW: number;
   VH: number;
@@ -77,7 +87,7 @@ export function watermarkLayout(
   const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
   const VW = even(video.width);
   const VH = even(video.height);
-  const unit = Math.sqrt(VW * VH);
+  const unit = Math.sqrt(VW * VH) * MARK_SIZES[size];
 
   const aspect = bounds.width / bounds.height;
   const elongation = Math.max(aspect, 1 / aspect);
@@ -113,6 +123,8 @@ export function watermarkLayout(
 //
 // `pad` names the video among the inputs: the first input's first video
 // stream unless the caller knows better (encode/render.ts, videoPad).
+//
+// `size` picks one of MARK_SIZES.
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
@@ -121,10 +133,17 @@ export function watermarkGraph(
   {
     base = "yuv420p",
     pad = "[0:v]",
-  }: { base?: "yuv420p" | "rgba"; pad?: string } = {},
+    size = "large",
+  }: { base?: "yuv420p" | "rgba"; pad?: string; size?: MarkSize } = {},
 ): string {
-  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(video, bounds);
-  const shorter = Math.min(VW, VH);
+  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
+    video,
+    bounds,
+    size,
+  );
+  // The frame's short side, scaled with the mark like the layout's unit:
+  // the glass's frame-relative lengths are measured against it.
+  const shorter = Math.min(VW, VH) * MARK_SIZES[size];
   // The logo cut down to its visible pixels, which is what the layout
   // measured; nothing to cut when they fill the canvas.
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
@@ -177,8 +196,9 @@ export function watermarkGraph(
   const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
   const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
-  // Rim width in px: each erosion pass eats one pixel off the mask.
-  const rimPx = Math.max(1, Math.round(shorter / 720));
+  // Rim width in px: each erosion pass eats one pixel off the mask. (Off
+  // the frame alone: a hairline doesn't shrink with the mark.)
+  const rimPx = Math.max(1, Math.round(Math.min(VW, VH) / 720));
 
   // The lens maps are built at 2× and the refraction runs there: displace
   // moves whole pixels only, so at 1× the bevel would step. Everything

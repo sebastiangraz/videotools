@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { renderWatermarkFrame } from "./_lib/tools/mark.js";
+import { isMarkSize } from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 // Renders the "mark" tool's preview: the browser sends the video's first
@@ -16,7 +17,12 @@ import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 // logos are small, so there is no need for Blob storage here.
 const MAX_BYTES = 8 * 1024 * 1024;
 
-type PreviewBody = { frame?: unknown; logo?: unknown; filter?: unknown };
+type PreviewBody = {
+  frame?: unknown;
+  logo?: unknown;
+  filter?: unknown;
+  size?: unknown;
+};
 
 // Decodes an image data URL into bytes. Null when it isn't one.
 function decodeDataUrl(value: unknown): Uint8Array | null {
@@ -31,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { frame, logo, filter } = (req.body ?? {}) as PreviewBody;
+  const { frame, logo, filter, size } = (req.body ?? {}) as PreviewBody;
   const frameImage = decodeDataUrl(frame);
   const logoImage = decodeDataUrl(logo);
   if (!frameImage || !logoImage) {
@@ -64,6 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       logoPath,
       workDir,
       filter === true,
+      isMarkSize(size) ? size : "large",
     );
 
     res.setHeader("Content-Type", "image/jpeg");

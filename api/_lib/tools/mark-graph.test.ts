@@ -2,6 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   MARK,
+  MARK_SIZES,
   parseBounds,
   watermarkGraph,
   watermarkLayout,
@@ -158,6 +159,30 @@ describe("parseBounds", () => {
   });
 });
 
+describe("watermarkLayout sizes", () => {
+  it("is the large size by default", () => {
+    const bounds = { width: 300, height: 80 };
+    expect(watermarkLayout(UHD, bounds)).toEqual(
+      watermarkLayout(UHD, bounds, "large"),
+    );
+  });
+
+  it("scales the logo and its gap by the size", () => {
+    const square = { width: 1000, height: 1000 };
+    const large = watermarkLayout(UHD, square, "large");
+    const small = watermarkLayout(UHD, square, "small");
+    const scale = MARK_SIZES.small / MARK_SIZES.large;
+    expect(Math.abs(small.LW - large.LW * scale)).toBeLessThanOrEqual(2);
+    expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(
+      1,
+    );
+    expect([small.LX, small.LY]).toEqual([
+      UHD.width - small.margin - small.LW,
+      UHD.height - small.margin - small.LH,
+    ]);
+  });
+});
+
 describe("watermarkGraph", () => {
   const info = (width: number, height: number, codec: string) => ({
     duration: 0,
@@ -209,6 +234,16 @@ describe("watermarkGraph", () => {
       });
       expect(graph).toMatch(/^\[0:v:1\]format=yuv420p/);
       expect(graph).not.toContain("[0:v]");
+    }
+  });
+
+  it("lays the logo out at the size it is given", () => {
+    const l = watermarkLayout(video, logo, "small");
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        size: "small",
+      });
+      expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
     }
   });
 
