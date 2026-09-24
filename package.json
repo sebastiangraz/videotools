@@ -16,8 +16,9 @@
     "build": "npm run build --workspace client",
     "test": "npm run test --workspace client",
     "smoke": "node scripts/smoke.mjs",
-    "postinstall": "node scripts/ffmpeg-install.mjs",
+    "postinstall": "node scripts/binaries-install.mjs",
     "ffmpeg:mirror": "node scripts/ffmpeg-mirror.mjs",
+    "gifski:mirror": "node scripts/gifski-mirror.mjs",
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "typecheck": "tsc -p tsconfig.json",
     "lint:fix": "eslint --flag unstable_native_nodejs_ts_config . --fix"

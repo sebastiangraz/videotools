@@ -1,11 +1,12 @@
 # `vercel deploy` from a working copy uploads everything not listed here
 # (it does not read .gitignore). The build's own `npm install` fetches the
-# pinned ffmpeg, so the local binaries stay behind.
+# pinned ffmpeg and gifski, so the local binaries stay behind.
 node_modules
 dist
 .env*.local
 tmp
 .smoke
 api/_bin/ffmpeg
+api/_bin/gifski/*/
 scripts/smoke-assets/*
 !scripts/smoke-assets/README.md

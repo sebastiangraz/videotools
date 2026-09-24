@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import fs from "node:fs/promises";
 import { InputError } from "./errors.js";
 
 // Only `cwd` is ever passed through to spawn.
@@ -177,7 +176,7 @@ export function parseSourceProfile(output: string): SourceProfile | null {
 
 /**
  * Runs the binaries for one job and probes its inputs: pure-Node ffmpeg
- * (the ffmpeg.json-pinned binary, no shell) plus the vendored gifski. The
+ * (the ffmpeg.json-pinned binary, no shell) plus the pinned gifski. The
  * tools (tools/) and encoders (encode/) are functions that take one of
  * these; it is the only state a job has.
  */
@@ -185,7 +184,6 @@ export class FFmpeg {
   ffmpeg: string;
   gifski: string;
   signal: AbortSignal | null;
-  gifskiChmodDone = false;
   // When the job began: what is left of the function's time limit decides
   // whether an optional second pass is worth starting (encode/gif.ts).
   startedAt = Date.now();
@@ -354,16 +352,7 @@ export class FFmpeg {
     return this.runCommand(this.ffmpeg, args, options);
   }
 
-  async runGifski(args: string[], options: RunOptions = {}): Promise<string> {
-    if (!this.gifski) {
-      throw new Error("gifski binary path not configured");
-    }
-    // The vendored binary's exec bit may not survive a Windows checkout or
-    // the deploy bundling, so restore it before the first spawn.
-    if (process.platform !== "win32" && !this.gifskiChmodDone) {
-      await fs.chmod(this.gifski, 0o755).catch(() => {});
-      this.gifskiChmodDone = true;
-    }
+  runGifski(args: string[], options: RunOptions = {}): Promise<string> {
     return this.runCommand(this.gifski, args, options);
   }
 

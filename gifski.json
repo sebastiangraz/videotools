@@ -1,0 +1,32 @@
+{
+  "version": "1.34.0",
+  "sources": [
+    "https://github.com/ImageOptim/gifski/releases/download/1.34.0/gifski-1.34.0.tar.xz"
+  ],
+  "platforms": {
+    "win32-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/gifski-1.34.0/gifski-win32-x64.gz",
+      "sha256": "eae20a417bbc4b5f7bcad1626a6df9ee94bcf61f2d81b4c07c1737ae5090319d",
+      "binarySha256": "9da8553cbe71c0facf544634b4e377262ea30d34becdc0ca077306342e776295",
+      "bin": "gifski.exe"
+    },
+    "linux-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/gifski-1.34.0/gifski-linux-x64.gz",
+      "sha256": "f1c3c3d67971f64790e49f77ef3aa992f6cdfc4c3ebfe309b2e07b9686fea071",
+      "binarySha256": "937ebdad4ec80c7ef647bc838083fd3948f92d6af206cf341724501eb640b8f7",
+      "bin": "gifski"
+    },
+    "darwin-arm64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/gifski-1.34.0/gifski-darwin.gz",
+      "sha256": "ee46117c91c25c28ba8abcf6295e077b88ab494b4dc7c75c635db6bd77fde803",
+      "binarySha256": "f5f73e09fba870a21e8c502f3191e58633e5081b1914f71e32d5ee714450e839",
+      "bin": "gifski"
+    },
+    "darwin-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/gifski-1.34.0/gifski-darwin.gz",
+      "sha256": "ee46117c91c25c28ba8abcf6295e077b88ab494b4dc7c75c635db6bd77fde803",
+      "binarySha256": "f5f73e09fba870a21e8c502f3191e58633e5081b1914f71e32d5ee714450e839",
+      "bin": "gifski"
+    }
+  }
+}
