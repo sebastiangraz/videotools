@@ -261,6 +261,23 @@ describe("watermarkGraph", () => {
     }
   });
 
+  it("draws the small glass's rim at a share of the large one's width", () => {
+    // 1080p: a 2px rim at large; at small, whole erosions and a mixed-in
+    // share of one more for any fraction left
+    const large = watermarkGraph(video, logo, true);
+    expect(large).toContain("[m2]erosion,erosion[eroded]");
+    expect(large).not.toContain("all_expr");
+    const small = watermarkGraph(video, logo, true, undefined, {
+      size: "small",
+    });
+    const part = (2 * MARK_SIZES.small.rim) % 1;
+    if (part < 0.01) expect(small).not.toContain("all_expr");
+    else
+      expect(small).toContain(
+        `[er1][er3]blend=all_expr='A+(B-A)*${part.toFixed(3)}'[eroded]`,
+      );
+  });
+
   it("leaves a logo that fills its canvas alone", () => {
     for (const filter of [false, true]) {
       const graph = watermarkGraph(video, logo, filter);

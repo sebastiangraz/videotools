@@ -60,10 +60,12 @@ export const MARK = {
 // frame (the logo, the glass padding, the frost, the refraction, the
 // shadow) scales alike, so a small glass is the large one shrunk rather
 // than a heavier-edged one. The gap to the frame's corner is the large
-// one's times `gap` instead: a small mark sits a little further in.
+// one's times `gap` instead: a small mark sits a little further in. The
+// rim, a hairline sized off the frame alone, is the large one's times
+// `rim`, and may come to a fraction of a pixel.
 export const MARK_SIZES = {
-  small: { scale: 0.6, gap: 1.2 },
-  large: { scale: 1, gap: 1 },
+  small: { scale: 0.6, gap: 1.2, rim: 0.66 },
+  large: { scale: 1, gap: 1, rim: 1 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
@@ -210,8 +212,24 @@ export function watermarkGraph(
   const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
   // Rim width in px: each erosion pass eats one pixel off the mask. (Off
-  // the frame alone: a hairline doesn't shrink with the mark.)
-  const rimPx = Math.max(1, Math.round(Math.min(VW, VH) / 720));
+  // the frame alone, not the scaled mark: a hairline stays a hairline.) A
+  // fraction of a pixel takes the mask one pass further and mixes that
+  // share of it in, so the last pixel of the band is only partly covered:
+  // what an antialiased line that thin comes to.
+  const rimWidth =
+    Math.max(1, Math.round(Math.min(VW, VH) / 720)) * MARK_SIZES[size].rim;
+  const rimPx = Math.floor(rimWidth + 1e-6);
+  const rimPart = rimWidth - rimPx;
+  const erode = (passes: number) =>
+    Array<string>(passes).fill("erosion").join(",");
+  const rimErode =
+    rimPart < 0.01
+      ? [`[m2]${erode(rimPx)}[eroded]`]
+      : [
+          `[m2]${rimPx ? `${erode(rimPx)},` : ""}split[er1][er2]`,
+          `[er2]erosion[er3]`,
+          `[er1][er3]blend=all_expr='A+(B-A)*${rimPart.toFixed(3)}'[eroded]`,
+        ];
 
   // The lens maps are built at 2× and the refraction runs there: displace
   // moves whole pixels only, so at 1× the bevel would step. Everything
@@ -367,7 +385,7 @@ export function watermarkGraph(
     // edge's slope towards the light, painted with the vivid backdrop
     // (softened first, so the stroke's colour doesn't flicker with detail).
     `[h4]${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
-    `[m2]${Array<string>(rimPx).fill("erosion").join(",")}[eroded]`,
+    ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
     `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
