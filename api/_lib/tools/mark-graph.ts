@@ -56,10 +56,15 @@ export const MARK = {
 };
 
 // The mark's size choice: MARK is tuned as the large one, and the small one
-// is it scaled down. Every length MARK gives as a fraction of the frame (the
-// logo, the gap, the frost, the refraction, the shadow) scales alike, so a
-// small glass is the large one shrunk rather than a heavier-edged one.
-export const MARK_SIZES = { small: 0.6, large: 1 };
+// is it scaled down by `scale`. Every length MARK gives as a fraction of the
+// frame (the logo, the glass padding, the frost, the refraction, the
+// shadow) scales alike, so a small glass is the large one shrunk rather
+// than a heavier-edged one. The gap to the frame's corner is the large
+// one's times `gap` instead: a small mark sits a little further in.
+export const MARK_SIZES = {
+  small: { scale: 0.6, gap: 1.2 },
+  large: { scale: 1, gap: 1 },
+};
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
   typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
@@ -67,7 +72,9 @@ export const isMarkSize = (value: unknown): value is MarkSize =>
 // Where the logo goes and how big, from the frame and the logo's visible
 // bounds alone (see MARK for the model). One continuous formula: the
 // logo's aspect ratio sets how an area budget is split between its sides,
-// and the padding doesn't depend on the logo at all.
+// and the padding doesn't depend on the logo at all. `margin` is the glass
+// padding around the logo; `gap`, the logo's distance from the right and
+// bottom edges, is the same for the large size and bigger for smaller ones.
 export function watermarkLayout(
   video: { width: number; height: number },
   bounds: { width: number; height: number },
@@ -78,6 +85,7 @@ export function watermarkLayout(
   LW: number;
   LH: number;
   margin: number;
+  gap: number;
   LX: number;
   LY: number;
 } {
@@ -87,7 +95,9 @@ export function watermarkLayout(
   const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
   const VW = even(video.width);
   const VH = even(video.height);
-  const unit = Math.sqrt(VW * VH) * MARK_SIZES[size];
+  const { scale, gap: gapScale } = MARK_SIZES[size];
+  const largeUnit = Math.sqrt(VW * VH);
+  const unit = largeUnit * scale;
 
   const aspect = bounds.width / bounds.height;
   const elongation = Math.max(aspect, 1 / aspect);
@@ -100,15 +110,18 @@ export function watermarkLayout(
   // (The bound only bites on absurdly long frames, where the unit is many
   // times the short side: the glass cell, logo plus this padding on every
   // side, has to fit the frame.)
-  const margin = Math.min(
-    Math.round(unit * MARK.paddingRatio),
-    Math.floor((VW - LW) / 2),
-    Math.floor((VH - LH) / 2),
-  );
+  const fit = (n: number) =>
+    Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
+  const margin = fit(Math.round(unit * MARK.paddingRatio));
+  // The gap is taken off the large padding. It is at least the margin, so the cell never passes the edge, and of the
+  // same parity, so the cell's corner stays even.
+  let gap = fit(Math.round(largeUnit * MARK.paddingRatio * gapScale));
+  if ((gap - margin) % 2) gap -= 1;
+  gap = Math.max(gap, margin);
   // The logo's top-left corner in the frame.
-  const LX = VW - margin - LW;
-  const LY = VH - margin - LH;
-  return { VW, VH, LW, LH, margin, LX, LY };
+  const LX = VW - gap - LW;
+  const LY = VH - gap - LH;
+  return { VW, VH, LW, LH, margin, gap, LX, LY };
 }
 
 // Builds the watermark filtergraph (inputs: [0] video, [1] logo; output
@@ -143,7 +156,7 @@ export function watermarkGraph(
   );
   // The frame's short side, scaled with the mark like the layout's unit:
   // the glass's frame-relative lengths are measured against it.
-  const shorter = Math.min(VW, VH) * MARK_SIZES[size];
+  const shorter = Math.min(VW, VH) * MARK_SIZES[size].scale;
   // The logo cut down to its visible pixels, which is what the layout
   // measured; nothing to cut when they fill the canvas.
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
@@ -177,8 +190,8 @@ export function watermarkGraph(
   }
 
   // The glass is built on a "cell": the logo box plus `margin` of padding
-  // on every side, so shadow and blur have room to spill. The cell reaches
-  // the frame edge exactly, never past it.
+  // on every side, so shadow and blur have room to spill. The large cell
+  // reaches the frame edge exactly; a smaller one stops short of it.
   const P = margin;
   const CW = LW + 2 * P;
   const CH = LH + 2 * P;

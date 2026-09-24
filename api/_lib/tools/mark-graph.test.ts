@@ -167,20 +167,34 @@ describe("watermarkLayout sizes", () => {
     );
   });
 
-  it("scales the logo and its gap by the size", () => {
-    const square = { width: 1000, height: 1000 };
-    const large = watermarkLayout(UHD, square, "large");
-    const small = watermarkLayout(UHD, square, "small");
-    const scale = MARK_SIZES.small / MARK_SIZES.large;
-    expect(Math.abs(small.LW - large.LW * scale)).toBeLessThanOrEqual(2);
-    expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(
-      1,
-    );
-    expect([small.LX, small.LY]).toEqual([
-      UHD.width - small.margin - small.LW,
-      UHD.height - small.margin - small.LH,
-    ]);
-  });
+  it.each([1, 16 / 9, 6, 1 / 3])(
+    "scales a %s logo and its padding, and sets it a little further in",
+    (aspect) => {
+      const bounds = {
+        width: Math.round(1000 * Math.sqrt(aspect)),
+        height: Math.round(1000 / Math.sqrt(aspect)),
+      };
+      const large = watermarkLayout(UHD, bounds, "large");
+      const small = watermarkLayout(UHD, bounds, "small");
+      const { scale, gap } = MARK_SIZES.small;
+      expect(Math.abs(small.LW - large.LW * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.LH - large.LH * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(
+        1,
+      );
+      // The large gap is its padding; the small one is a share of that, the
+      // same on both edges whatever the logo's shape
+      expect(large.gap).toBe(large.margin);
+      expect(Math.abs(small.gap - large.gap * gap)).toBeLessThanOrEqual(1);
+      expect([small.LX, small.LY]).toEqual([
+        UHD.width - small.gap - small.LW,
+        UHD.height - small.gap - small.LH,
+      ]);
+      // The cell's corner stays even for the yuv420p crop
+      expect((small.LX - small.margin) % 2).toBe(0);
+      expect((small.LY - small.margin) % 2).toBe(0);
+    },
+  );
 });
 
 describe("watermarkGraph", () => {
