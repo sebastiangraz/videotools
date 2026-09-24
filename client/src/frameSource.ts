@@ -1,4 +1,4 @@
-import { isAnimatedImage, isStillImage } from "./sourceFormat";
+import { isAnimation, isStillImage } from "./sourceFormat";
 
 // A frame to draw on a canvas, and its size. `close` frees a decoded one.
 export interface Frame {
@@ -14,6 +14,9 @@ export interface FrameSource {
   duration(): Promise<number>;
   // The frame on screen at `second`; past the end, the last one.
   frameAt(second: number): Promise<Frame>;
+  // Whether the pixels aren't square: stored at another shape than they play
+  // at. Videos only, where the browser has VideoFrame to tell.
+  nonSquare?(): boolean;
   close(): void;
 }
 
@@ -68,12 +71,26 @@ const openVideo = async (file: File): Promise<FrameSource> => {
         close: () => {},
       };
     },
+    nonSquare: () => {
+      if (typeof VideoFrame === "undefined") return false;
+      try {
+        const frame = new VideoFrame(video);
+        const stored = frame.visibleRect;
+        frame.close();
+        return (
+          !!stored &&
+          stored.width * video.videoHeight !== video.videoWidth * stored.height
+        );
+      } catch {
+        return false;
+      }
+    },
     close,
   };
 };
 
-// An animated image (GIF, AVIF): the browser's ImageDecoder takes it apart
-// into frames with timestamps.
+// An animated image (GIF, WebP, AVIF): the browser's ImageDecoder takes it
+// apart into frames with timestamps.
 const openAnimation = async (file: File): Promise<FrameSource> => {
   const decoder = new ImageDecoder({ data: file.stream(), type: file.type });
   // `completed` = every byte is in, so the frame count is final; the track
@@ -151,10 +168,11 @@ const openStill = async (file: File): Promise<FrameSource> => {
 };
 
 // Rejects when the browser can't decode the file.
-export const openFrameSource = (file: File): Promise<FrameSource> => {
-  if (isStillImage(file)) return openStill(file);
-  if (!isAnimatedImage(file)) return openVideo(file);
-  return typeof ImageDecoder !== "undefined"
-    ? openAnimation(file).catch(() => openStill(file))
-    : openStill(file);
+export const openFrameSource = async (file: File): Promise<FrameSource> => {
+  if (await isAnimation(file)) {
+    return typeof ImageDecoder !== "undefined"
+      ? openAnimation(file).catch(() => openStill(file))
+      : openStill(file);
+  }
+  return isStillImage(file) ? openStill(file) : openVideo(file);
 };

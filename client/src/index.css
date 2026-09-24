@@ -36,8 +36,8 @@
   --font-mono: monospace, menlo, monaco;
   --quantize: calc-size(auto, round(up, size, 1px));
 
-  --bg: light-dark(hsl(156, 21%, 95%), hsl(150, 11%, 4%));
-  --fg: light-dark(hsl(152, 74%, 5%), hsl(150, 19%, 85%));
+  --bg: light-dark(hsl(156, 21%, 95%), hsl(150, 10%, 6%));
+  --fg: light-dark(hsl(152, 74%, 5%), hsl(150, 28%, 85%));
   /* Elevated surfaces need a gentler lift on a dark base */
   --bg-1: light-dark(
     color-mix(in srgb, var(--bg), #fff 20%),
@@ -96,7 +96,7 @@
 
 body {
   margin: 0;
-  font-family: var(--font-sans), monospace, menlo, monaco;
+  font-family: var(--font-sans), menlo, monaco, monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -126,6 +126,7 @@ button {
   font-family: inherit;
   text-transform: inherit;
   font-size: 10px;
+  /* eslint-disable-next-line css/no-invalid-properties */
   min-height: var(--quantize);
   &:focus-visible {
     outline: 1px solid var(--border);

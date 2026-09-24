@@ -1,5 +1,6 @@
 {
   "eslint.options": { "flags": ["unstable_native_nodejs_ts_config"] },
-  "eslint.validate": ["javascript", "typescript", "typescriptreact"],
-  "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" }
+  "eslint.validate": ["javascript", "typescript", "typescriptreact", "css"],
+  "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" },
+  "css.validate": false
 }

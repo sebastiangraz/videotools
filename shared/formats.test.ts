@@ -62,11 +62,4 @@ describe("formats", () => {
     expect(mimeOf("png")).toBe("image/png");
     expect(mimeOf("mov")).toBe("video/quicktime");
   });
-
-  it("knows WebP as a format it writes but cannot read", () => {
-    expect(formatById("webp").readable).toBe(false);
-    expect(FORMATS.filter((f) => !f.readable).map((f) => f.id)).toEqual([
-      "webp",
-    ]);
-  });
 });

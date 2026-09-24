@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import fs from "node:fs/promises";
 import { InputError } from "./errors.js";
 
 // Only `cwd` is ever passed through to spawn.
@@ -13,6 +12,8 @@ type RunResult = { code: number | null; stdout: string; stderr: string };
 // `matrix` is the YUV↔RGB matrix the stream is tagged with, in the scale
 // filter's names; RGB inputs (PNG, GIF) count as bt601, which is what their
 // conversion to YUV produces, and null means an untagged YUV stream.
+// `sar` is a pixel's width over its height; 1 where none is set, which
+// ffmpeg reads as square.
 export type MediaInfo = {
   duration: number;
   width: number;
@@ -20,13 +21,14 @@ export type MediaInfo = {
   fps: number | null;
   codec: string;
   matrix: "bt709" | "bt601" | "bt2020" | null;
+  sar: number;
 };
 
 // The video stream to work on, and its place among the file's video streams
 // (ffmpeg's `v:N`). Nearly always the only one. The exceptions are why this
-// exists: ffmpeg 7 lists an animated AVIF as two, its one-frame cover image
-// first and the animation second (ffmpeg 6 only showed the animation), and
-// audio files and some mp4s carry cover art as an "attached pic" stream.
+// exists: ffmpeg lists an animated AVIF as two, its one-frame cover image
+// first and the animation second, and audio files and some mp4s carry
+// cover art as an "attached pic" stream.
 // The animation is the one with a bitrate of its own; failing that, the
 // higher frame rate; failing that, the first.
 function mainVideo(summary: string): { line: string; index: number } | null {
@@ -81,6 +83,11 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
     fields.map((f) => /^([\d.]+) tbr\b/.exec(f)).find(Boolean);
   const fps = rate ? parseFloat(rate[1]) : NaN;
 
+  // The codec's own ratio is in the WxH field's brackets; a container that
+  // sets another prints it after them, and that one is what ffmpeg goes by.
+  const ratios = [...video.matchAll(/\bSAR (\d+):(\d+)/g)];
+  const [, num = 0, den = 0] = ratios.at(-1)?.map(Number) ?? [];
+
   const dur = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(summary);
   const duration = dur
     ? Number(dur[1]) * 3600 + Number(dur[2]) * 60 + Number(dur[3])
@@ -93,6 +100,7 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
     fps: Number.isFinite(fps) && fps > 0 ? fps : null,
     codec,
     matrix,
+    sar: num && den ? num / den : 1,
   };
 }
 
@@ -108,7 +116,12 @@ export function parseOutputSize(
   return size ? { width: Number(size[1]), height: Number(size[2]) } : null;
 }
 
-export type VideoPacket = { time: number; size: number; key: boolean };
+export type VideoPacket = {
+  time: number;
+  duration: number;
+  size: number;
+  key: boolean;
+};
 
 // What else the same summary says about a source: enough to tell which
 // format it is (source.ts) and what it spends per second, which is what the
@@ -172,7 +185,7 @@ export function parseSourceProfile(output: string): SourceProfile | null {
 
 /**
  * Runs the binaries for one job and probes its inputs: pure-Node ffmpeg
- * (ffmpeg-static, a real binary, no shell) plus the vendored gifski. The
+ * (the ffmpeg.json-pinned binary, no shell) plus the pinned gifski. The
  * tools (tools/) and encoders (encode/) are functions that take one of
  * these; it is the only state a job has.
  */
@@ -180,7 +193,6 @@ export class FFmpeg {
   ffmpeg: string;
   gifski: string;
   signal: AbortSignal | null;
-  gifskiChmodDone = false;
   // When the job began: what is left of the function's time limit decides
   // whether an optional second pass is worth starting (encode/gif.ts).
   startedAt = Date.now();
@@ -220,17 +232,26 @@ export class FFmpeg {
       inputFile,
     ]);
     const info = parseSourceProfile(stderr);
-    if (!info) {
-      // ffmpeg reads a WebP still but has no decoder for the animated kind:
-      // it finds the stream and no picture in it.
-      if (/^Input #0, webp_pipe,/m.test(stderr)) {
-        throw new InputError(
-          "Animated WebP can't be read (ffmpeg has no decoder for it). " +
-            "Use the file it was made from instead.",
-          "unreadable-source",
-        );
+    // A WebP is the one image the client passes on unchecked (it can't tell
+    // a damaged one), so its failure is the user's to hear about.
+    if (!info && /^Input #0, webp_(pipe|anim),/m.test(stderr)) {
+      throw new InputError("This WebP file can't be read.", "unreadable-source");
+    }
+    if (!info) throw new Error(`Could not read media info: ${stderr.trim()}`);
+    // The animated WebP demuxer prints "Duration: N/A": the length is the
+    // sum of the frames' delays, which the packet listing has.
+    if (!info.duration && info.formatNames.includes("webp_anim")) {
+      const packets = await this.listPackets(inputFile, info.videoIndex);
+      if (!packets) {
+        throw new InputError("This WebP file can't be read.", "unreadable-source");
       }
-      throw new Error(`Could not read media info: ${stderr.trim()}`);
+      let start = Infinity;
+      let end = 0;
+      for (const p of packets) {
+        start = Math.min(start, p.time);
+        end = Math.max(end, p.time + p.duration);
+      }
+      info.duration = end - start;
     }
     this.infoCache.set(inputFile, info);
     return info;
@@ -269,6 +290,15 @@ export class FFmpeg {
   // Null when the stream cannot be listed.
   async videoPackets(inputFile: string): Promise<VideoPacket[] | null> {
     const { videoIndex } = await this.mediaInfo(inputFile);
+    return this.listPackets(inputFile, videoIndex);
+  }
+
+  // videoPackets, of the stream given: what mediaInfo measures a length
+  // from, before there is a profile to ask.
+  private async listPackets(
+    inputFile: string,
+    videoIndex: number,
+  ): Promise<VideoPacket[] | null> {
     const { code, stdout } = await this.run(this.ffmpeg, [
       "-hide_banner",
       "-loglevel",
@@ -293,12 +323,16 @@ export class FFmpeg {
         const fields = line.split(",").map((f) => f.trim());
         return {
           time: Number(fields[2]) * timeBase,
+          duration: Number(fields[3]) * timeBase,
           size: Number(fields[4]),
           key: !fields.some((f) => f.startsWith("F=")),
         };
       });
     const readable = packets.every(
-      (p) => Number.isFinite(p.time) && Number.isFinite(p.size),
+      (p) =>
+        Number.isFinite(p.time) &&
+        Number.isFinite(p.duration) &&
+        Number.isFinite(p.size),
     );
     return packets.length && readable ? packets : null;
   }
@@ -327,16 +361,7 @@ export class FFmpeg {
     return this.runCommand(this.ffmpeg, args, options);
   }
 
-  async runGifski(args: string[], options: RunOptions = {}): Promise<string> {
-    if (!this.gifski) {
-      throw new Error("gifski binary path not configured");
-    }
-    // The vendored binary's exec bit may not survive a Windows checkout or
-    // the deploy bundling, so restore it before the first spawn.
-    if (process.platform !== "win32" && !this.gifskiChmodDone) {
-      await fs.chmod(this.gifski, 0o755).catch(() => {});
-      this.gifskiChmodDone = true;
-    }
+  runGifski(args: string[], options: RunOptions = {}): Promise<string> {
     return this.runCommand(this.gifski, args, options);
   }
 

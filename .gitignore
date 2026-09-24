@@ -4,9 +4,13 @@ dist/
 .env*.local
 tmp/
 .smoke/
+# Fetched by the postinstall from ffmpeg.json and gifski.json
+api/_bin/ffmpeg/
+api/_bin/gifski/*/
 # Own footage for `npm run smoke`; large, so not versioned
 scripts/smoke-assets/*
 !scripts/smoke-assets/README.md
 
 .vercel
 .env*
+*.tsbuildinfo

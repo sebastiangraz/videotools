@@ -34,7 +34,9 @@ export function codecFactor(sourceCodec: string, resultCodec: string): number {
 
 // `sourceKbps` is the source's video stream alone; null (nothing known to
 // compare with: stills, a stream without duration) means no ceiling.
-// `seconds` is the length of the result.
+// `seconds` is the length of the result. `factor` is what a second of the
+// result may spend over what a second of the source did: the codec's
+// (codecFactor) times the pace its frames go by at (Render.pace).
 export function rateCap(
   sourceKbps: number | null,
   quality: number,

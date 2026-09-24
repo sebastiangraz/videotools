@@ -1,7 +1,7 @@
 .root {
-  --track-w: 2.5rem;
-  --track-h: 1.5rem;
-  --pad: 3px;
+  --track-w: 1.75rem;
+  --track-h: 0.875rem;
+  --pad: 1px;
   --thumb: calc(var(--track-h) - 2px - 2 * var(--pad));
   display: inline-flex;
   align-items: center;
@@ -10,8 +10,9 @@
   width: var(--track-w);
   height: var(--track-h);
   padding: var(--pad);
-  border: 1px solid var(--border);
-  border-radius: var(--track-h);
+  border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
+  border-radius: calc(var(--track-h) / 3);
+  corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   cursor: pointer;
   transition:
@@ -35,16 +36,18 @@
 }
 
 .thumb {
-  width: var(--thumb);
+  width: calc(var(--thumb) * 1.5);
   height: var(--thumb);
-  border-radius: 50%;
+  border-radius: calc(var(--track-h) / 3 - var(--pad) - 1px);
+  corner-shape: superellipse(1.45);
   background-color: var(--fg-secondary);
   transition:
     translate 150ms ease,
     background-color 150ms ease;
 
   &[data-checked] {
-    translate: calc(var(--track-w) - 2px - 2 * var(--pad) - var(--thumb)) 0;
+    translate: calc(var(--track-w) - 2px - 2 * var(--pad) - var(--thumb) * 1.5)
+      0;
     background-color: var(--bg);
   }
 }

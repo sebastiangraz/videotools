@@ -39,19 +39,19 @@ describe("formatBlock", () => {
   it("lets a foreign source through where there is no format to keep", () => {
     expect(formatBlock(file("clip.mkv"), { foreign: false })).toBeNull();
     expect(formatBlocker(file("clip.mkv"), { foreign: false })).toBeNull();
-    expect(
-      formatBlock(file("anim.webp", "image/webp"), { foreign: false }),
-    ).toMatchObject({ state: "unreadable" });
+    const still = file("photo.webp", "image/webp");
+    expect(formatBlock(still, { foreign: false }, true)).toBeNull();
   });
 
-  it("turns animated WebP away: there is nothing to read", () => {
-    expect(formatBlock(file("anim.webp", "image/webp"))).toMatchObject({
-      state: "unreadable",
-      format: { id: "webp" },
+  // Taken for an animation until its header says otherwise (isAnimatedWebp)
+  it("takes a WebP for the format, and a still one for a still", () => {
+    const webp = file("anim.webp", "image/webp");
+    expect(formatBlock(webp)).toBeNull();
+    expect(formatBlock(webp, {}, true)).toEqual({
+      state: "foreign",
+      name: "Still WebP",
     });
-    expect(formatBlocker(file("anim.webp", "image/webp"))).toMatch(
-      /can't be read/,
-    );
+    expect(formatBlock(webp, { stills: true }, true)).toBeNull();
   });
 });
 

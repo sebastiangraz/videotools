@@ -51,6 +51,7 @@
     #fff calc(var(--mask-solid) + 10%),
     #fff0 calc(var(--mask-solid) + 60%)
   );
+  /* eslint-disable-next-line css/no-invalid-properties */
   mask-image: var(--mask-image);
   transition:
     --mask-solid 0.5s cubic-bezier(0.7, 0, 0.175, 1),

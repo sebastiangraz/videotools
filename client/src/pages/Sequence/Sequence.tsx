@@ -26,6 +26,7 @@ const FORMATS = SEQUENCE_FORMATS.map((id) => ({
 const SIZE_BPP: Record<string, { min: number; max: number }> = {
   mp4: { min: 0.01, max: 0.15 },
   gif: { min: 0.05, max: 0.5 },
+  webp: { min: 0.01, max: 0.2 },
   avif: { min: 0.004, max: 0.1 },
 };
 
@@ -53,10 +54,10 @@ function formatBytes(bytes: number): string {
 export const Sequence = () => {
   const run = useToolRun(TOOL.value);
   const [files, setFiles] = useState<File[]>([]);
-  // The zone takes any image; a still is handed back as no format of its own,
-  // so an animated WebP — which ffmpeg cannot read — is in the way, and so is
-  // a pick that mixes formats (PNG with JPEG, WebP or GIF): ffmpeg reads a
-  // sequence through one image demuxer, and frames come back blank or gone.
+  // The zone takes any image (an animated one gives its first frame), but a
+  // pick that mixes formats (PNG with JPEG, WebP or GIF) is in the way:
+  // ffmpeg reads a sequence through one image demuxer, and frames come back
+  // blank or gone.
   const formatBlocker = useFormatBlocker(files, {
     stills: true,
     foreign: false,
@@ -145,7 +146,7 @@ export const Sequence = () => {
           label={
             <>
               Quality {quality}%
-              {format === "avif" && quality === 100
+              {(format === "avif" || format === "webp") && quality === 100
                 ? " (lossless)"
                 : files.length > 0 &&
                   imageDims &&
@@ -162,7 +163,7 @@ export const Sequence = () => {
           }
           value={quality}
           onValueChange={setQuality}
-          min={1}
+          min={0}
           max={100}
           step={1}
           disabled={run.busy}

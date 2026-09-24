@@ -1,122 +1,93 @@
 import type { MediaInfo } from "../ffmpeg.js";
 
-// The pure half of the mark tool: where the logo goes and the filtergraph
-// that puts it there. No I/O, so the tests drive it directly.
-
-// A rectangle inside an image, in its pixels.
 export type Bounds = { x: number; y: number; width: number; height: number };
 
-// Watermark layout and look, all relative to the video so the mark reads the
-// same at every resolution. Position is fixed to the bottom-right corner.
-// (Exported for the tests, which check the layout against these values
-// rather than pinning numbers, so tuning them here doesn't break anything.)
 export const MARK = {
-  // Layout (see watermarkLayout). Lengths are fractions of the frame's
-  // "unit", the geometric mean of its width and height, so the mark takes
-  // the same share of a landscape, portrait or square picture. The logo is
-  // measured by its visible pixels (see logoBounds), not its canvas.
-  // Size is an area budget rather than a fitting box: a 1:1 logo is drawn
-  // this fraction of the unit on each side, and every other shape gets the
-  // same area times elongation^elongationGain, where elongation is the long
-  // side over the short one (so wide and tall are treated alike, and no
-  // ratio is special). At gain 0 every logo covers the same area; at 1
-  // every logo has the same short side (all logotypes one height, however
-  // long). In between, elongated logos, which are mostly thin strokes and
-  // gaps, gain some area so they don't read lighter than a dense square.
+  // Square logo side fraction of the width and height geometric mean.
   sizeRatio: 0.064,
+  // Long logo area exponent from equal area at 0 to equal short side at 1.
   elongationGain: 0.5,
-  // Safety bound for banner-like logos (and wide ones on portrait video):
-  // neither side is drawn past this fraction of the frame's matching side.
-  // A third still clears a 4:1 logotype on portrait video.
+  // Long logo side cap fraction of the matching frame side.
   maxSpan: 0.33,
-  // The gap to the frame edges, a fraction of the unit and the same for
-  // every logo: sizes are already evened out, so nothing about the shape
-  // needs to feed back into it. It is also the glass cell's padding, the
-  // room the shadow and blur spill into.
+  // Edge gap and glass padding fraction of the width and height geometric mean.
   paddingRatio: 0.05,
-  // Glass mode. The logo's alpha becomes a lens: a heightfield that rises
-  // from 0 at the edge to full over the bevel, whose slope refracts the video
-  // underneath (each pixel is pulled in from just outside the edge, the way a
-  // thick slab bends what's behind its rim) and catches the light along the
-  // rim; the flat interior is frosted.
-  // Frost: the refracted backdrop is blurred by this sigma (fraction of the
-  // shorter side; the CSS analogue is backdrop-filter: blur()), then
-  // saturated and mixed with white. Light enough that the bending at the
-  // bevel still reads through it.
+
+  // Frost blur fraction of the width and height minimum.
   blurRatio: 0.012, //0.012
-  // Floor for the blur, same unit (1.6px at 1080p): what the bevel gets
-  // instead of the full frost. Small islands and thin strokes are bevel all
-  // the way through, so without it hard backdrop edges cut straight across
-  // them; big shapes still ramp from this at the rim to blurRatio inside.
+  // Bevel blur floor fraction of the width and height minimum.
   minBlurRatio: 0.0008, //0.0015
+  // Frost saturation multiplier with no change at 1.
   saturation: 1.8, //1.35
+  // Frost white mix.
   tint: 0.12, //0.22
-  // Bevel width, as a fraction of the logo's shorter drawn side rather than
-  // of the frame: a bevel wider than a logotype's strokes would flatten them
-  // away. The profile is the mean of a wide and a narrow (÷3) blur of the
-  // alpha, so thick shapes get a steep rim easing into the flat middle and
-  // thin strokes still keep a usable slope.
+  // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1, //0.1
-  // Displacement of the backdrop at the steepest part of the bevel, as a
-  // fraction of the shorter side; it eases to none over the bevel. displace
-  // moves at most 127 map px (63px of video at the 2× the lens runs at), so
-  // anything past about 0.059 also flattens the top of the curve: more of
-  // the bevel bends by the full amount, which is the thick-lens look.
+  // Steep bevel backdrop shift fraction of the width and height minimum.
   refractRatio: 0.088, //0.088
-  // Chromatic split: red is displaced (1 − chroma)×, blue (1 + chroma)×,
-  // green as is. Subtle on purpose, a hint of colour on contrasty edges.
+  // Red and blue edge shift split around green.
   chroma: 0.08, //0.15
-  // Where the light comes from, in degrees clockwise from the top (−45 is
-  // top-left), and the rim it lights: a stroke along the inside of the edge
-  // (1px at 720p, scaling up) at rimOpacity where the edge faces the light,
-  // easing down around the shape to the glint: the level (this fraction of
-  // it) the rest of the rim holds, so the outline never breaks.
+  // Light direction in degrees clockwise from the top.
   lightAngle: -45, //-45
+  // Lit rim opacity.
   rimOpacity: 0.85, //0.85
+  // Unlit rim brightness share of the lit rim.
   glint: 0.66, //0.35
-  // What the rim is painted with: not white but the backdrop under it,
-  // saturated by rimSaturation (the same scale as `saturation`: 1 leaves
-  // it, 0 is grey), brightened by rimGain like a colour dodge, then mixed
-  // this far towards white. The gain does most of the work: it keeps the
-  // hue and lifts the rim clear of the video, where more saturation alone
-  // turns the rim into the backdrop's own colour and it disappears. At
-  // rimWhite 1 it is a plain white rim.
+  // Rim backdrop saturation multiplier with no change at 1.
   rimSaturation: 2, //1.4
+  // Rim brightness multiplier.
   rimGain: 7, //3
+  // Rim white mix with a plain white rim at 1.
   rimWhite: 0.6, //0.15
-  // Ambient light across the glass, for depth when the video under it is
-  // flat: a radial gradient from the side opposite lightAngle (bottom-right
-  // under the default top-left light), white there at this opacity, fading
-  // through nothing to black on the light's own side at ambientShade
-  // of it (shade reads heavier than light, so it gets less). ambientReach is
-  // the gradient's radius in logo radii; the centre sits one radius outside
-  // the logo, so at 2 it would end at the logo's far edge, and a bit more
-  // keeps the far side from going fully dark and the curve shallow.
+  // Glass light opacity on the side opposite the light.
   ambient: 0.16, //0.16
+  // Shade side opacity share of the bright side.
   ambientShade: 0.5, //0.5
+  // Ambient gradient radius in logo radii from a point outside the logo.
   ambientReach: 2.4, //2.4
-  // Soft drop shadow behind the glass shape, offset downwards.
+
+  // Drop shadow blur fraction of the width and height minimum.
   shadowBlurRatio: 0.016, //0.012
+  // Downward y-axis shadow offset fraction of the width and height minimum.
   shadowOffsetRatio: 0.016, //0.006
+  // Drop shadow opacity.
   shadowOpacity: 0.08, //0.35
-  // The logo's own pixels over the glass: a white logo brightens it, a dark
-  // one smokes it, a coloured one tints it.
+  // Logo pixel opacity over the glass.
   logoOpacity: 0.07, //0.45
 };
+
+// The mark's size choice: MARK is tuned as the large one, and the small one
+// is it scaled down by `scale`. Every length MARK gives as a fraction of the
+// frame (the logo, the glass padding, the frost, the refraction, the
+// shadow) scales alike, so a small glass is the large one shrunk rather
+// than a heavier-edged one. The gap to the frame's corner is the large
+// one's times `gap` instead: a small mark sits a little further in. The
+// rim, a hairline sized off the frame alone, is the large one's times
+// `rim`, and may come to a fraction of a pixel.
+export const MARK_SIZES = {
+  small: { scale: 0.6, gap: 1.2, rim: 0.66 },
+  large: { scale: 1, gap: 1, rim: 1 },
+};
+export type MarkSize = keyof typeof MARK_SIZES;
+export const isMarkSize = (value: unknown): value is MarkSize =>
+  typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
 
 // Where the logo goes and how big, from the frame and the logo's visible
 // bounds alone (see MARK for the model). One continuous formula: the
 // logo's aspect ratio sets how an area budget is split between its sides,
-// and the padding doesn't depend on the logo at all.
+// and the padding doesn't depend on the logo at all. `margin` is the glass
+// padding around the logo; `gap`, the logo's distance from the right and
+// bottom edges, is the same for the large size and bigger for smaller ones.
 export function watermarkLayout(
   video: { width: number; height: number },
   bounds: { width: number; height: number },
+  size: MarkSize = "large",
 ): {
   VW: number;
   VH: number;
   LW: number;
   LH: number;
   margin: number;
+  gap: number;
   LX: number;
   LY: number;
 } {
@@ -126,12 +97,13 @@ export function watermarkLayout(
   const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
   const VW = even(video.width);
   const VH = even(video.height);
-  const unit = Math.sqrt(VW * VH);
+  const { scale, gap: gapScale } = MARK_SIZES[size];
+  const largeUnit = Math.sqrt(VW * VH);
+  const unit = largeUnit * scale;
 
   const aspect = bounds.width / bounds.height;
   const elongation = Math.max(aspect, 1 / aspect);
-  const area =
-    (unit * MARK.sizeRatio) ** 2 * elongation ** MARK.elongationGain;
+  const area = (unit * MARK.sizeRatio) ** 2 * elongation ** MARK.elongationGain;
   const w = Math.sqrt(area * aspect);
   const h = Math.sqrt(area / aspect);
   const clamp = Math.min(1, (MARK.maxSpan * VW) / w, (MARK.maxSpan * VH) / h);
@@ -140,15 +112,18 @@ export function watermarkLayout(
   // (The bound only bites on absurdly long frames, where the unit is many
   // times the short side: the glass cell, logo plus this padding on every
   // side, has to fit the frame.)
-  const margin = Math.min(
-    Math.round(unit * MARK.paddingRatio),
-    Math.floor((VW - LW) / 2),
-    Math.floor((VH - LH) / 2),
-  );
+  const fit = (n: number) =>
+    Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
+  const margin = fit(Math.round(unit * MARK.paddingRatio));
+  // The gap is taken off the large padding. It is at least the margin, so the cell never passes the edge, and of the
+  // same parity, so the cell's corner stays even.
+  let gap = fit(Math.round(largeUnit * MARK.paddingRatio * gapScale));
+  if ((gap - margin) % 2) gap -= 1;
+  gap = Math.max(gap, margin);
   // The logo's top-left corner in the frame.
-  const LX = VW - margin - LW;
-  const LY = VH - margin - LH;
-  return { VW, VH, LW, LH, margin, LX, LY };
+  const LX = VW - gap - LW;
+  const LY = VH - gap - LH;
+  return { VW, VH, LW, LH, margin, gap, LX, LY };
 }
 
 // Builds the watermark filtergraph (inputs: [0] video, [1] logo; output
@@ -163,6 +138,8 @@ export function watermarkLayout(
 //
 // `pad` names the video among the inputs: the first input's first video
 // stream unless the caller knows better (encode/render.ts, videoPad).
+//
+// `size` picks one of MARK_SIZES.
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
@@ -171,13 +148,17 @@ export function watermarkGraph(
   {
     base = "yuv420p",
     pad = "[0:v]",
-  }: { base?: "yuv420p" | "rgba"; pad?: string } = {},
+    size = "large",
+  }: { base?: "yuv420p" | "rgba"; pad?: string; size?: MarkSize } = {},
 ): string {
   const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
     video,
     bounds,
+    size,
   );
-  const shorter = Math.min(VW, VH);
+  // The frame's short side, scaled with the mark like the layout's unit:
+  // the glass's frame-relative lengths are measured against it.
+  const shorter = Math.min(VW, VH) * MARK_SIZES[size].scale;
   // The logo cut down to its visible pixels, which is what the layout
   // measured; nothing to cut when they fill the canvas.
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
@@ -211,8 +192,8 @@ export function watermarkGraph(
   }
 
   // The glass is built on a "cell": the logo box plus `margin` of padding
-  // on every side, so shadow and blur have room to spill. The cell reaches
-  // the frame edge exactly, never past it.
+  // on every side, so shadow and blur have room to spill. The large cell
+  // reaches the frame edge exactly; a smaller one stops short of it.
   const P = margin;
   const CW = LW + 2 * P;
   const CH = LH + 2 * P;
@@ -222,16 +203,33 @@ export function watermarkGraph(
   // One YUV↔RGB matrix for the cell's way in and back: the source's own
   // when it is tagged (a JPEG frame grab is bt601 at any size), else the
   // usual HD/SD convention. Being the same both ways is what keeps the
-  // cell's colours; matching the tag matters on ffmpeg 7, where links
-  // carry a colour space and a cell tagged differently from the base makes
-  // overlay convert the whole frame (and a JPEG cannot say it is bt709).
+  // cell's colours; matching the tag matters too, as links carry a colour
+  // space and a cell tagged differently from the base makes overlay
+  // convert the whole frame (and a JPEG cannot say it is bt709).
   const matrix = video.matrix ?? (VH >= 720 ? "bt709" : "bt601");
   const sigma = (shorter * MARK.blurRatio).toFixed(2);
   const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
   const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
-  // Rim width in px: each erosion pass eats one pixel off the mask.
-  const rimPx = Math.max(1, Math.round(shorter / 720));
+  // Rim width in px: each erosion pass eats one pixel off the mask. (Off
+  // the frame alone, not the scaled mark: a hairline stays a hairline.) A
+  // fraction of a pixel takes the mask one pass further and mixes that
+  // share of it in, so the last pixel of the band is only partly covered:
+  // what an antialiased line that thin comes to.
+  const rimWidth =
+    Math.max(1, Math.round(Math.min(VW, VH) / 720)) * MARK_SIZES[size].rim;
+  const rimPx = Math.floor(rimWidth + 1e-6);
+  const rimPart = rimWidth - rimPx;
+  const erode = (passes: number) =>
+    Array<string>(passes).fill("erosion").join(",");
+  const rimErode =
+    rimPart < 0.01
+      ? [`[m2]${erode(rimPx)}[eroded]`]
+      : [
+          `[m2]${rimPx ? `${erode(rimPx)},` : ""}split[er1][er2]`,
+          `[er2]erosion[er3]`,
+          `[er1][er3]blend=all_expr='A+(B-A)*${rimPart.toFixed(3)}'[eroded]`,
+        ];
 
   // The lens maps are built at 2× and the refraction runs there: displace
   // moves whole pixels only, so at 1× the bevel would step. Everything
@@ -249,15 +247,8 @@ export function watermarkGraph(
   // pixels of displacement (in 2× space) around 128, which displace reads
   // as none. The kernels are the negated derivatives: the backdrop is
   // sampled outward, down the slope, like light bending in at a lens's rim.
-  // The scale cannot go through convolution's rdiv: ffmpeg 6.1 (the
-  // Windows ffmpeg-static binary) ignores a given rdiv and divides by the
-  // kernel's sum (1 for these), 7.0 (the Linux one, so Vercel) applies it,
-  // and the lens has to come out the same on both. So rdiv stays 1 and the
-  // gain is split: its fraction scales the heightfield beforehand, its
-  // whole part multiplies the integer taps. That runs in 16 bits so the
-  // fraction costs no precision, with a lut bringing the result back to
-  // the 8-bit map (×256+128: exact through the gray16→gray conversion
-  // whether or not it dithers).
+  // convolution sums the integer taps in full and only then applies rdiv
+  // and rounds, so the scale costs no precision there.
   const refractPx = shorter * MARK.refractRatio * SS;
   const SOBEL = {
     x: [1, 0, -1, 2, 0, -2, 1, 0, -1],
@@ -265,21 +256,14 @@ export function watermarkGraph(
   };
   const sobel = (axis: "x" | "y", gain: number) => {
     const scale = (refractPx * gain) / (8 * edgeSlope);
-    const whole = Math.max(1, Math.ceil(scale));
-    return [
-      "format=gray16le",
-      `lut=c0='val*${(scale / whole).toFixed(5)}'`,
-      `convolution=0m='${SOBEL[axis].map((k) => k * whole).join(" ")}':0rdiv=1:0bias=32768`,
-      "lut=c0='clip(round((val-32768)/257)+128,0,255)*256+128'",
-      "format=gray",
-    ].join(",");
+    return `convolution=0m='${SOBEL[axis].join(" ")}':0rdiv=${scale.toFixed(5)}:0bias=128`;
   };
   const chroma = { r: 1 - MARK.chroma, g: 1, b: 1 + MARK.chroma };
   // Edge light: the heightfield's derivative towards the light, as one
   // kernel (the two Sobels weighted by the light vector, ×100 for integer
   // taps). Left at that gain it saturates: any edge facing the light at
   // all is fully lit, any facing away fully dark, and the downscale to 1×
-  // softens the line between them. (rdiv=1 for the same reason as above.)
+  // softens the line between them.
   const angle = (MARK.lightAngle * Math.PI) / 180;
   const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
   // Ambient gradient over the fill: radial, centred one logo radius off
@@ -401,7 +385,7 @@ export function watermarkGraph(
     // edge's slope towards the light, painted with the vivid backdrop
     // (softened first, so the stroke's colour doesn't flicker with detail).
     `[h4]${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
-    `[m2]${Array<string>(rimPx).fill("erosion").join(",")}[eroded]`,
+    ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
     `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
@@ -431,7 +415,11 @@ export function watermarkGraph(
 //     y2:239 w:300 h:80 crop=300:80:50:160 drawbox=50:160:300:80
 // A logo with nothing visible logs no coordinates; the bounds are then the
 // whole image.
-export function parseBounds(log: string, width: number, height: number): Bounds {
+export function parseBounds(
+  log: string,
+  width: number,
+  height: number,
+): Bounds {
   const m = / x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/.exec(log);
   const [x1, x2, y1, y2] = (m ?? []).slice(1).map(Number);
   if (!m || x2 < x1 || y2 < y1 || x2 >= width || y2 >= height) {

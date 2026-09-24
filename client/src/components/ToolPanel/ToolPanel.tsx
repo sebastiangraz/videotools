@@ -83,7 +83,7 @@ export const ToolPanel = ({
 
         {errorDetail && (
           <div role="alert" className={styles.errorBox}>
-            <details>
+            <details open>
               <summary className={styles.errorSummary}>
                 <span>You broke it my dude.</span>
               </summary>

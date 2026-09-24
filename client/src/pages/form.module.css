@@ -33,4 +33,5 @@
   font-feature-settings: "tnum" on;
   letter-spacing: 0.05em;
   color: var(--fg-secondary);
+  cursor: pointer;
 }

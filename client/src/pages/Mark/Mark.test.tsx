@@ -8,6 +8,7 @@ import {
   stubImageDecoder,
   stubMediaLoading,
   stubProperties,
+  webpFile,
   type FakeFrame,
 } from "../../test/media";
 
@@ -231,48 +232,28 @@ describe("Mark", () => {
     });
   });
 
-  it("turns an animated WebP away once its header is read, and lets a still one through", async () => {
+  it("takes a WebP whichever kind it is", async () => {
     const user = userEvent.setup();
-    // "RIFF" size "WEBP" "VP8X" size flags: animation is bit 1 of the flags
-    const webp = (name: string, flags: number) =>
-      new File(
-        [
-          new Uint8Array([
-            ...[..."RIFF\0\0\0\0WEBPVP8X"].map((c) => c.charCodeAt(0)),
-            ...[10, 0, 0, 0],
-            flags,
-          ]),
-        ],
-        name,
-        { type: "image/webp" },
-      );
-
     await renderApp("/mark");
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webp("sticker.webp", 0x02),
-    );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /animated webp format not supported/i,
-    );
     await user.upload(
       screen.getByLabelText(/choose watermark/i),
       new File(["00"], "logo.png", { type: "image/png" }),
     );
     const button = screen.getByRole("button", { name: /^mark$/i });
-    expect(button).toHaveAttribute("aria-disabled", "true");
 
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webp("photo.webp", 0x10),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
-    );
-    // Its header is in by now, and said nothing against it
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(button).toHaveAttribute("aria-disabled", "false");
+    for (const [name, animated] of [
+      ["sticker.webp", true],
+      ["photo.webp", false],
+    ] as const) {
+      await user.upload(
+        screen.getByLabelText(/choose video/i),
+        webpFile(name, animated),
+      );
+      // Its header is in by now, and said nothing against it
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(button).toHaveAttribute("aria-disabled", "false");
+    }
   });
 
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
@@ -315,7 +296,7 @@ describe("Mark", () => {
       ),
     );
     const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
-    expect(body).toMatchObject({ filter: false });
+    expect(body).toMatchObject({ filter: false, size: "large" });
     expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
@@ -329,7 +310,14 @@ describe("Mark", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(
       JSON.parse(fetchMock.mock.calls[1][1]?.body as string),
-    ).toMatchObject({ filter: true });
+    ).toMatchObject({ filter: true, size: "large" });
+
+    // And so is the size
+    await user.click(screen.getByRole("button", { name: /small/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(
+      JSON.parse(fetchMock.mock.calls[2][1]?.body as string),
+    ).toMatchObject({ filter: true, size: "small" });
   });
 
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {
@@ -534,6 +522,7 @@ describe("Mark", () => {
     await user.upload(screen.getByLabelText(/choose video/i), video);
     await user.upload(screen.getByLabelText(/choose watermark/i), logo);
     await user.click(screen.getByRole("switch", { name: /glass/i }));
+    await user.click(screen.getByRole("button", { name: /small/i }));
     await user.click(screen.getByRole("button", { name: /^mark$/i }));
 
     await waitFor(() =>
@@ -563,7 +552,7 @@ describe("Mark", () => {
       filename: "clip.mp4",
       blobUrl: blobFor("clip.mp4"),
       watermarkUrl: blobFor("logo.png"),
-      options: { filter: true, quality: 100 },
+      options: { filter: true, size: "small", quality: 100 },
     });
   });
 });

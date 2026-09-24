@@ -12,19 +12,19 @@ const acceptOf = (
     .flatMap((f) => [f.mime, ...f.extensions.map((ext) => `.${ext}`)])
     .join(",");
 
-// Every format ffmpeg reads (shared/formats.ts): animated GIF and AVIF are
-// videos to it, so every single-source tool takes them too. The list is wider
+// Every format the app writes (shared/formats.ts): animated GIF, WebP and
+// AVIF are videos to ffmpeg, so every single-source tool takes them too. The list is wider
 // than what the tools can hand back on purpose: video/* and the extensions
 // after it let an .avi or .mkv be picked like any other file, and the app
 // then says, over the title, why it has to go through convert first
 // (hooks/useFormatBlocker).
 const VIDEO_ACCEPT = [
   "video/*,.avi,.mkv,.wmv,.mpg,.mpeg,.3gp,.ts",
-  acceptOf(FORMATS.filter((f) => f.readable)),
+  acceptOf(FORMATS),
 ].join(",");
 
-// The stills, which only the mark tool takes as well. An animated .webp gets
-// in with them and is turned away once picked.
+// The stills, which only the mark tool takes as well. A .webp is in both
+// lists; which kind it is, only its content says.
 const STILL_ACCEPT = acceptOf(STILLS);
 
 const VIDEO_INPUT = {

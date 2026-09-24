@@ -23,7 +23,7 @@ const TECHNIQUES = [
 export const Loop = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  const formatBlocker = useFormatBlocker(source.file);
+  const formatBlocker = useFormatBlocker(source.file, {}, source.nonSquare);
   const [technique, setTechnique] = useState<string>("crossfade");
   // NumberField reports null while its input is empty; submit falls back to
   // each field's default.
@@ -138,7 +138,7 @@ export const Loop = () => {
           }
           value={quality}
           onValueChange={setQuality}
-          min={1}
+          min={0}
           max={100}
           step={1}
           disabled={run.busy}

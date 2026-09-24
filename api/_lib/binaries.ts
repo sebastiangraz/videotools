@@ -1,23 +1,35 @@
+import fs from "node:fs";
 import path from "node:path";
-import ffmpegStatic from "ffmpeg-static";
 
-// ffmpeg-static is CommonJS (`module.exports = path | null`) but its .d.ts says
-// `export default`, so under NodeNext TypeScript types the default import as
-// the module namespace. At runtime Node hands ESM importers the string itself.
-const maybeFfmpegPath = ffmpegStatic as unknown as string | null;
-if (!maybeFfmpegPath) {
-  throw new Error("ffmpeg-static has no ffmpeg binary for this platform");
-}
-export const ffmpegPath: string = maybeFfmpegPath;
+// Where the postinstall (scripts/binaries-install.mjs) puts the binary that
+// <tool>.json pins for this platform.
+const pinned = (tool: string): string =>
+  path.join(
+    process.cwd(),
+    "api",
+    "_bin",
+    tool,
+    `${process.platform}-${process.arch}`,
+    process.platform === "win32" ? `${tool}.exe` : tool,
+  );
 
-// Vendored gifski CLI (see api/_bin/gifski/README.md). The linux binary is
-// static-pie linked, so it runs on the function runtime as-is; the exec bit
-// is restored at spawn time (FFmpeg.runGifski in ffmpeg.ts).
-export const gifskiPath: string = path.join(
-  process.cwd(),
-  "api",
-  "_bin",
-  "gifski",
-  process.platform === "win32" ? "win" : "linux",
-  process.platform === "win32" ? "gifski.exe" : "gifski",
+const required = (tool: string, file: string): string => {
+  if (!fs.existsSync(file)) {
+    throw new Error(
+      `No ${tool} at ${file}; run \`node scripts/binaries-install.mjs\` (npm install does)`,
+    );
+  }
+  return file;
+};
+
+// The ffmpeg that ffmpeg.json pins, one version on every platform.
+// FFMPEG_BIN points elsewhere, e.g. at another version to compare against.
+export const ffmpegPath: string = required(
+  "ffmpeg",
+  process.env.FFMPEG_BIN || pinned("ffmpeg"),
 );
+
+// The gifski CLI that gifski.json pins (see api/_bin/gifski/README.md). The
+// linux binary is static-pie linked, so it runs on the function runtime
+// as-is.
+export const gifskiPath: string = required("gifski", pinned("gifski"));

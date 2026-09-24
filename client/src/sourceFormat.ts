@@ -45,12 +45,23 @@ export const isAnimatedImage = (file: File) =>
 export const hasFrames = (file: File) =>
   file.type.startsWith("video/") || isAnimatedImage(file) || isStillImage(file);
 
-// Whether a WebP is the animated kind, which ffmpeg cannot read: the
-// animation bit (0x02) in the flags of the VP8X chunk, which an animated file
+// Whether a WebP is the animated kind rather than a still: the animation
+// bit (0x02) in the flags of the VP8X chunk, which an animated file
 // has to start with ("RIFF" size "WEBP" "VP8X" size flags, so byte 20). A
 // file too short or without the chunk is a plain still. (Through FileReader:
-// jsdom's Blob has no arrayBuffer.)
+// jsdom's Blob has no arrayBuffer.) Read once per file: everything that
+// opens a pick asks (the blocker, the frame sources).
+const webpHeaders = new WeakMap<File, Promise<boolean>>();
 export function isAnimatedWebp(file: File): Promise<boolean> {
+  let answer = webpHeaders.get(file);
+  if (!answer) {
+    answer = readWebpHeader(file);
+    webpHeaders.set(file, answer);
+  }
+  return answer;
+}
+
+function readWebpHeader(file: File): Promise<boolean> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -69,25 +80,34 @@ export function isAnimatedWebp(file: File): Promise<boolean> {
   });
 }
 
+// Whether a picked file is an animated image: a GIF or AVIF by its name or
+// type, a .webp by its header (a still to go by, if that can't be read).
+export const isAnimation = async (file: File) =>
+  isAnimatedImage(file) ||
+  (stillFormat(file)?.id === "webp" &&
+    (await isAnimatedWebp(file).catch(() => false)));
+
 // Why a tool can't take a picked file. Null = it can, which the app says
 // nothing about: a tool that hands its source's format back gives it back as
 // it came, and only a dead end is worth a word.
 export type FormatBlock =
-  // One of the app's formats, but ffmpeg cannot read it (animated WebP).
-  | { state: "unreadable"; format: Format }
-  // Readable, but nothing the app writes (.avi, .mkv, ...): there is no
-  // format to hand back, and picking another one is the convert tool's job.
+  // Readable, but nothing the app writes (.avi, .mkv, a still, ...): there
+  // is no format to hand back, and picking another one is the convert tool's
+  // job.
   | { state: "foreign"; name: string }
   // A pick of more than one format (sequence), which ffmpeg reads through one
   // image demuxer: frames come back blank or missing. `labels` are the
   // formats picked (pickedFormats).
-  | { state: "mixed"; labels: string[] };
+  | { state: "mixed"; labels: string[] }
+  // A video with non-square pixels (an anamorphic export), which GIF, WebP
+  // and AVIF can't show in shape. Not the file's format: the browser sees it
+  // once the video opens (useVideoSource).
+  | { state: "nonSquare" };
 
 // `stills`: the tool takes raster images too (mark), so a file that is one
-// goes through. `foreign`: false for the tools that are asked for a format
-// (convert, sequence) rather than handing their source's back — a file in
-// none of the app's formats is their job, not a dead end, and pointing it at
-// convert from the convert page would be a circle. `oneFormat`: the tool
+// goes through. `foreign`: false for a tool that is asked for a format
+// (sequence) rather than handing its source's back — a file in none of the
+// app's formats is its job, not a dead end. `oneFormat`: the tool
 // takes many files but only of one format at a time (sequence); it is the
 // pick's option, not any file's (useFormatBlocker).
 export type FormatOptions = {
@@ -96,34 +116,32 @@ export type FormatOptions = {
   oneFormat?: boolean;
 };
 
+// `stillWebp`: the file is a .webp whose header says it is no animation
+// (isAnimatedWebp). Until then a .webp is taken for whichever the tool can
+// use; once it is known to be a still, a tool that takes none has no format
+// for it, as for a PNG.
 export function formatBlock(
   file: File,
   { stills = false, foreign = true }: FormatOptions = {},
+  stillWebp = false,
 ): FormatBlock | null {
-  if (stills && stillFormat(file)) return null;
-  const format = fileFormat(file);
-  if (!format) {
-    if (!foreign) return null;
-    const ext = extensionOf(file.name);
-    return { state: "foreign", name: ext ? ext.toUpperCase() : "This" };
-  }
-  return format.readable ? null : { state: "unreadable", format };
+  if ((stills && stillFormat(file)) || !foreign) return null;
+  if (stillWebp) return { state: "foreign", name: "Still WebP" };
+  if (fileFormat(file)) return null;
+  const ext = extensionOf(file.name);
+  return { state: "foreign", name: ext ? ext.toUpperCase() : "This" };
 }
 
 // A block in words. `short` is the action button's tooltip; `long` is the
 // error over the title, as plain text. A foreign line stops before
 // "converted": the link to the convert tool is affixed there
-// (useFormatBlocker). `stills` is that option on the tool: one that takes
-// stills has just found the file animated, and the long line says so.
+// (useFormatBlocker).
 export type BlockerText = {
   short: string;
   long: string;
 };
 
-export function blockerText(
-  block: FormatBlock,
-  { stills = false }: Pick<FormatOptions, "stills"> = {},
-): BlockerText {
+export function blockerText(block: FormatBlock): BlockerText {
   switch (block.state) {
     case "foreign":
       return {
@@ -135,10 +153,10 @@ export function blockerText(
         short: "Use images of one format",
         long: "Mixed formats are not supported.",
       };
-    case "unreadable":
+    case "nonSquare":
       return {
-        short: `${block.format.label} can't be read`,
-        long: `${stills ? "Animated " : ""}${block.format.label} format not supported.`,
+        short: "Re-export with square pixels",
+        long: "Non-square pixels are not supported.",
       };
   }
 }
@@ -160,7 +178,8 @@ export function pickedFormats(files: readonly File[]): string[] {
 export function formatBlocker(
   file: File,
   options?: FormatOptions,
+  stillWebp = false,
 ): string | null {
-  const block = formatBlock(file, options);
-  return block && blockerText(block, options).short;
+  const block = formatBlock(file, options, stillWebp);
+  return block && blockerText(block).short;
 }

@@ -9,9 +9,9 @@
 //   npm run smoke -- gif --only gif,webp
 //                                      only the cases with "gif" or "webp" in
 //                                      their name
-//   npm run smoke -- v7 --ffmpeg C:/ffmpeg-7.0.2/bin/ffmpeg.exe
-//                                      another ffmpeg than ffmpeg-static's
-//                                      (Vercel runs 7.0.2, Windows gets 6.1.1)
+//   npm run smoke -- next --ffmpeg C:/ffmpeg-9.1/bin/ffmpeg.exe
+//                                      another ffmpeg than the one ffmpeg.json
+//                                      pins (say, the next version to pin)
 //   npm run smoke -- real --assets D:/footage/smoke
 //                                      your own inputs (default folder:
 //                                      scripts/smoke-assets; roles below)
@@ -30,6 +30,7 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { checkFfmpeg, pinnedVersion } from "./ffmpeg-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const smokeDir = path.join(root, ".smoke");
@@ -51,9 +52,18 @@ const smokeDir = path.join(root, ".smoke");
 //                                      sources in the other video formats
 //   avif       —                       the first two seconds of `video` as
 //                                      a small source.avif (AV1 is slow)
+//   slides     —                       three frames of `video` a second
+//                                      apart as slides.avif, at 1 fps: the
+//                                      AVIF a slideshow is
+//   animwebp,  —                       the first two seconds of `video` as
+//   animwebp-                          animated WebPs: anim.webp (lossy)
+//   lossless                           and anim-lossless.webp
 //   mkv        —                       `video` remuxed to reject.mkv, a
 //                                      container the app reads but never
 //                                      writes
+//   anamorphic —                       two seconds of `video` as
+//                                      reject-anamorphic.mp4, its pixels
+//                                      tagged 4:3: a video the app refuses
 //   png, jpg,  —                       the first frame of `video` as still.png,
 //   webp                               still.jpg and still.webp (lossy): the
 //                                      mark tool's still sources
@@ -86,11 +96,16 @@ const CASES = {
   "loop-reverse-webm-source": { tool: "loop", files: ["webm"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2, minRatio: 0.8 } },
   // A few dozen kB, where the container counts and libaom holds its one-pass
   // rate only loosely: more headroom than the other reverse loops get.
+  // No frame count for a WebP result: libwebp_anim merges identical frames
+  // in a row (one frame, twice as long), such as the two where the
+  // palindrome turns, or a hold in real footage.
+  "loop-reverse-webp-source": { tool: "loop", files: ["animwebp"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", maxRatio: 2.2 } },
   "loop-reverse-avif-source": { tool: "loop", files: ["avif"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.5 } },
   "loop-reject-mkv-source": { tool: "loop", files: ["mkv"], options: { technique: "reverse", quality: 100 }, expect: { errorCode: "unsupported-source" } },
   "loop-crossfade": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 80 }, expect: { ext: "source", maxRatio: 0.9 } },
   "loop-crossfade-start": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 1.5, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
   "loop-crossfade-gif-source": { tool: "loop", files: ["animation"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
+  "loop-crossfade-webp-source": { tool: "loop", files: ["animwebp"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0.5, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
   "loop-reorder": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
   // A start point next to a keyframe of the footage in scripts/smoke-assets
   // (2.03s), where the streams are reordered without decoding. Test patterns
@@ -103,22 +118,44 @@ const CASES = {
   "sequence-mp4": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "mp4", quality: 90 }, expect: { ext: "mp4" } },
   "sequence-gif": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "gif", quality: 90 }, expect: { ext: "gif" } },
   "sequence-gif-q50": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "gif", quality: 50 }, expect: { ext: "gif" } },
+  "sequence-webp": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "webp", quality: 90 }, expect: { ext: "webp" } },
   "sequence-avif": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 85 }, expect: { ext: "avif" } },
   "sequence-avif-lossless": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 100 }, expect: { ext: "avif" } },
   "convert-mp4": { tool: "convert", files: ["video"], options: { target: "mp4", quality: 60 }, expect: { ext: "mp4", maxRatio: 0.75, frames: "source" } },
   "convert-mov": { tool: "convert", files: ["video"], options: { target: "mov", quality: 90 }, expect: { ext: "mov", maxRatio: 1.05, frames: "source" } },
   "convert-webm": { tool: "convert", files: ["video"], options: { target: "webm", quality: 90 }, expect: { ext: "webm", maxRatio: 1, minRatio: 0.4, frames: "source" } },
   "convert-webp": { tool: "convert", files: ["video"], options: { target: "webp", quality: 90 }, expect: { ext: "webp" } },
-  "convert-webp-lossless": { tool: "convert", files: ["video"], options: { target: "webp", quality: 100 }, expect: { ext: "webp" } },
+  // 100 is lossless only for a lossless source (encode/webp.ts): a lossy one
+  // written lossless stores its artifacts as detail (9x its source, 31x an
+  // AVIF's). Animated WebP is intra-only, so it still weighs more than video
+  // that predicts between frames, the synthesized AV1 most of all.
+  "convert-webp-q100": { tool: "convert", files: ["video"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 3 } },
+  "convert-gif-to-webp": { tool: "convert", files: ["animation"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 2 } },
   "convert-avif": { tool: "convert", files: ["video"], options: { target: "avif", quality: 70 }, expect: { ext: "avif", maxRatio: 0.75 } },
+  "convert-avif-to-webp": { tool: "convert", files: ["avif"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 14 } },
+  "convert-avif-to-webp-q90": { tool: "convert", files: ["avif"], options: { target: "webp", quality: 90 }, expect: { ext: "webp", maxRatio: 11 } },
+  "convert-webp-source": { tool: "convert", files: ["animwebp"], options: { target: "mp4", quality: 90 }, expect: { ext: "mp4", frames: "source" } },
   "convert-gif": { tool: "convert", files: ["video"], options: { target: "gif", quality: 90, width: 200 }, expect: { ext: "gif" } },
   "convert-gif-fps": { tool: "convert", files: ["video"], options: { target: "gif", quality: 70, fps: 10, width: 160 }, expect: { ext: "gif" } },
+  "convert-reject-anamorphic-source": { tool: "convert", files: ["anamorphic"], options: { target: "gif", quality: 90 }, expect: { errorCode: "unsupported-source" } },
   "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 0.6 } },
   "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 2.2 } },
   "speed-gif-source": { tool: "speed", files: ["animation"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 } },
+  // Only the delays change; lossy stays lossy (the speed tool runs at 100,
+  // which is lossless only for a lossless source). No frame counts: see
+  // loop-reverse-webp-source.
+  "speed-webp-source": { tool: "speed", files: ["animwebp"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 1.3 } },
+  "speed-webp-lossless-source": { tool: "speed", files: ["animwebp-lossless"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 1.2 } },
+  // An AVIF is a frame list too: every frame stays, at the source's bytes
+  // (a speed-up once dropped a third of a slideshow's frames and gave the
+  // rest half their bits, a quarter of the size and visibly worse).
+  "speed-avif-source": { tool: "speed", files: ["avif"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
+  "speed-avif-slides": { tool: "speed", files: ["slides"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
+  "speed-slower-avif-slides": { tool: "speed", files: ["slides"], options: { speed: -1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
   "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: false, quality: 90 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-glass-webp-anim-source": { tool: "mark", files: ["animwebp", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2 } },
   "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: false, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   // Stills come back as the image they are. A PNG is lossless both ways; a
   // JPEG or lossy WebP is held to its source's size (encode/still.ts), which
@@ -291,6 +328,12 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   assets.mov = remux("source.mov");
   assets.mkv = remux("reject.mkv", "-map", "0:v:0");
   ff(
+    "-i", video, "-t", "2", "-vf", "scale=160:-2,setsar=4/3",
+    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-an",
+    made("reject-anamorphic.mp4"),
+  );
+  assets.anamorphic = [made("reject-anamorphic.mp4")];
+  ff(
     "-i", video,
     "-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-cpu-used", "5", "-row-mt", "1",
     "-pix_fmt", "yuv420p", "-c:a", "libopus", "-ac", "2", made("source.webm"),
@@ -303,6 +346,22 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("source.avif"),
   );
   assets.avif = [made("source.avif")];
+  ff(
+    "-i", video, "-t", "3",
+    "-vf", "fps=1,scale=320:-2",
+    "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "8", "-row-mt", "1",
+    "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("slides.avif"),
+  );
+  assets.slides = [made("slides.avif")];
+  const animWebp = (name, ...codec) => {
+    ff(
+      "-i", video, "-t", "2", "-vf", "fps=10,scale=160:-2",
+      "-c:v", "libwebp_anim", ...codec, "-loop", "0", "-an", made(name),
+    );
+    return [made(name)];
+  };
+  assets.animwebp = animWebp("anim.webp", "-q:v", "80");
+  assets["animwebp-lossless"] = animWebp("anim-lossless.webp", "-lossless", "1");
 
   ff("-i", video, "-frames:v", "1", made("still.png"));
   assets.png = [made("still.png")];
@@ -375,6 +434,15 @@ const { renderWatermarkFrame } = await load("api/_lib/tools/mark.js");
 process.chdir(root);
 const binaries = await load("api/_lib/binaries.js");
 const ffmpegPath = args.ffmpeg ?? binaries.ffmpegPath;
+// Before any case: the pinned version (unless --ffmpeg asks for another), with
+// every encoder and filter the api uses.
+const ffmpegCheck = checkFfmpeg(ffmpegPath, { version: args.ffmpeg ? undefined : pinnedVersion() });
+if (ffmpegCheck.problems.length) {
+  console.error(
+    `${ffmpegPath} (${ffmpegCheck.version}) won't do:\n  ${ffmpegCheck.problems.join("\n  ")}`,
+  );
+  process.exit(1);
+}
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
 const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
@@ -429,6 +497,7 @@ const commands = {};
 const broken = {};
 // Part of the results, so comparing runs made from different inputs says so.
 const results = {
+  "(ffmpeg)": ffmpegCheck.version,
   "(assets)": Object.fromEntries(
     Object.entries(assets).map(([role, paths]) => [role, describe(paths)]),
   ),
@@ -469,8 +538,8 @@ for (const name of names) {
       downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
     }
     // Probed with a fresh instance, so the probe isn't part of the record.
-    // Best effort: ffmpeg has no decoder for animated WebP, so those read
-    // as having no video. Anywhere else, "no video stream" is a finding.
+    // Best effort: a result ffmpeg cannot read shows as "no video stream",
+    // a finding in any case.
     const info = await new FFmpeg(ffmpegPath, "")
       .mediaInfo(outputPath)
       .catch(() => null);

@@ -2,6 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   MARK,
+  MARK_SIZES,
   parseBounds,
   watermarkGraph,
   watermarkLayout,
@@ -158,6 +159,44 @@ describe("parseBounds", () => {
   });
 });
 
+describe("watermarkLayout sizes", () => {
+  it("is the large size by default", () => {
+    const bounds = { width: 300, height: 80 };
+    expect(watermarkLayout(UHD, bounds)).toEqual(
+      watermarkLayout(UHD, bounds, "large"),
+    );
+  });
+
+  it.each([1, 16 / 9, 6, 1 / 3])(
+    "scales a %s logo and its padding, and sets it a little further in",
+    (aspect) => {
+      const bounds = {
+        width: Math.round(1000 * Math.sqrt(aspect)),
+        height: Math.round(1000 / Math.sqrt(aspect)),
+      };
+      const large = watermarkLayout(UHD, bounds, "large");
+      const small = watermarkLayout(UHD, bounds, "small");
+      const { scale, gap } = MARK_SIZES.small;
+      expect(Math.abs(small.LW - large.LW * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.LH - large.LH * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(
+        1,
+      );
+      // The large gap is its padding; the small one is a share of that, the
+      // same on both edges whatever the logo's shape
+      expect(large.gap).toBe(large.margin);
+      expect(Math.abs(small.gap - large.gap * gap)).toBeLessThanOrEqual(1);
+      expect([small.LX, small.LY]).toEqual([
+        UHD.width - small.gap - small.LW,
+        UHD.height - small.gap - small.LH,
+      ]);
+      // The cell's corner stays even for the yuv420p crop
+      expect((small.LX - small.margin) % 2).toBe(0);
+      expect((small.LY - small.margin) % 2).toBe(0);
+    },
+  );
+});
+
 describe("watermarkGraph", () => {
   const info = (width: number, height: number, codec: string) => ({
     duration: 0,
@@ -166,6 +205,7 @@ describe("watermarkGraph", () => {
     fps: null,
     codec,
     matrix: null,
+    sar: 1,
   });
   const video = info(1920, 1080, "h264");
   const logo = info(400, 400, "png");
@@ -209,6 +249,33 @@ describe("watermarkGraph", () => {
       expect(graph).toMatch(/^\[0:v:1\]format=yuv420p/);
       expect(graph).not.toContain("[0:v]");
     }
+  });
+
+  it("lays the logo out at the size it is given", () => {
+    const l = watermarkLayout(video, logo, "small");
+    for (const filter of [false, true]) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        size: "small",
+      });
+      expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
+    }
+  });
+
+  it("draws the small glass's rim at a share of the large one's width", () => {
+    // 1080p: a 2px rim at large; at small, whole erosions and a mixed-in
+    // share of one more for any fraction left
+    const large = watermarkGraph(video, logo, true);
+    expect(large).toContain("[m2]erosion,erosion[eroded]");
+    expect(large).not.toContain("all_expr");
+    const small = watermarkGraph(video, logo, true, undefined, {
+      size: "small",
+    });
+    const part = (2 * MARK_SIZES.small.rim) % 1;
+    if (part < 0.01) expect(small).not.toContain("all_expr");
+    else
+      expect(small).toContain(
+        `[er1][er3]blend=all_expr='A+(B-A)*${part.toFixed(3)}'[eroded]`,
+      );
   });
 
   it("leaves a logo that fills its canvas alone", () => {
