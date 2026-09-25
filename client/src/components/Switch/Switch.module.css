@@ -10,18 +10,23 @@
   width: var(--track-w);
   height: var(--track-h);
   padding: var(--pad);
-  border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
+  border-color: color-mix(in srgb, var(--fg) 16%, transparent);
+  border-style: solid;
+  border-width: 1px;
   border-radius: calc(var(--track-h) / 2.2);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   cursor: pointer;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
   transition:
+    outline 150ms ease,
     background-color 150ms ease,
     border-color 150ms ease;
 
   &[data-checked] {
     background-color: var(--fg-secondary);
-    border: 1px solid color-mix(in srgb, var(--fg) 24%, transparent);
+    border-color: color-mix(in srgb, var(--fg) 24%, transparent);
   }
 
   &[data-disabled] {
@@ -29,10 +34,15 @@
     cursor: not-allowed;
   }
 
-  &:focus-visible {
+  &:focus-visible,
+  &:hover {
     outline: 1px solid var(--border);
-    outline-offset: 2px;
   }
+}
+
+:root[data-theme-invert] .root[data-checked] {
+  background-color: var(--fg);
+  border-color: color-mix(in srgb, var(--fg) 24%, transparent);
 }
 
 .thumb {
