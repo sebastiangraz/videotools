@@ -1,7 +1,7 @@
 .root {
-  --track-w: 1.75rem;
-  --track-h: 0.875rem;
-  --pad: 1px;
+  --track-w: 2.25rem;
+  --track-h: 1.125rem;
+  --pad: 3px;
   --thumb: calc(var(--track-h) - 2px - 2 * var(--pad));
   display: inline-flex;
   align-items: center;
@@ -11,7 +11,7 @@
   height: var(--track-h);
   padding: var(--pad);
   border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
-  border-radius: calc(var(--track-h) / 3);
+  border-radius: calc(var(--track-h) / 2.2);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   cursor: pointer;
@@ -20,8 +20,8 @@
     border-color 150ms ease;
 
   &[data-checked] {
-    background-color: var(--fg);
-    border-color: var(--fg);
+    background-color: var(--fg-secondary);
+    border: 1px solid color-mix(in srgb, var(--fg) 24%, transparent);
   }
 
   &[data-disabled] {
@@ -38,7 +38,7 @@
 .thumb {
   width: calc(var(--thumb) * 1.5);
   height: var(--thumb);
-  border-radius: calc(var(--track-h) / 3 - var(--pad) - 1px);
+  border-radius: calc(var(--track-h) / 2.2 - var(--pad) - 1px);
   corner-shape: superellipse(1.45);
   background-color: var(--fg-secondary);
   transition:
