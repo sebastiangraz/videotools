@@ -29,7 +29,7 @@ export const MARK = {
   // Light direction in degrees clockwise from the top.
   lightAngle: -45, //-45
   // Lit rim opacity.
-  rimOpacity: 0.85, //0.85
+  rimOpacity: 0.8, //0.85
   // Unlit rim brightness share of the lit rim.
   glint: 0.66, //0.35
   // Rim backdrop saturation multiplier with no change at 1.
@@ -37,13 +37,13 @@ export const MARK = {
   // Rim brightness multiplier.
   rimGain: 7, //3
   // Rim white mix with a plain white rim at 1.
-  rimWhite: 0.6, //0.15
+  rimWhite: 0.4, //0.15
   // Glass light opacity on the side opposite the light.
-  ambient: 0.16, //0.16
+  ambient: 0.12, //0.16
   // Shade side opacity share of the bright side.
   ambientShade: 0.5, //0.5
   // Ambient gradient radius in logo radii from a point outside the logo.
-  ambientReach: 2.4, //2.4
+  ambientReach: 1.8, //2.4
 
   // Drop shadow blur fraction of the width and height minimum.
   shadowBlurRatio: 0.016, //0.012
@@ -52,7 +52,7 @@ export const MARK = {
   // Drop shadow opacity.
   shadowOpacity: 0.08, //0.35
   // Logo pixel opacity over the glass.
-  logoOpacity: 0.07, //0.45
+  logoOpacity: 0.05, //0.45
 
   // Blur filter blur fraction of the width and height minimum.
   blurFilterRatio: 0.016,
