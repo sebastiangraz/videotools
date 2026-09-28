@@ -25,8 +25,8 @@
     border-color 150ms ease;
 
   &[data-checked] {
-    background-color: var(--fg-secondary);
-    border-color: color-mix(in srgb, var(--fg) 24%, transparent);
+    background-color: var(--fg);
+    border-color: transparent;
   }
 
   &[data-disabled] {
@@ -41,7 +41,7 @@
 }
 
 :root[data-theme-invert] .root[data-checked] {
-  background-color: var(--fg);
+  background-color: var(--fg-secondary);
   border-color: color-mix(in srgb, var(--fg) 24%, transparent);
 }
 
