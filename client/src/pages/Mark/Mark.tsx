@@ -203,18 +203,20 @@ export const Mark = () => {
         </Tooltip>
       )}
       <div className={form.horizontal}>
-        <div className={form.formGroup}>
-          <span id="markSize" className={form.label}>
-            Size
-          </span>
-          <ToggleGroup
-            labelledBy="markSize"
-            options={SIZE_OPTIONS}
-            value={size}
-            onValueChange={setSize}
-            disabled={run.busy}
-          />
-        </div>
+        {watermark && (
+          <div className={form.formGroup}>
+            <span id="markSize" className={form.label}>
+              Size
+            </span>
+            <ToggleGroup
+              labelledBy="markSize"
+              options={SIZE_OPTIONS}
+              value={size}
+              onValueChange={setSize}
+              disabled={run.busy}
+            />
+          </div>
+        )}
 
         {/* Glass and blur take their shape from the logo, so the choice
           waits for one. */}
