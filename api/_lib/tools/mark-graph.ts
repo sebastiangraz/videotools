@@ -54,6 +54,8 @@ export const MARK = {
   // Logo pixel opacity over the glass.
   logoOpacity: 0.07, //0.45
 
+  // Blur filter blur fraction of the width and height minimum.
+  blurFilterRatio: 0.016,
   // Blur filter backdrop saturation multiplier with no change at 1.
   blurSaturation: 1.8,
   // Blur filter difference layer opacity, a white fill in the logo's shape.
@@ -241,14 +243,14 @@ export function watermarkGraph(
   // space and a cell tagged differently from the base makes overlay
   // convert the whole frame (and a JPEG cannot say it is bt709).
   const matrix = video.matrix ?? (VH >= 720 ? "bt709" : "bt601");
-  const sigma = (shorter * MARK.blurRatio).toFixed(2);
   const toRgb = rgb ? "" : `scale=in_color_matrix=${matrix}:in_range=tv,`;
   const fromRgb = rgb
     ? ""
     : `,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p`;
 
-  // Blur: the glass's frost alone. The patch under the cell blurred as the
-  // fill is and made more vibrant (blurSaturation), shaped by the logo's
+  // Blur: the glass's frost alone. The patch under the cell blurred (by
+  // blurFilterRatio, its own, not the glass's) and made more vibrant
+  // (blurSaturation), shaped by the logo's
   // alpha, with the faint logo over it; no lens, rim, light or shadow. The
   // fill is the only thing with alpha, so as with the glass nothing outside
   // the logo's shape changes.
@@ -262,7 +264,7 @@ export function watermarkGraph(
   if (filter === "blur") {
     return [
       `${pad}${open},split[base][src]`,
-      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${sigma}:steps=2,${saturate(MARK.blurSaturation)},split[frost][under]`,
+      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${(shorter * MARK.blurFilterRatio).toFixed(2)}:steps=2,${saturate(MARK.blurSaturation)},split[frost][under]`,
       `[1:v]format=rgba${trim},${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
       `[lg1]format=rgba,alphaextract,format=gray,split[mask][dmask]`,
       `[under]lutrgb=r=negval:g=negval:b=negval[inverted]`,
@@ -275,6 +277,7 @@ export function watermarkGraph(
     ].join(";");
   }
 
+  const sigma = (shorter * MARK.blurRatio).toFixed(2);
   const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
   const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
