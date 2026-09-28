@@ -21,9 +21,9 @@ import { Tooltip } from "../../components/Tooltip/Tooltip";
 
 const TOOL = toolById("mark");
 
-// Watermark images: PNG only. SVG in particular is left out: the server's
-// ffmpeg has no SVG decoder, so export the logo as PNG first.
-const WATERMARK_ACCEPT = "image/png";
+// Watermark images: PNG or SVG (the server rasterizes an SVG to the size the
+// frame needs). ".svg" too, for systems that give an SVG no MIME type.
+const WATERMARK_ACCEPT = "image/png,image/svg+xml,.svg";
 
 const SIZE_OPTIONS: { value: MarkSize; label: string }[] = [
   { value: "small", label: "Small" },

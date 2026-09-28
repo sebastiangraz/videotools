@@ -11,7 +11,7 @@ import { isMarkFilter, isMarkSize } from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 // Renders the "mark" tool's preview: the browser sends the video's first
-// frame (a small JPEG it grabbed itself) and the logo (a PNG) as data URLs,
+// frame (a small JPEG it grabbed itself) and the logo (a PNG or SVG) as data URLs,
 // and gets back one frame composited by the same ffmpeg graph the encode
 // uses. Both images travel inline: the frame is downscaled client-side and
 // logos are small, so there is no need for Blob storage here.
@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     if (abort.signal.aborted) return;
     console.error("Preview error:", err);
-    // A logo that isn't a PNG is the caller's to fix, not a server fault.
+    // A logo that is no PNG or SVG is the caller's to fix, not a server fault.
     if (err instanceof InputError) {
       return res.status(400).json({ error: err.message, code: err.code });
     }

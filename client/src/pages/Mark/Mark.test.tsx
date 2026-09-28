@@ -53,7 +53,7 @@ describe("Mark", () => {
     return fetchMock;
   };
 
-  it("waits for a video and a PNG watermark on the mark tool, then offers filter mode", async () => {
+  it("waits for a video and a PNG or SVG watermark on the mark tool, then offers filter mode", async () => {
     const user = userEvent.setup();
     await renderApp("/mark");
 
@@ -67,9 +67,10 @@ describe("Mark", () => {
     expect(await screen.findByText(/upload a watermark/i)).toBeInTheDocument();
     await user.unhover(button);
 
-    // Only PNG logos are taken; the picker's accept list filters the rest
+    // Only PNG and SVG logos are taken; the picker's accept list filters the
+    // rest
     const picker = screen.getByLabelText(/choose watermark/i);
-    expect(picker).toHaveAttribute("accept", "image/png");
+    expect(picker).toHaveAttribute("accept", "image/png,image/svg+xml,.svg");
     await user.upload(
       picker,
       new File(["00"], "logo.gif", { type: "image/gif" }),
@@ -79,6 +80,13 @@ describe("Mark", () => {
     expect(
       screen.queryByRole("button", { name: /glass/i }),
     ).not.toBeInTheDocument();
+
+    await user.upload(
+      picker,
+      new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" }),
+    );
+    expect(button).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByText("logo.svg")).toBeInTheDocument();
 
     await user.upload(
       picker,

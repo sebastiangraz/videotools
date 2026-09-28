@@ -43,6 +43,7 @@ const smokeDir = path.join(root, ".smoke");
 //   video      video.<any extension>   the clip every video tool works on
 //   animation  animation.gif           a GIF source; else made from `video`
 //   logo       logo.png                the watermark (PNG with alpha)
+//   svglogo    logo.svg                the watermark as an SVG
 //   images     images/*                the sequence tool's stills, in natural
 //                                      filename order (1–100 files)
 //   frame      —                       always the first frame of `video`
@@ -167,8 +168,12 @@ const CASES = {
   "mark-glass-webp-source": { tool: "mark", files: ["webp", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-blur": { tool: "mark", files: ["video", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-blur-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  // An SVG logo is rasterized first and then marks like a PNG one.
+  "mark-glass-svg-logo": { tool: "mark", files: ["video", "svglogo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-plain-svg-logo-png-source": { tool: "mark", files: ["png", "svglogo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: "glass" } },
   "preview-blur": { preview: true, files: ["frame", "logo"], options: { filter: "blur" } },
+  "preview-glass-svg": { preview: true, files: ["frame", "svglogo"], options: { filter: "glass" } },
 };
 
 // What a result does to its case's `expect`, as lines to print; none = holds.
@@ -293,6 +298,18 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
       "-frames:v", "1", made("logo.png"),
     );
     return [made("logo.png")];
+  });
+
+  // Only a viewBox, no size (librsvg would draw it at 100x100), and room
+  // around the drawing, which the bounds cropping takes off: what exported
+  // logos tend to look like.
+  use("svglogo", [own(/^logo.svg$/i)].filter(Boolean), () => {
+    fs.writeFileSync(
+      made("logo.svg"),
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 24">' +
+        '<rect x="6" y="5" width="48" height="14" rx="7" fill="#fff"/></svg>',
+    );
+    return [made("logo.svg")];
   });
 
   const imagesDir = path.join(userDir, "images");

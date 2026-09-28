@@ -31,8 +31,9 @@ const NEEDS = {
   muxers: ["mp4", "webm", "avif", "webp", "image2", "framecrc", "null"],
   demuxers: ["concat", "image2", "webp_anim"],
   // What the sources are read with where a build could lack it: animated
-  // WebP has a decoder of its own (source.ts goes by its demuxer)
-  decoders: ["webp", "webp_anim"],
+  // WebP has a decoder of its own (source.ts goes by its demuxer), and an
+  // SVG logo is drawn by librsvg (tools/mark.ts)
+  decoders: ["webp", "webp_anim", "librsvg"],
   // lavfi, which the smoke run synthesizes its inputs through, is a device
   devices: ["lavfi"],
   filters: [
