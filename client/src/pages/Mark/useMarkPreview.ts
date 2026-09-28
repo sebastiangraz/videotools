@@ -7,6 +7,8 @@ import {
 
 // The watermark's size choice (the API's MARK_SIZES).
 export type MarkSize = "small" | "large";
+// The watermark's look (the API's MARK_FILTERS).
+export type MarkFilter = "plain" | "glass" | "blur";
 
 // The mark preview is rendered by the server with the real ffmpeg graph, so
 // it always matches the encode. The browser sends frames of the source
@@ -49,7 +51,7 @@ const toDataUrl = (blob: Blob) =>
 export function useMarkPreview(
   source: File | null,
   watermark: File | null,
-  filterMode: boolean,
+  filterMode: MarkFilter,
   size: MarkSize,
 ) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
@@ -61,7 +63,7 @@ export function useMarkPreview(
   const [settled, setSettled] = useState<{
     frameBlobs: Blob[];
     watermark: File;
-    filterMode: boolean;
+    filterMode: MarkFilter;
     size: MarkSize;
   } | null>(null);
   // The source no frame could be grabbed off, so there is nothing to wait for.

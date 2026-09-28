@@ -71,6 +71,13 @@ export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
   typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
 
+// The mark's look: the logo laid on as is, a glass lens in its shape (see
+// MARK), or the backdrop frosted in its shape with none of the lens.
+export const MARK_FILTERS = ["plain", "glass", "blur"] as const;
+export type MarkFilter = (typeof MARK_FILTERS)[number];
+export const isMarkFilter = (value: unknown): value is MarkFilter =>
+  MARK_FILTERS.includes(value as MarkFilter);
+
 // Where the logo goes and how big, from the frame and the logo's visible
 // bounds alone (see MARK for the model). One continuous formula: the
 // logo's aspect ratio sets how an area budget is split between its sides,
@@ -139,11 +146,11 @@ export function watermarkLayout(
 // `pad` names the video among the inputs: the first input's first video
 // stream unless the caller knows better (encode/render.ts, videoPad).
 //
-// `size` picks one of MARK_SIZES.
+// `filter` picks one of MARK_FILTERS; `size` one of MARK_SIZES.
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
-  filter: boolean,
+  filter: MarkFilter,
   bounds: Bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
   {
     base = "yuv420p",
@@ -183,7 +190,7 @@ export function watermarkGraph(
     rgb
       ? `overlay=x=${x}:y=${y}:format=auto,format=rgba`
       : `overlay=x=${x}:y=${y},format=yuv420p`;
-  if (!filter) {
+  if (filter === "plain") {
     return [
       `${pad}${open}[base]`,
       `[1:v]format=rgba${trim},${scaleLogo}[logo]`,
@@ -208,6 +215,28 @@ export function watermarkGraph(
   // convert the whole frame (and a JPEG cannot say it is bt709).
   const matrix = video.matrix ?? (VH >= 720 ? "bt709" : "bt601");
   const sigma = (shorter * MARK.blurRatio).toFixed(2);
+  const toRgb = rgb ? "" : `scale=in_color_matrix=${matrix}:in_range=tv,`;
+  const fromRgb = rgb
+    ? ""
+    : `,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p`;
+
+  // Blur: the glass's frost alone. The patch under the cell blurred as the
+  // fill is, shaped by the logo's alpha, with the faint logo over it; no
+  // lens, rim, light or shadow. The fill is the only thing with alpha, so
+  // as with the glass nothing outside the logo's shape changes.
+  if (filter === "blur") {
+    return [
+      `${pad}${open},split[base][src]`,
+      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${sigma}:steps=2[frost]`,
+      `[1:v]format=rgba${trim},${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
+      `[lg1]format=rgba,alphaextract,format=gray[mask]`,
+      `[frost][mask]alphamerge[fill]`,
+      `[lg2]colorchannelmixer=aa=${Math.min(0.5, MARK.logoOpacity * 2)}[faint]`,
+      `[fill][faint]overlay=format=auto${fromRgb}[cell]`,
+      `[base][cell]${onto(CX, CY)}[out]`,
+    ].join(";");
+  }
+
   const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
   const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
@@ -335,7 +364,7 @@ export function watermarkGraph(
     // (An RGBA base has no conversion to name. What the glass refracts is
     // the colour of the pixels under it, so over transparent ones it shows
     // whatever colour the file keeps there.)
-    `[src]crop=${CW}:${CH}:${CX}:${CY},${rgb ? "" : `scale=in_color_matrix=${matrix}:in_range=tv,`}format=rgba,split[cellA][cellB]`,
+    `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split[cellA][cellB]`,
     `[cellB]colorchannelmixer=aa=0[canvas]`,
     // The logo scaled and centred in a transparent cell-sized canvas, at
     // 1× (the faint copy and the masks) and at 2× (the lens maps). The
@@ -405,7 +434,7 @@ export function watermarkGraph(
     `[c1][glass]overlay=format=auto[c2a]`,
     `[c2a][ambient]overlay=format=auto[c2]`,
     `[c2][rim]overlay=format=auto[c3]`,
-    `[c3][faint]overlay=format=auto${rgb ? "" : `,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p`}[cell]`,
+    `[c3][faint]overlay=format=auto${fromRgb}[cell]`,
     `[base][cell]${onto(CX, CY)}[out]`,
   ].join(";");
 }

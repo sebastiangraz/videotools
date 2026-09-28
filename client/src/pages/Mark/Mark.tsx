@@ -4,14 +4,17 @@ import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { Slider } from "../../components/Slider/Slider";
 import { Spinner } from "../../components/Spinner/Spinner";
-import { Switch } from "../../components/Switch/Switch";
 import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import { useMarkPreview, type MarkSize } from "./useMarkPreview";
+import {
+  useMarkPreview,
+  type MarkFilter,
+  type MarkSize,
+} from "./useMarkPreview";
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
@@ -27,6 +30,12 @@ const SIZE_OPTIONS: { value: MarkSize; label: string }[] = [
   { value: "large", label: "Large" },
 ];
 
+const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
+  { value: "plain", label: "Plain" },
+  { value: "glass", label: "Glass" },
+  { value: "blur", label: "Blur" },
+];
+
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
@@ -37,10 +46,10 @@ export const Mark = () => {
     { stills: true },
     source.nonSquare,
   );
-  // The logo, and its frosted-glass switch.
+  // The logo, and the look it is laid on with.
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
-  const [filterMode, setFilterMode] = useState(false);
+  const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [size, setSize] = useState<MarkSize>("large");
   const [quality, setQuality] = useState<number>(100);
   const preview = useMarkPreview(source.file, watermark, filterMode, size);
@@ -119,7 +128,7 @@ export const Mark = () => {
           them (a still has the one, itself). The bare first frame shows until the renders land (and
           stays as the fallback if they fail); a format the browser
           can't decode shows the frame's own note instead. While a set
-          of renders is on its way (first logo, new logo, glass toggled)
+          of renders is on its way (first logo, new logo, filter changed)
           a spinner is up and the last set stays, so the frames never
           disagree with each other. The aspect box waits for the source's
           metadata. */}
@@ -193,36 +202,37 @@ export const Mark = () => {
           )}
         </Tooltip>
       )}
-
-      <div className={form.formGroup}>
-        <span id="markSize" className={form.label}>
-          Size
-        </span>
-        <ToggleGroup
-          labelledBy="markSize"
-          options={SIZE_OPTIONS}
-          value={size}
-          onValueChange={setSize}
-          disabled={run.busy}
-        />
-      </div>
-
-      {/* The glass takes its shape from the logo, so the switch waits
-          for one. */}
-      {watermark && (
-        <div className={form.switchRow}>
-          <label htmlFor="filterMode" className={form.label}>
-            Glass
-          </label>
-          <Switch
-            id="filterMode"
-            checked={filterMode}
-            onCheckedChange={setFilterMode}
+      <div className={form.horizontal}>
+        <div className={form.formGroup}>
+          <span id="markSize" className={form.label}>
+            Size
+          </span>
+          <ToggleGroup
+            labelledBy="markSize"
+            options={SIZE_OPTIONS}
+            value={size}
+            onValueChange={setSize}
             disabled={run.busy}
           />
         </div>
-      )}
 
+        {/* Glass and blur take their shape from the logo, so the choice
+          waits for one. */}
+        {watermark && (
+          <div className={form.formGroup}>
+            <span id="markFilter" className={form.label}>
+              Filter
+            </span>
+            <ToggleGroup
+              labelledBy="markFilter"
+              options={FILTER_OPTIONS}
+              value={filterMode}
+              onValueChange={setFilterMode}
+              disabled={run.busy}
+            />
+          </div>
+        )}
+      </div>
       {!lossless && (
         <div className={form.formGroup}>
           <Slider

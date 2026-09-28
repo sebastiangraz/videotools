@@ -2,6 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   MARK,
+  MARK_FILTERS,
   MARK_SIZES,
   parseBounds,
   watermarkGraph,
@@ -213,7 +214,7 @@ describe("watermarkGraph", () => {
   it("crops a logo to its visible bounds and lays it out by them", () => {
     const bounds = { x: 50, y: 160, width: 300, height: 80 };
     const l = watermarkLayout(video, bounds);
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, filter, bounds);
       expect(graph).toContain("[1:v]format=rgba,crop=300:80:50:160,");
       expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
@@ -222,7 +223,7 @@ describe("watermarkGraph", () => {
 
   it("keeps an RGBA base out of YUV, and whole", () => {
     const odd = info(321, 241, "gif");
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(odd, logo, filter, undefined, {
         base: "rgba",
       });
@@ -234,7 +235,7 @@ describe("watermarkGraph", () => {
 
   it("composites video in yuv420p, cropped to even dimensions", () => {
     const odd = info(321, 241, "h264");
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(odd, logo, filter);
       expect(graph).toMatch(/^\[0:v\]format=yuv420p,crop=320:240:0:0/);
       expect(graph).toMatch(/,format=yuv420p\[out\]$/);
@@ -242,7 +243,7 @@ describe("watermarkGraph", () => {
   });
 
   it("takes the video from the stream it is told to", () => {
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, filter, undefined, {
         pad: "[0:v:1]",
       });
@@ -253,7 +254,7 @@ describe("watermarkGraph", () => {
 
   it("lays the logo out at the size it is given", () => {
     const l = watermarkLayout(video, logo, "small");
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, filter, undefined, {
         size: "small",
       });
@@ -264,10 +265,10 @@ describe("watermarkGraph", () => {
   it("draws the small glass's rim at a share of the large one's width", () => {
     // 1080p: a 2px rim at large; at small, whole erosions and a mixed-in
     // share of one more for any fraction left
-    const large = watermarkGraph(video, logo, true);
+    const large = watermarkGraph(video, logo, "glass");
     expect(large).toContain("[m2]erosion,erosion[eroded]");
     expect(large).not.toContain("all_expr");
-    const small = watermarkGraph(video, logo, true, undefined, {
+    const small = watermarkGraph(video, logo, "glass", undefined, {
       size: "small",
     });
     const part = (2 * MARK_SIZES.small.rim) % 1;
@@ -279,7 +280,7 @@ describe("watermarkGraph", () => {
   });
 
   it("leaves a logo that fills its canvas alone", () => {
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, filter);
       expect(graph).not.toMatch(/\[1:v\]format=rgba,crop=/);
     }

@@ -77,7 +77,7 @@ describe("Mark", () => {
     expect(button).toHaveAttribute("aria-disabled", "true");
     expect(screen.queryByText("logo.gif")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("switch", { name: /glass/i }),
+      screen.queryByRole("button", { name: /glass/i }),
     ).not.toBeInTheDocument();
 
     await user.upload(
@@ -86,7 +86,13 @@ describe("Mark", () => {
     );
     expect(button).toHaveAttribute("aria-disabled", "false");
     expect(screen.getByText("logo.png")).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: /glass/i })).toBeInTheDocument();
+    // Glass is the default look, with plain and blur the alternatives
+    expect(screen.getByRole("button", { name: /glass/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /plain/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /blur/i })).toBeInTheDocument();
   });
 
   it("takes a GIF as the mark source and, where there is no ImageDecoder, previews its first frame off an image", async () => {
@@ -296,7 +302,7 @@ describe("Mark", () => {
       ),
     );
     const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
-    expect(body).toMatchObject({ filter: false, size: "large" });
+    expect(body).toMatchObject({ filter: "glass", size: "large" });
     expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
@@ -306,18 +312,18 @@ describe("Mark", () => {
     );
 
     // Filter mode is the server's business too, so it re-renders
-    await user.click(screen.getByRole("switch", { name: /glass/i }));
+    await user.click(screen.getByRole("button", { name: /blur/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(
       JSON.parse(fetchMock.mock.calls[1][1]?.body as string),
-    ).toMatchObject({ filter: true, size: "large" });
+    ).toMatchObject({ filter: "blur", size: "large" });
 
     // And so is the size
     await user.click(screen.getByRole("button", { name: /small/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(
       JSON.parse(fetchMock.mock.calls[2][1]?.body as string),
-    ).toMatchObject({ filter: true, size: "small" });
+    ).toMatchObject({ filter: "blur", size: "small" });
   });
 
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {
@@ -491,7 +497,7 @@ describe("Mark", () => {
     const firstSet = sources(preview);
 
     // A change asks for a new set: the last one stays whole until then
-    await user.click(screen.getByRole("switch", { name: /glass/i }));
+    await user.click(screen.getByRole("button", { name: /plain/i }));
     expect(preview).toHaveAttribute("aria-busy", "true");
     await waitFor(() => expect(answers).toHaveLength(5));
     answer(4);
@@ -506,7 +512,7 @@ describe("Mark", () => {
     expect(secondSet.filter((src) => firstSet.includes(src))).toEqual([]);
   });
 
-  it("uploads the video then the watermark and requests a glass watermark", async () => {
+  it("uploads the video then the watermark and requests a blurred watermark", async () => {
     const user = userEvent.setup();
     const video = new File(["00"], "clip.mp4", { type: "video/mp4" });
     const logo = new File(["00"], "logo.png", { type: "image/png" });
@@ -521,7 +527,7 @@ describe("Mark", () => {
     await renderApp("/mark");
     await user.upload(screen.getByLabelText(/choose video/i), video);
     await user.upload(screen.getByLabelText(/choose watermark/i), logo);
-    await user.click(screen.getByRole("switch", { name: /glass/i }));
+    await user.click(screen.getByRole("button", { name: /blur/i }));
     await user.click(screen.getByRole("button", { name: /small/i }));
     await user.click(screen.getByRole("button", { name: /^mark$/i }));
 
@@ -552,7 +558,7 @@ describe("Mark", () => {
       filename: "clip.mp4",
       blobUrl: blobFor("clip.mp4"),
       watermarkUrl: blobFor("logo.png"),
-      options: { filter: true, size: "small", quality: 100 },
+      options: { filter: "blur", size: "small", quality: 100 },
     });
   });
 });

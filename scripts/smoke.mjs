@@ -152,20 +152,23 @@ const CASES = {
   "speed-avif-source": { tool: "speed", files: ["avif"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
   "speed-avif-slides": { tool: "speed", files: ["slides"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
   "speed-slower-avif-slides": { tool: "speed", files: ["slides"], options: { speed: -1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
-  "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: false, quality: 90 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
-  "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
-  "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
-  "mark-glass-webp-anim-source": { tool: "mark", files: ["animwebp", "logo"], options: { filter: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2 } },
-  "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: false, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: "plain", quality: 90 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: "glass", quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-glass-webp-anim-source": { tool: "mark", files: ["animwebp", "logo"], options: { filter: "glass", quality: 90 }, expect: { ext: "source", maxRatio: 1.2 } },
+  "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   // Stills come back as the image they are. A PNG is lossless both ways; a
   // JPEG or lossy WebP is held to its source's size (encode/still.ts), which
   // the codecs' finest settings would pass several times over.
-  "mark-plain-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: false, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
-  "mark-glass-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
-  "mark-glass-jpg-source": { tool: "mark", files: ["jpg", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
-  "mark-plain-jpg-turned": { tool: "mark", files: ["turned", "logo"], options: { filter: false, quality: 90 }, expect: { ext: "source", turned: true } },
-  "mark-glass-webp-source": { tool: "mark", files: ["webp", "logo"], options: { filter: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
-  "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: true } },
+  "mark-plain-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-glass-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-glass-jpg-source": { tool: "mark", files: ["jpg", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-plain-jpg-turned": { tool: "mark", files: ["turned", "logo"], options: { filter: "plain", quality: 90 }, expect: { ext: "source", turned: true } },
+  "mark-glass-webp-source": { tool: "mark", files: ["webp", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-blur": { tool: "mark", files: ["video", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-blur-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: "glass" } },
+  "preview-blur": { preview: true, files: ["frame", "logo"], options: { filter: "blur" } },
 };
 
 // What a result does to its case's `expect`, as lines to print; none = holds.

@@ -7,25 +7,27 @@ import { sourceRender, videoPad, type Render } from "../encode/render.js";
 import { clamp, isBlobUrl } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import {
+  isMarkFilter,
   isMarkSize,
   parseBounds,
   watermarkGraph,
   type Bounds,
+  type MarkFilter,
   type MarkSize,
 } from "./mark-graph.js";
 import type { Tool } from "./types.js";
 
 /**
  * Stamps `logoFile` (a PNG) onto the bottom-right corner of `source`, a
- * video or a still. With `filter` the logo's alpha becomes the shape of a
- * glass lens (see MARK) instead of a plain overlay, at `size` (see
- * MARK_SIZES). Audio is kept.
+ * video or a still, as `filter` has it (see MARK_FILTERS): a plain overlay,
+ * a glass lens in the logo's shape (see MARK), or the backdrop blurred in
+ * it; at `size` (see MARK_SIZES). Audio is kept.
  */
 export async function addWatermark(
   ff: FFmpeg,
   source: Source,
   logoFile: string,
-  filter = false,
+  filter: MarkFilter = "glass",
   size: MarkSize = "large",
 ): Promise<Render> {
   const logo = await logoInfo(ff, logoFile);
@@ -74,7 +76,7 @@ export async function renderWatermarkFrame(
   frameFile: string,
   logoFile: string,
   workDir: string,
-  filter = false,
+  filter: MarkFilter = "glass",
   size: MarkSize = "large",
 ): Promise<string> {
   const frame = await ff.mediaInfo(frameFile);
@@ -156,9 +158,9 @@ export const mark: Tool = {
   },
   async run(job) {
     const { ff, workDir, inputs, options, download } = job;
-    // Frosted-glass mode; only meaningful with an alpha channel, but
-    // harmless without: the glass is then the logo's full rectangle.
-    const filter = options.filter === true;
+    // Glass and blur take the logo's alpha as their shape; without one
+    // they are harmless, just the logo's full rectangle.
+    const filter = isMarkFilter(options.filter) ? options.filter : "glass";
     const size = isMarkSize(options.size) ? options.size : "large";
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
@@ -169,7 +171,7 @@ export const mark: Tool = {
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
     console.log(
-      `Adding watermark to ${format} (${size}, ${filter ? "glass" : "plain"}, quality ${quality})...`,
+      `Adding watermark to ${format} (${size}, ${filter}, quality ${quality})...`,
     );
 
     const render = await addWatermark(ff, source, logoPath, filter, size);
