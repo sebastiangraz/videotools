@@ -64,7 +64,7 @@ export const MARK = {
 // rim, a hairline sized off the frame alone, is the large one's times
 // `rim`, and may come to a fraction of a pixel.
 export const MARK_SIZES = {
-  small: { scale: 0.6, gap: 1.2, rim: 0.66 },
+  small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   large: { scale: 1, gap: 1, rim: 1 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
