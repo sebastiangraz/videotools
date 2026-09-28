@@ -53,6 +53,11 @@ export const MARK = {
   shadowOpacity: 0.08, //0.35
   // Logo pixel opacity over the glass.
   logoOpacity: 0.07, //0.45
+
+  // Blur filter backdrop saturation multiplier with no change at 1.
+  blurSaturation: 1.8,
+  // Blur filter difference layer opacity, a white fill in the logo's shape.
+  blurDifference: 0.12,
 };
 
 // The mark's size choice: MARK is tuned as the large one, and the small one
@@ -132,6 +137,28 @@ export function watermarkLayout(
   const LY = VH - gap - LH;
   return { VW, VH, LW, LH, margin, gap, LX, LY };
 }
+
+// Saturation as an RGB matrix (colorchannelmixer has no offset term, so a
+// white tint is a separate lut): c' = (1-s)·luma + s·c.
+const LUMA: Record<string, number> = { r: 0.299, g: 0.587, b: 0.114 };
+const saturation = (s: number) =>
+  ["r", "g", "b"]
+    .flatMap((o) =>
+      ["r", "g", "b"].map(
+        (i) => `${o}${i}=${((1 - s) * LUMA[i] + (o === i ? s : 0)).toFixed(4)}`,
+      ),
+    )
+    .join(":");
+// A saturation of any size as colorchannelmixer passes. It caps
+// coefficients at ±2, which a single matrix passes at about 2.1;
+// saturations multiply when chained, so a bigger one is split into equal
+// passes under 2.
+const saturate = (s: number) => {
+  const passes = Math.max(1, Math.ceil(Math.log(s) / Math.LN2));
+  return Array<string>(passes)
+    .fill(`colorchannelmixer=${saturation(s ** (1 / passes))}`)
+    .join(",");
+};
 
 // Builds the watermark filtergraph (inputs: [0] video, [1] logo; output
 // [out]). Every dimension is computed here from the probed sizes rather
@@ -221,17 +248,28 @@ export function watermarkGraph(
     : `,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p`;
 
   // Blur: the glass's frost alone. The patch under the cell blurred as the
-  // fill is, shaped by the logo's alpha, with the faint logo over it; no
-  // lens, rim, light or shadow. The fill is the only thing with alpha, so
-  // as with the glass nothing outside the logo's shape changes.
+  // fill is and made more vibrant (blurSaturation), shaped by the logo's
+  // alpha, with the faint logo over it; no lens, rim, light or shadow. The
+  // fill is the only thing with alpha, so as with the glass nothing outside
+  // the logo's shape changes.
+  //
+  // For legibility a white fill in the logo's shape is laid over the frost
+  // in difference mode at blurDifference: |B-255| is the backdrop
+  // inverted, so at that opacity a white backdrop darkens and a black one
+  // lightens under the mark, whatever colour the logo is. (A difference
+  // with the logo's own colours would leave a black logo on black as it
+  // is.) Mid-grey is its own inverse and stays put, but needs no help.
   if (filter === "blur") {
     return [
       `${pad}${open},split[base][src]`,
-      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${sigma}:steps=2[frost]`,
+      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${sigma}:steps=2,${saturate(MARK.blurSaturation)},split[frost][under]`,
       `[1:v]format=rgba${trim},${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
-      `[lg1]format=rgba,alphaextract,format=gray[mask]`,
-      `[frost][mask]alphamerge[fill]`,
-      `[lg2]colorchannelmixer=aa=${Math.min(0.5, MARK.logoOpacity * 2)}[faint]`,
+      `[lg1]format=rgba,alphaextract,format=gray,split[mask][dmask]`,
+      `[under]lutrgb=r=negval:g=negval:b=negval[inverted]`,
+      `[inverted][dmask]alphamerge,colorchannelmixer=aa=${MARK.blurDifference}[difference]`,
+      `[frost][difference]overlay=format=auto[lifted]`,
+      `[lifted][mask]alphamerge[fill]`,
+      `[lg2]colorchannelmixer=aa=${MARK.logoOpacity}[faint]`,
       `[fill][faint]overlay=format=auto${fromRgb}[cell]`,
       `[base][cell]${onto(CX, CY)}[out]`,
     ].join(";");
@@ -317,18 +355,6 @@ export function watermarkGraph(
   // ramps start from nothing there.
   const rimLight = `lut=c0='clip(${(255 * MARK.glint).toFixed(1)}+${(1 - MARK.glint).toFixed(3)}*max(0,(val-128)*2),0,255)'`;
 
-  // Saturation as an RGB matrix (colorchannelmixer has no offset term, so
-  // the white tint is a separate lut): c' = (1-s)·luma + s·c.
-  const lum: Record<string, number> = { r: 0.299, g: 0.587, b: 0.114 };
-  const saturation = (s: number) =>
-    ["r", "g", "b"]
-      .flatMap((o) =>
-        ["r", "g", "b"].map(
-          (i) =>
-            `${o}${i}=${((1 - s) * lum[i] + (o === i ? s : 0)).toFixed(4)}`,
-        ),
-      )
-      .join(":");
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
       .map(
@@ -336,21 +362,12 @@ export function watermarkGraph(
           `${c}='min(val*${gain.toFixed(3)},255)*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`,
       )
       .join(":");
-  const saturate = saturation(MARK.saturation);
   const tint = whiten(MARK.tint);
   // The rim's paint: the backdrop under it pushed far past natural
   // saturation, brightened, then lifted towards white so it still reads
-  // as light on a dark or grey video. colorchannelmixer caps coefficients
-  // at ±2, which a single matrix passes at about 2.1; saturations multiply
-  // when chained, so a bigger one is split into equal passes under 2.
-  const passes = Math.max(
-    1,
-    Math.ceil(Math.log(MARK.rimSaturation) / Math.LN2),
-  );
+  // as light on a dark or grey video.
   const rimPaint = [
-    ...Array<string>(passes).fill(
-      `colorchannelmixer=${saturation(MARK.rimSaturation ** (1 / passes))}`,
-    ),
+    saturate(MARK.rimSaturation),
     `lutrgb=${whiten(MARK.rimWhite, MARK.rimGain)}`,
   ].join(",");
 
@@ -408,7 +425,7 @@ export function watermarkGraph(
     `[h3]scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
     `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
-    `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturate},lutrgb=${tint}[fill]`,
+    `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(MARK.saturation)},lutrgb=${tint}[fill]`,
     `[fill][m1]alphamerge[glass]`,
     // Rim: the mask minus itself eroded by a pixel or so, lit by the
     // edge's slope towards the light, painted with the vivid backdrop
