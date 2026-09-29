@@ -53,7 +53,7 @@ export const speed: Tool = {
 
     const source = await openSource(job, inputs[0]);
     // Comes back in the format it came in, and at the quality: the tool has
-    // no slider, so it spends what the source spends.
+    // no slider, so it spends what keeping the source's look takes (rate.ts).
     const format = preservedFormat(source);
     console.log(`Changing playback speed of ${format} by ${multiplier}x...`);
 

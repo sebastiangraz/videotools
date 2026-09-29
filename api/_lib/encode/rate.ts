@@ -1,12 +1,23 @@
-// Quality is relative to the source: 100 spends what the source spends per
-// second, 50 half of that. It is a ceiling on top of each encoder's own
-// quality curve (crf), never a target, so a result is at most as large as its
-// source allows and smaller when the pictures need less.
+// Quality is relative to the source: 100 spends up to GENERATION times what
+// the source spends per second, 50 half of that. It is a ceiling on top of
+// each encoder's own quality curve (crf), never a target, so a result is at
+// most as large as its source allows and smaller when the pictures need
+// less.
 //
 // Why a ceiling at all: crf is absolute. x264's crf 1 on footage that was
 // delivered at crf 23 re-encodes the source's compression artifacts as if
 // they were detail, at 5–15× the size and no better than the source looked.
-// What the source spent is the most its pictures can be worth.
+//
+// Why that ceiling is above the source's own rate: a re-encode starts from
+// decoded pictures, whose smooth gradients and the source's own artifacts
+// are both new detail to code, and x264 held to exactly the source's rate
+// (VBV, which also undershoots a peak rate to ~60–70% on average) blocks up
+// gradients visibly: 47 dB PSNR on a 2.7 Mb/s 1920² gradient clip, against
+// 57 dB and no visible difference at twice the rate, where the result came
+// out at ~1.4× the source (measured 2026-09-30). So quality 100 is visually
+// the source, and a result at 50 weighs about what its source did.
+export const GENERATION = 2;
+
 export type RateCap = {
   // kb/s
   maxrate: number;
@@ -44,7 +55,10 @@ export function rateCap(
   factor = 1,
 ): RateCap | null {
   if (!sourceKbps) return null;
-  const maxrate = Math.max(8, Math.round((sourceKbps * factor * quality) / 100));
+  const maxrate = Math.max(
+    8,
+    Math.round((sourceKbps * factor * GENERATION * quality) / 100),
+  );
   // The buffer is how far a busy stretch may run ahead of the rate: about a
   // sixth of the clip keeps the whole file within ~15% of rate × duration
   // (measured on x264), half a second to two seconds' worth at the ends so

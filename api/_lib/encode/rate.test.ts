@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import { codecFactor, rateCap } from "./rate.js";
 
 describe("rateCap", () => {
-  it("spends the source's rate at quality 100 and a share of it below", () => {
-    expect(rateCap(2723, 100, 5.03)?.maxrate).toBe(2723);
-    expect(rateCap(2723, 60, 5.03)?.maxrate).toBe(1634);
+  it("spends twice the source's rate at quality 100 and a share of it below", () => {
+    expect(rateCap(2723, 100, 5.03)?.maxrate).toBe(5446);
+    expect(rateCap(2723, 60, 5.03)?.maxrate).toBe(3268);
+    expect(rateCap(2723, 50, 5.03)?.maxrate).toBe(2723);
   });
 
   it("has no ceiling without a source to compare with", () => {
@@ -14,13 +15,13 @@ describe("rateCap", () => {
   });
 
   it("sizes the buffer by the clip, between half a second and two", () => {
-    expect(rateCap(1000, 100, 1)?.bufsize).toBe(500);
-    expect(rateCap(1000, 100, 6)?.bufsize).toBe(1000);
-    expect(rateCap(1000, 100, 60)?.bufsize).toBe(2000);
+    expect(rateCap(1000, 50, 1)?.bufsize).toBe(500);
+    expect(rateCap(1000, 50, 6)?.bufsize).toBe(1000);
+    expect(rateCap(1000, 50, 60)?.bufsize).toBe(2000);
   });
 
   it("gives a source in a leaner codec more to spend", () => {
-    expect(rateCap(1000, 100, 6, codecFactor("hevc", "h264"))?.maxrate).toBe(1500);
+    expect(rateCap(1000, 50, 6, codecFactor("hevc", "h264"))?.maxrate).toBe(1500);
   });
 });
 
