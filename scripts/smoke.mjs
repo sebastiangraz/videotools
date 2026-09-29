@@ -80,38 +80,44 @@ const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 //   ext        its extension; "source" = the same as the first upload's,
 //              which is every tool's rule but convert's and sequence's
 //   maxRatio   its size next to the source's, at most (quality is relative
-//   minRatio   to the source: 100 spends the source's bitrate, so size only
-//              follows duration — a reverse loop is twice its source)
+//   minRatio   to the source: 100 spends up to GENERATION times the
+//              source's bitrate where the format has rate control, so size
+//              follows duration and that — a reverse loop at 100 is up to
+//              four times its source)
 //   frames     "source": as many frames as the source has, for the results
 //              that only rearrange or redraw them; "double": twice as many,
 //              for the reverse loops
 //   turned     the picture has to come back on end: its source's height wide
 //              and its width high (a JPEG that EXIF says to show that way)
 //   errorCode  the run has to be refused, with this InputError code
+// What a re-encode with rate control (MP4, MOV, WebM, AVIF) may spend over
+// its source's bitrate: GENERATION in api/_lib/encode/rate.ts.
+const GENERATION = 2;
+
 const CASES = {
-  "loop-reverse": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 } },
-  "loop-reverse-q60": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 60 }, expect: { ext: "source", frames: "double", maxRatio: 1.4 } },
+  "loop-reverse": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 * GENERATION } },
+  "loop-reverse-q60": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 60 }, expect: { ext: "source", frames: "double", maxRatio: 1.4 * GENERATION } },
   "loop-reverse-gif-source": { tool: "loop", files: ["animation"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 } },
-  "loop-reverse-mov-source": { tool: "loop", files: ["mov"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 } },
+  "loop-reverse-mov-source": { tool: "loop", files: ["mov"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 * GENERATION } },
   // One-pass VP9 lands well under the bitrate it is given, hence a range.
-  "loop-reverse-webm-source": { tool: "loop", files: ["webm"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2, minRatio: 0.8 } },
+  "loop-reverse-webm-source": { tool: "loop", files: ["webm"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 * GENERATION, minRatio: 0.8 } },
   // A few dozen kB, where the container counts and libaom holds its one-pass
   // rate only loosely: more headroom than the other reverse loops get.
   // No frame count for a WebP result: libwebp_anim merges identical frames
   // in a row (one frame, twice as long), such as the two where the
   // palindrome turns, or a hold in real footage.
   "loop-reverse-webp-source": { tool: "loop", files: ["animwebp"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", maxRatio: 2.2 } },
-  "loop-reverse-avif-source": { tool: "loop", files: ["avif"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.5 } },
+  "loop-reverse-avif-source": { tool: "loop", files: ["avif"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.5 * GENERATION } },
   "loop-reject-mkv-source": { tool: "loop", files: ["mkv"], options: { technique: "reverse", quality: 100 }, expect: { errorCode: "unsupported-source" } },
-  "loop-crossfade": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 80 }, expect: { ext: "source", maxRatio: 0.9 } },
-  "loop-crossfade-start": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 1.5, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
+  "loop-crossfade": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 80 }, expect: { ext: "source", maxRatio: 0.9 * GENERATION } },
+  "loop-crossfade-start": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 1.5, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 * GENERATION } },
   "loop-crossfade-gif-source": { tool: "loop", files: ["animation"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
   "loop-crossfade-webp-source": { tool: "loop", files: ["animwebp"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0.5, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
-  "loop-reorder": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
+  "loop-reorder": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 * GENERATION, frames: "source" } },
   // A start point next to a keyframe of the footage in scripts/smoke-assets
   // (2.03s), where the streams are reordered without decoding. Test patterns
   // have no keyframe there and are encoded, like loop-reorder.
-  "loop-reorder-keyframe": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 2, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
+  "loop-reorder-keyframe": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 2, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 * GENERATION, frames: "source" } },
   // The same in WebM, whose VP9 has no B-frames for a cut to break: the first
   // keyframe past the start of source.webm is at 4.27s.
   "loop-reorder-webm-keyframe": { tool: "loop", files: ["webm"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 4.2, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
@@ -122,9 +128,9 @@ const CASES = {
   "sequence-webp": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "webp", quality: 90 }, expect: { ext: "webp" } },
   "sequence-avif": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 85 }, expect: { ext: "avif" } },
   "sequence-avif-lossless": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "avif", quality: 100 }, expect: { ext: "avif" } },
-  "convert-mp4": { tool: "convert", files: ["video"], options: { target: "mp4", quality: 60 }, expect: { ext: "mp4", maxRatio: 0.75, frames: "source" } },
-  "convert-mov": { tool: "convert", files: ["video"], options: { target: "mov", quality: 90 }, expect: { ext: "mov", maxRatio: 1.05, frames: "source" } },
-  "convert-webm": { tool: "convert", files: ["video"], options: { target: "webm", quality: 90 }, expect: { ext: "webm", maxRatio: 1, minRatio: 0.4, frames: "source" } },
+  "convert-mp4": { tool: "convert", files: ["video"], options: { target: "mp4", quality: 60 }, expect: { ext: "mp4", maxRatio: 0.75 * GENERATION, frames: "source" } },
+  "convert-mov": { tool: "convert", files: ["video"], options: { target: "mov", quality: 90 }, expect: { ext: "mov", maxRatio: 1.05 * GENERATION, frames: "source" } },
+  "convert-webm": { tool: "convert", files: ["video"], options: { target: "webm", quality: 90 }, expect: { ext: "webm", maxRatio: 1 * GENERATION, minRatio: 0.4, frames: "source" } },
   "convert-webp": { tool: "convert", files: ["video"], options: { target: "webp", quality: 90 }, expect: { ext: "webp" } },
   // 100 is lossless only for a lossless source (encode/webp.ts): a lossy one
   // written lossless stores its artifacts as detail (9x its source, 31x an
@@ -139,8 +145,8 @@ const CASES = {
   "convert-gif": { tool: "convert", files: ["video"], options: { target: "gif", quality: 90, width: 200 }, expect: { ext: "gif" } },
   "convert-gif-fps": { tool: "convert", files: ["video"], options: { target: "gif", quality: 70, fps: 10, width: 160 }, expect: { ext: "gif" } },
   "convert-reject-anamorphic-source": { tool: "convert", files: ["anamorphic"], options: { target: "gif", quality: 90 }, expect: { errorCode: "unsupported-source" } },
-  "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 0.6 } },
-  "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 2.2 } },
+  "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 0.6 * GENERATION } },
+  "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 2.2 * GENERATION } },
   "speed-gif-source": { tool: "speed", files: ["animation"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 } },
   // Only the delays change; lossy stays lossy (the speed tool runs at 100,
   // which is lossless only for a lossless source). No frame counts: see
@@ -150,14 +156,14 @@ const CASES = {
   // An AVIF is a frame list too: every frame stays, at the source's bytes
   // (a speed-up once dropped a third of a slideshow's frames and gave the
   // rest half their bits, a quarter of the size and visibly worse).
-  "speed-avif-source": { tool: "speed", files: ["avif"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
-  "speed-avif-slides": { tool: "speed", files: ["slides"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
-  "speed-slower-avif-slides": { tool: "speed", files: ["slides"], options: { speed: -1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2, minRatio: 0.6 } },
-  "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: "plain", quality: 90 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
-  "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "speed-avif-source": { tool: "speed", files: ["avif"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 * GENERATION, minRatio: 0.6 } },
+  "speed-avif-slides": { tool: "speed", files: ["slides"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 * GENERATION, minRatio: 0.6 } },
+  "speed-slower-avif-slides": { tool: "speed", files: ["slides"], options: { speed: -1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 * GENERATION, minRatio: 0.6 } },
+  "mark-plain": { tool: "mark", files: ["video", "logo"], options: { filter: "plain", quality: 90 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
+  "mark-glass": { tool: "mark", files: ["video", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
   "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: "glass", quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-glass-webp-anim-source": { tool: "mark", files: ["animwebp", "logo"], options: { filter: "glass", quality: 90 }, expect: { ext: "source", maxRatio: 1.2 } },
-  "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2 * GENERATION, frames: "source" } },
   // Stills come back as the image they are. A PNG is lossless both ways; a
   // JPEG or lossy WebP is held to its source's size (encode/still.ts), which
   // the codecs' finest settings would pass several times over.
@@ -166,10 +172,10 @@ const CASES = {
   "mark-glass-jpg-source": { tool: "mark", files: ["jpg", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-plain-jpg-turned": { tool: "mark", files: ["turned", "logo"], options: { filter: "plain", quality: 90 }, expect: { ext: "source", turned: true } },
   "mark-glass-webp-source": { tool: "mark", files: ["webp", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
-  "mark-blur": { tool: "mark", files: ["video", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-blur": { tool: "mark", files: ["video", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
   "mark-blur-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   // An SVG logo is rasterized first and then marks like a PNG one.
-  "mark-glass-svg-logo": { tool: "mark", files: ["video", "svglogo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
+  "mark-glass-svg-logo": { tool: "mark", files: ["video", "svglogo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
   "mark-plain-svg-logo-png-source": { tool: "mark", files: ["png", "svglogo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: "glass" } },
   "preview-blur": { preview: true, files: ["frame", "logo"], options: { filter: "blur" } },
