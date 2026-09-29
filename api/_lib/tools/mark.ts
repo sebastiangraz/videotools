@@ -14,6 +14,7 @@ import {
   type Bounds,
   type MarkFilter,
   type MarkSize,
+  type MarkView,
 } from "./mark-graph.js";
 import type { Tool } from "./types.js";
 
@@ -69,7 +70,7 @@ export async function addWatermark(
  * One composited frame for the UI's preview: `frameFile` is a still (the
  * browser's grab of the video's first frame) and goes through exactly the
  * graph addWatermark uses, so whatever the filter does, the preview shows.
- * Returns a JPEG.
+ * `view` swaps the mark for one of the graph's debug views. Returns a JPEG.
  */
 export async function renderWatermarkFrame(
   ff: FFmpeg,
@@ -78,6 +79,7 @@ export async function renderWatermarkFrame(
   workDir: string,
   filter: MarkFilter = "glass",
   size: MarkSize = "large",
+  view: MarkView = "render",
 ): Promise<string> {
   const frame = await ff.mediaInfo(frameFile);
   const { logoPng, logo } = await openLogo(ff, logoFile, frame);
@@ -86,7 +88,7 @@ export async function renderWatermarkFrame(
     logo,
     filter,
     await logoBounds(ff, logoPng, logo),
-    { size },
+    { size, view },
   );
 
   const outputFile = path.join(workDir, "preview.jpg");

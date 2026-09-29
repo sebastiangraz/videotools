@@ -85,6 +85,17 @@ export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>
   MARK_FILTERS.includes(value as MarkFilter);
 
+// What the graph shows: the mark as rendered, or (for debugging the glass)
+// the lens's displacement map on its own over a flat light-gray frame.
+export const MARK_VIEWS = ["render", "displacement"] as const;
+export type MarkView = (typeof MARK_VIEWS)[number];
+export const isMarkView = (value: unknown): value is MarkView =>
+  MARK_VIEWS.includes(value as MarkView);
+
+// The debug views' stand-in for the frame: light enough that the map's
+// neutral mid-gray stands apart from it.
+const DEBUG_BACKDROP = "0xD9D9D9";
+
 // Where the logo goes and how big, from the frame and the logo's visible
 // bounds alone (see MARK for the model). One continuous formula: the
 // logo's aspect ratio sets how an area budget is split between its sides,
@@ -175,7 +186,8 @@ const saturate = (s: number) => {
 // `pad` names the video among the inputs: the first input's first video
 // stream unless the caller knows better (encode/render.ts, videoPad).
 //
-// `filter` picks one of MARK_FILTERS; `size` one of MARK_SIZES.
+// `filter` picks one of MARK_FILTERS; `size` one of MARK_SIZES; `view` one
+// of MARK_VIEWS (a debug view shows the glass's maps whatever the filter).
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
@@ -185,7 +197,13 @@ export function watermarkGraph(
     base = "yuv420p",
     pad = "[0:v]",
     size = "large",
-  }: { base?: "yuv420p" | "rgba"; pad?: string; size?: MarkSize } = {},
+    view = "render",
+  }: {
+    base?: "yuv420p" | "rgba";
+    pad?: string;
+    size?: MarkSize;
+    view?: MarkView;
+  } = {},
 ): string {
   const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
     video,
@@ -219,7 +237,7 @@ export function watermarkGraph(
     rgb
       ? `overlay=x=${x}:y=${y}:format=auto,format=rgba`
       : `overlay=x=${x}:y=${y},format=yuv420p`;
-  if (filter === "plain") {
+  if (filter === "plain" && view === "render") {
     return [
       `${pad}${open}[base]`,
       `[1:v]format=rgba${trim},${scaleLogo}[logo]`,
@@ -261,7 +279,7 @@ export function watermarkGraph(
   // lightens under the mark, whatever colour the logo is. (A difference
   // with the logo's own colours would leave a black logo on black as it
   // is.) Mid-grey is its own inverse and stays put, but needs no help.
-  if (filter === "blur") {
+  if (filter === "blur" && view === "render") {
     return [
       `${pad}${open},split[base][src]`,
       `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${(shorter * MARK.blurFilterRatio).toFixed(2)}:steps=2,${saturate(MARK.blurSaturation)},split[frost][under]`,
@@ -313,6 +331,17 @@ export function watermarkGraph(
   const bevel = Math.min(LW, LH) * MARK.bevelRatio * SS;
   const edgeSlope = (2 * 2 * 255) / (bevel * Math.sqrt(2 * Math.PI));
   const remap = "lut=c0='clip((val-128)*2,0,255)'";
+  // From three copies of the 2× alpha ([mk1] to [mk3]), clipped to it so
+  // nothing rises outside the shape; `out` finishes the last filter.
+  const heightfield = (out: string) => [
+    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${remap}[hw]`,
+    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,${remap}[hn]`,
+    `[hw][hn]blend=all_mode=average[hb]`,
+    `[hb][mk3]blend=all_mode=multiply${out}`,
+  ];
+  // The logo's alpha at 2×, centred in the 2× cell, split `n` ways as [mk…].
+  const lensMask = (n: number) =>
+    `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
   // Sobel sums 8× the slope; scaled by refractPx/(8·edgeSlope) that is
   // pixels of displacement (in 2× space) around 128, which displace reads
   // as none. The kernels are the negated derivatives: the backdrop is
@@ -328,6 +357,25 @@ export function watermarkGraph(
     const scale = (refractPx * gain) / (8 * edgeSlope);
     return `convolution=0m='${SOBEL[axis].join(" ")}':0rdiv=${scale.toFixed(5)}:0bias=128`;
   };
+
+  // Displacement view: the maps displace reads, red the x map and green the
+  // y (the green channel's, the middle of the chroma split), blue a flat
+  // 128 so no shift reads as mid-gray. Brought to 1× and shaped by the
+  // logo's alpha, which is all of them the glass keeps, over the frame
+  // painted light gray.
+  if (view === "displacement") {
+    return [
+      `${pad}${open},drawbox=w=iw:h=ih:color=${DEBUG_BACKDROP}:t=fill[base]`,
+      `[1:v]format=rgba${trim},${lensMask(4)}`,
+      ...heightfield(",split=3[hx][hy][hz]"),
+      `[hx]${sobel("x", 1)}[mx]`,
+      `[hy]${sobel("y", 1)}[my]`,
+      `[hz]lut=c0=128[mz]`,
+      `[my][mz][mx]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,format=rgba[map]`,
+      `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
+      `[base][cell]${onto(CX, CY)}[out]`,
+    ].join(";");
+  }
   const chroma = { r: 1 - MARK.chroma, g: 1, b: 1 + MARK.chroma };
   // Edge light: the heightfield's derivative towards the light, as one
   // kernel (the two Sobels weighted by the light vector, ×100 for integer
@@ -393,12 +441,8 @@ export function watermarkGraph(
     `[1:v]format=rgba${trim},split[l1][l2]`,
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m4][m5]`,
-    `[l2]scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,split=3[mk1][mk2][mk3]`,
-    // Heightfield, clipped to the alpha so nothing rises outside the shape.
-    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${remap}[hw]`,
-    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,${remap}[hn]`,
-    `[hw][hn]blend=all_mode=average[hb]`,
-    `[hb][mk3]blend=all_mode=multiply,split=4[h1][h2][h3][h4]`,
+    `[l2]${lensMask(3)}`,
+    ...heightfield(",split=4[h1][h2][h3][h4]"),
     // Displacement maps, a pair per channel for the chromatic split.
     `[h1]split=3[hx1][hx2][hx3]`,
     `[hx1]${sobel("x", chroma.r)}[xr]`,

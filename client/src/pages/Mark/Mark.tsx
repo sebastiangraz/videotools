@@ -14,12 +14,14 @@ import {
   useMarkPreview,
   type MarkFilter,
   type MarkSize,
+  type MarkView,
 } from "./useMarkPreview";
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Popover } from "../../components/Popover/Popover";
 import { useDebugMode } from "../../hooks/useDebugMode";
+import { Switch } from "../../components/Switch/Switch";
 
 const TOOL = toolById("mark");
 
@@ -54,10 +56,19 @@ export const Mark = () => {
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [size, setSize] = useState<MarkSize>("large");
   const [quality, setQuality] = useState<number>(100);
-  const preview = useMarkPreview(source.file, watermark, filterMode, size);
   const [previewZoomed, setPreviewZoomed] = useState(false);
-  // In debug mode (dev only, Shift+D) a panel hangs off the preview.
+  // In debug mode (dev only, Shift+D) a panel hangs off the preview, where
+  // the preview can be switched to a debug view of the glass; leaving debug
+  // mode goes back to the mark.
   const debug = useDebugMode();
+  const [debugView, setDebugView] = useState<MarkView>("render");
+  const preview = useMarkPreview(
+    source.file,
+    watermark,
+    filterMode,
+    size,
+    debug ? debugView : "render",
+  );
   const previewRef = useRef<HTMLDivElement | null>(null);
 
   // Object URL for the watermark thumbnail. Revoked when replaced or on
@@ -217,6 +228,21 @@ export const Mark = () => {
           sideOffset={16}
         >
           <p>debug</p>
+          {/* The lens's displacement map alone (red x, green y, mid-gray
+              no shift), over the frame painted light gray. */}
+          <div className={form.switchRow}>
+            <Switch
+              id="markDebugDisplacement"
+              checked={debugView === "displacement"}
+              onCheckedChange={(on) =>
+                setDebugView(on ? "displacement" : "render")
+              }
+              disabled={false}
+            />
+            <label htmlFor="markDebugDisplacement" className={form.label}>
+              Displacement map
+            </label>
+          </div>
         </Popover>
       )}
       <div className={form.horizontal}>

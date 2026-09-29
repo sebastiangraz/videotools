@@ -4,6 +4,7 @@ import {
   MARK,
   MARK_FILTERS,
   MARK_SIZES,
+  MARK_VIEWS,
   parseBounds,
   watermarkGraph,
   watermarkLayout,
@@ -277,6 +278,35 @@ describe("watermarkGraph", () => {
       expect(small).toContain(
         `[er1][er3]blend=all_expr='A+(B-A)*${part.toFixed(3)}'[eroded]`,
       );
+  });
+
+  it("shows the displacement map over a light-gray frame, whatever the filter", () => {
+    const glass = watermarkGraph(video, logo, "glass");
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        view: "displacement",
+      });
+      // The frame painted over, the maps' red x and green y laid on it
+      expect(graph).toMatch(
+        /^\[0:v\][^;]*,drawbox=w=iw:h=ih:[^;]*:t=fill\[base\];/,
+      );
+      expect(graph).toContain("[my][mz][mx]mergeplanes=");
+      expect(graph).toMatch(/,format=yuv420p\[out\]$/);
+      // and none of the glass that refracts the frame
+      expect(graph).not.toContain("displace");
+      // The same heightfield as the glass's
+      const heightfield = /\[mk1\]gblur=[^;]*/.exec(glass)![0];
+      expect(graph).toContain(heightfield);
+    }
+  });
+
+  it("renders the mark by default", () => {
+    expect(MARK_VIEWS).toContain("render");
+    for (const filter of MARK_FILTERS) {
+      expect(
+        watermarkGraph(video, logo, filter, undefined, { view: "render" }),
+      ).toBe(watermarkGraph(video, logo, filter));
+    }
   });
 
   it("leaves a logo that fills its canvas alone", () => {

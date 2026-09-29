@@ -334,6 +334,46 @@ describe("Mark", () => {
     ).toMatchObject({ filter: "blur", size: "small" });
   });
 
+  it("previews the displacement map from debug mode, and the mark again once debug mode is left", async () => {
+    const user = userEvent.setup();
+    stubMediaLoading("decodes");
+    stubProperties(HTMLVideoElement.prototype, {
+      videoWidth: { get: () => 1280 },
+      videoHeight: { get: () => 720 },
+    });
+    stubCanvas();
+    const fetchMock = stubPreviewFetch();
+    const view = (call: number) =>
+      JSON.parse(fetchMock.mock.calls[call][1]?.body as string).view;
+
+    await renderApp("/mark");
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mp4", { type: "video/mp4" }),
+    );
+    await user.upload(
+      screen.getByLabelText(/choose watermark/i),
+      new File(["00"], "logo.png", { type: "image/png" }),
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(view(0)).toBe("render");
+
+    // Shift+D opens the debug panel, where the map is a switch away
+    // (off the file input, where it would be a capital D)
+    await user.click(document.body);
+    await user.keyboard("{Shift>}D{/Shift}");
+    await user.click(
+      await screen.findByRole("switch", { name: /displacement map/i }),
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(view(1)).toBe("displacement");
+
+    // Leaving debug mode leaves the map too
+    await user.keyboard("{Shift>}D{/Shift}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(view(2)).toBe("render");
+  });
+
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {
     const user = userEvent.setup();
     stubMediaLoading("fails");

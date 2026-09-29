@@ -7,7 +7,11 @@ import { nanoid } from "nanoid";
 import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { renderWatermarkFrame } from "./_lib/tools/mark.js";
-import { isMarkFilter, isMarkSize } from "./_lib/tools/mark-graph.js";
+import {
+  isMarkFilter,
+  isMarkSize,
+  isMarkView,
+} from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 // Renders the "mark" tool's preview: the browser sends the video's first
@@ -22,6 +26,7 @@ type PreviewBody = {
   logo?: unknown;
   filter?: unknown;
   size?: unknown;
+  view?: unknown;
 };
 
 // Decodes an image data URL into bytes. Null when it isn't one.
@@ -37,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { frame, logo, filter, size } = (req.body ?? {}) as PreviewBody;
+  const { frame, logo, filter, size, view } = (req.body ?? {}) as PreviewBody;
   const frameImage = decodeDataUrl(frame);
   const logoImage = decodeDataUrl(logo);
   if (!frameImage || !logoImage) {
@@ -71,6 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       workDir,
       isMarkFilter(filter) ? filter : "glass",
       isMarkSize(size) ? size : "large",
+      isMarkView(view) ? view : "render",
     );
 
     res.setHeader("Content-Type", "image/jpeg");
