@@ -93,7 +93,7 @@ export const isMarkView = (value: unknown): value is MarkView =>
   MARK_VIEWS.includes(value as MarkView);
 
 // The debug views' stand-in for the frame: light enough that the map's
-// neutral mid-gray stands apart from it.
+// neutral olive stands apart from it.
 const DEBUG_BACKDROP = "0xD9D9D9";
 
 // Where the logo goes and how big, from the frame and the logo's visible
@@ -359,10 +359,10 @@ export function watermarkGraph(
   };
 
   // Displacement view: the maps displace reads, red the x map and green the
-  // y (the green channel's, the middle of the chroma split), blue a flat
-  // 128 so no shift reads as mid-gray. Brought to 1× and shaped by the
-  // logo's alpha, which is all of them the glass keeps, over the frame
-  // painted light gray.
+  // y (the green channel's, the middle of the chroma split), blue empty as
+  // in the usual red-green map, so no shift reads as olive (128,128,0).
+  // Brought to 1× and shaped by the logo's alpha, which is all of them the
+  // glass keeps, over the frame painted light gray.
   if (view === "displacement") {
     return [
       `${pad}${open},drawbox=w=iw:h=ih:color=${DEBUG_BACKDROP}:t=fill[base]`,
@@ -370,7 +370,7 @@ export function watermarkGraph(
       ...heightfield(",split=3[hx][hy][hz]"),
       `[hx]${sobel("x", 1)}[mx]`,
       `[hy]${sobel("y", 1)}[my]`,
-      `[hz]lut=c0=128[mz]`,
+      `[hz]lut=c0=0[mz]`,
       `[my][mz][mx]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,format=rgba[map]`,
       `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
       `[base][cell]${onto(CX, CY)}[out]`,

@@ -228,7 +228,7 @@ export const Mark = () => {
           sideOffset={16}
         >
           <p>debug</p>
-          {/* The lens's displacement map alone (red x, green y, mid-gray
+          {/* The lens's displacement map alone (red x, green y, olive
               no shift), over the frame painted light gray. */}
           <div className={form.switchRow}>
             <Switch
