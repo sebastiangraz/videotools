@@ -180,18 +180,17 @@
   text-box: cap alphabetic;
   font-size: 10px;
   min-width: 14rem;
-  aspect-ratio: 1/1;
   background-color: var(--bg);
-  border-left: 1px solid var(--fg-secondary);
+  border-left: 1px solid var(--fg);
 
   p {
     display: flex;
     margin: 0;
-    padding: 0.75rem;
+    padding: 0 1rem 0.5rem 1rem;
   }
 
   /* A debug option: a switch and its label. */
   & > div {
-    padding: 0 0.75rem;
+    padding: 0 1rem;
   }
 }

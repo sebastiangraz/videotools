@@ -45,10 +45,10 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // The lens's displacement map alone (red x, green y, olive no shift),
   // over the frame painted light gray.
-  { value: "displacement", label: "Displacement map" },
+  { value: "displacement", label: "Depth map" },
   // The glass over the frame with only its refraction and rim: no frost,
   // tint, ambient light, shadow or logo (the API's MARK_CLEAR).
-  { value: "clear", label: "Clear glass" },
+  { value: "clear", label: "Pure glass" },
 ];
 
 export const Mark = () => {
