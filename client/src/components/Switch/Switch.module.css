@@ -1,6 +1,6 @@
 .root {
-  --track-w: 2.5rem;
-  --track-h: 1.5rem;
+  --track-w: 2.25rem;
+  --track-h: 1.125rem;
   --pad: 3px;
   --thumb: calc(var(--track-h) - 2px - 2 * var(--pad));
   display: inline-flex;
@@ -10,17 +10,23 @@
   width: var(--track-w);
   height: var(--track-h);
   padding: var(--pad);
-  border: 1px solid var(--border);
-  border-radius: var(--track-h);
+  border-color: color-mix(in srgb, var(--fg) 16%, transparent);
+  border-style: solid;
+  border-width: 1px;
+  border-radius: calc(var(--track-h) / 2.2);
+  corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
   cursor: pointer;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
   transition:
+    outline 150ms ease,
     background-color 150ms ease,
     border-color 150ms ease;
 
   &[data-checked] {
     background-color: var(--fg);
-    border-color: var(--fg);
+    border-color: transparent;
   }
 
   &[data-disabled] {
@@ -28,23 +34,30 @@
     cursor: not-allowed;
   }
 
-  &:focus-visible {
+  &:focus-visible,
+  &:hover {
     outline: 1px solid var(--border);
-    outline-offset: 2px;
   }
 }
 
+:root[data-theme-invert] .root[data-checked] {
+  background-color: var(--fg-secondary);
+  border-color: color-mix(in srgb, var(--fg) 24%, transparent);
+}
+
 .thumb {
-  width: var(--thumb);
+  width: calc(var(--thumb) * 1.5);
   height: var(--thumb);
-  border-radius: 50%;
+  border-radius: calc(var(--track-h) / 2.2 - var(--pad) - 1px);
+  corner-shape: superellipse(1.45);
   background-color: var(--fg-secondary);
   transition:
     translate 150ms ease,
     background-color 150ms ease;
 
   &[data-checked] {
-    translate: calc(var(--track-w) - 2px - 2 * var(--pad) - var(--thumb)) 0;
+    translate: calc(var(--track-w) - 2px - 2 * var(--pad) - var(--thumb) * 1.5)
+      0;
     background-color: var(--bg);
   }
 }

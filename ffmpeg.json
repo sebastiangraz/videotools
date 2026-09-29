@@ -1,0 +1,34 @@
+{
+  "version": "9.0.2",
+  "sources": [
+    "BtbN/FFmpeg-Builds autobuild-2026-09-19-13-11: ffmpeg-n9.0.2-win64-gpl-9.0.zip, ffmpeg-n9.0.2-linux64-gpl-9.0.tar.xz",
+    "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip",
+    "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip"
+  ],
+  "platforms": {
+    "win32-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-9.0.2/ffmpeg-win32-x64.gz",
+      "sha256": "1c77587e486c4ca35fffe42733ca04418e718564eebaa04143351b3ad0fc6746",
+      "binarySha256": "c0206dea70e1dd0e759ebbc61fc826834a943cd9c93c7c094c529b685f0b8f67",
+      "bin": "ffmpeg.exe"
+    },
+    "linux-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-9.0.2/ffmpeg-linux-x64.gz",
+      "sha256": "0dacbb8d904430da60a3998c303cdedcd517e8b849b0bad7dc0d76b8f64962cb",
+      "binarySha256": "a4ffb15bfd918552ecac91353a87d777175d820a6ac4aa4898dfaf9c90bed704",
+      "bin": "ffmpeg"
+    },
+    "darwin-arm64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-9.0.2/ffmpeg-darwin-arm64.gz",
+      "sha256": "9b36707858f3a7b8c2a3982175c4646c2593367b39f42b83b6eefc2bc2684646",
+      "binarySha256": "2e11c6f90993cdb79fff84d3f90044d28316b310e75b3e030cfc9a54f2c9d384",
+      "bin": "ffmpeg"
+    },
+    "darwin-x64": {
+      "url": "https://github.com/sebastiangraz/videotools/releases/download/ffmpeg-9.0.2/ffmpeg-darwin-x64.gz",
+      "sha256": "e49121eff734cd06aba4764b37b6d93117960ed1d56b3869ef1928fc61ea54e6",
+      "binarySha256": "b25689cf2211c0582d317e849912769a1f1c93904fe102c485b5364a425633d1",
+      "bin": "ffmpeg"
+    }
+  }
+}

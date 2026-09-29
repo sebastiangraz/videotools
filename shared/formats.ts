@@ -14,25 +14,22 @@ export type Format = {
   mime: string;
   // Videos can carry audio; animations never do.
   kind: "video" | "animation";
-  // false: ffmpeg has no decoder for it (animated WebP), so the format is a
-  // convert target and never a source.
-  readable: boolean;
 };
 
 // In the order the convert dropdown lists them.
 export const FORMATS: readonly Format[] = [
-  { id: "mp4", label: "MP4", extensions: ["mp4", "m4v"], mime: "video/mp4", kind: "video", readable: true },
-  { id: "webm", label: "WebM", extensions: ["webm"], mime: "video/webm", kind: "video", readable: true },
-  { id: "mov", label: "MOV", extensions: ["mov", "qt"], mime: "video/quicktime", kind: "video", readable: true },
-  { id: "gif", label: "GIF", extensions: ["gif"], mime: "image/gif", kind: "animation", readable: true },
-  { id: "webp", label: "WebP", extensions: ["webp"], mime: "image/webp", kind: "animation", readable: false },
-  { id: "avif", label: "AVIF", extensions: ["avif"], mime: "image/avif", kind: "animation", readable: true },
+  { id: "mp4", label: "MP4", extensions: ["mp4", "m4v"], mime: "video/mp4", kind: "video" },
+  { id: "webm", label: "WebM", extensions: ["webm"], mime: "video/webm", kind: "video" },
+  { id: "mov", label: "MOV", extensions: ["mov", "qt"], mime: "video/quicktime", kind: "video" },
+  { id: "gif", label: "GIF", extensions: ["gif"], mime: "image/gif", kind: "animation" },
+  { id: "webp", label: "WebP", extensions: ["webp"], mime: "image/webp", kind: "animation" },
+  { id: "avif", label: "AVIF", extensions: ["avif"], mime: "image/avif", kind: "animation" },
 ];
 
 export const FORMAT_IDS: readonly FormatId[] = FORMATS.map((f) => f.id);
 
 // What the sequence tool offers: stills have no format of their own to keep.
-export const SEQUENCE_FORMATS: readonly FormatId[] = ["mp4", "gif", "avif"];
+export const SEQUENCE_FORMATS: readonly FormatId[] = ["mp4", "gif", "webp", "avif"];
 
 export function formatById(id: FormatId): Format {
   // Every FormatId has its row, so the lookup cannot miss.
@@ -42,8 +39,8 @@ export function formatById(id: FormatId): Format {
 // The stills: raster images, which only the mark tool takes and, like every
 // format-keeping tool, hands back as what they came as. A table of their own
 // because nothing converts to them and they are no video to any other tool.
-// "webp" is in both tables: the still here, the animation above (which
-// ffmpeg cannot read), and only the content tells which one a file is.
+// "webp" is in both tables: the still here, the animation above, and only
+// the content tells which one a file is.
 export type StillId = "png" | "jpg" | "webp";
 
 export type Still = {

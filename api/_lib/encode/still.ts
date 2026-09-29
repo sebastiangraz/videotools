@@ -3,7 +3,7 @@ import path from "node:path";
 import type { StillId } from "../../../shared/formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
 import { graphArgs, hasAlpha, type Render } from "./render.js";
-import { webpQuality } from "./webp.js";
+import { webpLevels } from "./webp.js";
 
 // mjpeg's scale: 1 is its finest, 31 its coarsest.
 const JPEG_COARSEST = 31;
@@ -17,8 +17,6 @@ const range = (from: number, to: number) =>
   );
 const JPEG_LEVELS = (quality: number) =>
   range(Math.round(1 + ((100 - quality) / 99) * (JPEG_COARSEST - 1)), JPEG_COARSEST);
-const WEBP_LEVELS = (quality: number) =>
-  range(webpQuality(quality), webpQuality(1));
 
 // The stills' side of the output stage: the one picture a render of a still
 // source comes to, written as the kind of image the source is (the mark tool
@@ -86,7 +84,7 @@ export async function encodeStill(
     return outputFile;
   }
 
-  const levels = still === "jpg" ? JPEG_LEVELS(quality) : WEBP_LEVELS(quality);
+  const levels = still === "jpg" ? JPEG_LEVELS(quality) : webpLevels(quality);
   const codecArgs = (level: number) =>
     still === "jpg"
       ? [

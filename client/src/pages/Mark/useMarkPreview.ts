@@ -5,6 +5,14 @@ import {
   type FrameSource,
 } from "../../frameSource";
 
+// The watermark's size choice (the API's MARK_SIZES); "dev" is debug mode's.
+export type MarkSize = "small" | "large" | "dev";
+// The watermark's look (the API's MARK_FILTERS).
+export type MarkFilter = "plain" | "glass" | "blur";
+// What the preview shows: the mark, or a debug view of the glass (the
+// API's MARK_VIEWS).
+export type MarkView = "render" | "displacement" | "clear";
+
 // The mark preview is rendered by the server with the real ffmpeg graph, so
 // it always matches the encode. The browser sends frames of the source
 // (grabbed through a frame source, downscaled: the geometry is relative to
@@ -40,13 +48,15 @@ const toDataUrl = (blob: Blob) =>
 
 // The mark preview: frames grabbed off `source`, and the server's render of
 // each (object URLs, slot for slot; none until the first set lands),
-// refreshed as a set whenever the frames, logo or filter change, with
-// `loading` up in between. `scrubIndex` is the slot the pointer's horizontal
-// position picks.
+// refreshed as a set whenever the frames, logo, filter, size or view
+// change, with `loading` up in between. `scrubIndex` is the slot the
+// pointer's horizontal position picks.
 export function useMarkPreview(
   source: File | null,
   watermark: File | null,
-  filterMode: boolean,
+  filterMode: MarkFilter,
+  size: MarkSize,
+  view: MarkView = "render",
 ) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -57,7 +67,9 @@ export function useMarkPreview(
   const [settled, setSettled] = useState<{
     frameBlobs: Blob[];
     watermark: File;
-    filterMode: boolean;
+    filterMode: MarkFilter;
+    size: MarkSize;
+    view: MarkView;
   } | null>(null);
   // The source no frame could be grabbed off, so there is nothing to wait for.
   const [failedSource, setFailedSource] = useState<File | null>(null);
@@ -99,6 +111,8 @@ export function useMarkPreview(
               frame: await toDataUrl(blob),
               logo,
               filter: filterMode,
+              size,
+              view,
             }),
             signal: controller.signal,
           });
@@ -116,10 +130,10 @@ export function useMarkPreview(
       })
       .finally(() => {
         if (controller.signal.aborted) return;
-        setSettled({ frameBlobs, watermark, filterMode });
+        setSettled({ frameBlobs, watermark, filterMode, size, view });
       });
     return () => controller.abort();
-  }, [frameBlobs, watermark, filterMode]);
+  }, [frameBlobs, watermark, filterMode, size, view]);
 
   // Grabs SCRUB_FRAMES frames of the source, evenly spaced from the start
   // (0, 1/5, 2/5… of the clip: the end itself rarely seeks to a drawable
@@ -172,7 +186,8 @@ export function useMarkPreview(
 
   // Frames are being grabbed or rendered for what is picked now: from the
   // moment there is a source and a logo until a set of renders for exactly
-  // these frames, this logo and this filter has landed (or failed).
+  // these frames, this logo, this filter, this size and this view has
+  // landed (or failed).
   const loading =
     source !== null &&
     watermark !== null &&
@@ -180,7 +195,9 @@ export function useMarkPreview(
     !(
       settled?.frameBlobs === frameBlobs &&
       settled.watermark === watermark &&
-      settled.filterMode === filterMode
+      settled.filterMode === filterMode &&
+      settled.size === size &&
+      settled.view === view
     );
 
   return {

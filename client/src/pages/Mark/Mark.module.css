@@ -51,6 +51,7 @@
     #fff calc(var(--mask-solid) + 10%),
     #fff0 calc(var(--mask-solid) + 60%)
   );
+  /* eslint-disable-next-line css/no-invalid-properties */
   mask-image: var(--mask-image);
   transition:
     --mask-solid 0.5s cubic-bezier(0.7, 0, 0.175, 1),
@@ -174,4 +175,22 @@
   color: var(--fg);
   background-color: color-mix(in srgb, var(--bg) 75%, transparent);
   backdrop-filter: blur(4px);
+}
+.markPreviewDebug {
+  text-box: cap alphabetic;
+  font-size: 10px;
+  min-width: 14rem;
+  background-color: var(--bg);
+  border-left: 1px solid var(--fg);
+
+  p {
+    display: flex;
+    margin: 0;
+    padding: 0 1rem 0.5rem 1rem;
+  }
+
+  /* A debug option: a switch and its label. */
+  & > div {
+    padding: 0 1rem;
+  }
 }

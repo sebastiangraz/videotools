@@ -1,0 +1,13 @@
+/* The tool pages' column, view transitions included */
+.container {
+  composes: container from "../ToolPanel/ToolPanel.module.css";
+  flex: 1;
+}
+
+.title {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  font-weight: normal;
+  margin: 0;
+  color: var(--fg);
+}

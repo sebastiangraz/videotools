@@ -2,9 +2,16 @@
 import { describe, expect, it } from "vitest";
 import { parseSourceProfile, type SourceProfile } from "./ffmpeg.js";
 import { InputError } from "./errors.js";
-import { preservedFormat, sourceFormat, sourceStill } from "./source.js";
+import {
+  checkSquarePixels,
+  preservedFormat,
+  type Source,
+  sourceFormat,
+  sourceStill,
+} from "./source.js";
 
-// `ffmpeg -i` summaries of real files (6.1.1), one per kind of source.
+// `ffmpeg -i` summaries of real files, one per kind of source (the AVIF
+// from 9.0.2, the rest from 6.1.1: 9.0 prints those lines alike).
 const SUMMARIES = {
   mp4: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'video.mp4':
   Metadata:
@@ -13,6 +20,12 @@ const SUMMARIES = {
   Duration: 00:00:05.03, start: 0.000000, bitrate: 3050 kb/s
   Stream #0:0[0x1](eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1600x1080, 2723 kb/s, 30 fps, 30 tbr, 30k tbn (default)
   Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 317 kb/s (default)`,
+  // A HandBrake export with anamorphic output left on: played 1080×1080.
+  anamorphic: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'video.mp4':
+  Metadata:
+    major_brand     : mp42
+  Duration: 00:00:10.02, start: 0.000000, bitrate: 784 kb/s
+  Stream #0:0[0x1](und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1710x1080 [SAR 12:19 DAR 1:1], 778 kb/s, 60 fps, 60 tbr, 90k tbn (default)`,
   mov: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'source.mov':
   Metadata:
     major_brand     : qt${"  "}
@@ -38,8 +51,9 @@ const SUMMARIES = {
   avif: `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'output.avif':
   Metadata:
     major_brand     : avis
-  Duration: 00:00:05.03, start: 0.000000, bitrate: 450 kb/s
-  Stream #0:0[0x1](eng): Video: av1 (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 800x540 [SAR 1:1 DAR 40:27], 448 kb/s, 30 fps, 30 tbr, 15360 tbn (default)`,
+  Duration: 00:00:05.03, start: 0.000000, bitrate: 494 kb/s
+  Stream #0:0[0x1]: Video: av1 (libdav1d) (Main) (av01 / 0x31307661), yuv420p(tv, bt709), 800x540 [SAR 1:1 DAR 40:27], 1 fps, 1 tbr, 1 tbn (default)
+  Stream #0:1[0x1](eng): Video: av1 (libdav1d) (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 800x540 [SAR 1:1 DAR 40:27], 491 kb/s, 30 fps, 30 tbr, 15360 tbn (default)`,
   avi: `Input #0, avi, from 'clip.avi':
   Duration: 00:00:04.05, start: 0.000000, bitrate: 464 kb/s
   Stream #0:0: Video: mpeg4 (Simple Profile) (FMP4 / 0x34504D46), yuv420p, 320x240 [SAR 1:1 DAR 4:3], 372 kb/s, 30 fps, 30 tbr, 30 tbn
@@ -60,6 +74,11 @@ const SUMMARIES = {
   webp: `Input #0, webp_pipe, from 'photo.webp':
   Duration: N/A, bitrate: N/A
   Stream #0:0: Video: webp, yuv420p(tv, bt470bg/unknown/unknown), 320x240, 25 fps, 25 tbr, 25 tbn`,
+  // An animated WebP has a demuxer of its own, and no duration in the
+  // summary (FFmpeg.mediaInfo measures it).
+  animwebp: `Input #0, webp_anim, from 'anim.webp':
+  Duration: N/A, start: 0.000000, bitrate: N/A
+  Stream #0:0: Video: webp_anim, argb, 160x120, 10 fps, 10 tbr, 1k tbn`,
   // Motion JPEG video: a JPEG's codec, in a container.
   mjpeg: `Input #0, avi, from 'camera.avi':
   Duration: 00:00:01.00, start: 0.000000, bitrate: 1391 kb/s
@@ -119,20 +138,13 @@ describe("parseSourceProfile", () => {
     });
   });
 
-  it("works on an AVIF's animation, not the cover image ffmpeg 7 lists first", () => {
-    const v7 = `Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'source.avif':
-  Metadata:
-    major_brand     : avis
-  Duration: 00:00:02.00, start: 0.000000, bitrate: 104 kb/s
-  Stream #0:0[0x1]: Video: av1 (libaom-av1) (Main) (av01 / 0x31307661), yuv420p(tv, bt709), 320x216 [SAR 1:1 DAR 40:27], 1 fps, 1 tbr, 1 tbn (default)
-  Stream #0:1[0x1](eng): Video: av1 (libaom-av1) (Main) (av01 / 0x31307661), yuv420p(tv, bt709, progressive), 320x216 [SAR 1:1 DAR 40:27], 100 kb/s, 15 fps, 15 tbr, 15360 tbn (default)`;
-    expect(parseSourceProfile(v7)).toMatchObject({
+  it("works on an AVIF's animation, not the cover image listed first", () => {
+    expect(profile("avif")).toMatchObject({
       videoIndex: 1,
-      fps: 15,
-      videoKbps: 100,
+      fps: 30,
+      videoKbps: 491,
       codec: "av1",
     });
-    expect(profile("avif").videoIndex).toBe(0);
   });
 
   it("skips cover art", () => {
@@ -160,6 +172,7 @@ describe("sourceFormat", () => {
     ["mov", "mov"],
     ["webm", "webm"],
     ["gif", "gif"],
+    ["animwebp", "webp"],
     ["avif", "avif"],
   ] as const)("knows %s content as %s", (kind, format) => {
     expect(sourceFormat(profile(kind))).toBe(format);
@@ -183,7 +196,7 @@ describe("sourceStill", () => {
     expect(sourceFormat(profile(kind))).toBeNull();
   });
 
-  it.each(["mp4", "gif", "mjpeg", "apng"] as const)(
+  it.each(["mp4", "gif", "animwebp", "mjpeg", "apng"] as const)(
     "takes %s content for no still",
     (kind) => {
       expect(sourceStill(profile(kind))).toBeNull();
@@ -207,5 +220,40 @@ describe("preservedFormat", () => {
     expect(
       preservedFormat({ path: "/work/input.gif", profile: profile("gif"), format: "gif", still: null }),
     ).toBe("gif");
+  });
+});
+
+describe("checkSquarePixels", () => {
+  const source = (kind: keyof typeof SUMMARIES): Source => {
+    const p = profile(kind);
+    return { path: "/work/input", profile: p, format: sourceFormat(p), still: sourceStill(p) };
+  };
+
+  it("refuses an anamorphic video, saying the size it plays at", () => {
+    expect(() => checkSquarePixels(source("anamorphic"))).toThrowError(
+      /stored at 1710×1080 but plays at 1080×1080/,
+    );
+    try {
+      checkSquarePixels(source("anamorphic"));
+    } catch (err) {
+      expect((err as InputError).code).toBe("unsupported-source");
+    }
+  });
+
+  it("goes by the container's ratio over the codec's", () => {
+    expect(() => checkSquarePixels(source("3gp"))).not.toThrow();
+  });
+
+  it.each(["mp4", "webm", "gif", "avif", "png", "jpg"] as const)(
+    "takes %s content with square or unset pixels",
+    (kind) => {
+      expect(() => checkSquarePixels(source(kind))).not.toThrow();
+    },
+  );
+
+  it("leaves an animation's ratio alone: browsers show it as stored", () => {
+    const gif = source("gif");
+    gif.profile.sar = 12 / 19;
+    expect(() => checkSquarePixels(gif)).not.toThrow();
   });
 });

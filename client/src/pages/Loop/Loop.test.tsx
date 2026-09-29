@@ -14,6 +14,8 @@ import {
   stubImageDecoder,
   stubMediaLoading,
   stubProperties,
+  stubVideoFrame,
+  webpFile,
   type FakeFrame,
 } from "../../test/media";
 
@@ -252,6 +254,42 @@ describe("Loop", () => {
     );
   });
 
+  // Played at 1710×1710, stored at `stored`.
+  const pickVideo = async (stored: [number, number]) => {
+    stubMediaLoading("decodes");
+    stubProperties(HTMLVideoElement.prototype, {
+      videoWidth: { get: () => 1710 },
+      videoHeight: { get: () => 1710 },
+    });
+    stubVideoFrame(...stored);
+    const user = userEvent.setup();
+    await renderApp();
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mp4", { type: "video/mp4" }),
+    );
+    return user;
+  };
+
+  it("refuses a video with non-square pixels, before any upload", async () => {
+    const user = await pickVideo([1710, 1080]);
+
+    const message = await screen.findByRole("alert");
+    expect(message).toHaveTextContent(/non-square pixels/i);
+    const button = screen.getByRole("button", { name: /^loop$/i });
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    await user.click(button);
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it("takes a video with square pixels", async () => {
+    await pickVideo([1710, 1710]);
+
+    const button = screen.getByRole("button", { name: /^loop$/i });
+    await waitFor(() => expect(button).toHaveAttribute("aria-disabled", "false"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("sends a format the app doesn't write through convert, before any upload", async () => {
     const user = userEvent.setup();
     await renderApp();
@@ -272,6 +310,33 @@ describe("Loop", () => {
     expect(button).toHaveAttribute("aria-disabled", "true");
     await user.click(button);
     expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  // A .webp is either kind, and a still is no format this tool can hand
+  // back: it goes the way of any other still once its header says so.
+  it("takes an animated WebP and sends a still one through convert", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    const button = screen.getByRole("button", { name: /^loop$/i });
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      webpFile("sticker.webp", true),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-disabled", "false");
+
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      webpFile("photo.webp", false),
+    );
+    const message = await screen.findByRole("alert");
+    expect(message).toHaveTextContent(/still webp files need to be/i);
+    expect(
+      within(message).getByRole("link", { name: /converted/i }),
+    ).toHaveAttribute("href", "/convert");
+    expect(button).toHaveAttribute("aria-disabled", "true");
   });
 
   it("keeps the message up over the tab descriptions until the file is replaced", async () => {

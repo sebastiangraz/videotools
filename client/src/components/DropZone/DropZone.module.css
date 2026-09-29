@@ -15,6 +15,7 @@
   color: var(--fg);
   cursor: pointer;
   outline: 1px solid transparent;
+  outline-offset: 2px;
   transition:
     outline 150ms ease,
     background-color 150ms ease,
@@ -23,7 +24,6 @@
   &:hover,
   &:has(:focus-visible) {
     outline: 1px solid var(--border);
-    outline-offset: 2px;
   }
 }
 

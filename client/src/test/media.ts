@@ -100,6 +100,36 @@ export const stubImageDecoder = (frameCount: number, frameMs: number) => {
   });
 };
 
+// A VideoFrame off a <video> that is stored at `width`×`height`, whatever
+// size the element says it plays at.
+export const stubVideoFrame = (width: number, height: number) => {
+  vi.stubGlobal(
+    "VideoFrame",
+    class {
+      visibleRect = { width, height };
+      close() {}
+    },
+  );
+  onTestFinished(() => {
+    Reflect.deleteProperty(globalThis, "VideoFrame");
+  });
+};
+
+// A picked WebP: its header as far as the animation flag, which is all that
+// is read of it ("RIFF" size "WEBP" "VP8X" size flags; animation is bit 1).
+export const webpFile = (name: string, animated: boolean) =>
+  new File(
+    [
+      new Uint8Array([
+        ...[..."RIFF\0\0\0\0WEBPVP8X"].map((c) => c.charCodeAt(0)),
+        ...[10, 0, 0, 0],
+        animated ? 0x02 : 0x10,
+      ]),
+    ],
+    name,
+    { type: "image/webp" },
+  );
+
 // A picked GIF. jsdom's File can't hand over its bytes.
 export const gifFile = (name: string) => {
   const file = new File(["00"], name, { type: "image/gif" });

@@ -1,3 +1,4 @@
+import css from "@eslint/css";
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
@@ -59,6 +60,29 @@ export default defineConfig([
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+
+  // CSS (incl. CSS Modules)
+  {
+    files: ["**/*.css"],
+    plugins: { css },
+    language: "css/css",
+    extends: ["css/recommended"],
+    languageOptions: {
+      tolerant: true,
+      customSyntax: {
+        properties: {
+          composes: "<custom-ident>+ [ from <string> ]?",
+          "corner-shape":
+            "[ round | squircle | square | bevel | scoop | notch | superellipse( <number> ) ]{1,4}",
+        },
+      },
+    },
+    rules: {
+      // Custom properties are defined globally in index.css, not per file
+      "css/no-invalid-properties": ["error", { allowUnknownVariables: true }],
+      "css/use-baseline": "off",
     },
   },
 ]);

@@ -11,7 +11,8 @@ export interface Dims {
 // about it: the duration and the frame size, read off a frame source
 // (frameSource.ts), which opens a video, an animated image or a still each
 // the way the browser can. A still has no duration, and its size is the one
-// it is shown at, turned by EXIF.
+// it is shown at, turned by EXIF. `nonSquare`: the browser saw non-square
+// pixels, which no tool takes (useFormatBlocker; the functions refuse them too).
 export function useVideoSource() {
   const [file, setFile] = useState<File | null>(null);
   // Seconds; 0 = not known (yet, or for good: a still, a file the browser
@@ -19,6 +20,7 @@ export function useVideoSource() {
   const [duration, setDuration] = useState<number>(0);
   // Null until the source opens, or for good if the browser can't decode it.
   const [dims, setDims] = useState<Dims | null>(null);
+  const [nonSquare, setNonSquare] = useState(false);
 
   // A probe answers late, and must not answer for a file since replaced.
   const latest = useRef<File | null>(null);
@@ -28,6 +30,7 @@ export function useVideoSource() {
     setFile(picked);
     setDuration(0);
     setDims(null);
+    setNonSquare(false);
 
     if (!hasFrames(picked)) return;
     openFrameSource(picked)
@@ -42,6 +45,7 @@ export function useVideoSource() {
           if (latest.current !== picked) return;
           setDuration(seconds);
           if (width > 0 && height > 0) setDims({ w: width, h: height });
+          setNonSquare(frames.nonSquare?.() ?? false);
         } finally {
           frames.close();
         }
@@ -50,5 +54,5 @@ export function useVideoSource() {
       .catch(() => {});
   };
 
-  return { file, duration, dims, pick };
+  return { file, duration, dims, nonSquare, pick };
 }

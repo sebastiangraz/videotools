@@ -13,7 +13,7 @@ const TOOL = toolById("speed");
 export const Speed = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  const formatBlocker = useFormatBlocker(source.file);
+  const formatBlocker = useFormatBlocker(source.file, {}, source.nonSquare);
   const [speed, setSpeed] = useState<number>(0);
 
   // Signed speed ratio → playback multiplier: ±1 → 2× faster/slower,

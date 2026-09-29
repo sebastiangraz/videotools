@@ -5,7 +5,7 @@ import styles from "./FramePreview.module.css";
 // The frame of a picked file showing at `second`, drawn on a canvas: shown
 // while choosing the loop's "Start at" (usually the frame that becomes a
 // social post's thumbnail) and as the mark preview's bare first frame. Video
-// and animated images (GIF, AVIF) alike come through a frame source (see
+// and animated images (GIF, WebP, AVIF) alike come through a frame source (see
 // frameSource.ts), so there is one element and one set of states for both.
 // The accept list is broader than what browsers can decode (server-side
 // ffmpeg handles the rest), so a file the source can't open or seek swaps the

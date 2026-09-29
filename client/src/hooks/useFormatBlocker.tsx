@@ -24,15 +24,18 @@ import { useMessage } from "./useMessage";
 // that can't go through speaks for the pick, since none of them will run.
 // With every file fit to go, the pick as a whole gets its turn (`oneFormat`).
 //
-// `stills`: the tool takes raster images as well (mark, sequence). A .webp is
-// then taken for a still until its first bytes say it is animated, which no
-// tool can read: they are in a moment after the pick, long before a run could
-// be. `foreign` (sourceFormat.ts): false where the tool is asked for a format
-// rather than keeping its source's (convert, sequence). `oneFormat`: the pick
-// must not mix formats (sequence).
+// `stills`: the tool takes raster images as well (mark, sequence), so a .webp
+// goes through whichever kind it is. Anywhere else it is taken for an
+// animation until its first bytes say it is a still, which such a tool has
+// no format for: they are in a moment after the pick, long before a run
+// could be. `foreign` (sourceFormat.ts): false where the tool is asked for a
+// format rather than keeping its source's (sequence). `oneFormat`: the pick
+// must not mix formats (sequence). `nonSquare`: the picked video has
+// non-square pixels (useVideoSource), which no tool takes, whatever it allows.
 export const useFormatBlocker = (
   source: File | File[] | null,
   { stills = false, foreign = true, oneFormat = false }: FormatOptions = {},
+  nonSquare = false,
 ): string | null => {
   const files = useMemo(
     () => (source === null ? [] : Array.isArray(source) ? source : [source]),
@@ -40,16 +43,17 @@ export const useFormatBlocker = (
   );
   // The files themselves, rather than a flag, so an answer can't outlive the
   // file it was read from.
-  const [animated, setAnimated] = useState<readonly File[]>([]);
+  const [stillWebps, setStillWebps] = useState<readonly File[]>([]);
   useEffect(() => {
-    if (!stills) return;
+    // Nothing to tell apart where both kinds go through.
+    if (stills || !foreign) return;
     let cancelled = false;
     for (const file of files) {
       if (stillFormat(file)?.id !== "webp") continue;
       isAnimatedWebp(file).then(
         (is) => {
-          if (!is || cancelled) return;
-          setAnimated((seen) => (seen.includes(file) ? seen : [...seen, file]));
+          if (is || cancelled) return;
+          setStillWebps((seen) => (seen.includes(file) ? seen : [...seen, file]));
         },
         // Unreadable here: the server has the last word on it anyway.
         () => {},
@@ -58,22 +62,22 @@ export const useFormatBlocker = (
     return () => {
       cancelled = true;
     };
-  }, [files, stills]);
+  }, [files, stills, foreign]);
 
-  const optionsFor = (file: File): FormatOptions => ({
-    stills: stills && !animated.includes(file),
-    foreign,
-  });
   const mixed = (): FormatBlock | null => {
     if (!oneFormat) return null;
     const labels = pickedFormats(files);
     return labels.length > 1 ? { state: "mixed", labels } : null;
   };
-  const block =
-    files.map((file) => formatBlock(file, optionsFor(file))).find(Boolean) ??
-    mixed();
+  const block: FormatBlock | null = nonSquare
+    ? { state: "nonSquare" }
+    : (files
+        .map((file) =>
+          formatBlock(file, { stills, foreign }, stillWebps.includes(file)),
+        )
+        .find(Boolean) ?? mixed());
 
-  const text = block && blockerText(block, { stills });
+  const text = block && blockerText(block);
   // Plain text, except a foreign file: its line stops before "converted", and
   // the link to the convert tool is affixed there.
   useMessage(

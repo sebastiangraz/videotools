@@ -8,6 +8,7 @@ import {
   stubImageDecoder,
   stubMediaLoading,
   stubProperties,
+  webpFile,
   type FakeFrame,
 } from "../../test/media";
 
@@ -52,7 +53,7 @@ describe("Mark", () => {
     return fetchMock;
   };
 
-  it("waits for a video and a PNG watermark on the mark tool, then offers filter mode", async () => {
+  it("waits for a video and a PNG or SVG watermark on the mark tool, then offers filter mode", async () => {
     const user = userEvent.setup();
     await renderApp("/mark");
 
@@ -66,9 +67,10 @@ describe("Mark", () => {
     expect(await screen.findByText(/upload a watermark/i)).toBeInTheDocument();
     await user.unhover(button);
 
-    // Only PNG logos are taken; the picker's accept list filters the rest
+    // Only PNG and SVG logos are taken; the picker's accept list filters the
+    // rest
     const picker = screen.getByLabelText(/choose watermark/i);
-    expect(picker).toHaveAttribute("accept", "image/png");
+    expect(picker).toHaveAttribute("accept", "image/png,image/svg+xml,.svg");
     await user.upload(
       picker,
       new File(["00"], "logo.gif", { type: "image/gif" }),
@@ -76,8 +78,15 @@ describe("Mark", () => {
     expect(button).toHaveAttribute("aria-disabled", "true");
     expect(screen.queryByText("logo.gif")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("switch", { name: /glass/i }),
+      screen.queryByRole("button", { name: /glass/i }),
     ).not.toBeInTheDocument();
+
+    await user.upload(
+      picker,
+      new File(["<svg/>"], "logo.svg", { type: "image/svg+xml" }),
+    );
+    expect(button).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByText("logo.svg")).toBeInTheDocument();
 
     await user.upload(
       picker,
@@ -85,7 +94,13 @@ describe("Mark", () => {
     );
     expect(button).toHaveAttribute("aria-disabled", "false");
     expect(screen.getByText("logo.png")).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: /glass/i })).toBeInTheDocument();
+    // Glass is the default look, with plain and blur the alternatives
+    expect(screen.getByRole("button", { name: /glass/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /plain/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /blur/i })).toBeInTheDocument();
   });
 
   it("takes a GIF as the mark source and, where there is no ImageDecoder, previews its first frame off an image", async () => {
@@ -231,48 +246,28 @@ describe("Mark", () => {
     });
   });
 
-  it("turns an animated WebP away once its header is read, and lets a still one through", async () => {
+  it("takes a WebP whichever kind it is", async () => {
     const user = userEvent.setup();
-    // "RIFF" size "WEBP" "VP8X" size flags: animation is bit 1 of the flags
-    const webp = (name: string, flags: number) =>
-      new File(
-        [
-          new Uint8Array([
-            ...[..."RIFF\0\0\0\0WEBPVP8X"].map((c) => c.charCodeAt(0)),
-            ...[10, 0, 0, 0],
-            flags,
-          ]),
-        ],
-        name,
-        { type: "image/webp" },
-      );
-
     await renderApp("/mark");
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webp("sticker.webp", 0x02),
-    );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /animated webp format not supported/i,
-    );
     await user.upload(
       screen.getByLabelText(/choose watermark/i),
       new File(["00"], "logo.png", { type: "image/png" }),
     );
     const button = screen.getByRole("button", { name: /^mark$/i });
-    expect(button).toHaveAttribute("aria-disabled", "true");
 
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webp("photo.webp", 0x10),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
-    );
-    // Its header is in by now, and said nothing against it
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(button).toHaveAttribute("aria-disabled", "false");
+    for (const [name, animated] of [
+      ["sticker.webp", true],
+      ["photo.webp", false],
+    ] as const) {
+      await user.upload(
+        screen.getByLabelText(/choose video/i),
+        webpFile(name, animated),
+      );
+      // Its header is in by now, and said nothing against it
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(button).toHaveAttribute("aria-disabled", "false");
+    }
   });
 
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
@@ -315,7 +310,7 @@ describe("Mark", () => {
       ),
     );
     const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
-    expect(body).toMatchObject({ filter: false });
+    expect(body).toMatchObject({ filter: "glass", size: "large" });
     expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
@@ -325,11 +320,67 @@ describe("Mark", () => {
     );
 
     // Filter mode is the server's business too, so it re-renders
-    await user.click(screen.getByRole("switch", { name: /glass/i }));
+    await user.click(screen.getByRole("button", { name: /blur/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(
       JSON.parse(fetchMock.mock.calls[1][1]?.body as string),
-    ).toMatchObject({ filter: true });
+    ).toMatchObject({ filter: "blur", size: "large" });
+
+    // And so is the size
+    await user.click(screen.getByRole("button", { name: /small/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(
+      JSON.parse(fetchMock.mock.calls[2][1]?.body as string),
+    ).toMatchObject({ filter: "blur", size: "small" });
+  });
+
+  it("previews the displacement map or the clear glass from debug mode, one at a time, and the mark again once debug mode is left", async () => {
+    const user = userEvent.setup();
+    stubMediaLoading("decodes");
+    stubProperties(HTMLVideoElement.prototype, {
+      videoWidth: { get: () => 1280 },
+      videoHeight: { get: () => 720 },
+    });
+    stubCanvas();
+    const fetchMock = stubPreviewFetch();
+    const view = (call: number) =>
+      JSON.parse(fetchMock.mock.calls[call][1]?.body as string).view;
+
+    await renderApp("/mark");
+    await user.upload(
+      screen.getByLabelText(/choose video/i),
+      new File(["00"], "clip.mp4", { type: "video/mp4" }),
+    );
+    await user.upload(
+      screen.getByLabelText(/choose watermark/i),
+      new File(["00"], "logo.png", { type: "image/png" }),
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(view(0)).toBe("render");
+
+    // Shift+D opens the debug panel, where the map is a switch away
+    // (off the file input, where it would be a capital D)
+    await user.click(document.body);
+    await user.keyboard("{Shift>}D{/Shift}");
+    const displacement = await screen.findByRole("switch", {
+      name: /displacement map/i,
+    });
+    await user.click(displacement);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(view(1)).toBe("displacement");
+
+    // The clear glass takes over from the map, whose switch goes off
+    const clear = screen.getByRole("switch", { name: /clear glass/i });
+    await user.click(clear);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(view(2)).toBe("clear");
+    expect(clear).toBeChecked();
+    expect(displacement).not.toBeChecked();
+
+    // Leaving debug mode leaves it too
+    await user.keyboard("{Shift>}D{/Shift}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(view(3)).toBe("render");
   });
 
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {
@@ -503,7 +554,7 @@ describe("Mark", () => {
     const firstSet = sources(preview);
 
     // A change asks for a new set: the last one stays whole until then
-    await user.click(screen.getByRole("switch", { name: /glass/i }));
+    await user.click(screen.getByRole("button", { name: /plain/i }));
     expect(preview).toHaveAttribute("aria-busy", "true");
     await waitFor(() => expect(answers).toHaveLength(5));
     answer(4);
@@ -518,7 +569,7 @@ describe("Mark", () => {
     expect(secondSet.filter((src) => firstSet.includes(src))).toEqual([]);
   });
 
-  it("uploads the video then the watermark and requests a glass watermark", async () => {
+  it("uploads the video then the watermark and requests a blurred watermark", async () => {
     const user = userEvent.setup();
     const video = new File(["00"], "clip.mp4", { type: "video/mp4" });
     const logo = new File(["00"], "logo.png", { type: "image/png" });
@@ -533,7 +584,8 @@ describe("Mark", () => {
     await renderApp("/mark");
     await user.upload(screen.getByLabelText(/choose video/i), video);
     await user.upload(screen.getByLabelText(/choose watermark/i), logo);
-    await user.click(screen.getByRole("switch", { name: /glass/i }));
+    await user.click(screen.getByRole("button", { name: /blur/i }));
+    await user.click(screen.getByRole("button", { name: /small/i }));
     await user.click(screen.getByRole("button", { name: /^mark$/i }));
 
     await waitFor(() =>
@@ -563,7 +615,7 @@ describe("Mark", () => {
       filename: "clip.mp4",
       blobUrl: blobFor("clip.mp4"),
       watermarkUrl: blobFor("logo.png"),
-      options: { filter: true, quality: 100 },
+      options: { filter: "blur", size: "small", quality: 100 },
     });
   });
 });

@@ -4,9 +4,9 @@ import { DropZone } from "../../components/DropZone/DropZone";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
+import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { fileFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { FORMATS } from "../../../../shared/formats";
@@ -22,9 +22,13 @@ const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
 export const Convert = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  // Foreign sources (.avi, .mkv, ...) are this tool's whole point, so only a
-  // format ffmpeg cannot read blocks the run.
-  const formatBlocker = useFormatBlocker(source.file, { foreign: false });
+  // Foreign sources (.avi, .mkv, ...) are this tool's whole point, so no
+  // file ffmpeg reads is turned away for its format.
+  const formatBlocker = useFormatBlocker(
+    source.file,
+    { foreign: false },
+    source.nonSquare,
+  );
   const [target, setTarget] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the server probes it, capped at 30)
@@ -147,14 +151,19 @@ export const Convert = () => {
             <Slider
               label={
                 <>
-                  {effectiveTarget === "webp" && quality === 100
+                  {/* WebP at 100 is lossless only from a lossless source
+                      (api/_lib/encode/webp.ts); of those, only a GIF shows
+                      by its name. */}
+                  {effectiveTarget === "webp" &&
+                  quality === 100 &&
+                  sourceFormat?.id === "gif"
                     ? `Lossless ${quality}%`
                     : `Quality ${quality}%`}
                 </>
               }
               value={quality}
               onValueChange={setQuality}
-              min={1}
+              min={0}
               max={100}
               step={1}
               disabled={run.busy}

@@ -8,11 +8,11 @@
   "functions": {
     "api/process.ts": {
       "maxDuration": 300,
-      "includeFiles": "{node_modules/ffmpeg-static/**,api/_bin/gifski/linux/**}"
+      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}"
     },
     "api/preview.ts": {
       "maxDuration": 60,
-      "includeFiles": "{node_modules/ffmpeg-static/**,api/_bin/gifski/linux/**}"
+      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}"
     },
     "api/upload.ts": { "maxDuration": 30 }
   }

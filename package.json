@@ -16,16 +16,19 @@
     "build": "npm run build --workspace client",
     "test": "npm run test --workspace client",
     "smoke": "node scripts/smoke.mjs",
+    "postinstall": "node scripts/binaries-install.mjs",
+    "ffmpeg:mirror": "node scripts/ffmpeg-mirror.mjs",
+    "gifski:mirror": "node scripts/gifski-mirror.mjs",
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "typecheck": "tsc -p tsconfig.json",
     "lint:fix": "eslint --flag unstable_native_nodejs_ts_config . --fix"
   },
   "dependencies": {
     "@vercel/blob": "^1.1.1",
-    "ffmpeg-static": "^5.2.0",
     "nanoid": "^3.3.6"
   },
   "devDependencies": {
+    "@eslint/css": "^2.0.0",
     "@eslint/js": "^10.0.0",
     "@vercel/node": "^5.1.14",
     "eslint": "^10.10.0",

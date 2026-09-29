@@ -69,6 +69,27 @@
   }
 }
 
+:root[data-theme-invert] .thumb {
+  background-image:
+    linear-gradient(to bottom, var(--fg-secondary), var(--fg-secondary)),
+    linear-gradient(to bottom, var(--bg), var(--bg));
+  &[data-disabled] {
+    background-image:
+      linear-gradient(to bottom, var(--border), var(--border)),
+      linear-gradient(to bottom, var(--bg), var(--bg));
+  }
+}
+
+.thumb[data-disabled] {
+  background-image:
+    linear-gradient(to bottom, var(--border), var(--border)),
+    linear-gradient(to bottom, var(--bg), var(--bg));
+}
+
+.indicator[data-disabled] {
+  opacity: 0;
+}
+
 .withTicks {
   /* margin-bottom: 0; */
   gap: 1.75em;
@@ -86,6 +107,13 @@
   --hill: 0.1;
   /* half the thumb (--thumb-size on .control) */
   --tick-inset: calc((11px / 2));
+}
+
+.slider[data-disabled] {
+  & .minorTicks,
+  & .majorTicks {
+    opacity: 0.4;
+  }
 }
 
 .minorTicks,

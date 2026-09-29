@@ -7,16 +7,27 @@ import { nanoid } from "nanoid";
 import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { renderWatermarkFrame } from "./_lib/tools/mark.js";
+import {
+  isMarkFilter,
+  isMarkSize,
+  isMarkView,
+} from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 // Renders the "mark" tool's preview: the browser sends the video's first
-// frame (a small JPEG it grabbed itself) and the logo (a PNG) as data URLs,
+// frame (a small JPEG it grabbed itself) and the logo (a PNG or SVG) as data URLs,
 // and gets back one frame composited by the same ffmpeg graph the encode
 // uses. Both images travel inline: the frame is downscaled client-side and
 // logos are small, so there is no need for Blob storage here.
 const MAX_BYTES = 8 * 1024 * 1024;
 
-type PreviewBody = { frame?: unknown; logo?: unknown; filter?: unknown };
+type PreviewBody = {
+  frame?: unknown;
+  logo?: unknown;
+  filter?: unknown;
+  size?: unknown;
+  view?: unknown;
+};
 
 // Decodes an image data URL into bytes. Null when it isn't one.
 function decodeDataUrl(value: unknown): Uint8Array | null {
@@ -31,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { frame, logo, filter } = (req.body ?? {}) as PreviewBody;
+  const { frame, logo, filter, size, view } = (req.body ?? {}) as PreviewBody;
   const frameImage = decodeDataUrl(frame);
   const logoImage = decodeDataUrl(logo);
   if (!frameImage || !logoImage) {
@@ -63,7 +74,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       framePath,
       logoPath,
       workDir,
-      filter === true,
+      isMarkFilter(filter) ? filter : "glass",
+      isMarkSize(size) ? size : "large",
+      isMarkView(view) ? view : "render",
     );
 
     res.setHeader("Content-Type", "image/jpeg");
@@ -72,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     if (abort.signal.aborted) return;
     console.error("Preview error:", err);
-    // A logo that isn't a PNG is the caller's to fix, not a server fault.
+    // A logo that is no PNG or SVG is the caller's to fix, not a server fault.
     if (err instanceof InputError) {
       return res.status(400).json({ error: err.message, code: err.code });
     }

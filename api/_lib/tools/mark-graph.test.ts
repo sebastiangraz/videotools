@@ -2,6 +2,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   MARK,
+  MARK_FILTERS,
+  MARK_SIZES,
+  MARK_VIEWS,
   parseBounds,
   watermarkGraph,
   watermarkLayout,
@@ -158,6 +161,44 @@ describe("parseBounds", () => {
   });
 });
 
+describe("watermarkLayout sizes", () => {
+  it("is the large size by default", () => {
+    const bounds = { width: 300, height: 80 };
+    expect(watermarkLayout(UHD, bounds)).toEqual(
+      watermarkLayout(UHD, bounds, "large"),
+    );
+  });
+
+  it.each([1, 16 / 9, 6, 1 / 3])(
+    "scales a %s logo and its padding, and sets it a little further in",
+    (aspect) => {
+      const bounds = {
+        width: Math.round(1000 * Math.sqrt(aspect)),
+        height: Math.round(1000 / Math.sqrt(aspect)),
+      };
+      const large = watermarkLayout(UHD, bounds, "large");
+      const small = watermarkLayout(UHD, bounds, "small");
+      const { scale, gap } = MARK_SIZES.small;
+      expect(Math.abs(small.LW - large.LW * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.LH - large.LH * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(
+        1,
+      );
+      // The large gap is its padding; the small one is a share of that, the
+      // same on both edges whatever the logo's shape
+      expect(large.gap).toBe(large.margin);
+      expect(Math.abs(small.gap - large.gap * gap)).toBeLessThanOrEqual(1);
+      expect([small.LX, small.LY]).toEqual([
+        UHD.width - small.gap - small.LW,
+        UHD.height - small.gap - small.LH,
+      ]);
+      // The cell's corner stays even for the yuv420p crop
+      expect((small.LX - small.margin) % 2).toBe(0);
+      expect((small.LY - small.margin) % 2).toBe(0);
+    },
+  );
+});
+
 describe("watermarkGraph", () => {
   const info = (width: number, height: number, codec: string) => ({
     duration: 0,
@@ -166,6 +207,7 @@ describe("watermarkGraph", () => {
     fps: null,
     codec,
     matrix: null,
+    sar: 1,
   });
   const video = info(1920, 1080, "h264");
   const logo = info(400, 400, "png");
@@ -173,7 +215,7 @@ describe("watermarkGraph", () => {
   it("crops a logo to its visible bounds and lays it out by them", () => {
     const bounds = { x: 50, y: 160, width: 300, height: 80 };
     const l = watermarkLayout(video, bounds);
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, filter, bounds);
       expect(graph).toContain("[1:v]format=rgba,crop=300:80:50:160,");
       expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
@@ -182,7 +224,7 @@ describe("watermarkGraph", () => {
 
   it("keeps an RGBA base out of YUV, and whole", () => {
     const odd = info(321, 241, "gif");
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(odd, logo, filter, undefined, {
         base: "rgba",
       });
@@ -194,7 +236,7 @@ describe("watermarkGraph", () => {
 
   it("composites video in yuv420p, cropped to even dimensions", () => {
     const odd = info(321, 241, "h264");
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(odd, logo, filter);
       expect(graph).toMatch(/^\[0:v\]format=yuv420p,crop=320:240:0:0/);
       expect(graph).toMatch(/,format=yuv420p\[out\]$/);
@@ -202,7 +244,7 @@ describe("watermarkGraph", () => {
   });
 
   it("takes the video from the stream it is told to", () => {
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, filter, undefined, {
         pad: "[0:v:1]",
       });
@@ -211,8 +253,82 @@ describe("watermarkGraph", () => {
     }
   });
 
+  it("lays the logo out at the size it is given", () => {
+    const l = watermarkLayout(video, logo, "small");
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        size: "small",
+      });
+      expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
+    }
+  });
+
+  it("draws the small glass's rim at a share of the large one's width", () => {
+    // 1080p: a 2px rim at large; at small, whole erosions and a mixed-in
+    // share of one more for any fraction left
+    const large = watermarkGraph(video, logo, "glass");
+    expect(large).toContain("[m2]erosion,erosion[eroded]");
+    expect(large).not.toContain("all_expr");
+    const small = watermarkGraph(video, logo, "glass", undefined, {
+      size: "small",
+    });
+    const part = (2 * MARK_SIZES.small.rim) % 1;
+    if (part < 0.01) expect(small).not.toContain("all_expr");
+    else
+      expect(small).toContain(
+        `[er1][er3]blend=all_expr='A+(B-A)*${part.toFixed(3)}'[eroded]`,
+      );
+  });
+
+  it("shows the displacement map over a light-gray frame, whatever the filter", () => {
+    const glass = watermarkGraph(video, logo, "glass");
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        view: "displacement",
+      });
+      // The frame painted over, the maps' red x and green y laid on it
+      expect(graph).toMatch(
+        /^\[0:v\][^;]*,drawbox=w=iw:h=ih:[^;]*:t=fill\[base\];/,
+      );
+      expect(graph).toContain("[my][mz][mx]mergeplanes=");
+      expect(graph).toMatch(/,format=yuv420p\[out\]$/);
+      // and none of the glass that refracts the frame
+      expect(graph).not.toContain("remap=");
+      // The same heightfield as the glass's
+      const heightfield = /\[mk1\]gblur=[^;]*/.exec(glass)![0];
+      expect(graph).toContain(heightfield);
+    }
+  });
+
+  it("clears the glass of all but its refraction and rim, over the frame, whatever the filter", () => {
+    const glass = watermarkGraph(video, logo, "glass");
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        view: "clear",
+      });
+      expect(graph).not.toContain("drawbox");
+      expect(graph).toContain("remap=");
+      // No frost, shadow or faint logo
+      expect(graph).toContain("[rf1]gblur=sigma=0.00:");
+      expect(graph).toContain("colorchannelmixer=aa=0[shadow]");
+      expect(graph).toContain("[lg2]colorchannelmixer=aa=0[faint]");
+      // and the lens as tuned
+      const lens = /\[hx1\][^;]*/.exec(glass)![0];
+      expect(graph).toContain(lens);
+    }
+  });
+
+  it("renders the mark by default", () => {
+    expect(MARK_VIEWS).toContain("render");
+    for (const filter of MARK_FILTERS) {
+      expect(
+        watermarkGraph(video, logo, filter, undefined, { view: "render" }),
+      ).toBe(watermarkGraph(video, logo, filter));
+    }
+  });
+
   it("leaves a logo that fills its canvas alone", () => {
-    for (const filter of [false, true]) {
+    for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, filter);
       expect(graph).not.toMatch(/\[1:v\]format=rgba,crop=/);
     }

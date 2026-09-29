@@ -34,6 +34,8 @@ const WEBM_AUDIO = ["opus", "vorbis"];
 export function sourceFormat(profile: SourceProfile): FormatId | null {
   const { formatNames, majorBrand, codec, audio } = profile;
   if (formatNames.includes("gif")) return "gif";
+  // A still WebP is webp_pipe's (sourceStill).
+  if (formatNames.includes("webp_anim")) return "webp";
   if (formatNames.includes("mov")) {
     if (majorBrand === "avis") return "avif";
     // QuickTime writes "qt"; files from before the brand existed have none.
@@ -53,13 +55,28 @@ export function sourceFormat(profile: SourceProfile): FormatId | null {
 // .jpg through image2 (it goes by the name there) and one under any other
 // name through jpeg_pipe; Motion JPEG video has the codec but not the
 // demuxer. An animated PNG is "apng" on both counts, and an animated WebP
-// never gets this far (FFmpeg.mediaInfo).
+// has a demuxer of its own, webp_anim (sourceFormat).
 export function sourceStill(profile: SourceProfile): StillId | null {
   const { formatNames, codec } = profile;
   if (formatNames.includes("png_pipe") && codec === "png") return "png";
   if (formatNames.includes("webp_pipe") && codec === "webp") return "webp";
   const jpeg = formatNames.includes("image2") || formatNames.includes("jpeg_pipe");
   return jpeg && codec === "mjpeg" ? "jpg" : null;
+}
+
+// Refuses a video with non-square pixels (an anamorphic export): GIF, WebP
+// and AVIF would show it as stored, and the mark tool draws on it that way.
+// Stills and animations are shown as stored anyway, whatever the tag says.
+export function checkSquarePixels({ format, still, profile }: Source): void {
+  if (still || (format && formatById(format).kind === "animation")) return;
+  const { sar, width, height } = profile;
+  if (sar === 1) return;
+  throw new InputError(
+    `This video has non-square pixels: it is stored at ${width}×${height} ` +
+      `but plays at ${Math.round(width * sar)}×${height}. Re-export it with ` +
+      `square pixels (in HandBrake: Dimensions → Anamorphic: None).`,
+    "unsupported-source",
+  );
 }
 
 // Downloads an upload into the job's work dir and probes it.
@@ -71,12 +88,14 @@ export async function openSource(
   const file = path.join(workDir, `${name}${blobExt(url, ".mp4")}`);
   await download(url, file);
   const profile = await ff.mediaInfo(file);
-  return {
+  const source = {
     path: file,
     profile,
     format: sourceFormat(profile),
     still: sourceStill(profile),
   };
+  checkSquarePixels(source);
+  return source;
 }
 
 // The format a tool that keeps its source's format has to write. There is
