@@ -4,6 +4,7 @@ import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
+import { useDebugMode } from "./hooks/useDebugMode";
 import appStyles from "./index.module.css";
 import styles from "./Layout.module.css";
 
@@ -36,6 +37,8 @@ export const Layout = () => {
   // so clicking navigates and the strip follows the URL (deep links, back and
   // forward included). Before the index redirect lands no tab is active.
   const { tool } = useParams({ strict: false });
+  // Keeps the debug-mode shortcut (Shift+D) listening on every page.
+  useDebugMode();
 
   return (
     <div className={appStyles.app}>

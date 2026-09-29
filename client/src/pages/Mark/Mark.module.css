@@ -176,3 +176,18 @@
   background-color: color-mix(in srgb, var(--bg) 75%, transparent);
   backdrop-filter: blur(4px);
 }
+.markPreviewDebug {
+  text-box: cap alphabetic;
+  font-size: 10px;
+  min-width: 14rem;
+  aspect-ratio: 1/1;
+  background-color: var(--bg);
+  border-left: 1px solid var(--fg-secondary);
+
+  p {
+    display: flex;
+    margin: 0;
+    padding: 0.75rem;
+    /* border-bottom: 1px solid var(--border); */
+  }
+}

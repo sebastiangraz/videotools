@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { DropZone } from "../../components/DropZone/DropZone";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
@@ -18,6 +18,8 @@ import {
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
+import { Popover } from "../../components/Popover/Popover";
+import { useDebugMode } from "../../hooks/useDebugMode";
 
 const TOOL = toolById("mark");
 
@@ -54,6 +56,9 @@ export const Mark = () => {
   const [quality, setQuality] = useState<number>(100);
   const preview = useMarkPreview(source.file, watermark, filterMode, size);
   const [previewZoomed, setPreviewZoomed] = useState(false);
+  // In debug mode (dev only, Shift+D) a panel hangs off the preview.
+  const debug = useDebugMode();
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
   // Object URL for the watermark thumbnail. Revoked when replaced or on
   // unmount.
@@ -139,6 +144,7 @@ export const Mark = () => {
           disabled={previewZoomed}
           render={
             <div
+              ref={previewRef}
               className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
               onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
               style={{ aspectRatio }}
@@ -201,6 +207,17 @@ export const Mark = () => {
             </figcaption>
           )}
         </Tooltip>
+      )}
+      {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
+        <Popover
+          className={styles.markPreviewDebug}
+          open={debug}
+          anchor={previewRef}
+          side="right"
+          sideOffset={16}
+        >
+          <p>debug</p>
+        </Popover>
       )}
       <div className={form.horizontal}>
         {watermark && (
