@@ -74,7 +74,7 @@ export const MARK = {
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   large: { scale: 1, gap: 1, rim: 1 },
-  dev: { scale: 2, gap: 1, rim: 0.01 },
+  dev: { scale: 2, gap: 1, rim: 2 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
@@ -105,6 +105,7 @@ const MARK_CLEAR: Partial<typeof MARK> = {
   ambient: 0,
   shadowOpacity: 0,
   logoOpacity: 0,
+  rimOpacity: 0,
 };
 
 // The displacement view's stand-in for the frame: light enough that the map's
