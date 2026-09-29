@@ -293,7 +293,7 @@ describe("watermarkGraph", () => {
       expect(graph).toContain("[my][mz][mx]mergeplanes=");
       expect(graph).toMatch(/,format=yuv420p\[out\]$/);
       // and none of the glass that refracts the frame
-      expect(graph).not.toContain("displace");
+      expect(graph).not.toContain("remap=");
       // The same heightfield as the glass's
       const heightfield = /\[mk1\]gblur=[^;]*/.exec(glass)![0];
       expect(graph).toContain(heightfield);
@@ -307,7 +307,7 @@ describe("watermarkGraph", () => {
         view: "clear",
       });
       expect(graph).not.toContain("drawbox");
-      expect(graph).toContain("displace=");
+      expect(graph).toContain("remap=");
       // No frost, shadow or faint logo
       expect(graph).toContain("[rf1]gblur=sigma=0.00:");
       expect(graph).toContain("colorchannelmixer=aa=0[shadow]");

@@ -41,7 +41,7 @@ const NEEDS = {
     "trim", "setpts", "xfade", "crop", "null", "overlay",
     "premultiply", "unpremultiply", "alphaextract", "alphamerge", "bbox",
     "gblur", "lut", "lutrgb", "convolution", "extractplanes", "mergeplanes",
-    "displace", "negate", "colorchannelmixer", "erosion", "blend", "geq",
+    "remap", "negate", "colorchannelmixer", "erosion", "blend", "geq",
     // lavfi sources the smoke run synthesizes its inputs from
     "testsrc2", "sine",
   ],

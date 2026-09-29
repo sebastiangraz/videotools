@@ -336,58 +336,79 @@ export function watermarkGraph(
           `[er1][er3]blend=all_expr='A+(B-A)*${rimPart.toFixed(3)}'[eroded]`,
         ];
 
-  // The lens maps are built at 2× and the refraction runs there: displace
+  // The lens maps are built at 2× and the refraction runs there: remap
   // moves whole pixels only, so at 1× the bevel would step. Everything
   // else (frost, rim, shadow, the faint logo) stays at 1×.
   const SS = 2;
   const [CW2, CH2, LW2, LH2, P2] = [CW, CH, LW, LH, P].map((n) => n * SS);
-  // Heightfield: the 2× alpha blurred wide and narrow, each remapped so the
-  // edge (a blurred step sits at 128 there) is 0 and the interior 255, and
-  // averaged. A blurred step's slope at the edge is 2·255/(σ√2π) per px
-  // after the remap; the narrow blur is 3× steeper, so the mean's is 2×.
+  // The lens is 16-bit from the 2× alpha on. At 8 bits the heightfield
+  // rises a level at a time, which the refraction's gain turns into jumps
+  // of tens of pixels (rings across the glass), and an offset map for
+  // displace can't pass ±127px, which a bevel refracting by the logo's
+  // width does many times over (a band at the rim shifted all alike).
+  const FULL = 65535;
+  const MID = 32768;
+  // Heightfield: the 2× alpha blurred wide and narrow, each stretched so
+  // the edge (a blurred step sits at MID there) is 0 and the interior FULL,
+  // and averaged. A blurred step's slope at the edge is 2·FULL/(σ√2π) per
+  // px after the stretch; the narrow blur is 3× steeper, so the mean's 2×.
   const bevel = Math.min(LW, LH) * M.bevelRatio * SS;
-  const edgeSlope = (2 * 2 * 255) / (bevel * Math.sqrt(2 * Math.PI));
-  const remap = "lut=c0='clip((val-128)*2,0,255)'";
+  const edgeSlope = (2 * 2 * FULL) / (bevel * Math.sqrt(2 * Math.PI));
+  const stretch = `lut=c0='clip((val-${MID})*2,0,${FULL})'`;
   // From three copies of the 2× alpha ([mk1] to [mk3]), clipped to it so
   // nothing rises outside the shape; `out` finishes the last filter.
   const heightfield = (out: string) => [
-    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${remap}[hw]`,
-    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,${remap}[hn]`,
+    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${stretch}[hw]`,
+    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,${stretch}[hn]`,
     `[hw][hn]blend=all_mode=average[hb]`,
     `[hb][mk3]blend=all_mode=multiply${out}`,
   ];
   // The logo's alpha at 2×, centred in the 2× cell, split `n` ways as [mk…].
   const lensMask = (n: number) =>
-    `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
-  // Sobel sums 8× the slope; scaled by refractPx/(8·edgeSlope) that is
-  // pixels of displacement (in 2× space) around 128, which displace reads
-  // as none. The kernels are the negated derivatives: the backdrop is
-  // sampled outward, down the slope, like light bending in at a lens's rim.
-  // convolution sums the integer taps in full and only then applies rdiv
-  // and rounds, so the scale costs no precision there.
+    `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,format=gray16le,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
+  // Sobel sums 8× the slope; scaled by shift/(8·edgeSlope) it comes to
+  // `shift` at the steepest edge, around MID. The kernels are the negated
+  // derivatives: the backdrop is sampled outward, down the slope, like
+  // light bending in at a lens's rim. convolution sums the integer taps in
+  // full and only then applies rdiv and rounds, so the scale costs no
+  // precision there.
   const refractPx = Math.min(LW, LH) * M.refractRatio * SS;
   const SOBEL = {
     x: [-1, 0, 1, -2, 0, 2, -1, 0, 1],
     y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
   };
-  const sobel = (axis: "x" | "y", gain: number) => {
-    const scale = (refractPx * gain) / (8 * edgeSlope);
-    return `convolution=0m='${SOBEL[axis].join(" ")}':0rdiv=${scale.toFixed(5)}:0bias=128`;
+  const sobel = (axis: "x" | "y", shift: number) => {
+    const scale = shift / (8 * edgeSlope);
+    return `convolution=0m='${SOBEL[axis].join(" ")}':0rdiv=${scale.toPrecision(6)}:0bias=${MID}`;
+  };
+  // The glass's offsets are in SUB-ths of a pixel (in 2× space), so the
+  // chroma split scales them before they round: at most refractPx·SUB,
+  // well inside the 16 bits for any logo that fits a frame.
+  const SUB = 8;
+  // A map of where remap samples along `axis`: the pixel's own coordinate
+  // plus the offset map's shift times `gain`, mirrored back in at the
+  // cell's edges and kept inside it.
+  const sampleAt = (axis: "x" | "y", gain: number) => {
+    const [c, n] = axis === "x" ? ["X", "W"] : ["Y", "H"];
+    const at = `abs(${c}+(p(X,Y)-${MID})*${(gain / SUB).toPrecision(6)})`;
+    return `geq=lum='st(0,${at});round(clip(if(gt(ld(0),${n}-1),2*(${n}-1)-ld(0),ld(0)),0,${n}-1))'`;
   };
 
-  // Displacement view: the maps displace reads, red the x map and green the
-  // y (the green channel's, the middle of the chroma split), blue empty as
-  // in the usual red-green map, so no shift reads as olive (128,128,0).
-  // Brought to 1× and shaped by the logo's alpha, which is all of them the
-  // glass keeps, over the frame painted light gray.
+  // Displacement view: the lens's offsets, red the x map and green the y
+  // (the green channel's, the middle of the chroma split), blue empty as in
+  // the usual red-green map, so no shift reads as olive (128,128,0). Each
+  // swings fully at the steepest edge's refractPx, so the map reads the
+  // same whatever the refraction's strength. Brought to 1× and shaped by
+  // the logo's alpha, which is all of them the glass keeps, over the frame
+  // painted light gray.
   if (view === "displacement") {
     return [
       `${pad}${open},drawbox=w=iw:h=ih:color=${DEBUG_BACKDROP}:t=fill[base]`,
       `[1:v]format=rgba${trim},${lensMask(4)}`,
       ...heightfield(",split=3[hx][hy][hz]"),
-      `[hx]${sobel("x", 1)}[mx]`,
-      `[hy]${sobel("y", 1)}[my]`,
-      `[hz]lut=c0=0[mz]`,
+      `[hx]${sobel("x", MID - 1)},format=gray[mx]`,
+      `[hy]${sobel("y", MID - 1)},format=gray[my]`,
+      `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,format=rgba[map]`,
       `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
       `[base][cell]${onto(CX, CY)}[out]`,
@@ -460,33 +481,34 @@ export function watermarkGraph(
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m4][m5]`,
     `[l2]${lensMask(3)}`,
     ...heightfield(",split=4[h1][h2][h3][h4]"),
-    // Displacement maps, a pair per channel for the chromatic split.
-    `[h1]split=3[hx1][hx2][hx3]`,
-    `[hx1]${sobel("x", chroma.r)}[xr]`,
-    `[hx2]${sobel("x", chroma.g)}[xg]`,
-    `[hx3]${sobel("x", chroma.b)}[xb]`,
-    `[h2]split=3[hy1][hy2][hy3]`,
-    `[hy1]${sobel("y", chroma.r)}[yr]`,
-    `[hy2]${sobel("y", chroma.g)}[yg]`,
-    `[hy3]${sobel("y", chroma.b)}[yb]`,
-    // Refraction: the patch at 2×, each channel displaced by its own maps,
+    // Offset maps, one per axis, and from them where each channel samples,
+    // a pair per channel for the chromatic split.
+    `[h1]${sobel("x", refractPx * SUB)},split=3[hx1][hx2][hx3]`,
+    `[hx1]${sampleAt("x", chroma.r)}[xr]`,
+    `[hx2]${sampleAt("x", chroma.g)}[xg]`,
+    `[hx3]${sampleAt("x", chroma.b)}[xb]`,
+    `[h2]${sobel("y", refractPx * SUB)},split=3[hy1][hy2][hy3]`,
+    `[hy1]${sampleAt("y", chroma.r)}[yr]`,
+    `[hy2]${sampleAt("y", chroma.g)}[yg]`,
+    `[hy3]${sampleAt("y", chroma.b)}[yb]`,
+    // Refraction: the patch at 2×, each channel remapped by its own maps,
     // reassembled (gbrp plane order) and brought back to 1×.
     `[cellA]scale=${CW2}:${CH2}:flags=bicubic,format=gbrp,extractplanes=r+g+b[pr][pg][pb]`,
     `[pr]format=gray[cr]`,
     `[pg]format=gray[cg]`,
     `[pb]format=gray[cb]`,
-    // (displace stops with its source and repeats the maps, which is what
-    // a still logo needs.)
-    `[cr][xr][yr]displace=edge=mirror[dr]`,
-    `[cg][xg][yg]displace=edge=mirror[dg]`,
-    `[cb][xb][yb]displace=edge=mirror[db]`,
+    // (remap stops with its source and repeats the maps, which is what a
+    // still logo needs: they are worked out once.)
+    `[cr][xr][yr]remap=format=gray[dr]`,
+    `[cg][xg][yg]remap=format=gray[dg]`,
+    `[cb][xb][yb]remap=format=gray[db]`,
     `[dg][db][dr]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,scale=${CW}:${CH}:flags=bicubic,format=rgba,split=3[rf1][rf2][rf3]`,
     // Frosted fill: blurred where the heightfield is flat, the barely
     // blurred (minBlurRatio) refracted backdrop where it is still rising
     // (the bevel, laid over the frost with the inverted heightfield as its
     // alpha); then saturated and lightened, and shaped by the logo's alpha.
     `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
-    `[h3]scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
+    `[h3]format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
     `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
     `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}[fill]`,
@@ -494,7 +516,7 @@ export function watermarkGraph(
     // Rim: the mask minus itself eroded by a pixel or so, lit by the
     // edge's slope towards the light, painted with the vivid backdrop
     // (softened first, so the stroke's colour doesn't flicker with detail).
-    `[h4]${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
+    `[h4]format=gray,${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
