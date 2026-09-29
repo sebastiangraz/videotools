@@ -4,7 +4,7 @@ export type Bounds = { x: number; y: number; width: number; height: number };
 
 export const MARK = {
   // Square logo side fraction of the width and height geometric mean.
-  sizeRatio: 0.072,
+  sizeRatio: 0.064,
   // Long logo area exponent from equal area at 0 to equal short side at 1.
   elongationGain: 0.5,
   // Long logo side cap fraction of the matching frame side.
@@ -74,7 +74,7 @@ export const MARK = {
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   large: { scale: 1, gap: 1, rim: 1 },
-  dev: { scale: 2, gap: 1, rim: 2 },
+  dev: { scale: 2, gap: 1, rim: 1 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
