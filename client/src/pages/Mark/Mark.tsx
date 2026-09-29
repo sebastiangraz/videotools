@@ -65,7 +65,9 @@ export const Mark = () => {
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
-  const [size, setSize] = useState<MarkSize>("large");
+  const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>(
+    "large",
+  );
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   // In debug mode (dev only, Shift+D) a panel hangs off the preview, where
@@ -73,6 +75,15 @@ export const Mark = () => {
   // mode goes back to the mark.
   const debug = useDebugMode();
   const [debugView, setDebugView] = useState<MarkView>("render");
+  // The dev size stands in for the picked one while its switch is on (and
+  // only in debug mode); switching it off goes back to the picked size.
+  const [devSize, setDevSize] = useState(false);
+  const size: MarkSize = debug && devSize ? "dev" : pickedSize;
+  const pickSize = (picked: MarkSize) => {
+    if (picked === "dev") return;
+    setPickedSize(picked);
+    setDevSize(false);
+  };
   const preview = useMarkPreview(
     source.file,
     watermark,
@@ -232,8 +243,8 @@ export const Mark = () => {
       )}
       {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
         <Popover
-          className={styles.markPreviewDebug}
           open={debug}
+          className={styles.markPreviewDebug}
           anchor={previewRef}
           side="right"
           sideOffset={16}
@@ -252,6 +263,17 @@ export const Mark = () => {
               </label>
             </div>
           ))}
+          <div className={form.switchRow}>
+            <Switch
+              id="markDebug-devSize"
+              checked={devSize}
+              onCheckedChange={setDevSize}
+              disabled={false}
+            />
+            <label htmlFor="markDebug-devSize" className={form.label}>
+              Dev size
+            </label>
+          </div>
         </Popover>
       )}
       <div className={form.horizontal}>
@@ -264,7 +286,7 @@ export const Mark = () => {
               labelledBy="markSize"
               options={SIZE_OPTIONS}
               value={size}
-              onValueChange={setSize}
+              onValueChange={pickSize}
               disabled={run.busy}
             />
           </div>

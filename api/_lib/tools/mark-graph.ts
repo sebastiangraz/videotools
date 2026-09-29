@@ -69,10 +69,12 @@ export const MARK = {
 // is the large one shrunk rather than a heavier-edged one. The gap to the frame's corner is the large
 // one's times `gap` instead: a small mark sits a little further in. The
 // rim, a hairline sized off the frame alone, is the large one's times
-// `rim`, and may come to a fraction of a pixel.
+// `rim`, and may come to a fraction of a pixel. The dev one, twice the large,
+// is for looking at the glass up close (the client's debug mode only).
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   large: { scale: 1, gap: 1, rim: 1 },
+  dev: { scale: 2, gap: 1, rim: 0.01 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>

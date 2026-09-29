@@ -5,8 +5,8 @@ import {
   type FrameSource,
 } from "../../frameSource";
 
-// The watermark's size choice (the API's MARK_SIZES).
-export type MarkSize = "small" | "large";
+// The watermark's size choice (the API's MARK_SIZES); "dev" is debug mode's.
+export type MarkSize = "small" | "large" | "dev";
 // The watermark's look (the API's MARK_FILTERS).
 export type MarkFilter = "plain" | "glass" | "blur";
 // What the preview shows: the mark, or a debug view of the glass (the
