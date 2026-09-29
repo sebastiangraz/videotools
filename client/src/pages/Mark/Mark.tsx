@@ -65,9 +65,8 @@ export const Mark = () => {
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
-  const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>(
-    "large",
-  );
+  const [pickedSize, setPickedSize] =
+    useState<Exclude<MarkSize, "dev">>("large");
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   // In debug mode (dev only, Shift+D) a panel hangs off the preview, where
@@ -174,6 +173,7 @@ export const Mark = () => {
         <Tooltip
           content={"Toggle zoom"}
           delay={100}
+          align="end"
           disabled={previewZoomed}
           render={
             <div
