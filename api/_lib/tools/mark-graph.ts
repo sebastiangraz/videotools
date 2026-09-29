@@ -4,7 +4,7 @@ export type Bounds = { x: number; y: number; width: number; height: number };
 
 export const MARK = {
   // Square logo side fraction of the width and height geometric mean.
-  sizeRatio: 0.064,
+  sizeRatio: 0.072,
   // Long logo area exponent from equal area at 0 to equal short side at 1.
   elongationGain: 0.5,
   // Long logo side cap fraction of the matching frame side.
@@ -22,8 +22,8 @@ export const MARK = {
   tint: 0.12, //0.22
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1, //0.1
-  // Steep bevel backdrop shift fraction of the width and height minimum.
-  refractRatio: 0.088, //0.088
+  // Steep bevel backdrop shift fraction of the logo width and height minimum.
+  refractRatio: 1.03, //0.088 of the frame minimum
   // Red and blue edge shift split around green.
   chroma: 0.08, //0.15
   // Light direction in degrees clockwise from the top.
@@ -64,9 +64,9 @@ export const MARK = {
 
 // The mark's size choice: MARK is tuned as the large one, and the small one
 // is it scaled down by `scale`. Every length MARK gives as a fraction of the
-// frame (the logo, the glass padding, the frost, the refraction, the
-// shadow) scales alike, so a small glass is the large one shrunk rather
-// than a heavier-edged one. The gap to the frame's corner is the large
+// frame (the logo, the glass padding, the frost, the shadow) scales alike,
+// as do the bevel and refraction, fractions of the logo, so a small glass
+// is the large one shrunk rather than a heavier-edged one. The gap to the frame's corner is the large
 // one's times `gap` instead: a small mark sits a little further in. The
 // rim, a hairline sized off the frame alone, is the large one's times
 // `rim`, and may come to a fraction of a pixel.
@@ -319,10 +319,10 @@ export function watermarkGraph(
   // sampled outward, down the slope, like light bending in at a lens's rim.
   // convolution sums the integer taps in full and only then applies rdiv
   // and rounds, so the scale costs no precision there.
-  const refractPx = shorter * MARK.refractRatio * SS;
+  const refractPx = Math.min(LW, LH) * MARK.refractRatio * SS;
   const SOBEL = {
-    x: [1, 0, -1, 2, 0, -2, 1, 0, -1],
-    y: [1, 2, 1, 0, 0, 0, -1, -2, -1],
+    x: [-1, 0, 1, -2, 0, 2, -1, 0, 1],
+    y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
   };
   const sobel = (axis: "x" | "y", gain: number) => {
     const scale = (refractPx * gain) / (8 * edgeSlope);
