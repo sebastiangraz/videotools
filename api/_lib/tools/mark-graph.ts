@@ -85,14 +85,27 @@ export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>
   MARK_FILTERS.includes(value as MarkFilter);
 
-// What the graph shows: the mark as rendered, or (for debugging the glass)
-// the lens's displacement map on its own over a flat light-gray frame.
-export const MARK_VIEWS = ["render", "displacement"] as const;
+// What the graph shows: the mark as rendered, or, for debugging the glass,
+// the lens's displacement map on its own over a flat light-gray frame, or
+// the glass cleared of everything but its refraction and rim (MARK_CLEAR).
+export const MARK_VIEWS = ["render", "displacement", "clear"] as const;
 export type MarkView = (typeof MARK_VIEWS)[number];
 export const isMarkView = (value: unknown): value is MarkView =>
   MARK_VIEWS.includes(value as MarkView);
 
-// The debug views' stand-in for the frame: light enough that the map's
+// The clear view's overrides of MARK: no frost, colour change, light, shadow
+// or logo in the way of the refraction, which is left as tuned.
+const MARK_CLEAR: Partial<typeof MARK> = {
+  blurRatio: 0,
+  minBlurRatio: 0,
+  saturation: 1,
+  tint: 0,
+  ambient: 0,
+  shadowOpacity: 0,
+  logoOpacity: 0,
+};
+
+// The displacement view's stand-in for the frame: light enough that the map's
 // neutral olive stands apart from it.
 const DEBUG_BACKDROP = "0xD9D9D9";
 
@@ -187,7 +200,7 @@ const saturate = (s: number) => {
 // stream unless the caller knows better (encode/render.ts, videoPad).
 //
 // `filter` picks one of MARK_FILTERS; `size` one of MARK_SIZES; `view` one
-// of MARK_VIEWS (a debug view shows the glass's maps whatever the filter).
+// of MARK_VIEWS (a debug view shows the glass whatever the filter).
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
@@ -205,6 +218,7 @@ export function watermarkGraph(
     view?: MarkView;
   } = {},
 ): string {
+  const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
   const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
     video,
     bounds,
@@ -282,23 +296,23 @@ export function watermarkGraph(
   if (filter === "blur" && view === "render") {
     return [
       `${pad}${open},split[base][src]`,
-      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${(shorter * MARK.blurFilterRatio).toFixed(2)}:steps=2,${saturate(MARK.blurSaturation)},split[frost][under]`,
+      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${(shorter * M.blurFilterRatio).toFixed(2)}:steps=2,${saturate(M.blurSaturation)},split[frost][under]`,
       `[1:v]format=rgba${trim},${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
       `[lg1]format=rgba,alphaextract,format=gray,split[mask][dmask]`,
       `[under]lutrgb=r=negval:g=negval:b=negval[inverted]`,
-      `[inverted][dmask]alphamerge,colorchannelmixer=aa=${MARK.blurDifference}[difference]`,
+      `[inverted][dmask]alphamerge,colorchannelmixer=aa=${M.blurDifference}[difference]`,
       `[frost][difference]overlay=format=auto[lifted]`,
       `[lifted][mask]alphamerge[fill]`,
-      `[lg2]colorchannelmixer=aa=${MARK.logoOpacity}[faint]`,
+      `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
       `[fill][faint]overlay=format=auto${fromRgb}[cell]`,
       `[base][cell]${onto(CX, CY)}[out]`,
     ].join(";");
   }
 
-  const sigma = (shorter * MARK.blurRatio).toFixed(2);
-  const minSigma = (shorter * MARK.minBlurRatio).toFixed(2);
-  const shadowSigma = (shorter * MARK.shadowBlurRatio).toFixed(2);
-  const shadowDy = Math.max(1, Math.round(shorter * MARK.shadowOffsetRatio));
+  const sigma = (shorter * M.blurRatio).toFixed(2);
+  const minSigma = (shorter * M.minBlurRatio).toFixed(2);
+  const shadowSigma = (shorter * M.shadowBlurRatio).toFixed(2);
+  const shadowDy = Math.max(1, Math.round(shorter * M.shadowOffsetRatio));
   // Rim width in px: each erosion pass eats one pixel off the mask. (Off
   // the frame alone, not the scaled mark: a hairline stays a hairline.) A
   // fraction of a pixel takes the mask one pass further and mixes that
@@ -328,7 +342,7 @@ export function watermarkGraph(
   // edge (a blurred step sits at 128 there) is 0 and the interior 255, and
   // averaged. A blurred step's slope at the edge is 2·255/(σ√2π) per px
   // after the remap; the narrow blur is 3× steeper, so the mean's is 2×.
-  const bevel = Math.min(LW, LH) * MARK.bevelRatio * SS;
+  const bevel = Math.min(LW, LH) * M.bevelRatio * SS;
   const edgeSlope = (2 * 2 * 255) / (bevel * Math.sqrt(2 * Math.PI));
   const remap = "lut=c0='clip((val-128)*2,0,255)'";
   // From three copies of the 2× alpha ([mk1] to [mk3]), clipped to it so
@@ -348,7 +362,7 @@ export function watermarkGraph(
   // sampled outward, down the slope, like light bending in at a lens's rim.
   // convolution sums the integer taps in full and only then applies rdiv
   // and rounds, so the scale costs no precision there.
-  const refractPx = Math.min(LW, LH) * MARK.refractRatio * SS;
+  const refractPx = Math.min(LW, LH) * M.refractRatio * SS;
   const SOBEL = {
     x: [-1, 0, 1, -2, 0, 2, -1, 0, 1],
     y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
@@ -376,13 +390,13 @@ export function watermarkGraph(
       `[base][cell]${onto(CX, CY)}[out]`,
     ].join(";");
   }
-  const chroma = { r: 1 - MARK.chroma, g: 1, b: 1 + MARK.chroma };
+  const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
   // Edge light: the heightfield's derivative towards the light, as one
   // kernel (the two Sobels weighted by the light vector, ×100 for integer
   // taps). Left at that gain it saturates: any edge facing the light at
   // all is fully lit, any facing away fully dark, and the downscale to 1×
   // softens the line between them.
-  const angle = (MARK.lightAngle * Math.PI) / 180;
+  const angle = (M.lightAngle * Math.PI) / 180;
   const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
   // Ambient gradient over the fill: radial, centred one logo radius off
   // the logo on the side away from the light (the glow a lens gathers
@@ -392,7 +406,7 @@ export function watermarkGraph(
   // it); the logo spans roughly the top of that range to a little under 0.
   const radius = Math.hypot(LW, LH) / 2;
   const [ax, ay] = [CW / 2 - lx * radius, CH / 2 - ly * radius];
-  const ambientS = `(1-2*min(hypot(X-${ax.toFixed(1)},Y-${ay.toFixed(1)})/${(radius * MARK.ambientReach).toFixed(1)},1))`;
+  const ambientS = `(1-2*min(hypot(X-${ax.toFixed(1)},Y-${ay.toFixed(1)})/${(radius * M.ambientReach).toFixed(1)},1))`;
   const KX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
   const KY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
   const lightKernel = KX.map((k, i) =>
@@ -404,7 +418,7 @@ export function watermarkGraph(
   // the far side left the rim notched wherever an edge turns through
   // side-on to the light (a diamond's corners under a 45° light), as both
   // ramps start from nothing there.
-  const rimLight = `lut=c0='clip(${(255 * MARK.glint).toFixed(1)}+${(1 - MARK.glint).toFixed(3)}*max(0,(val-128)*2),0,255)'`;
+  const rimLight = `lut=c0='clip(${(255 * M.glint).toFixed(1)}+${(1 - M.glint).toFixed(3)}*max(0,(val-128)*2),0,255)'`;
 
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
@@ -413,13 +427,13 @@ export function watermarkGraph(
           `${c}='min(val*${gain.toFixed(3)},255)*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`,
       )
       .join(":");
-  const tint = whiten(MARK.tint);
+  const tint = whiten(M.tint);
   // The rim's paint: the backdrop under it pushed far past natural
   // saturation, brightened, then lifted towards white so it still reads
   // as light on a dark or grey video.
   const rimPaint = [
-    saturate(MARK.rimSaturation),
-    `lutrgb=${whiten(MARK.rimWhite, MARK.rimGain)}`,
+    saturate(M.rimSaturation),
+    `lutrgb=${whiten(M.rimWhite, M.rimGain)}`,
   ].join(",");
 
   return [
@@ -472,7 +486,7 @@ export function watermarkGraph(
     `[h3]scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
     `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
-    `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(MARK.saturation)},lutrgb=${tint}[fill]`,
+    `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}[fill]`,
     `[fill][m1]alphamerge[glass]`,
     // Rim: the mask minus itself eroded by a pixel or so, lit by the
     // edge's slope towards the light, painted with the vivid backdrop
@@ -482,15 +496,15 @@ export function watermarkGraph(
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
     `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
-    `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${MARK.rimOpacity}[rim]`,
+    `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${M.rimOpacity}[rim]`,
     // Ambient gradient: white towards the light, black away from it, with
     // the mask (which the gray→rgba conversion put in r) as its alpha.
-    `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${MARK.ambient},${(MARK.ambient * MARK.ambientShade).toFixed(3)})'[ambient]`,
+    `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${M.ambient},${(M.ambient * M.ambientShade).toFixed(3)})'[ambient]`,
     // Shadow: the mask blurred, painted black, offset downwards on overlay.
     `[m4]gblur=sigma=${shadowSigma}:steps=2,split[sk1][sk2]`,
     `[sk1]format=rgba,lutrgb=r=0:g=0:b=0[black]`,
-    `[black][sk2]alphamerge,colorchannelmixer=aa=${MARK.shadowOpacity}[shadow]`,
-    `[lg2]colorchannelmixer=aa=${MARK.logoOpacity}[faint]`,
+    `[black][sk2]alphamerge,colorchannelmixer=aa=${M.shadowOpacity}[shadow]`,
+    `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
     // Stack the layers on the transparent canvas and lay that on the
     // frame: only pixels the glass or its shadow cover are touched, so no
     // conversion round trip can leave the cell showing as a faint box.

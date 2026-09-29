@@ -40,6 +40,17 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "blur", label: "Blur" },
 ];
 
+// The debug panel's views of the glass, one switch each; the preview shows
+// one at a time, so switching one on switches the others off.
+const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
+  // The lens's displacement map alone (red x, green y, olive no shift),
+  // over the frame painted light gray.
+  { value: "displacement", label: "Displacement map" },
+  // The glass over the frame with only its refraction and rim: no frost,
+  // tint, ambient light, shadow or logo (the API's MARK_CLEAR).
+  { value: "clear", label: "Clear glass" },
+];
+
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
@@ -228,21 +239,19 @@ export const Mark = () => {
           sideOffset={16}
         >
           <p>debug</p>
-          {/* The lens's displacement map alone (red x, green y, olive
-              no shift), over the frame painted light gray. */}
-          <div className={form.switchRow}>
-            <Switch
-              id="markDebugDisplacement"
-              checked={debugView === "displacement"}
-              onCheckedChange={(on) =>
-                setDebugView(on ? "displacement" : "render")
-              }
-              disabled={false}
-            />
-            <label htmlFor="markDebugDisplacement" className={form.label}>
-              Displacement map
-            </label>
-          </div>
+          {DEBUG_VIEWS.map(({ value, label }) => (
+            <div key={value} className={form.switchRow}>
+              <Switch
+                id={`markDebug-${value}`}
+                checked={debugView === value}
+                onCheckedChange={(on) => setDebugView(on ? value : "render")}
+                disabled={false}
+              />
+              <label htmlFor={`markDebug-${value}`} className={form.label}>
+                {label}
+              </label>
+            </div>
+          ))}
         </Popover>
       )}
       <div className={form.horizontal}>

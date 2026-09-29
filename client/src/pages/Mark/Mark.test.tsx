@@ -334,7 +334,7 @@ describe("Mark", () => {
     ).toMatchObject({ filter: "blur", size: "small" });
   });
 
-  it("previews the displacement map from debug mode, and the mark again once debug mode is left", async () => {
+  it("previews the displacement map or the clear glass from debug mode, one at a time, and the mark again once debug mode is left", async () => {
     const user = userEvent.setup();
     stubMediaLoading("decodes");
     stubProperties(HTMLVideoElement.prototype, {
@@ -362,16 +362,25 @@ describe("Mark", () => {
     // (off the file input, where it would be a capital D)
     await user.click(document.body);
     await user.keyboard("{Shift>}D{/Shift}");
-    await user.click(
-      await screen.findByRole("switch", { name: /displacement map/i }),
-    );
+    const displacement = await screen.findByRole("switch", {
+      name: /displacement map/i,
+    });
+    await user.click(displacement);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(view(1)).toBe("displacement");
 
-    // Leaving debug mode leaves the map too
-    await user.keyboard("{Shift>}D{/Shift}");
+    // The clear glass takes over from the map, whose switch goes off
+    const clear = screen.getByRole("switch", { name: /clear glass/i });
+    await user.click(clear);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(view(2)).toBe("render");
+    expect(view(2)).toBe("clear");
+    expect(clear).toBeChecked();
+    expect(displacement).not.toBeChecked();
+
+    // Leaving debug mode leaves it too
+    await user.keyboard("{Shift>}D{/Shift}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(view(3)).toBe("render");
   });
 
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {

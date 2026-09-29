@@ -11,7 +11,7 @@ export type MarkSize = "small" | "large";
 export type MarkFilter = "plain" | "glass" | "blur";
 // What the preview shows: the mark, or a debug view of the glass (the
 // API's MARK_VIEWS).
-export type MarkView = "render" | "displacement";
+export type MarkView = "render" | "displacement" | "clear";
 
 // The mark preview is rendered by the server with the real ffmpeg graph, so
 // it always matches the encode. The browser sends frames of the source

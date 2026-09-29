@@ -300,6 +300,24 @@ describe("watermarkGraph", () => {
     }
   });
 
+  it("clears the glass of all but its refraction and rim, over the frame, whatever the filter", () => {
+    const glass = watermarkGraph(video, logo, "glass");
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, filter, undefined, {
+        view: "clear",
+      });
+      expect(graph).not.toContain("drawbox");
+      expect(graph).toContain("displace=");
+      // No frost, shadow or faint logo
+      expect(graph).toContain("[rf1]gblur=sigma=0.00:");
+      expect(graph).toContain("colorchannelmixer=aa=0[shadow]");
+      expect(graph).toContain("[lg2]colorchannelmixer=aa=0[faint]");
+      // and the lens as tuned
+      const lens = /\[hx1\][^;]*/.exec(glass)![0];
+      expect(graph).toContain(lens);
+    }
+  });
+
   it("renders the mark by default", () => {
     expect(MARK_VIEWS).toContain("render");
     for (const filter of MARK_FILTERS) {
