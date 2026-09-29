@@ -133,7 +133,7 @@ npm run smoke -- next --ffmpeg <path>   # another ffmpeg than the pinned one (sk
 
 A refactor should leave commands and results identical (sizes within 2%: capped x264 is not bit-exact between runs); a deliberate encoding change shows up as exactly the commands meant to change, with its effect on the sizes next to it. Outputs stay in `.smoke/<label>/runs/<case>/` to look at. `NO VIDEO STREAM` in the table means ffmpeg could not find a video stream in the result: a finding in any case. New cases are one line in `CASES`.
 
-The inputs are synthetic test patterns unless you supply your own: put `video.<ext>`, `animation.gif`, `logo.png` and/or `images/*` in `scripts/smoke-assets/` (gitignored; see its README) or point `--assets <dir>` somewhere else. Whatever is missing is still synthesized, and the GIF source and preview frame are derived from your video, as are the sources in the other formats (`source.mov`, `source.webm`, a small `source.avif`) and `reject.mkv`, the container the tools have to refuse. Use real footage to judge quality by eye: the outputs of every case are kept under `.smoke/<label>/runs/`.
+The inputs live in `scripts/smoke-assets/` (`video.<ext>`, `animation.gif`, `logo.png`, `images/*`; see its README) and are committed, so every checkout runs on the same footage. Point `--assets <dir>` somewhere else to use different ones. Whatever is missing is still synthesized, and the GIF source and preview frame are derived from the video, as are the sources in the other formats (`source.mov`, `source.webm`, a small `source.avif`) and `reject.mkv`, the container the tools have to refuse. The outputs of every case are kept under `.smoke/<label>/runs/` to judge quality by eye.
 
 ## Upgrading ffmpeg
 

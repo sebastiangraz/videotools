@@ -24,5 +24,6 @@ Keep clips short (about 4–10 s, the loop cases need at least ~4 s): the slow
 encoders (AVIF, lossless WebP) run on them too, GIF stops at 1500 frames and
 AVIF at 60 s. Another folder can be used with `--assets <dir>`.
 
-The folder's contents are gitignored (footage is large). Runs record each
-asset's name and size, so comparing runs made from different inputs says so.
+These files are committed, so a checkout runs `npm run smoke` on the same
+inputs. Runs record each asset's name and size, so comparing runs made from
+different inputs says so.
