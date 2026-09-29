@@ -75,7 +75,7 @@ const TOOL_META: Record<
   },
   mark: {
     label: "Mark",
-    description: "Watermark on your video or image",
+    description: "Watermark a video or image",
     input: {
       accept: `${VIDEO_ACCEPT},${STILL_ACCEPT}`,
       multiple: false,
