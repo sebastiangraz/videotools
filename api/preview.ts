@@ -1,8 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import fsp from "fs/promises";
-import path from "path";
-import os from "os";
-import { nanoid } from "nanoid";
+import fsp from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
 
 import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
@@ -52,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(413).json({ error: "Preview images too large" });
   }
 
-  const workDir = path.join(os.tmpdir(), `videotools-preview-${nanoid(8)}`);
+  let workDir: string | undefined;
 
   // A stale preview (the user toggled again) is abandoned client-side; stop
   // rendering it when the disconnect reaches the function.
@@ -62,7 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   try {
-    await fsp.mkdir(workDir, { recursive: true });
+    workDir = await fsp.mkdtemp(
+      path.join(os.tmpdir(), "videotools-preview-"),
+    );
     // (The names only make ffmpeg's logs readable; it sniffs the content.)
     const framePath = path.join(workDir, "frame.jpg");
     const logoPath = path.join(workDir, "logo.png");
@@ -93,6 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: err instanceof Error ? err.message : "Preview failed",
     });
   } finally {
-    await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    if (workDir) {
+      await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
   }
 }

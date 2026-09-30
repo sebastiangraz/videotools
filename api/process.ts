@@ -1,10 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { put, del } from "@vercel/blob";
-import fs from "fs";
-import fsp from "fs/promises";
-import path from "path";
-import os from "os";
-import { nanoid } from "nanoid";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
 
 import { mimeOf } from "../shared/formats.js";
 import { isToolId } from "../shared/tools.js";
@@ -69,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const inputBlobUrls = picked;
 
-  const workDir = path.join(os.tmpdir(), `videotools-${nanoid(8)}`);
+  let workDir: string | undefined;
 
   // The client's Stop button aborts its request. When the disconnect
   // reaches the function (best effort: it depends on the platform
@@ -83,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { signal } = abort;
 
   try {
-    await fsp.mkdir(workDir, { recursive: true });
+    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), "videotools-"));
 
     const base = String(filename)
       .replace(/\.[^.]+$/, "")
@@ -132,7 +131,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } finally {
     await del(inputBlobUrls).catch(() => {});
-    await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    if (workDir) {
+      await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
     // Runs after the response has been sent, so the client never waits on it.
     await sweepStaleBlobs(inputBlobUrls);
   }
