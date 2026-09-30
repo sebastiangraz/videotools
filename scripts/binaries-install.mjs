@@ -1,8 +1,5 @@
-// Fetches the binaries that ffmpeg.json and gifski.json pin into
-// api/_bin/<tool>/<platform>/, where api/_lib/binaries.ts finds them. Runs
-// as the postinstall, so on Vercel they land during `npm install`, before
-// the functions are bundled (vercel.json ships the linux-x64 folders with
-// them). A no-op for a binary that is already there.
+// Postinstall: fetches the binaries ffmpeg.json and gifski.json pin into
+// api/_bin/<tool>/<platform>/ (on Vercel, before the functions are bundled).
 //
 //   BIN_PLATFORM=linux-x64 node scripts/binaries-install.mjs
 //                         another platform's binaries (to inspect them; the
@@ -12,14 +9,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
+import { binaryPath, hostPlatform, readManifest, root } from "./binaries.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const key = process.env.BIN_PLATFORM ?? `${process.platform}-${process.arch}`;
+const key = process.env.BIN_PLATFORM ?? hostPlatform;
 
 async function install(tool) {
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, `${tool}.json`), "utf8"));
+  const manifest = readManifest(tool);
   const pinned = manifest.platforms[key];
   if (!pinned) {
     // Not fatal, so the rest of the install goes through; point FFMPEG_BIN
@@ -30,8 +26,8 @@ async function install(tool) {
     return;
   }
 
-  const dir = path.join(root, "api", "_bin", tool, key);
-  const binary = path.join(dir, pinned.bin);
+  const binary = binaryPath(tool, key);
+  const dir = path.dirname(binary);
   const stamp = path.join(dir, ".sha256");
   const current = fs.existsSync(binary) && fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8").trim();
   if (current === pinned.binarySha256) {
@@ -43,9 +39,8 @@ async function install(tool) {
   const res = await fetch(pinned.url);
   if (!res.ok) throw new Error(`${pinned.url}: HTTP ${res.status}`);
   fs.mkdirSync(dir, { recursive: true });
-  // Hash both what came down and what it unpacks to while streaming, into a
-  // temporary name, so an interrupted or tampered download never sits where
-  // binaries.ts looks.
+  // Hashed while streaming into a temporary name, so an interrupted or
+  // tampered download never sits where binaries.ts looks.
   const partial = `${binary}.partial`;
   const downloaded = createHash("sha256");
   const unpacked = createHash("sha256");

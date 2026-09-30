@@ -1,27 +1,12 @@
-// Checks an ffmpeg against what the api needs of it: the version ffmpeg.json
-// pins, and every encoder, muxer, demuxer and filter the tools and encoders
-// spawn it with. A build missing a library (an LGPL build has no libx264)
-// fails here rather than on a user's file. The smoke run does this first.
+// Checks an ffmpeg has the pinned version and everything api/_lib/ spawns it
+// with, so a build missing a library fails here rather than on a user's file.
 //
 //   node scripts/ffmpeg-check.mjs [<ffmpeg path>]   default: the pinned one
-//
-// Keep the lists in step with api/_lib/ when a graph or encoder starts using
-// something new.
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
+import { binaryPath, readManifest } from "./binaries.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-export const pinnedVersion = () =>
-  JSON.parse(fs.readFileSync(path.join(root, "ffmpeg.json"), "utf8")).version;
-
-export const pinnedPath = () =>
-  path.join(
-    root, "api", "_bin", "ffmpeg", `${process.platform}-${process.arch}`,
-    process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
-  );
+export const pinnedVersion = () => readManifest("ffmpeg").version;
 
 const NEEDS = {
   encoders: [
@@ -48,7 +33,7 @@ const NEEDS = {
 };
 
 // `ffmpeg -version`'s first line, e.g. "ffmpeg version n8.1.3-20260922 …".
-export function ffmpegVersion(ffmpeg) {
+function ffmpegVersion(ffmpeg) {
   const r = spawnSync(ffmpeg, ["-hide_banner", "-version"], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`${ffmpeg} -version: ${r.stderr || r.error}`);
   return /^ffmpeg version (\S+)/.exec(r.stdout)?.[1] ?? "unknown";
@@ -77,7 +62,7 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const ffmpeg = process.argv[2] ?? pinnedPath();
+  const ffmpeg = process.argv[2] ?? binaryPath("ffmpeg");
   const { version, problems } = checkFfmpeg(ffmpeg, {
     version: process.argv[2] ? undefined : pinnedVersion(),
   });
