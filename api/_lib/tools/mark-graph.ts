@@ -62,9 +62,6 @@ export const MARK = {
   blurDifference: 0.12,
 };
 
-// MARK is tuned as `large`. `scale` shrinks every length alike; `gap` scales
-// the corner gap off the large one's; `rim` scales the hairline (may be <1px).
-// `dev` is for inspecting the glass (client debug mode only).
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   large: { scale: 1, gap: 1, rim: 1 },
@@ -97,7 +94,6 @@ const MARK_CLEAR: Partial<typeof MARK> = {
   rimOpacity: 0,
 };
 
-// Light enough that the displacement map's neutral olive stands out.
 const DEBUG_BACKDROP = "0xD9D9D9";
 
 const HD_HEIGHT = 720;
@@ -107,7 +103,6 @@ const SOBEL = {
   y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
 };
 
-// Inputs in gbrp plane order (g, b, r).
 const MERGE_GBR =
   "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp";
 
@@ -271,7 +266,8 @@ export function watermarkGraph(
   // One erosion pass per px, sized off the frame so a hairline stays one. A
   // fractional part blends in one more pass: an antialiased sub-pixel line.
   const rimWidth =
-    Math.max(1, Math.round(Math.min(VW, VH) / HD_HEIGHT)) * MARK_SIZES[size].rim;
+    Math.max(1, Math.round(Math.min(VW, VH) / HD_HEIGHT)) *
+    MARK_SIZES[size].rim;
   const rimPx = Math.floor(rimWidth + 1e-6);
   const rimPart = rimWidth - rimPx;
   const erode = (passes: number) =>
@@ -348,9 +344,9 @@ export function watermarkGraph(
   const radius = Math.hypot(LW, LH) / 2;
   const [ax, ay] = [CW / 2 - lx * radius, CH / 2 - ly * radius];
   const ambientS = `(1-2*min(hypot(X-${ax.toFixed(1)},Y-${ay.toFixed(1)})/${(radius * M.ambientReach).toFixed(1)},1))`;
-  const lightKernel = SOBEL.x.map((k, i) =>
-    Math.round(-100 * (k * lx + SOBEL.y[i] * ly)),
-  ).join(" ");
+  const lightKernel = SOBEL.x
+    .map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly)))
+    .join(" ");
   const lighting = `convolution=0m='${lightKernel}':0rdiv=1:0bias=128`;
   // Whole rim at glint level, lit side rising from there. A separate far-side
   // ramp notched the rim where edges turn side-on to the light.
