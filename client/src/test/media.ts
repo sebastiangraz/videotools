@@ -23,7 +23,6 @@ export const stubMediaLoading = (outcome: "decodes" | "fails") => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const ok = outcome === "decodes";
   answerSrc(HTMLMediaElement.prototype, ok ? "loadeddata" : "error");
-  answerSrc(HTMLImageElement.prototype, ok ? "load" : "error");
 };
 
 export const stubProperties = (
@@ -60,14 +59,18 @@ export interface FakeFrame {
 
 // Like the real one, the track isn't there until `tracks.ready`, even after
 // `completed`. Whole-ms frames keep the times exact.
-export const stubImageDecoder = (frameCount: number, frameMs: number) => {
+export const stubImageDecoder = (
+  frameCount: number,
+  frameMs: number,
+  [width, height] = [480, 270],
+) => {
   class FakeImageDecoder {
     completed = Promise.resolve();
     tracks: { ready: Promise<void>; selectedTrack: unknown } = {
       selectedTrack: null,
       ready: new Promise<void>((resolve) =>
         setTimeout(() => {
-          this.tracks.selectedTrack = { frameCount };
+          this.tracks.selectedTrack = { frameCount, animated: frameCount > 1 };
           resolve();
         }),
       ),
@@ -78,8 +81,8 @@ export const stubImageDecoder = (frameCount: number, frameMs: number) => {
           frameIndex,
           timestamp: frameIndex * frameMs * 1000,
           duration: frameMs * 1000,
-          displayWidth: 480,
-          displayHeight: 270,
+          displayWidth: width,
+          displayHeight: height,
           close: vi.fn(),
         },
       };
@@ -127,8 +130,8 @@ export const webpFile = (name: string, flags: number, chunk = "VP8X") =>
   );
 
 // jsdom's File has no stream().
-export const gifFile = (name: string) => {
-  const file = new File(["00"], name, { type: "image/gif" });
+export const imageFile = (name: string, type = "image/gif") => {
+  const file = new File(["00"], name, { type });
   file.stream = () => new ReadableStream();
   return file;
 };

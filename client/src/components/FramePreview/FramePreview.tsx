@@ -12,7 +12,8 @@ import styles from "./FramePreview.module.css";
 // frame for a short note. Tracking the failed file rather than a boolean
 // resets the error when a new file is picked. `className` swaps the default
 // card look for the caller's own (the mark preview lays it out as a frame
-// under its renders) and `label` names the frame.
+// under its renders) and `label` names the frame. Stills come through the same
+// source (a one-frame image).
 export const FramePreview = ({
   file,
   second,

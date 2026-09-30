@@ -40,7 +40,8 @@ export function targetsFor(source: File | null) {
 export const byFilename = (a: File, b: File) =>
   a.name.localeCompare(b.name, undefined, { numeric: true });
 
-// Sources shown in an <img> rather than a <video>.
+// Image sources (decoded by ImageDecoder, not a <video>). A .webp counts as a
+// still here, whether or not it is animated.
 export const isStillImage = (file: File) => stillFormat(file) !== null;
 export const isAnimatedImage = (file: File) =>
   !isStillImage(file) && fileFormat(file)?.kind === "animation";
@@ -72,11 +73,6 @@ async function readWebpHeader(file: File): Promise<boolean> {
     (head[20] & 0x02) !== 0
   );
 }
-
-export const isAnimation = async (file: File) =>
-  isAnimatedImage(file) ||
-  (stillFormat(file)?.id === "webp" &&
-    (await isAnimatedWebp(file).catch(() => false)));
 
 // Why a tool can't take a picked file; null = it can.
 export type FormatBlock =

@@ -1,4 +1,9 @@
-import { isAnimation, isStillImage } from "./sourceFormat";
+import {
+  fileFormat,
+  isAnimatedImage,
+  isStillImage,
+  stillFormat,
+} from "./sourceFormat";
 
 export interface Frame {
   image: CanvasImageSource;
@@ -17,16 +22,6 @@ export interface FrameSource {
   close(): void;
 }
 
-const loaded = (element: HTMLElement, ready: string) =>
-  new Promise<void>((resolve, reject) => {
-    element.addEventListener(ready, () => resolve(), { once: true });
-    element.addEventListener(
-      "error",
-      () => reject(new Error("The browser can't decode this file")),
-      { once: true },
-    );
-  });
-
 // Detached <video>; the browser clamps out-of-range seeks to the clip length.
 const openVideo = async (file: File): Promise<FrameSource> => {
   const url = URL.createObjectURL(file);
@@ -40,7 +35,14 @@ const openVideo = async (file: File): Promise<FrameSource> => {
     URL.revokeObjectURL(url);
   };
   try {
-    const ready = loaded(video, "loadeddata");
+    const ready = new Promise<void>((resolve, reject) => {
+      video.addEventListener("loadeddata", () => resolve(), { once: true });
+      video.addEventListener(
+        "error",
+        () => reject(new Error("The browser can't decode this file")),
+        { once: true },
+      );
+    });
     video.src = url;
     await ready;
   } catch (err) {
@@ -82,12 +84,17 @@ const openVideo = async (file: File): Promise<FrameSource> => {
   };
 };
 
-const openAnimation = async (file: File): Promise<FrameSource> => {
-  const decoder = new ImageDecoder({ data: file.stream(), type: file.type });
+// Stills and animations alike. A frame carries the EXIF orientation, which
+// drawImage applies (and displayWidth/Height include), as the server does.
+const openImage = async (file: File): Promise<FrameSource> => {
+  // Dropped files can come without a type.
+  const type = (stillFormat(file) ?? fileFormat(file))?.mime ?? file.type;
+  const decoder = new ImageDecoder({ data: file.stream(), type });
   // The frame count is final only after `completed`, and exists only after
   // `tracks.ready`.
   await Promise.all([decoder.completed, decoder.tracks.ready]);
-  const count = decoder.tracks.selectedTrack?.frameCount ?? 0;
+  const track = decoder.tracks.selectedTrack;
+  const count = track?.frameCount ?? 0;
   if (!count) {
     decoder.close();
     throw new Error("No frames");
@@ -108,10 +115,11 @@ const openAnimation = async (file: File): Promise<FrameSource> => {
     })());
 
   return {
-    duration: async () => (await frameEnds())[count - 1],
+    duration: async () =>
+      track?.animated ? (await frameEnds())[count - 1] : 0,
     frameAt: async (second) => {
       let frameIndex = 0;
-      if (second > 0) {
+      if (second > 0 && count > 1) {
         const found = (await frameEnds()).findIndex((end) => end > second);
         frameIndex = found < 0 ? count - 1 : found;
       }
@@ -127,38 +135,6 @@ const openAnimation = async (file: File): Promise<FrameSource> => {
   };
 };
 
-// Stills, and animations without ImageDecoder (a canvas only draws an <img>'s
-// first frame). An <img> honours EXIF orientation, as the server does.
-const openStill = async (file: File): Promise<FrameSource> => {
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  try {
-    const ready = loaded(img, "load");
-    img.src = url;
-    await ready;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-  return {
-    duration: async () => 0,
-    frameAt: async (second) => {
-      if (second > 0) throw new Error("Only the first frame can be drawn");
-      return {
-        image: img,
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-        close: () => {},
-      };
-    },
-    close: () => {},
-  };
-};
-
-export const openFrameSource = async (file: File): Promise<FrameSource> => {
-  if (await isAnimation(file)) {
-    return typeof ImageDecoder !== "undefined"
-      ? openAnimation(file).catch(() => openStill(file))
-      : openStill(file);
-  }
-  return isStillImage(file) ? openStill(file) : openVideo(file);
-};
+// Rejects when the browser can't decode the file (or has no ImageDecoder).
+export const openFrameSource = async (file: File): Promise<FrameSource> =>
+  isStillImage(file) || isAnimatedImage(file) ? openImage(file) : openVideo(file);

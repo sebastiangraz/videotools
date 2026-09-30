@@ -12,6 +12,7 @@ import {
 } from "../../test/renderApp";
 import {
   file,
+  imageFile,
   stubCanvas,
   stubImageDecoder,
   stubMediaLoading,
@@ -86,21 +87,15 @@ describe("Mark", () => {
     expect(screen.getByRole("button", { name: /blur/i })).toBeInTheDocument();
   });
 
-  it("takes a photo as the mark source and previews it off an image, whatever decoders the browser has", async () => {
+  it("takes a photo as the mark source and previews it off its decoded frame", async () => {
     const user = userEvent.setup();
-    stubMediaLoading("decodes");
-    // An <img> reports its EXIF-rotated size: a phone's upright shot
-    stubProperties(HTMLImageElement.prototype, {
-      naturalWidth: { get: () => 1080 },
-      naturalHeight: { get: () => 1920 },
-    });
-    // Must be passed over: only an <img> honours EXIF orientation
-    stubImageDecoder(1, 0);
+    // The frame reports its EXIF-rotated size: a phone's upright shot
+    stubImageDecoder(1, 0, [1080, 1920]);
     const drawImage = stubCanvas();
     const fetchMock = stubPreviewFetch();
 
     await renderApp("/mark");
-    await pickSource(user, file("photo.jpg", "image/jpeg"));
+    await pickSource(user, imageFile("photo.jpg", "image/jpeg"));
     expect(screen.getByText("photo.jpg")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await pickLogo(user);
@@ -117,9 +112,11 @@ describe("Mark", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(postedBody(fetchMock).frame).toMatch(/^data:image\/jpeg;base64,/);
-    for (const [image] of drawImage.mock.calls) {
-      expect(image).toBeInstanceOf(HTMLImageElement);
-    }
+    expect(drawImage).toHaveBeenCalledWith(
+      expect.objectContaining({ frameIndex: 0 }),
+      0,
+      0,
+    );
     expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
   });
 

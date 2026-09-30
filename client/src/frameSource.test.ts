@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { openFrameSource } from "./frameSource";
 import { clampStart, maxStart } from "./hooks/useVideoSource";
 import { scrubTimes } from "./pages/Mark/useMarkPreview";
-import { gifFile, stubImageDecoder, type FakeFrame } from "./test/media";
+import { imageFile, stubImageDecoder, type FakeFrame } from "./test/media";
 
 describe("openFrameSource", () => {
   it("times a GIF off its frames, through ImageDecoder", async () => {
     // 20 frames of 0.1 s
     stubImageDecoder(20, 100);
-    const frames = await openFrameSource(gifFile("a.gif"));
+    const frames = await openFrameSource(imageFile("a.gif"));
     const shown = async (second: number) =>
       ((await frames.frameAt(second)).image as unknown as FakeFrame).frameIndex;
 
@@ -17,6 +17,15 @@ describe("openFrameSource", () => {
     expect(await shown(1.5)).toBe(15);
     // Past the end, the last frame (a <video> clamps the same way)
     expect(await shown(9)).toBe(19);
+  });
+
+  it("gives a still no length and its one frame at any time", async () => {
+    stubImageDecoder(1, 0);
+    const frames = await openFrameSource(imageFile("a.jpg", "image/jpeg"));
+
+    expect(await frames.duration()).toBe(0);
+    const frame = await frames.frameAt(3);
+    expect((frame.image as unknown as FakeFrame).frameIndex).toBe(0);
   });
 });
 
