@@ -253,51 +253,60 @@ describe("watermarkGraph", () => {
   });
 
   it("draws the small glass's rim at a share of the large one's width", () => {
-    // 1080p: a 2px rim at large; at small, whole erosions and a mixed-in
-    // share of one more for any fraction left
+    // 1080p: a 2px rim at large, one erosion per px; at small, whole
+    // erosions and a mixed-in share of one more for any fraction left
+    const erosions = (graph: string) => graph.match(/\berosion\b/g)?.length;
     const large = watermarkGraph(video, logo, { filter: "glass" });
-    expect(large).toContain("[m2]erosion,erosion[eroded]");
+    expect(erosions(large)).toBe(2);
     expect(large).not.toContain("all_expr");
     const small = watermarkGraph(video, logo, { filter: "glass", size: "small" });
-    const part = (2 * MARK_SIZES.small.rim) % 1;
-    if (part < 0.01) expect(small).not.toContain("all_expr");
-    else
-      expect(small).toContain(
-        `[er1][er3]blend=all_expr='A+(B-A)*${part.toFixed(3)}'[eroded]`,
-      );
+    const width = 2 * MARK_SIZES.small.rim;
+    const part = width % 1;
+    if (part < 0.01) {
+      expect(erosions(small)).toBe(Math.round(width));
+      expect(small).not.toContain("all_expr");
+    } else {
+      expect(erosions(small)).toBe(Math.floor(width) + 1);
+      expect(small).toContain(`blend=all_expr='A+(B-A)*${part.toFixed(3)}'`);
+    }
   });
+
+  // The bevel's blur, stretched: the lens's shape
+  const heightfield = (graph: string) => /gblur=[^;[]*,lut=[^;[]*/.exec(graph)?.[0];
+  // The x slope, scaled by how far the lens refracts
+  const lens = (graph: string) =>
+    /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];
+  const opacities = (graph: string) =>
+    [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) => Number(aa));
 
   it("shows the displacement map over a light-gray frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, view: "displacement" });
       // The frame painted over, the maps' red x and green y laid on it
-      expect(graph).toMatch(
-        /^\[0:v\][^;]*,drawbox=w=iw:h=ih:[^;]*:t=fill\[base\];/,
-      );
-      expect(graph).toContain("[my][mz][mx]mergeplanes=");
+      expect(graph).toMatch(/^\[0:v\][^;]*,drawbox=w=iw:h=ih:[^;]*:t=fill/);
+      expect(graph).toContain("mergeplanes=");
       expect(graph).toMatch(/,format=yuv420p\[out\]$/);
       // and none of the glass that refracts the frame
       expect(graph).not.toContain("remap=");
-      // The same heightfield as the glass's
-      const heightfield = /\[mk1\]gblur=[^;]*/.exec(glass)![0];
-      expect(graph).toContain(heightfield);
+      expect(heightfield(graph)).toBeDefined();
+      expect(heightfield(graph)).toBe(heightfield(glass));
     }
   });
 
-  it("clears the glass of all but its refraction and rim, over the frame, whatever the filter", () => {
+  it("clears the glass of all but its refraction, over the frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
+    expect(opacities(glass).some((aa) => aa > 0)).toBe(true);
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, view: "clear" });
       expect(graph).not.toContain("drawbox");
       expect(graph).toContain("remap=");
-      // No frost, shadow or faint logo
-      expect(graph).toContain("[rf1]gblur=sigma=0.00:");
-      expect(graph).toContain("colorchannelmixer=aa=0[shadow]");
-      expect(graph).toContain("[lg2]colorchannelmixer=aa=0[faint]");
+      // No frost; shadow, faint logo and rim all transparent
+      expect(graph).toContain("gblur=sigma=0.00:steps=2");
+      expect(opacities(graph).every((aa) => aa === 0)).toBe(true);
       // and the lens as tuned
-      const lens = /\[hx1\][^;]*/.exec(glass)![0];
-      expect(graph).toContain(lens);
+      expect(lens(graph)).toBeDefined();
+      expect(lens(graph)).toBe(lens(glass));
     }
   });
 

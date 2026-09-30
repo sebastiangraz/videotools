@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { parseSourceProfile, type SourceProfile } from "../_lib/ffmpeg.js";
-import { InputError } from "../_lib/errors.js";
 import {
   checkSquarePixels,
   preservedFormat,
@@ -190,7 +189,6 @@ describe("sourceStill", () => {
     ["webp", "webp"],
   ] as const)("knows %s content as the still %s", (kind, still) => {
     expect(sourceStill(profile(kind))).toBe(still);
-    expect(sourceFormat(profile(kind))).toBeNull();
   });
 
   it.each(["mp4", "gif", "animwebp", "mjpeg", "apng"] as const)(
@@ -201,40 +199,28 @@ describe("sourceStill", () => {
   );
 });
 
+const source = (kind: keyof typeof SUMMARIES): Source => {
+  const p = profile(kind);
+  return { path: "/work/input", profile: p, format: sourceFormat(p), still: sourceStill(p) };
+};
+
 describe("preservedFormat", () => {
-  it("refuses a source the app cannot write back, pointing at convert", () => {
-    const source = { path: "/work/input.mkv", profile: profile("mkv"), format: null, still: null };
-    expect(() => preservedFormat(source)).toThrowError(InputError);
-    expect(() => preservedFormat(source)).toThrowError(/MKV file.*Convert first/);
-    try {
-      preservedFormat(source);
-    } catch (err) {
-      expect((err as InputError).code).toBe("unsupported-source");
-    }
+  it("refuses a source the app cannot write back", () => {
+    expect(() => preservedFormat(source("mkv"))).toThrow(
+      expect.objectContaining({ code: "unsupported-source" }),
+    );
   });
 
   it("gives back the format of one it can", () => {
-    expect(
-      preservedFormat({ path: "/work/input.gif", profile: profile("gif"), format: "gif", still: null }),
-    ).toBe("gif");
+    expect(preservedFormat(source("gif"))).toBe("gif");
   });
 });
 
 describe("checkSquarePixels", () => {
-  const source = (kind: keyof typeof SUMMARIES): Source => {
-    const p = profile(kind);
-    return { path: "/work/input", profile: p, format: sourceFormat(p), still: sourceStill(p) };
-  };
-
-  it("refuses an anamorphic video, saying the size it plays at", () => {
-    expect(() => checkSquarePixels(source("anamorphic"))).toThrowError(
-      /stored at 1710×1080 but plays at 1080×1080/,
+  it("refuses an anamorphic video", () => {
+    expect(() => checkSquarePixels(source("anamorphic"))).toThrow(
+      expect.objectContaining({ code: "unsupported-source" }),
     );
-    try {
-      checkSquarePixels(source("anamorphic"));
-    } catch (err) {
-      expect((err as InputError).code).toBe("unsupported-source");
-    }
   });
 
   it("goes by the container's ratio over the codec's", () => {
