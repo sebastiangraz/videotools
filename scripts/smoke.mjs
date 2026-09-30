@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import { checkFfmpeg, pinnedVersion } from "./ffmpeg-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,7 +35,7 @@ const smokeDir = path.join(root, ".smoke");
 //   turned                     still.jpg with EXIF orientation 6
 const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 
-const args = parseArgs(process.argv.slice(2));
+const args = readArgs(process.argv.slice(2));
 const outDir = path.join(smokeDir, args.label);
 fs.rmSync(outDir, { recursive: true, force: true });
 // Bun runs the api's TypeScript as is (its .js specifiers resolve to .ts).
@@ -160,27 +161,33 @@ function violations(expect, result, sourceFile) {
   return found;
 }
 
-function parseArgs(argv) {
-  const args = {
-    label: null,
-    diff: null,
-    only: null,
-    ffmpeg: null,
-    assets: null,
-  };
-  for (let i = 0; i < argv.length; i++) {
-    const flag = /^--(diff|only|ffmpeg|assets)$/.exec(argv[i]);
-    if (flag) args[flag[1]] = argv[++i];
-    else if (!args.label) args.label = argv[i];
-  }
-  if (!args.label || !/^[\w.-]+$/.test(args.label)) {
+function readArgs(argv) {
+  const usage = () => {
     console.error(
       "usage: bun run smoke -- <label> [--diff <label>] [--only <text,text>] " +
         "[--ffmpeg <path>] [--assets <dir>]",
     );
     process.exit(2);
+  };
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      allowPositionals: true,
+      options: {
+        diff: { type: "string" },
+        only: { type: "string" },
+        ffmpeg: { type: "string" },
+        assets: { type: "string" },
+      },
+    });
+  } catch {
+    usage();
   }
-  return args;
+  const [label] = parsed.positionals;
+  // A plain name: "." or ".." would make the rmSync below wipe .smoke or the repo.
+  if (!label || !/^\w[\w.-]*$/.test(label)) usage();
+  return { label, ...parsed.values };
 }
 
 function resolveAssets(ffmpeg, userDir, madeDir) {

@@ -112,13 +112,7 @@ export const file = (name: string, type = "") => new File(["00"], name, { type }
 // 0x02). A plain lossy file has "VP8 " where VP8X would be.
 export const webpFile = (name: string, flags: number, chunk = "VP8X") =>
   new File(
-    [
-      new Uint8Array([
-        ...[...`RIFF\0\0\0\0WEBP${chunk}`].map((c) => c.charCodeAt(0)),
-        ...[10, 0, 0, 0],
-        flags,
-      ]),
-    ],
+    [new Uint8Array([...new TextEncoder().encode(`RIFF\0\0\0\0WEBP${chunk}`), 10, 0, 0, 0, flags])],
     name,
     { type: "image/webp" },
   );

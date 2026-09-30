@@ -8,6 +8,7 @@ import {
   runFinished,
   stubProcessFetch,
   uploadMock,
+  unexpectedFetch,
   type FetchMock,
 } from "../../test/renderApp";
 import {
@@ -31,7 +32,7 @@ const stubPreviewFetch = () => {
     if (input === "/api/preview" && init?.method === "POST") {
       return new Response(new Blob(["jpg"], { type: "image/jpeg" }));
     }
-    throw new Error(`Unexpected fetch: ${input}`);
+    throw unexpectedFetch(input);
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -260,7 +261,7 @@ describe("Mark", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
-        if (input !== "/api/preview") throw new Error(`Unexpected fetch: ${input}`);
+        if (input !== "/api/preview") throw unexpectedFetch(input);
         return new Promise<Response>((resolve) =>
           answers.push(() => resolve(new Response(new Blob(["jpg"], { type: "image/jpeg" })))),
         );

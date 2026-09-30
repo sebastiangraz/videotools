@@ -57,7 +57,7 @@ export const messages = {
       publish({ active: false, message: null });
     }
   },
-  subscribe(listener: () => void) {
+  subscribe: (listener: () => void) => {
     listeners.add(listener);
     return () => {
       listeners.delete(listener);

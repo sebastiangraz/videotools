@@ -7,6 +7,7 @@ import {
   renderApp,
   runFinished,
   stubProcessFetch,
+  unexpectedFetch,
   uploadMock,
 } from "./test/renderApp";
 import { file } from "./test/media";
@@ -177,7 +178,7 @@ describe("App", () => {
       if (input === "/api/process" && init?.method === "DELETE") {
         return new Response(null, { status: 204 });
       }
-      throw new Error(`Unexpected fetch: ${input}`);
+      throw unexpectedFetch(input);
     });
     vi.stubGlobal("fetch", fetchMock);
 

@@ -18,6 +18,9 @@ export const renderApp = async (initialPath = "/loop") => {
 
 export type FetchMock = Mock<typeof fetch>;
 
+export const unexpectedFetch = (input: RequestInfo | URL) =>
+  new Error(`Unexpected fetch: ${input instanceof Request ? input.url : input.toString()}`);
+
 // A run that succeeds: /api/process answers with `resultUrl`, the result
 // downloads, and the cleanup DELETE goes through.
 export const stubProcessFetch = (resultUrl = blobUrl("results/out-xyz")) => {
@@ -29,7 +32,7 @@ export const stubProcessFetch = (resultUrl = blobUrl("results/out-xyz")) => {
     if (input === "/api/process" && init?.method === "DELETE") {
       return new Response(null, { status: 204 });
     }
-    throw new Error(`Unexpected fetch: ${input}`);
+    throw unexpectedFetch(input);
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;

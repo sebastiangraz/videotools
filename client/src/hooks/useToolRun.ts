@@ -28,7 +28,7 @@ export function useToolRun(tool: ToolId) {
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const start = async ({ files, extras = [], payload }: RunRequest) => {
+  const run = async ({ files, extras = [], payload }: RunRequest) => {
     if (busy) return;
     setBusy(true);
     setErrorDetail(null);
@@ -109,6 +109,9 @@ export function useToolRun(tool: ToolId) {
       setBusy(false);
     }
   };
+
+  // Never rejects: a failure ends up in errorDetail.
+  const start = (request: RunRequest) => void run(request);
 
   const stop = () => abortRef.current?.abort();
 
