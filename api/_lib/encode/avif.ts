@@ -1,6 +1,13 @@
 import { InputError } from "../errors.js";
 import type { Encoder } from "./index.js";
-import { encodeWithinBudget, graphArgs } from "./render.js";
+import {
+  conversionFps,
+  encodeWithinBudget,
+  graphArgs,
+  levelRange,
+  scaledSize,
+} from "./render.js";
+import { vpxCrf } from "./video.js";
 
 // libaom is slow enough that long or large clips would blow the 300s
 // function timeout, so animated AVIF gets two ceilings: seconds, and the
@@ -24,22 +31,22 @@ export const MAX_AVIF_FPS = 60;
 // afford the tries.
 const RATE_CONTROL_MIN_FRAMES = 32;
 
-// AV1 crf mapped like the webm encoder: quality 100 → 10, quality 1 → 50.
-const crfFor = (quality: number) => Math.round(50 - (quality / 100) * 40);
+// Up to this many frames libaom can afford a slower, tighter encode.
+const SHORT_CLIP_FRAMES = 100;
 
 export const encodeAvif: Encoder = async (
   ff,
   render,
-  outputFile,
   {
+    outputFile,
     quality,
     fps = null,
     width = 800,
     everyFrame = false,
     lossless = false,
     chroma444 = false,
+    cap,
   },
-  cap,
 ) => {
   const { duration } = render;
   if (duration > MAX_AVIF_SECONDS) {
@@ -53,21 +60,19 @@ export const encodeAvif: Encoder = async (
   // No explicit fps → match the pictures, up to 30; no width → as they are.
   // A conversion caps the width at 800 like the other animated-image
   // formats. (A tool that hands an AVIF back asks for the AVIF's own.)
-  fps ??= Math.min(render.fps, 30);
-  const scale = width == null ? 1 : Math.min(1, width / render.width);
-  const pixels = duration * fps * render.width * scale * render.height * scale;
-  if (pixels > MAX_AVIF_PIXELS) {
+  fps ??= conversionFps(render);
+  const size = scaledSize(render, width);
+  if (duration * fps * size.width * size.height > MAX_AVIF_PIXELS) {
     throw new InputError(
       `Video too long for AVIF at this size: ${Math.round(duration)}s of ` +
-        `${Math.round(render.width * scale)}×${Math.round(render.height * scale)} ` +
+        `${Math.round(size.width)}×${Math.round(size.height)} ` +
         `at ${fps} fps is more than the app can encode in time (AVIF ` +
         `encoding is slow). Use a shorter or smaller clip.`,
       "too-long",
     );
   }
   const frames = duration * fps;
-  // A handful of frames can afford a slower, tighter encode.
-  const cpuUsed = frames <= 100 ? "6" : "8";
+  const cpuUsed = frames <= SHORT_CLIP_FRAMES ? "6" : "8";
   // Truly lossless: planar RGB (gbrp) skips the RGB→YUV rounding and chroma
   // subsampling, and aom's lossless mode skips quantization. Verified
   // bit-exact against source frames (PSNR = inf). Short of that, full chroma
@@ -106,22 +111,18 @@ export const encodeAvif: Encoder = async (
       "avif",
       to,
     ]);
-  const crf = crfFor(quality);
+  // AV1 crf mapped like the webm encoder's (vpxCrf).
+  const crf = vpxCrf(quality);
   if (lossless || !cap || frames >= RATE_CONTROL_MIN_FRAMES) {
     await encode(crf, cap && !lossless ? `${cap.maxrate}k` : "0", outputFile);
     return;
   }
   // The crf the slider stands for and every coarser one down to its bottom,
   // against the bytes the rate comes to over the clip.
-  const levels = Array.from(
-    { length: crfFor(1) - crf + 1 },
-    (_, i) => crf + i,
-  );
-  await encodeWithinBudget(
-    ff,
+  await encodeWithinBudget(ff, {
     outputFile,
-    levels,
-    (level, to) => encode(level, "0", to),
-    ((cap.maxrate * 1000) / 8) * duration,
-  );
+    levels: levelRange(crf, vpxCrf(1)),
+    budget: ((cap.maxrate * 1000) / 8) * duration,
+    encode: (level, to) => encode(level, "0", to),
+  });
 };

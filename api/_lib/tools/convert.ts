@@ -10,7 +10,7 @@ import type { Tool } from "./types.js";
 export const convert: Tool = {
   inputs: singleVideo,
   async run(job) {
-    const { ff, workDir, inputs, options } = job;
+    const { inputs, options } = job;
     const target = pick(options.target, FORMAT_IDS, "mp4");
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
@@ -19,7 +19,8 @@ export const convert: Tool = {
     const source = await openSource(job, inputs[0]);
     const render = sourceRender(source);
 
-    const outputPath = await encodeRender(ff, render, workDir, target, {
+    const outputPath = await encodeRender(job, render, {
+      format: target,
       quality,
       ...(target === "gif"
         ? {

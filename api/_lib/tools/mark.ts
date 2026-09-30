@@ -229,8 +229,8 @@ export const mark: Tool = {
 
     const render = await addWatermark(ff, source, logoPath, filter, size);
     const outputPath = source.still
-      ? await encodeStill(ff, render, workDir, source.still, quality)
-      : await encodePreserved(ff, render, workDir, preservedFormat(source), quality);
+      ? await encodeStill(job, render, { format: source.still, quality })
+      : await encodePreserved(job, render, { format: preservedFormat(source), quality });
     return { outputPath, suffix: "marked", ext: format };
   },
 };

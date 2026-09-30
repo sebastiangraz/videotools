@@ -3,9 +3,12 @@ import path from "node:path";
 import { InputError } from "../errors.js";
 import type { Encoder } from "./index.js";
 import {
-  TIME_BUDGET_MS,
+  conversionFps,
+  fitWidth,
   graphArgs,
   hasAlpha,
+  outOfTime,
+  scaledSize,
   sourceBytesBudget,
 } from "./render.js";
 
@@ -40,14 +43,13 @@ async function pngSize(file: string): Promise<[number, number]> {
 export const encodeGif: Encoder = async (
   ff,
   render,
-  outputFile,
-  { quality, fps = null, width = 640, everyFrame = false },
+  { outputFile, quality, fps = null, width = 640, everyFrame = false },
 ) => {
   // No explicit fps → match the pictures, capped at 30: gifski alternates
   // 3cs and 4cs delays for it, and past that a converted video only gets
   // heavier. (A tool that hands a GIF back asks for the GIF's own rate.)
   if (fps == null) {
-    fps = Math.max(1, Math.min(Math.round(render.fps), 30));
+    fps = Math.max(1, Math.round(conversionFps(render)));
   }
   fps = Math.min(fps, MAX_GIF_FPS);
   console.log(
@@ -58,14 +60,13 @@ export const encodeGif: Encoder = async (
   // A palindrome's second half is the first half's files again, backwards.
   const total = Math.ceil(render.duration * fps);
   const rendered = render.palindrome ? Math.ceil(total / 2) : total;
-  const scale = width == null ? 1 : Math.min(1, width / render.width);
-  const pixels = rendered * render.width * scale * render.height * scale;
-  if (total > MAX_GIF_FRAMES || pixels > MAX_GIF_PIXELS) {
+  const size = scaledSize(render, width);
+  if (total > MAX_GIF_FRAMES || rendered * size.width * size.height > MAX_GIF_PIXELS) {
     const seconds = Math.round(render.duration);
     throw new InputError(
       `Video too long for GIF: ${seconds}s at ${fps} fps comes to ${total} ` +
-        `frames of ${Math.round(render.width * scale)}×` +
-        `${Math.round(render.height * scale)}, more than the app can hold. ` +
+        `frames of ${Math.round(size.width)}×` +
+        `${Math.round(size.height)}, more than the app can hold. ` +
         `Use a shorter clip, a lower FPS or a smaller size.`,
       "too-long",
     );
@@ -80,7 +81,7 @@ export const encodeGif: Encoder = async (
 
   try {
     const chain = everyFrame ? [] : [`fps=${fps}`];
-    if (width != null) chain.push(`scale='min(${width},iw)':-2:flags=lanczos`);
+    if (width != null) chain.push(fitWidth(width));
     // Transparency survives the PNG frames only if nothing on the way picks
     // an opaque format for them.
     if (render.source && hasAlpha(render.source.profile.pixFmt)) {
@@ -140,8 +141,7 @@ export const encodeGif: Encoder = async (
       if (budget == null || i === ladder.length - 1) break;
       const { size } = await fs.stat(outputFile);
       if (size <= budget) break;
-      const took = Date.now() - started;
-      if (Date.now() - ff.startedAt + took > TIME_BUDGET_MS) break;
+      if (outOfTime(ff, started)) break;
       console.log(
         `GIF is ${size} bytes, over the ${Math.round(budget)} its source ` +
           `allows: encoding again at quality ${ladder[i + 1]}`,

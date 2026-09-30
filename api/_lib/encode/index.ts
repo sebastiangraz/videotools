@@ -2,10 +2,10 @@ import path from "node:path";
 import type { FormatId } from "../../../shared/formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
 import type { Source } from "../source.js";
+import type { ToolJob } from "../tools/types.js";
 import { codecFactor, rateCap, type RateCap } from "./rate.js";
 import type { Render } from "./render.js";
-import { encodeMp4, encodeMov } from "./h264.js";
-import { encodeWebm } from "./webm.js";
+import { encodeMp4, encodeMov, encodeWebm } from "./video.js";
 import { encodeGif } from "./gif.js";
 import { encodeWebp } from "./webp.js";
 import { encodeAvif } from "./avif.js";
@@ -38,10 +38,11 @@ export type EncodeOptions = {
 export type Encoder = (
   ff: FFmpeg,
   render: Render,
-  outputFile: string,
-  options: EncodeOptions,
-  cap: RateCap | null,
+  target: EncodeOptions & { outputFile: string; cap: RateCap | null },
 ) => Promise<void>;
+
+// What an encode needs of the job that asks for it.
+type EncodeJob = Pick<ToolJob, "ff" | "workDir">;
 
 // The video codec of each format that has rate control. GIF and WebP have
 // none: gifski and libwebp take a quality and the size is what it is.
@@ -68,13 +69,12 @@ const ENCODERS: Record<FormatId, Encoder> = {
 // pictures changes that the tool didn't change itself, so no format gets to
 // apply a conversion's frame rate and size defaults.
 export function encodePreserved(
-  ff: FFmpeg,
+  job: EncodeJob,
   render: Render,
-  workDir: string,
-  format: FormatId,
-  quality: number,
+  { format, quality }: { format: FormatId; quality: number },
 ): Promise<string> {
-  return encodeRender(ff, render, workDir, format, {
+  return encodeRender(job, render, {
+    format,
     quality,
     fps: render.fps,
     width: null,
@@ -83,11 +83,9 @@ export function encodePreserved(
 }
 
 export async function encodeRender(
-  ff: FFmpeg,
+  { ff, workDir }: EncodeJob,
   render: Render,
-  workDir: string,
-  target: FormatId,
-  options: EncodeOptions,
+  { format: target, ...options }: EncodeOptions & { format: FormatId },
 ): Promise<string> {
   if (target !== "gif") {
     console.log(`Encoding ${target} (quality ${options.quality})...`);
@@ -104,7 +102,7 @@ export async function encodeRender(
       : null;
   if (cap) console.log(`At most ${cap.maxrate} kb/s, going by the source`);
   const outputFile = path.join(workDir, `output.${target}`);
-  await ENCODERS[target](ff, render, outputFile, options, cap);
+  await ENCODERS[target](ff, render, { ...options, outputFile, cap });
   return outputFile;
 }
 

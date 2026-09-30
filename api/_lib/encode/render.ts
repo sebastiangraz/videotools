@@ -1,13 +1,70 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../../../shared/formats.js";
-import type { FFmpeg } from "../ffmpeg.js";
+import { DEFAULT_FPS, type FFmpeg } from "../ffmpeg.js";
 import type { Source } from "../source.js";
 
 // How long the encoders that retry (gif.ts, webp.ts) may keep at it: the
 // run has to stay inside the function's 300s (vercel.json), with room to
 // upload the result.
-export const TIME_BUDGET_MS = 240_000;
+const TIME_BUDGET_MS = 240_000;
+
+// Whether another try, costing what the one begun at `started` did, would
+// run past the time budget.
+export function outOfTime(ff: FFmpeg, started: number): boolean {
+  const took = Date.now() - started;
+  return Date.now() - ff.startedAt + took > TIME_BUDGET_MS;
+}
+
+// What a result may weigh over its source's share of bytes: a tenth more,
+// for what a tool adds.
+export const TOOL_ALLOWANCE = 1.1;
+
+// The frame rate a conversion to an animated-image format defaults to: the
+// pictures', up to this.
+const CONVERSION_FPS = 30;
+export const conversionFps = (render: Render) => Math.min(render.fps, CONVERSION_FPS);
+
+// Scales pictures down to `width` (never up), keeping their aspect ratio.
+export const fitWidth = (width: number) => `scale='min(${width},iw)':-2:flags=lanczos`;
+
+// The size of the pictures once scaled down to `width` (null: as they are).
+export function scaledSize(
+  render: Render,
+  width: number | null | undefined,
+): { width: number; height: number } {
+  const scale = width == null ? 1 : Math.min(1, width / render.width);
+  return { width: render.width * scale, height: render.height * scale };
+}
+
+// The codec settings a slider position stands for, finest first: the one it
+// maps to (`finest`) and every coarser one down to `coarsest`, which is as
+// far as a size ceiling may take a picture.
+export function levelRange(finest: number, coarsest: number): number[] {
+  const step = finest < coarsest ? 1 : -1;
+  return Array.from(
+    { length: Math.abs(coarsest - finest) + 1 },
+    (_, i) => finest + i * step,
+  );
+}
+
+// Bisects `count` settings, finest first, the first known not to fit, while
+// `more` allows: `over` ends as the coarsest one found too big, `pick` as the
+// finest that may fit (the last, tried or not, when none did).
+export async function bisect(
+  count: number,
+  fits: (index: number) => Promise<boolean>,
+  more = () => true,
+): Promise<{ over: number; pick: number }> {
+  let over = 0;
+  let pick = count - 1;
+  while (pick - over > 1 && more()) {
+    const middle = Math.floor((over + pick) / 2);
+    if (await fits(middle)) pick = middle;
+    else over = middle;
+  }
+  return { over, pick };
+}
 
 // What a tool asks the output stage to encode: the pictures, not the format.
 // A tool describes its transformation as ffmpeg inputs plus a filtergraph and
@@ -67,8 +124,11 @@ export function videoPad(source: Source | null, input = 0): string {
 // A frame rate as the fps filter takes it. ffmpeg prints NTSC rates rounded
 // (29.97), and a filter given that decimal drifts a frame every half hour
 // against the real 30000/1001.
+const NTSC_TOLERANCE = 0.006;
 export function frameRate(fps: number): string {
-  const ntsc = [24, 30, 60, 120].find((n) => Math.abs(fps - n / 1.001) < 0.006);
+  const ntsc = [24, 30, 60, 120].find(
+    (n) => Math.abs(fps - n / 1.001) < NTSC_TOLERANCE,
+  );
   return ntsc ? `${ntsc}000/1001` : String(fps);
 }
 
@@ -80,7 +140,7 @@ export function sourceRender(source: Source, extra: Partial<Render> = {}): Rende
     keepAudio: true,
     source,
     duration: source.profile.duration,
-    fps: source.profile.fps ?? 30,
+    fps: source.profile.fps ?? DEFAULT_FPS,
     width: source.profile.width,
     height: source.profile.height,
     ...extra,
@@ -143,8 +203,8 @@ export function audioArgs(
 
 // What a result may weigh when it went in as the same frame-list format,
 // which has no rate control (GIF, WebP): what its source weighed, by the
-// frame (a sped-up one keeps all of its frames), times `share`, plus a tenth
-// for what a tool adds. Null for any other source: a GIF of a video is never
+// frame (a sped-up one keeps all of its frames), times `share`, plus
+// TOOL_ALLOWANCE. Null for any other source: a GIF of a video is never
 // the video's size.
 export async function sourceBytesBudget(
   render: Render,
@@ -158,7 +218,7 @@ export async function sourceBytesBudget(
   const sourceFrames = Math.round(duration * (fps ?? 0));
   if (sourceFrames < 1) return null;
   const { size } = await fs.stat(source.path);
-  return size * (frames / sourceFrames) * share * 1.1;
+  return size * (frames / sourceFrames) * share * TOOL_ALLOWANCE;
 }
 
 // For an encode without rate control (GIF, WebP) or one where it can't be
@@ -171,10 +231,12 @@ export async function sourceBytesBudget(
 // one yet. Null for the budget: the finest is it.
 export async function encodeWithinBudget(
   ff: FFmpeg,
-  outputFile: string,
-  levels: number[],
-  encode: (level: number, to: string) => Promise<unknown>,
-  budget: number | null,
+  { outputFile, levels, budget, encode }: {
+    outputFile: string;
+    levels: number[];
+    budget: number | null;
+    encode: (level: number, to: string) => Promise<unknown>;
+  },
 ): Promise<void> {
   let started = Date.now();
   await encode(levels[0], outputFile);
@@ -182,26 +244,22 @@ export async function encodeWithinBudget(
     (await fs.stat(file)).size <= (budget ?? Infinity);
   if (await fits(outputFile)) return;
 
-  // `over` is the coarsest setting known to be too big, `pick` the finest
-  // one that may fit.
   const tryFile = `${outputFile}.try${path.extname(outputFile)}`;
-  let over = 0;
-  let pick = levels.length - 1;
   let fitted = false;
-  while (pick - over > 1) {
-    const took = Date.now() - started;
-    if (Date.now() - ff.startedAt + took > TIME_BUDGET_MS) break;
-    const middle = Math.floor((over + pick) / 2);
-    started = Date.now();
-    await encode(levels[middle], tryFile);
-    const fit = await fits(tryFile);
-    if (fit) pick = middle;
-    else over = middle;
-    // A try that fits is finer than any before it that did; one that
-    // doesn't is coarser, so smaller, than everything tried so far.
-    if (fit || !fitted) await fs.rename(tryFile, outputFile);
-    fitted ||= fit;
-  }
+  const { over, pick } = await bisect(
+    levels.length,
+    async (index) => {
+      started = Date.now();
+      await encode(levels[index], tryFile);
+      const fit = await fits(tryFile);
+      // A try that fits is finer than any before it that did; one that
+      // doesn't is coarser, so smaller, than everything tried so far.
+      if (fit || !fitted) await fs.rename(tryFile, outputFile);
+      fitted ||= fit;
+      return fit;
+    },
+    () => !outOfTime(ff, started),
+  );
   await fs.rm(tryFile, { force: true });
   console.log(
     `Over the ${Math.round(budget ?? 0)} bytes its source allows at ` +

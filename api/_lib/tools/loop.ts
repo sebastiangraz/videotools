@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../../../shared/formats.js";
 import { InputError } from "../errors.js";
-import type { FFmpeg } from "../ffmpeg.js";
+import { DEFAULT_FPS, type FFmpeg } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import {
   frameRate,
@@ -10,6 +10,7 @@ import {
   videoPad,
   type Render,
 } from "../encode/render.js";
+import { FASTSTART } from "../encode/video.js";
 import { clamp, pick, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
@@ -45,7 +46,7 @@ function reverseLoop(source: Source): Render {
   // (yuv420p), or a WebP's 4 (bgra, which keeps its alpha).
   if (source.format !== "gif") {
     const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
-    const bytes = duration * (fps ?? 30) * width * height * bytesPerPixel;
+    const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
     if (bytes > MAX_REVERSE_BYTES) {
       throw new InputError(
         `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
@@ -84,7 +85,7 @@ function crossfadeLoop(
       "invalid-option",
     );
   }
-  const fps = source.profile.fps ?? 30;
+  const fps = source.profile.fps ?? DEFAULT_FPS;
   const frames = Math.round(duration * fps);
   const fade = Math.round(fadeSeconds * fps);
   // One round of the loop is the clip from the end of the fade-in frames to
@@ -179,7 +180,7 @@ async function copyWhole(
     `0:v:${source.profile.videoIndex}`,
     "-c",
     "copy",
-    ...(format === "mp4" ? ["-movflags", "+faststart"] : []),
+    ...(format === "mp4" ? FASTSTART : []),
     outputFile,
   ]);
 }
@@ -235,7 +236,7 @@ async function reorderCopy(
     // part before is every packet ahead of the keyframe; the part after
     // comes from seeking the input, which lands on the keyframe at or before
     // the target (half a frame past it, since times are printed rounded).
-    const halfFrame = 0.5 / (source.profile.fps ?? 30);
+    const halfFrame = 0.5 / (source.profile.fps ?? DEFAULT_FPS);
     await cut([], ["-ss", String(keyframe + halfFrame)], parts[0]);
     await cut(["-frames:v", String(index)], [], parts[1]);
 
@@ -254,7 +255,7 @@ async function reorderCopy(
         "list.txt",
         "-c",
         "copy",
-        ...(format === "mp4" ? ["-movflags", "+faststart"] : []),
+        ...(format === "mp4" ? FASTSTART : []),
         outputFile,
       ],
       { cwd: tempDir },
@@ -321,6 +322,6 @@ export const loop: Tool = {
       technique === "crossfade"
         ? crossfadeLoop(source, fadeDuration, startSecond)
         : reverseLoop(source);
-    return result(await encodePreserved(ff, render, workDir, format, quality));
+    return result(await encodePreserved(job, render, { format, quality }));
   },
 };

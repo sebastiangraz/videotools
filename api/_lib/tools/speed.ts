@@ -1,4 +1,5 @@
 import { encodePreserved } from "../encode/index.js";
+import { DEFAULT_FPS } from "../ffmpeg.js";
 import { MAX_AVIF_FPS } from "../encode/avif.js";
 import { MAX_GIF_FPS } from "../encode/gif.js";
 import { MAX_WEBP_FPS } from "../encode/webp.js";
@@ -15,7 +16,7 @@ import type { Tool } from "./types.js";
 // setpts rescales the frame timestamps; the fps filter then settles what is
 // shown at the new pace.
 export function changeSpeed(source: Source, multiplier: number): Render {
-  const sourceFps = source.profile.fps ?? 30;
+  const sourceFps = source.profile.fps ?? DEFAULT_FPS;
   // Video keeps its frame rate: speed-ups drop frames (rather than raising
   // the rate past what screens show) and slow-downs repeat them. A GIF,
   // WebP or AVIF is a list of frames with delays (a slideshow's AVIF holds
@@ -45,7 +46,7 @@ export function changeSpeed(source: Source, multiplier: number): Render {
 export const speed: Tool = {
   inputs: singleVideo,
   async run(job) {
-    const { ff, workDir, inputs, options } = job;
+    const { inputs, options } = job;
     // Signed ratio: ±1 → 2× faster/slower, ±3 → 4×. Mirrored in
     // client/src/pages/Speed/Speed.tsx.
     const ratio = clamp(options.speed, -3, 3, 0);
@@ -58,7 +59,7 @@ export const speed: Tool = {
     console.log(`Changing playback speed of ${format} by ${multiplier}x...`);
 
     const render = changeSpeed(source, multiplier);
-    const outputPath = await encodePreserved(ff, render, workDir, format, 100);
+    const outputPath = await encodePreserved(job, render, { format, quality: 100 });
     return { outputPath, suffix: "speed", ext: format };
   },
 };

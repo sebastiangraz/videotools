@@ -9,9 +9,13 @@ type RunOptions = { cwd?: string };
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
+// What a stream that prints no frame rate is taken to run at.
+export const DEFAULT_FPS = 30;
+
 // What `ffmpeg -i` reports about an input. `fps` is null when no frame rate
-// is printed; callers fall back to 30. `codec` is the decoder name ("h264",
-// "png", "gif", ...): what the content is, whatever the file is called.
+// is printed; callers fall back to DEFAULT_FPS. `codec` is the decoder name
+// ("h264", "png", "gif", ...): what the content is, whatever the file is
+// called.
 // `matrix` is the YUV↔RGB matrix the stream is tagged with, in the scale
 // filter's names; RGB inputs (PNG, GIF) count as bt601, which is what their
 // conversion to YUV produces, and null means an untagged YUV stream.

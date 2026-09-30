@@ -1,28 +1,27 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { SEQUENCE_FORMATS, type FormatId } from "../../../shared/formats.js";
-import type { FFmpeg } from "../ffmpeg.js";
-import { encodeRender, type EncodeOptions } from "../encode/index.js";
+import { encodeRender } from "../encode/index.js";
 import type { Render } from "../encode/render.js";
 import { blobExt, clamp, isBlobUrl, pick } from "../request.js";
-import type { Tool } from "./types.js";
+import type { Tool, ToolJob } from "./types.js";
 
 const MAX_IMAGES = 100;
+
+// The longest side a sequence's frames get: bounds gif/avif encode cost.
+const MAX_SIDE = 1920;
 
 // Stills, one after the other, each shown for `frameDuration` seconds. The
 // one tool with a format of its own to pick: stills have none to hand back.
 async function imageSequence(
-  ff: FFmpeg,
+  { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
   imagePaths: string[],
-  workDir: string,
-  frameDuration: number,
-  format: FormatId,
+  { frameDuration, format }: { frameDuration: number; format: FormatId },
 ): Promise<Render> {
-  // Target frame size: first image's dimensions, capped at 1920 on the
-  // longest side (bounds gif/avif encode cost), floored to even for
-  // yuv420p/x264.
+  // Target frame size: first image's dimensions, capped at MAX_SIDE on the
+  // longest side, floored to even for yuv420p/x264.
   const { width: w, height: h } = await ff.mediaInfo(imagePaths[0]);
-  const scaleFactor = Math.min(1, 1920 / Math.max(w, h));
+  const scaleFactor = Math.min(1, MAX_SIDE / Math.max(w, h));
   const W = Math.max(2, Math.floor((w * scaleFactor) / 2) * 2);
   const H = Math.max(2, Math.floor((h * scaleFactor) / 2) * 2);
 
@@ -85,7 +84,8 @@ export const sequence: Tool = {
     }
     return blobUrls;
   },
-  async run({ ff, workDir, inputs, options, download }) {
+  async run(job) {
+    const { workDir, inputs, options, download } = job;
     const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
     const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
     const quality = Math.round(clamp(options.quality, 1, 100, 100));
@@ -103,26 +103,20 @@ export const sequence: Tool = {
       `Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`,
     );
 
-    const render = await imageSequence(
-      ff,
-      imagePaths,
-      workDir,
-      frameDuration,
-      format,
-    );
+    const render = await imageSequence(job, imagePaths, { frameDuration, format });
     // The pictures as they are: one frame per still, at their own size.
     // Stills are pristine, which is what AVIF's lossless mode (at 100) and
     // full chroma resolution (from 90) are for; a video's frames have been
     // through both losses already, so conversions never ask for them.
-    const encode: EncodeOptions = {
+    const outputPath = await encodeRender(job, render, {
+      format,
       quality,
       fps: render.fps,
       width: null,
       everyFrame: true,
       lossless: quality >= 100,
       chroma444: quality >= 90,
-    };
-    const outputPath = await encodeRender(ff, render, workDir, format, encode);
+    });
     return { outputPath, suffix: "video", ext: format };
   },
 };

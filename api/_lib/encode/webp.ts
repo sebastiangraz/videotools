@@ -1,7 +1,14 @@
 import fs from "node:fs/promises";
 import type { Source } from "../source.js";
 import type { Encoder } from "./index.js";
-import { encodeWithinBudget, graphArgs, sourceBytesBudget } from "./render.js";
+import {
+  conversionFps,
+  encodeWithinBudget,
+  fitWidth,
+  graphArgs,
+  levelRange,
+  sourceBytesBudget,
+} from "./render.js";
 
 // A frame's delay is whole milliseconds, but browsers slow anything under
 // 20 down, as they do a GIF's: 50 is the most frames a second it can show.
@@ -15,14 +22,14 @@ export const MAX_WEBP_FPS = 50;
 const webpQuality = (quality: number) =>
   Math.round(65 + (quality / 100) * 35);
 
-// The libwebp settings the slider stands for, finest first: the one it maps
-// to and every coarser one down to the slider's own bottom, which is as far
-// as a size ceiling may take a picture (here and in still.ts).
+// The libwebp settings the slider stands for (levelRange), here and in
+// still.ts.
 export const webpLevels = (quality: number) =>
-  Array.from(
-    { length: webpQuality(quality) - webpQuality(1) + 1 },
-    (_, i) => webpQuality(quality) - i,
-  );
+  levelRange(webpQuality(quality), webpQuality(1));
+
+// libwebp's lossless mode, where -q:v is compression effort, not fidelity.
+// Its alpha comes along: libwebp takes bgra, and drops an opaque alpha.
+export const WEBP_LOSSLESS = ["-lossless", "1", "-q:v", "75", "-pix_fmt", "bgra"];
 
 // Whether an animated WebP was saved lossless: every frame's picture is a
 // VP8L chunk, where a lossy one is "VP8 " (behind an ALPH chunk if it has
@@ -92,19 +99,18 @@ export async function isLosslessSource(source: Source | null): Promise<boolean> 
 export const encodeWebp: Encoder = async (
   ff,
   render,
-  outputFile,
-  { quality, fps = null, width = 800, everyFrame = false },
+  { outputFile, quality, fps = null, width = 800, everyFrame = false },
 ) => {
   // No explicit fps → match the pictures, up to 30; no width → as they are.
   // A conversion caps the width at 800 like the other animated-image
   // formats. (A tool that hands a WebP back asks for the WebP's own, and
   // its pictures already come at that rate.)
-  const rate = Math.min(fps ?? Math.min(render.fps, 30), MAX_WEBP_FPS);
+  const rate = Math.min(fps ?? conversionFps(render), MAX_WEBP_FPS);
   const input = graphArgs(
     render,
     [
       ...(everyFrame ? [] : [`fps=${rate}`]),
-      ...(width == null ? [] : [`scale='min(${width},iw)':-2:flags=lanczos`]),
+      ...(width == null ? [] : [fitWidth(width)]),
     ],
     "bgra",
   );
@@ -115,18 +121,12 @@ export const encodeWebp: Encoder = async (
   if (lossless) {
     // True lossless (relative to the decoded RGB frames): no VP8
     // quantization at all, so none of its block-grid artifacts on solid
-    // colors. -q:v in lossless mode means compression effort, not fidelity.
-    // Expect large files.
+    // colors. Expect large files.
     await ff.runFFmpeg([
       ...input,
       "-c:v",
       "libwebp_anim",
-      "-lossless",
-      "1",
-      "-q:v",
-      "75",
-      "-pix_fmt",
-      "bgra",
+      ...WEBP_LOSSLESS,
       "-loop",
       "0",
       "-an",
@@ -157,16 +157,15 @@ export const encodeWebp: Encoder = async (
   // encodes a lossy source's artifacts as detail (it came to over twice the
   // source's bytes a frame). So a result over its source's ceiling is
   // encoded again coarser (encodeWithinBudget).
-  await encodeWithinBudget(
-    ff,
+  await encodeWithinBudget(ff, {
     outputFile,
-    webpLevels(quality),
-    encode,
-    await sourceBytesBudget(
+    levels: webpLevels(quality),
+    budget: await sourceBytesBudget(
       render,
       "webp",
       render.duration * render.fps,
       quality / 100,
     ),
-  );
+    encode,
+  });
 };
