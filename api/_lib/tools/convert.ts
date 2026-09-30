@@ -1,15 +1,17 @@
-import { FORMAT_IDS } from "../../../shared/formats.js";
+import { FORMATS } from "../formats.js";
 import { encodeRender } from "../encode/index.js";
 import { sourceRender } from "../encode/render.js";
 import { clamp, pick, singleVideo } from "../request.js";
 import { openSource } from "../source.js";
 import type { Tool } from "./types.js";
 
+const TARGETS = FORMATS.map((f) => f.id);
+
 export const convert: Tool = {
   inputs: singleVideo,
   async run(job) {
     const { inputs, options } = job;
-    const target = pick(options.target, FORMAT_IDS, "mp4");
+    const target = pick(options.target, TARGETS, "mp4");
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     // Unlike other tools, accepts any readable source (avi, mkv, ...).

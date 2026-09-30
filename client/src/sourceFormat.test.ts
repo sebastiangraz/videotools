@@ -20,6 +20,15 @@ describe("fileFormat", () => {
     expect(fileFormat(file("download", "image/gif"))?.id).toBe("gif");
     expect(fileFormat(file("clip.avi", "video/x-msvideo"))).toBeNull();
   });
+
+  it("reads the last extension, whatever its case", () => {
+    expect(fileFormat(file("clip.final.MOV"))?.id).toBe("mov");
+    expect(fileFormat(file("clip.m4v"))?.id).toBe("mp4");
+    expect(fileFormat(file("photo.webp"))?.id).toBe("webp");
+    expect(fileFormat(file("clip.mkv"))).toBeNull();
+    expect(fileFormat(file("noextension"))).toBeNull();
+    expect(fileFormat(file("folder.mp4/clip"))).toBeNull();
+  });
 });
 
 describe("formatBlock", () => {
@@ -60,6 +69,8 @@ describe("stills", () => {
     expect(stillFormat(file("download", "image/png"))?.id).toBe("png");
     expect(stillFormat(file("anim.gif", "image/gif"))).toBeNull();
     expect(stillFormat(file("clip.mp4", "video/mp4"))).toBeNull();
+    expect(stillFormat(file("photo.JPEG"))?.id).toBe("jpg");
+    expect(stillFormat(file("photo.webp"))?.id).toBe("webp");
   });
 
   it("lets one through only where the tool takes stills", () => {

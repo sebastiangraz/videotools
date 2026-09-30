@@ -1,5 +1,16 @@
-// The formats the app writes. No imports, plain ES2020: both builds compile this file.
+// The tools and formats the app offers. No imports: the client compiles this too.
 
+// Keys both the api registry and the client tabs, so a one-sided addition is a
+// compile error. Tab order.
+export const TOOL_IDS = ["loop", "sequence", "speed", "convert", "mark"] as const;
+
+export type ToolId = (typeof TOOL_IDS)[number];
+
+export function isToolId(id: unknown): id is ToolId {
+  return TOOL_IDS.includes(id as ToolId);
+}
+
+// The formats the app writes.
 export type FormatId = "mp4" | "webm" | "mov" | "gif" | "webp" | "avif";
 
 export type Format = {
@@ -58,8 +69,6 @@ export const FORMATS: readonly Format[] = [
   },
 ];
 
-export const FORMAT_IDS: readonly FormatId[] = FORMATS.map((f) => f.id);
-
 export const SEQUENCE_FORMATS: readonly FormatId[] = ["mp4", "gif", "webp", "avif"];
 
 export function formatById(id: FormatId): Format {
@@ -81,24 +90,3 @@ export const STILLS: readonly Still[] = [
   { id: "jpg", label: "JPEG", extensions: ["jpg", "jpeg"], mime: "image/jpeg" },
   { id: "webp", label: "WebP", extensions: ["webp"], mime: "image/webp" },
 ];
-
-export function mimeOf(id: FormatId | StillId): string {
-  return (STILLS.find((s) => s.id === id) ?? formatById(id as FormatId)).mime;
-}
-
-// "clip.final.MOV" → "mov"; "" when the name has no extension.
-export function extensionOf(filename: string): string {
-  const match = /\.([^./\\]+)$/.exec(filename);
-  return match ? match[1].toLowerCase() : "";
-}
-
-export function stillFromFilename(filename: string): Still | null {
-  const ext = extensionOf(filename);
-  return STILLS.find((s) => s.extensions.includes(ext)) ?? null;
-}
-
-// The browser's pre-upload guess; the api goes by content (api/_lib/source.ts).
-export function formatFromFilename(filename: string): Format | null {
-  const ext = extensionOf(filename);
-  return FORMATS.find((f) => f.extensions.includes(ext)) ?? null;
-}

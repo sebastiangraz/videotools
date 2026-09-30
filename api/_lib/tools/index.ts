@@ -1,4 +1,4 @@
-import type { ToolId } from "../../../shared/tools.js";
+import type { ToolId } from "../formats.js";
 import type { Tool } from "./types.js";
 import { loop } from "./loop.js";
 import { sequence } from "./sequence.js";

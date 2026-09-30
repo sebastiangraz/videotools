@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { FormatId } from "../../../shared/formats.js";
+import type { FormatId } from "../formats.js";
 import { DEFAULT_FPS, type FFmpeg } from "../ffmpeg.js";
 import type { Source } from "../source.js";
 

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { SEQUENCE_FORMATS, type FormatId } from "../../../shared/formats.js";
+import { SEQUENCE_FORMATS, type FormatId } from "../formats.js";
 import { encodeRender } from "../encode/index.js";
 import type { Render } from "../encode/render.js";
 import { blobExt, clamp, isBlobUrl, pick } from "../request.js";

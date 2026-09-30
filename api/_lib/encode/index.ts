@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { FormatId } from "../../../shared/formats.js";
+import type { FormatId } from "../formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
 import type { Source } from "../source.js";
 import type { ToolJob } from "../tools/types.js";

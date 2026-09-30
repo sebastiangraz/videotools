@@ -1,4 +1,4 @@
-import type { FormatId, StillId } from "../../../shared/formats.js";
+import type { FormatId, StillId } from "../formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
 
 // Untyped JSON: every tool validates what it reads.

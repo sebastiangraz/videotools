@@ -1,23 +1,31 @@
-import {
-  FORMATS,
-  STILLS,
-  extensionOf,
-  formatFromFilename,
-  stillFromFilename,
-  type Format,
-  type Still,
-} from "../../shared/formats";
+import { FORMATS, STILLS, type Format, type Still } from "../../api/_lib/formats";
+
+// "clip.final.MOV" → "mov"; "" when the name has no extension.
+function extensionOf(filename: string): string {
+  const match = /\.([^./\\]+)$/.exec(filename);
+  return match ? match[1].toLowerCase() : "";
+}
 
 // By name, else by browser MIME type; null = none the app writes. The server
-// goes by content; this is only the pre-upload guess.
+// goes by content (api/_lib/source.ts); this is only the pre-upload guess.
 export function fileFormat(file: File): Format | null {
-  return formatFromFilename(file.name) ?? FORMATS.find((f) => f.mime === file.type) ?? null;
+  const ext = extensionOf(file.name);
+  return (
+    FORMATS.find((f) => f.extensions.includes(ext)) ??
+    FORMATS.find((f) => f.mime === file.type) ??
+    null
+  );
 }
 
 // A .webp counts as a still here; only its content says if it's animated
 // (isAnimatedWebp).
 export function stillFormat(file: File): Still | null {
-  return stillFromFilename(file.name) ?? STILLS.find((s) => s.mime === file.type) ?? null;
+  const ext = extensionOf(file.name);
+  return (
+    STILLS.find((s) => s.extensions.includes(ext)) ??
+    STILLS.find((s) => s.mime === file.type) ??
+    null
+  );
 }
 
 const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));

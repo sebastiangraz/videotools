@@ -9,7 +9,7 @@ import { useToolRun } from "../../hooks/useToolRun";
 import type { Dims } from "../../hooks/useVideoSource";
 import { byFilename } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import { SEQUENCE_FORMATS, formatById } from "../../../../shared/formats";
+import { SEQUENCE_FORMATS, formatById } from "../../../../api/_lib/formats";
 import form from "../form.module.css";
 
 const TOOL = toolById("sequence");

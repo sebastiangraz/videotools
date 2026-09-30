@@ -11,6 +11,6 @@
     "noEmit": true
   },
   // vite.config.ts runs in Node, so it is checked here, not in client/.
-  "include": ["api", "shared", "client/vite.config.ts"],
+  "include": ["api", "client/vite.config.ts"],
   "exclude": ["api/_bin"]
 }

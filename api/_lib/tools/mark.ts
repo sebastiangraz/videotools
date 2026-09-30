@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { FormatId } from "../../../shared/formats.js";
+import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
 import type { FFmpeg, MediaInfo } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";

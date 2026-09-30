@@ -11,10 +11,10 @@ vercel link                  # link to the Vercel project (with a Blob store con
 vercel env pull .env.local   # BLOB_READ_WRITE_TOKEN
 bun run dev                  # vercel dev: client + api on one origin
 
-bun run test                 # vitest (client tests + api/shared unit tests)
+bun run test                 # vitest (client tests + api unit tests)
 bun run lint                 # oxlint (type-aware on api/)
 bun run format               # oxfmt
-bun run typecheck            # api/shared + client
+bun run typecheck            # api + client
                              # e2e tests against the real ffmpeg
 bun run smoke -- <label> [--diff <label>] [--only a,b] [--ffmpeg <path>] [--assets <dir>]
 vercel --prod                # production deploy
@@ -22,13 +22,13 @@ vercel --prod                # production deploy
 git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
-Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests` and `shared/`) and never spawn ffmpeg. `scripts/smoke.mjs` is the end-to-end gate: it runs every case through the real tool handlers and the pinned ffmpeg, checks each case's expectations (format, size ratio, frame count, rejections), and saves commands and results under `.smoke/<label>/` for `--diff`. A refactor should diff clean; a deliberate encoding change should show only the commands it meant to change.
+Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke.mjs` is the end-to-end gate: it runs every case through the real tool handlers and the pinned ffmpeg, checks each case's expectations (format, size ratio, frame count, rejections), and saves commands and results under `.smoke/<label>/` for `--diff`. A refactor should diff clean; a deliberate encoding change should show only the commands it meant to change.
 
 Debug mode (dev only, never in a build): press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size). Dev servers also serve a `/test` scratch page for the shared components.
 
 ## Architecture
 
-A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool) and Vercel functions in `api/` (`upload.ts`, `process.ts`, `preview.ts`). Their private code lives in `api/_lib/` (the leading underscore keeps Vercel from deploying it as functions): `tools/` holds one module per tool, `encode/` one encoder per output format. `shared/` (formats, tool ids) is compiled by both sides. ffmpeg and gifski are real, pinned binaries: `bun install`'s postinstall fetches the host's builds pinned in `scripts/binaries.mjs` into `api/_bin/` (gitignored, sha256-checked); `vercel.json` ships the linux-x64 ones with the functions. There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
+A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool) and Vercel functions in `api/` (`upload.ts`, `process.ts`, `preview.ts`). Their private code lives in `api/_lib/` (the leading underscore keeps Vercel from deploying it as functions): `tools/` holds one module per tool, `encode/` one encoder per output format. `_lib/formats.ts` (tool ids, formats) has no imports, so the client compiles it too. ffmpeg and gifski are real, pinned binaries: `bun install`'s postinstall fetches the host's builds pinned in `scripts/binaries.mjs` into `api/_bin/` (gitignored, sha256-checked); `vercel.json` ships the linux-x64 ones with the functions. There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
 
 ## Request flow
 
@@ -53,7 +53,7 @@ One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build l
 
 ## Adding a tool
 
-1. Add its id to `TOOL_IDS` in `shared/tools.ts` (this also sets the tab order).
+1. Add its id to `TOOL_IDS` in `api/_lib/formats.ts` (this also sets the tab order).
 2. Add its entry to `TOOL_META` in `client/src/tools.ts` (label, description, input accept, action label).
 3. Write the handler in `api/_lib/tools/<tool>.ts` and register it in `TOOLS` in `api/_lib/tools/index.ts`.
 4. Add a page under `client/src/pages/<Tool>/` and register it in `PAGES` in `client/src/pages/index.ts`.

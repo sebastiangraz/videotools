@@ -5,8 +5,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 
-import { mimeOf } from "../shared/formats.js";
-import { isToolId } from "../shared/tools.js";
+import { STILLS, formatById, isToolId, type FormatId } from "./_lib/formats.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
@@ -77,7 +76,7 @@ export default {
 
       const result = await put(`results/${outputName}`, fs.createReadStream(outputPath), {
         access: "public",
-        contentType: mimeOf(ext),
+        contentType: (STILLS.find((s) => s.id === ext) ?? formatById(ext as FormatId)).mime,
         addRandomSuffix: true,
         abortSignal: signal,
       });

@@ -1,5 +1,4 @@
-import { FORMATS, STILLS } from "../../shared/formats";
-import { TOOL_IDS, type ToolId } from "../../shared/tools";
+import { FORMATS, STILLS, TOOL_IDS, type ToolId } from "../../api/_lib/formats";
 
 export type { ToolId };
 

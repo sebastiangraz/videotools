@@ -1,5 +1,5 @@
 import path from "node:path";
-import { formatById, type FormatId, type StillId } from "../../shared/formats.js";
+import { formatById, type FormatId, type StillId } from "./formats.js";
 import { InputError } from "./errors.js";
 import type { SourceProfile } from "./ffmpeg.js";
 import { blobExt } from "./request.js";

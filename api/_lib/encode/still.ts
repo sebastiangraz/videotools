@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { StillId } from "../../../shared/formats.js";
+import type { StillId } from "../formats.js";
 import type { ToolJob } from "../tools/types.js";
 import { bisect, graphArgs, hasAlpha, levelRange, TOOL_ALLOWANCE, type Render } from "./render.js";
 import { WEBP_LOSSLESS, webpLevels } from "./webp.js";

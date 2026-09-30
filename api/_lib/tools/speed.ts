@@ -1,4 +1,4 @@
-import type { FormatId } from "../../../shared/formats.js";
+import type { FormatId } from "../formats.js";
 import { encodePreserved } from "../encode/index.js";
 import { DEFAULT_FPS } from "../ffmpeg.js";
 import { MAX_AVIF_FPS } from "../encode/avif.js";
