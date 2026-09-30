@@ -7,7 +7,10 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
-import { renderApp, uploadMock } from "../../test/renderApp";
+import {
+  renderApp,
+  uploadMock, blobUrl, postedBody, runFinished, stubProcessFetch,
+} from "../../test/renderApp";
 import {
   gifFile,
   stubCanvas,
@@ -27,30 +30,9 @@ describe("Loop", () => {
     const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
 
     uploadMock.mockResolvedValue({
-      url: "https://store.public.blob.vercel-storage.com/tiny-abc.mp4",
+      url: blobUrl("tiny-abc.mp4"),
     });
-    const resultUrl =
-      "https://store.public.blob.vercel-storage.com/results/tiny_loop-xyz.mp4";
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (input === "/api/process" && init?.method === "POST") {
-          return new Response(
-            JSON.stringify({ url: resultUrl, filename: "tiny_loop.mp4" }),
-            { status: 200 },
-          );
-        }
-        if (input === resultUrl) {
-          return new Response(new Blob(["video"], { type: "video/mp4" }), {
-            status: 200,
-          });
-        }
-        if (input === "/api/process" && init?.method === "DELETE") {
-          return new Response(null, { status: 204 });
-        }
-        throw new Error(`Unexpected fetch: ${input}`);
-      },
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubProcessFetch(blobUrl("results/tiny_loop-xyz.mp4"));
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
@@ -62,16 +44,8 @@ describe("Loop", () => {
     });
     await user.click(screen.getByRole("button", { name: /^loop$/i }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
-    const processBody = JSON.parse(
-      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
-        ?.body as string) ?? "{}",
-    );
+    await runFinished(fetchMock);
+    const processBody = postedBody(fetchMock);
     expect(processBody.options).toMatchObject({
       fadeDuration: 0.7,
       startSecond: 1.5,
@@ -306,7 +280,7 @@ describe("Loop", () => {
 
     await user.upload(
       screen.getByLabelText(/choose video/i),
-      webpFile("sticker.webp", true),
+      webpFile("sticker.webp", 0x02),
     );
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -314,7 +288,7 @@ describe("Loop", () => {
 
     await user.upload(
       screen.getByLabelText(/choose video/i),
-      webpFile("photo.webp", false),
+      webpFile("photo.webp", 0x10),
     );
     const message = await screen.findByRole("alert");
     expect(message).toHaveTextContent(/still webp files need to be/i);

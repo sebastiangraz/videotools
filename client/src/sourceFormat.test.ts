@@ -9,8 +9,7 @@ import {
   isStillImage,
   stillFormat,
 } from "./sourceFormat";
-
-const file = (name: string, type = "") => new File(["00"], name, { type });
+import { file, webpFile } from "./test/media";
 
 describe("fileFormat", () => {
   it("goes by the name, then by the type the browser reports", () => {
@@ -73,30 +72,12 @@ describe("stills", () => {
     });
   });
 
-  // VP8X carries the flags; a plain lossy file starts right away with VP8.
-  const webp = (chunk: string, flags: number) =>
-    new File(
-      [
-        new Uint8Array([
-          ...[..."RIFF"].map((c) => c.charCodeAt(0)),
-          ...[0, 0, 0, 0],
-          ...[..."WEBP"].map((c) => c.charCodeAt(0)),
-          ...[...chunk].map((c) => c.charCodeAt(0)),
-          ...[10, 0, 0, 0],
-          flags,
-          ...[0, 0, 0],
-        ]),
-      ],
-      "photo.webp",
-      { type: "image/webp" },
-    );
-
   it("tells an animated WebP from a still by its header", async () => {
     // Animation is bit 1; 0x10 is alpha, which a still may well have
-    expect(await isAnimatedWebp(webp("VP8X", 0x02))).toBe(true);
-    expect(await isAnimatedWebp(webp("VP8X", 0x12))).toBe(true);
-    expect(await isAnimatedWebp(webp("VP8X", 0x10))).toBe(false);
-    expect(await isAnimatedWebp(webp("VP8 ", 0x02))).toBe(false);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02))).toBe(true);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x12))).toBe(true);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x10))).toBe(false);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02, "VP8 "))).toBe(false);
     expect(await isAnimatedWebp(file("photo.webp", "image/webp"))).toBe(false);
   });
 });

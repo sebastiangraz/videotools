@@ -1,7 +1,10 @@
 import { screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
-import { renderApp, uploadMock } from "./test/renderApp";
+import {
+  renderApp,
+  uploadMock, blobUrl, postedBody, runFinished, stubProcessFetch,
+} from "./test/renderApp";
 
 describe("App", () => {
   // aria-disabled rather than disabled, so a tooltip can explain it on hover
@@ -136,52 +139,23 @@ describe("App", () => {
     const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
 
     uploadMock.mockResolvedValue({
-      url: "https://store.public.blob.vercel-storage.com/tiny-abc.mp4",
+      url: blobUrl("tiny-abc.mp4"),
     });
-    const resultUrl =
-      "https://store.public.blob.vercel-storage.com/results/tiny_loop-xyz.mp4";
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (input === "/api/process" && init?.method === "POST") {
-          return new Response(
-            JSON.stringify({ url: resultUrl, filename: "tiny_loop.mp4" }),
-            { status: 200 },
-          );
-        }
-        if (input === resultUrl) {
-          return new Response(new Blob(["video"], { type: "video/mp4" }), {
-            status: 200,
-          });
-        }
-        if (input === "/api/process" && init?.method === "DELETE") {
-          return new Response(null, { status: 204 });
-        }
-        throw new Error(`Unexpected fetch: ${input}`);
-      },
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubProcessFetch(blobUrl("results/tiny_loop-xyz.mp4"));
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
     await user.click(screen.getByRole("button", { name: /^loop$/i }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
+    await runFinished(fetchMock);
     expect(uploadMock).toHaveBeenCalledWith(
       "tiny.mp4",
       file,
       expect.objectContaining({ handleUploadUrl: "/api/upload" }),
     );
-    const processBody = JSON.parse(
-      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
-        ?.body as string) ?? "{}",
-    );
+    const processBody = postedBody(fetchMock);
     expect(processBody).toMatchObject({
-      blobUrl: "https://store.public.blob.vercel-storage.com/tiny-abc.mp4",
+      blobUrl: blobUrl("tiny-abc.mp4"),
       tool: "loop",
       filename: "tiny.mp4",
       options: {
@@ -198,7 +172,7 @@ describe("App", () => {
     const file = new File(["00"], "anim.gif", { type: "image/gif" });
 
     uploadMock.mockResolvedValue({
-      url: "https://store.public.blob.vercel-storage.com/anim-abc.gif",
+      url: blobUrl("anim-abc.gif"),
     });
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) => {
@@ -221,7 +195,7 @@ describe("App", () => {
       expect.objectContaining({
         method: "DELETE",
         body: JSON.stringify({
-          urls: ["https://store.public.blob.vercel-storage.com/anim-abc.gif"],
+          urls: [blobUrl("anim-abc.gif")],
         }),
       }),
     );
@@ -231,7 +205,7 @@ describe("App", () => {
         if (input === "/api/process" && init?.method === "POST") {
           return new Response(
             JSON.stringify({
-              url: "https://store.public.blob.vercel-storage.com/results/anim-xyz.mp4",
+              url: blobUrl("results/anim-xyz.mp4"),
               filename: "anim.mp4",
             }),
             { status: 200 },
@@ -260,7 +234,7 @@ describe("App", () => {
     const user = userEvent.setup();
     const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
     const uploadedUrl =
-      "https://store.public.blob.vercel-storage.com/tiny-abc.mp4";
+      blobUrl("tiny-abc.mp4");
 
     uploadMock.mockResolvedValue({ url: uploadedUrl });
     const fetchMock = vi.fn(

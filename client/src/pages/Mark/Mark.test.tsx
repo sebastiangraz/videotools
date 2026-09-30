@@ -1,7 +1,10 @@
 import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
-import { renderApp, uploadMock } from "../../test/renderApp";
+import {
+  renderApp,
+  uploadMock, blobUrl, postedBody, runFinished, stubProcessFetch,
+} from "../../test/renderApp";
 import {
   gifFile,
   stubCanvas,
@@ -13,29 +16,6 @@ import {
 } from "../../test/media";
 
 describe("Mark", () => {
-  // Keyed by filename to tell video and watermark apart in the request
-  const blobFor = (name: string) =>
-    `https://store.public.blob.vercel-storage.com/${name}`;
-
-  const markFetchMock = (resultUrl: string) =>
-    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (input === "/api/process" && init?.method === "POST") {
-        return new Response(
-          JSON.stringify({ url: resultUrl, filename: "clip_marked.mp4" }),
-          { status: 200 },
-        );
-      }
-      if (input === resultUrl) {
-        return new Response(new Blob(["video"], { type: "video/mp4" }), {
-          status: 200,
-        });
-      }
-      if (input === "/api/process" && init?.method === "DELETE") {
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`Unexpected fetch: ${input}`);
-    });
-
   const stubPreviewFetch = () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -201,10 +181,9 @@ describe("Mark", () => {
     const image = new File(["00"], "shot.png", { type: "image/png" });
     const logo = new File(["00"], "logo.png", { type: "image/png" });
     uploadMock.mockImplementation(async (name: string) => ({
-      url: blobFor(name),
+      url: blobUrl(name),
     }));
-    const fetchMock = markFetchMock(blobFor("results/shot_marked-xyz.png"));
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubProcessFetch();
 
     await renderApp("/mark");
     expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
@@ -215,21 +194,13 @@ describe("Mark", () => {
 
     await user.upload(screen.getByLabelText(/choose watermark/i), logo);
     await user.click(screen.getByRole("button", { name: /^mark$/i }));
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
-    const processBody = JSON.parse(
-      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
-        ?.body as string) ?? "{}",
-    );
+    await runFinished(fetchMock);
+    const processBody = postedBody(fetchMock);
     expect(processBody).toMatchObject({
       tool: "mark",
       filename: "shot.png",
-      blobUrl: blobFor("shot.png"),
-      watermarkUrl: blobFor("logo.png"),
+      blobUrl: blobUrl("shot.png"),
+      watermarkUrl: blobUrl("logo.png"),
     });
   });
 
@@ -248,7 +219,7 @@ describe("Mark", () => {
     ] as const) {
       await user.upload(
         screen.getByLabelText(/choose video/i),
-        webpFile(name, animated),
+        webpFile(name, animated ? 0x02 : 0x10),
       );
       // Its header is in by now, and said nothing against it
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -544,11 +515,9 @@ describe("Mark", () => {
     const logo = new File(["00"], "logo.png", { type: "image/png" });
 
     uploadMock.mockImplementation(async (name: string) => ({
-      url: blobFor(name),
+      url: blobUrl(name),
     }));
-    const resultUrl = blobFor("results/clip_marked-xyz.mp4");
-    const fetchMock = markFetchMock(resultUrl);
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubProcessFetch();
 
     await renderApp("/mark");
     await user.upload(screen.getByLabelText(/choose video/i), video);
@@ -557,12 +526,7 @@ describe("Mark", () => {
     await user.click(screen.getByRole("button", { name: /small/i }));
     await user.click(screen.getByRole("button", { name: /^mark$/i }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
+    await runFinished(fetchMock);
     expect(uploadMock).toHaveBeenNthCalledWith(
       1,
       "clip.mp4",
@@ -575,15 +539,12 @@ describe("Mark", () => {
       logo,
       expect.anything(),
     );
-    const processBody = JSON.parse(
-      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
-        ?.body as string) ?? "{}",
-    );
+    const processBody = postedBody(fetchMock);
     expect(processBody).toEqual({
       tool: "mark",
       filename: "clip.mp4",
-      blobUrl: blobFor("clip.mp4"),
-      watermarkUrl: blobFor("logo.png"),
+      blobUrl: blobUrl("clip.mp4"),
+      watermarkUrl: blobUrl("logo.png"),
       options: { filter: "blur", size: "small", quality: 100 },
     });
   });

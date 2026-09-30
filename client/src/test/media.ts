@@ -107,14 +107,19 @@ export const stubVideoFrame = (width: number, height: number) => {
   });
 };
 
-// Just the header up to the VP8X animation flag, all that is read.
-export const webpFile = (name: string, animated: boolean) =>
+// Content is never read, bar a WebP's header.
+export const file = (name: string, type = "") =>
+  new File(["00"], name, { type });
+
+// Just the header up to the VP8X flags, all that is read (animation is bit
+// 0x02). A plain lossy file has "VP8 " where VP8X would be.
+export const webpFile = (name: string, flags: number, chunk = "VP8X") =>
   new File(
     [
       new Uint8Array([
-        ...[..."RIFF\0\0\0\0WEBPVP8X"].map((c) => c.charCodeAt(0)),
+        ...[...`RIFF\0\0\0\0WEBP${chunk}`].map((c) => c.charCodeAt(0)),
         ...[10, 0, 0, 0],
-        animated ? 0x02 : 0x10,
+        flags,
       ]),
     ],
     name,

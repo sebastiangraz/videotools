@@ -1,7 +1,10 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, it, expect, describe } from "vitest";
-import { renderApp, uploadMock } from "../../test/renderApp";
+import { it, expect, describe } from "vitest";
+import {
+  renderApp,
+  uploadMock, blobUrl, postedBody, runFinished, stubProcessFetch,
+} from "../../test/renderApp";
 import { webpFile } from "../../test/media";
 
 describe("Sequence", () => {
@@ -13,28 +16,7 @@ describe("Sequence", () => {
     uploadMock.mockImplementation(async (name: string) => ({
       url: `https://store.public.blob.vercel-storage.com/${name}`,
     }));
-    const resultUrl =
-      "https://store.public.blob.vercel-storage.com/results/a_video-xyz.gif";
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (input === "/api/process" && init?.method === "POST") {
-          return new Response(
-            JSON.stringify({ url: resultUrl, filename: "a_video.gif" }),
-            { status: 200 },
-          );
-        }
-        if (input === resultUrl) {
-          return new Response(new Blob(["gif"], { type: "image/gif" }), {
-            status: 200,
-          });
-        }
-        if (input === "/api/process" && init?.method === "DELETE") {
-          return new Response(null, { status: 204 });
-        }
-        throw new Error(`Unexpected fetch: ${input}`);
-      },
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubProcessFetch(blobUrl("results/a_video-xyz.gif"));
 
     await renderApp("/sequence");
     await user.upload(screen.getByLabelText(/choose images/i), [fileB, fileA]);
@@ -42,12 +24,7 @@ describe("Sequence", () => {
     await user.click(await screen.findByRole("option", { name: /gif/i }));
     await user.click(screen.getByRole("button", { name: /create video/i }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
+    await runFinished(fetchMock);
     expect(uploadMock).toHaveBeenCalledTimes(2);
     expect(uploadMock).toHaveBeenNthCalledWith(
       1,
@@ -61,16 +38,13 @@ describe("Sequence", () => {
       fileB,
       expect.anything(),
     );
-    const processBody = JSON.parse(
-      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
-        ?.body as string) ?? "{}",
-    );
+    const processBody = postedBody(fetchMock);
     expect(processBody).toMatchObject({
       tool: "sequence",
       filename: "a.png",
       blobUrls: [
-        "https://store.public.blob.vercel-storage.com/a.png",
-        "https://store.public.blob.vercel-storage.com/b.png",
+        blobUrl("a.png"),
+        blobUrl("b.png"),
       ],
       options: { frameDuration: 1, format: "gif", quality: 100 },
     });
@@ -80,8 +54,8 @@ describe("Sequence", () => {
     const user = userEvent.setup();
     await renderApp("/sequence");
     await user.upload(screen.getByLabelText(/choose images/i), [
-      webpFile("a.webp", false),
-      webpFile("b.webp", true),
+      webpFile("a.webp", 0x10),
+      webpFile("b.webp", 0x02),
     ]);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
