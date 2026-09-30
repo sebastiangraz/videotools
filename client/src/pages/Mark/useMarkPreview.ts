@@ -10,9 +10,9 @@ export type MarkView = "render" | "displacement" | "clear";
 // relative to the frame, so a downscaled frame previews the same.
 const PREVIEW_MAX_WIDTH = 1280;
 
-const SCRUB_FRAMES = 5;
+export const SCRUB_FRAMES = 7;
 
-// 0, 1/5, 2/5… of the clip: the end itself rarely seeks to a drawable frame.
+// 0, 1/n, 2/n… of the clip: the end itself rarely seeks to a drawable frame.
 export const scrubTimes = (duration: number): number[] => {
   const count = duration > 0 ? SCRUB_FRAMES : 1;
   return Array.from({ length: count }, (_, i) => (duration * i) / count);

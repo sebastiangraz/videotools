@@ -19,6 +19,7 @@ import {
   stubMediaLoading,
   stubProperties,
 } from "../../test/media";
+import { SCRUB_FRAMES } from "./useMarkPreview";
 
 type User = ReturnType<typeof userEvent.setup>;
 const markButton = () => screen.getByRole("button", { name: /^mark$/i });
@@ -224,7 +225,7 @@ describe("Mark", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("grabs five frames and scrubs through their renders as the pointer crosses the preview", async () => {
+  it("grabs a set of frames and scrubs through their renders as the pointer crosses the preview", async () => {
     const user = userEvent.setup();
     stubVideo(10);
     // A URL per render, to tell the slots apart
@@ -239,12 +240,12 @@ describe("Mark", () => {
     await pickLogo(user);
 
     const preview = screen.getByLabelText(/watermark preview/i);
-    await waitFor(() => expect(preview.querySelectorAll("img")).toHaveLength(5));
+    await waitFor(() => expect(preview.querySelectorAll("img")).toHaveLength(SCRUB_FRAMES));
     const first = within(preview).getByAltText(/watermarked frame/i);
 
     const strips = preview.parentElement!.lastElementChild!.children;
-    expect(strips).toHaveLength(5);
-    fireEvent.pointerEnter(strips[3]);
+    expect(strips).toHaveLength(SCRUB_FRAMES);
+    fireEvent.pointerEnter(strips[SCRUB_FRAMES - 1]);
     expect(within(preview).getByAltText(/watermarked frame/i)).not.toBe(first);
 
     fireEvent.pointerEnter(strips[0]);
@@ -275,25 +276,25 @@ describe("Mark", () => {
     await pickSource(user, file("clip.mp4", "video/mp4"));
     await pickLogo(user);
 
-    // Loading from the first logo on; four renders of five put nothing up
+    // Loading from the first logo on; all renders of a set but one put nothing up
     const preview = screen.getByLabelText(/watermark preview/i);
     expect(preview).toHaveAttribute("aria-busy", "true");
-    await waitFor(() => expect(answers).toHaveLength(5));
-    answer(4);
+    await waitFor(() => expect(answers).toHaveLength(SCRUB_FRAMES));
+    answer(SCRUB_FRAMES - 1);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(sources(preview)).toEqual([]);
     expect(preview).toHaveAttribute("aria-busy", "true");
 
     answer(1);
-    await waitFor(() => expect(sources(preview)).toHaveLength(5));
+    await waitFor(() => expect(sources(preview)).toHaveLength(SCRUB_FRAMES));
     expect(preview).toHaveAttribute("aria-busy", "false");
     const firstSet = sources(preview);
 
     // A change asks for a new set: the last one stays whole until then
     await user.click(screen.getByRole("button", { name: /plain/i }));
     expect(preview).toHaveAttribute("aria-busy", "true");
-    await waitFor(() => expect(answers).toHaveLength(5));
-    answer(4);
+    await waitFor(() => expect(answers).toHaveLength(SCRUB_FRAMES));
+    answer(SCRUB_FRAMES - 1);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(sources(preview)).toEqual(firstSet);
     expect(preview).toHaveAttribute("aria-busy", "true");
@@ -301,7 +302,7 @@ describe("Mark", () => {
     answer(1);
     await waitFor(() => expect(preview).toHaveAttribute("aria-busy", "false"));
     const secondSet = sources(preview);
-    expect(secondSet).toHaveLength(5);
+    expect(secondSet).toHaveLength(SCRUB_FRAMES);
     expect(secondSet.filter((src) => firstSet.includes(src))).toEqual([]);
   });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openFrameSource } from "./frameSource";
 import { clampStart, maxStart } from "./hooks/useVideoSource";
-import { scrubTimes } from "./pages/Mark/useMarkPreview";
+import { SCRUB_FRAMES, scrubTimes } from "./pages/Mark/useMarkPreview";
 import { imageFile, stubImageDecoder, type FakeFrame } from "./test/media";
 
 describe("openFrameSource", () => {
@@ -45,8 +45,12 @@ describe("clampStart", () => {
 });
 
 describe("scrubTimes", () => {
-  it("spaces five grabs evenly over the clip, the end left out", () => {
-    expect(scrubTimes(10)).toEqual([0, 2, 4, 6, 8]);
+  it("spaces its grabs evenly over the clip, the end left out", () => {
+    const step = 10 / SCRUB_FRAMES;
+    const times = scrubTimes(10);
+    expect(times).toHaveLength(SCRUB_FRAMES);
+    times.forEach((time, i) => expect(time).toBeCloseTo(i * step));
+    expect(times.at(-1)! + step).toBeCloseTo(10);
   });
 
   it("grabs just the first frame of a still", () => {
