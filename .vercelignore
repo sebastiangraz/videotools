@@ -1,6 +1,5 @@
-# `vercel deploy` from a working copy uploads everything not listed here
-# (it does not read .gitignore). The build's own `npm install` fetches the
-# pinned ffmpeg and gifski, so the local binaries stay behind.
+# `vercel deploy` ignores .gitignore. The build's npm install fetches the
+# pinned binaries, so local ones stay behind.
 node_modules
 dist
 .env*.local

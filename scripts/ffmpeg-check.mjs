@@ -15,11 +15,9 @@ const NEEDS = {
   ],
   muxers: ["mp4", "webm", "avif", "webp", "image2", "framecrc", "null"],
   demuxers: ["concat", "image2", "webp_anim"],
-  // What the sources are read with where a build could lack it: animated
-  // WebP has a decoder of its own (source.ts goes by its demuxer), and an
-  // SVG logo is drawn by librsvg (tools/mark.ts)
+  // Animated WebP has its own decoder (source.ts); SVG logos need librsvg.
   decoders: ["webp", "webp_anim", "librsvg"],
-  // lavfi, which the smoke run synthesizes its inputs through, is a device
+  // lavfi (smoke-run inputs) is a device.
   devices: ["lavfi"],
   filters: [
     "fps", "scale", "pad", "setsar", "format", "split", "reverse", "concat",
@@ -27,7 +25,7 @@ const NEEDS = {
     "premultiply", "unpremultiply", "alphaextract", "alphamerge", "bbox",
     "gblur", "lut", "lutrgb", "convolution", "extractplanes", "mergeplanes",
     "remap", "negate", "colorchannelmixer", "erosion", "blend", "geq",
-    // lavfi sources the smoke run synthesizes its inputs from
+    // smoke-run lavfi sources
     "testsrc2", "sine",
   ],
 };
@@ -39,8 +37,6 @@ function ffmpegVersion(ffmpeg) {
   return /^ffmpeg version (\S+)/.exec(r.stdout)?.[1] ?? "unknown";
 }
 
-// Everything that's wrong with this ffmpeg; empty when it will do. With
-// `version`, a different version counts as wrong too.
 export function checkFfmpeg(ffmpeg, { version } = {}) {
   const problems = [];
   const found = ffmpegVersion(ffmpeg);

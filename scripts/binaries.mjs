@@ -40,8 +40,6 @@ export const sha256 = (file) =>
       .on("error", reject);
   });
 
-// Gzips `binary` to `gz` for upload to this repo's release `tag`, and returns
-// its manifest entry.
 export async function pack(binary, gz, tag, bin) {
   await pipeline(fs.createReadStream(binary), zlib.createGzip({ level: 9 }), fs.createWriteStream(gz));
   console.log(
@@ -56,9 +54,7 @@ export async function pack(binary, gz, tag, bin) {
   };
 }
 
-// Prints the manifest on a dry run. Otherwise uploads to release `tag` (a new
-// one, or with `added` the platforms added to an existing one) and rewrites
-// <tool>.json.
+// `added`: upload into the existing release instead of creating it.
 export function publish(tool, manifest, { tag, uploads, dryRun, added, notes, next }) {
   if (dryRun) {
     console.log(JSON.stringify(manifest, null, 2));

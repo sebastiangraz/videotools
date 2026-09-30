@@ -9,13 +9,11 @@ import globals from "globals";
 export default defineConfig([
   globalIgnores(["**/dist/", ".vercel/", ".smoke/", "api/_bin/", "**/*.d.ts"]),
 
-  // Shared JS + TS baseline for every file in the repo
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
     extends: [js.configs.recommended, tseslint.configs.recommended],
     rules: {
-      // Underscore-prefixed names are the conventional "intentionally unused"
-      "@typescript-eslint/no-unused-vars": [
+          "@typescript-eslint/no-unused-vars": [
         "error",
         {
           argsIgnorePattern: "^_",
@@ -26,20 +24,18 @@ export default defineConfig([
     },
   },
 
-  // Vite + React client (browser)
   {
     files: ["client/**/*.{ts,tsx}"],
     extends: [reactHooks.configs.flat.recommended, reactRefresh.configs.vite()],
     languageOptions: { globals: globals.browser },
   },
 
-  // Vitest tests (`globals: true` in client/vite.config.ts)
+  // Vitest `globals: true` (client/vite.config.ts)
   {
     files: ["client/**/*.test.{ts,tsx}"],
     languageOptions: { globals: { ...globals.browser, ...globals.vitest } },
   },
 
-  // Node-side tooling config files
   {
     files: [
       "client/vite.config.ts",
@@ -49,7 +45,7 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
 
-  // Vercel functions (Node ESM). Type-aware rules via the root tsconfig.json.
+  // Type-aware rules via the root tsconfig.json.
   {
     files: ["api/**/*.{js,ts}"],
     extends: [tseslint.configs.recommendedTypeChecked],
@@ -62,7 +58,6 @@ export default defineConfig([
     },
   },
 
-  // CSS (incl. CSS Modules)
   {
     files: ["**/*.css"],
     plugins: { css },
@@ -79,7 +74,7 @@ export default defineConfig([
       },
     },
     rules: {
-      // Custom properties are defined globally in index.css, not per file
+      // Custom properties live in index.css, not per file
       "css/no-invalid-properties": ["error", { allowUnknownVariables: true }],
       "css/use-baseline": "off",
     },

@@ -1,30 +1,12 @@
-// End-to-end smoke run of the api tools against real ffmpeg/gifski, without
-// Vercel or Blob storage: each case goes through its tool's handler exactly
-// as /api/process calls it (api/_lib/tools/, with `download` faked by a file
-// copy) and the run records every command spawned plus what came out.
+// Runs each tool's handler as /api/process would, against real ffmpeg/gifski
+// (no Vercel/Blob), recording every command and output. Refactors must diff
+// identical; failed `expect`s exit 1. Outputs: .smoke/<label>/runs/<case>/.
 //
-//   npm run smoke -- before            run all cases, save under .smoke/before
-//   npm run smoke -- after --diff before
-//                                      run again, then compare with that run
-//   npm run smoke -- gif --only gif,webp
-//                                      only the cases with "gif" or "webp" in
-//                                      their name
-//   npm run smoke -- next --ffmpeg C:/ffmpeg-9.1/bin/ffmpeg.exe
-//                                      another ffmpeg than the one ffmpeg.json
-//                                      pins (say, the next version to pin)
-//   npm run smoke -- real --assets D:/footage/smoke
-//                                      your own inputs (default folder:
-//                                      scripts/smoke-assets; roles below)
-//
-// A refactor should leave both the commands and the outputs identical. A
-// deliberate encoding change shows up as exactly the commands that were
-// meant to change, and the results table says what it did to the sizes.
-// Outputs stay in .smoke/<label>/runs/<case>/ to look at.
-//
-// Apart from the comparison, every case carries what must hold for it
-// whatever the encoders do (`expect` in CASES): the format that comes back,
-// how big it may get next to its source, or the rejection a source the app
-// cannot write back has to get. A run that breaks one exits 1 and lists them.
+//   npm run smoke -- before                        run all cases into .smoke/before
+//   npm run smoke -- after --diff before           run again and compare
+//   npm run smoke -- gif --only gif,webp           only cases whose name contains these
+//   npm run smoke -- next --ffmpeg <path>          an ffmpeg other than ffmpeg.json's pin
+//   npm run smoke -- real --assets D:/footage      own inputs (default scripts/smoke-assets)
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -35,63 +17,33 @@ import { checkFfmpeg, pinnedVersion } from "./ffmpeg-check.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const smokeDir = path.join(root, ".smoke");
 
-// The inputs, by role. Each is looked for in the assets folder first; what
-// isn't there is synthesized (test patterns: fine for comparing commands and
-// sizes between runs, useless for judging quality by eye — bring real
-// footage for that). Keep clips to a few seconds: the slow encoders (AVIF,
-// lossless WebP) run on them too, and the loop cases need about 4s.
-//   video      video.<any extension>   the clip every video tool works on
-//   animation  animation.gif           a GIF source; else made from `video`
-//   logo       logo.png                the watermark (PNG with alpha)
-//   svglogo    logo.svg                the watermark as an SVG
-//   images     images/*                the sequence tool's stills, in natural
-//                                      filename order (1–100 files)
-//   frame      —                       always the first frame of `video`
-//                                      (what the browser sends /api/preview)
-//   mov, webm  —                       always `video` again, as source.mov
-//                                      (remuxed) and source.webm (VP9/Opus):
-//                                      sources in the other video formats
-//   avif       —                       the first two seconds of `video` as
-//                                      a small source.avif (AV1 is slow)
-//   slides     —                       three frames of `video` a second
-//                                      apart as slides.avif, at 1 fps: the
-//                                      AVIF a slideshow is
-//   animwebp,  —                       the first two seconds of `video` as
-//   animwebp-                          animated WebPs: anim.webp (lossy)
-//   lossless                           and anim-lossless.webp
-//   mkv        —                       `video` remuxed to reject.mkv, a
-//                                      container the app reads but never
-//                                      writes
-//   anamorphic —                       two seconds of `video` as
-//                                      reject-anamorphic.mp4, its pixels
-//                                      tagged 4:3: a video the app refuses
-//   png, jpg,  —                       the first frame of `video` as still.png,
-//   webp                               still.jpg and still.webp (lossy): the
-//                                      mark tool's still sources
-//   turned     —                       still.jpg again as turned.jpg, with an
-//                                      EXIF orientation that stands it on end
+// Input roles. The first four come from the assets folder if present, else are
+// synthesized (test patterns: fine for diffs, not for judging quality). Keep
+// clips a few seconds (AVIF/lossless WebP are slow; loop cases need ~4s).
+//   video      video.<ext>     the clip every video tool works on
+//   animation  animation.gif   GIF source
+//   logo       logo.png        watermark with alpha
+//   svglogo    logo.svg        watermark as SVG
+//   images     images/*        sequence stills, natural order (1–100)
+// Always derived from `video`:
+//   frame                      first frame (what the browser sends /api/preview)
+//   mov, webm                  remuxed .mov, VP9/Opus .webm
+//   avif, slides               2s AVIF; 3 frames at 1 fps (a slideshow AVIF)
+//   animwebp(-lossless)        2s animated WebP, lossy / lossless
+//   mkv, anamorphic            rejected: read-only container; 4:3 SAR pixels
+//   png, jpg, webp             first frame as stills (mark tool)
+//   turned                     still.jpg with EXIF orientation 6
 const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 
-// Every case is a /api/process request: the tool, its uploads (asset roles)
-// and its options. `preview` is the one exception, /api/preview's single
-// frame.
-//
-// `expect` is what has to hold for the result:
-//   ext        its extension; "source" = the same as the first upload's,
-//              which is every tool's rule but convert's and sequence's
-//   maxRatio   its size next to the source's, at most (quality is relative
-//   minRatio   to the source: 100 spends up to GENERATION times the
-//              source's bitrate where the format has rate control, so size
-//              follows duration and that — a reverse loop at 100 is up to
-//              four times its source)
-//   frames     "source": as many frames as the source has, for the results
-//              that only rearrange or redraw them; "double": twice as many,
-//              for the reverse loops
-//   turned     the picture has to come back on end: its source's height wide
-//              and its width high (a JPEG that EXIF says to show that way)
-//   errorCode  the run has to be refused, with this InputError code
-// What a re-encode with rate control (MP4, MOV, WebM, AVIF) may spend over
-// its source's bitrate: GENERATION in api/_lib/encode/rate.ts.
+// Each case is a /api/process request (`preview`: /api/preview's single frame).
+// `expect`:
+//   ext        extension; "source" = the first upload's
+//   maxRatio   output/source size bounds; rate-controlled formats may spend up
+//   minRatio   to GENERATION x the source bitrate, so a reverse loop can be ~4x
+//   frames     "source" = same frame count, "double" = twice (reverse loops)
+//   turned     width/height swapped (EXIF-rotated JPEG)
+//   errorCode  must be refused with this InputError code
+// Mirrors GENERATION in api/_lib/encode/rate.ts.
 const GENERATION = 2;
 
 const CASES = {
@@ -101,12 +53,10 @@ const CASES = {
   "loop-reverse-mov-source": { tool: "loop", files: ["mov"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 * GENERATION } },
   // One-pass VP9 lands well under the bitrate it is given, hence a range.
   "loop-reverse-webm-source": { tool: "loop", files: ["webm"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 * GENERATION, minRatio: 0.8 } },
-  // A few dozen kB, where the container counts and libaom holds its one-pass
-  // rate only loosely: more headroom than the other reverse loops get.
-  // No frame count for a WebP result: libwebp_anim merges identical frames
-  // in a row (one frame, twice as long), such as the two where the
-  // palindrome turns, or a hold in real footage.
+  // No frame count for WebP results: libwebp_anim merges identical consecutive
+  // frames (e.g. where the palindrome turns).
   "loop-reverse-webp-source": { tool: "loop", files: ["animwebp"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", maxRatio: 2.2 } },
+  // Tiny file: container overhead counts and libaom's one-pass rate is loose.
   "loop-reverse-avif-source": { tool: "loop", files: ["avif"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.5 * GENERATION } },
   "loop-reject-mkv-source": { tool: "loop", files: ["mkv"], options: { technique: "reverse", quality: 100 }, expect: { errorCode: "unsupported-source" } },
   "loop-crossfade": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 80 }, expect: { ext: "source", maxRatio: 0.9 * GENERATION } },
@@ -114,12 +64,10 @@ const CASES = {
   "loop-crossfade-gif-source": { tool: "loop", files: ["animation"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
   "loop-crossfade-webp-source": { tool: "loop", files: ["animwebp"], options: { technique: "crossfade", fadeDuration: 0.5, startSecond: 0.5, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 } },
   "loop-reorder": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 * GENERATION, frames: "source" } },
-  // A start point next to a keyframe of the footage in scripts/smoke-assets
-  // (2.03s), where the streams are reordered without decoding. Test patterns
-  // have no keyframe there and are encoded, like loop-reorder.
+  // Next to a keyframe (2.03s) of the real smoke-assets footage, so it reorders
+  // without re-encoding; synthetic clips have none there and get encoded.
   "loop-reorder-keyframe": { tool: "loop", files: ["video"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 2, quality: 100 }, expect: { ext: "source", maxRatio: 1.1 * GENERATION, frames: "source" } },
-  // The same in WebM, whose VP9 has no B-frames for a cut to break: the first
-  // keyframe past the start of source.webm is at 4.27s.
+  // VP9 has no B-frames for a cut to break; source.webm's next keyframe is 4.27s.
   "loop-reorder-webm-keyframe": { tool: "loop", files: ["webm"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 4.2, quality: 100 }, expect: { ext: "source", maxRatio: 1.1, frames: "source" } },
   "loop-reorder-gif-source": { tool: "loop", files: ["animation"], options: { technique: "crossfade", fadeDuration: 0, startSecond: 1, quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "sequence-mp4": { tool: "sequence", files: ["images"], options: { frameDuration: 0.5, format: "mp4", quality: 90 }, expect: { ext: "mp4" } },
@@ -132,10 +80,8 @@ const CASES = {
   "convert-mov": { tool: "convert", files: ["video"], options: { target: "mov", quality: 90 }, expect: { ext: "mov", maxRatio: 1.05 * GENERATION, frames: "source" } },
   "convert-webm": { tool: "convert", files: ["video"], options: { target: "webm", quality: 90 }, expect: { ext: "webm", maxRatio: 1 * GENERATION, minRatio: 0.4, frames: "source" } },
   "convert-webp": { tool: "convert", files: ["video"], options: { target: "webp", quality: 90 }, expect: { ext: "webp" } },
-  // 100 is lossless only for a lossless source (encode/webp.ts): a lossy one
-  // written lossless stores its artifacts as detail (9x its source, 31x an
-  // AVIF's). Animated WebP is intra-only, so it still weighs more than video
-  // that predicts between frames, the synthesized AV1 most of all.
+  // 100 is lossless only for a lossless source (encode/webp.ts); intra-only
+  // WebP still outweighs inter-predicted video, AV1 sources most of all.
   "convert-webp-q100": { tool: "convert", files: ["video"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 3 } },
   "convert-gif-to-webp": { tool: "convert", files: ["animation"], options: { target: "webp", quality: 100 }, expect: { ext: "webp", maxRatio: 2 } },
   "convert-avif": { tool: "convert", files: ["video"], options: { target: "avif", quality: 70 }, expect: { ext: "avif", maxRatio: 0.75 } },
@@ -148,14 +94,11 @@ const CASES = {
   "speed-faster": { tool: "speed", files: ["video"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 0.6 * GENERATION } },
   "speed-slower": { tool: "speed", files: ["video"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 2.2 * GENERATION } },
   "speed-gif-source": { tool: "speed", files: ["animation"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 } },
-  // Only the delays change; lossy stays lossy (the speed tool runs at 100,
-  // which is lossless only for a lossless source). No frame counts: see
-  // loop-reverse-webp-source.
+  // Only delays change; lossy stays lossy. No frame counts (see loop-reverse-webp-source).
   "speed-webp-source": { tool: "speed", files: ["animwebp"], options: { speed: 1 }, expect: { ext: "source", maxRatio: 1.3 } },
   "speed-webp-lossless-source": { tool: "speed", files: ["animwebp-lossless"], options: { speed: -1 }, expect: { ext: "source", maxRatio: 1.2 } },
-  // An AVIF is a frame list too: every frame stays, at the source's bytes
-  // (a speed-up once dropped a third of a slideshow's frames and gave the
-  // rest half their bits, a quarter of the size and visibly worse).
+  // Every AVIF frame must survive at roughly the source's bytes (guards against
+  // dropped slideshow frames and halved bitrate).
   "speed-avif-source": { tool: "speed", files: ["avif"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 * GENERATION, minRatio: 0.6 } },
   "speed-avif-slides": { tool: "speed", files: ["slides"], options: { speed: 1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 * GENERATION, minRatio: 0.6 } },
   "speed-slower-avif-slides": { tool: "speed", files: ["slides"], options: { speed: -1 }, expect: { ext: "source", frames: "source", maxRatio: 1.2 * GENERATION, minRatio: 0.6 } },
@@ -164,9 +107,7 @@ const CASES = {
   "mark-glass-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: "glass", quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-glass-webp-anim-source": { tool: "mark", files: ["animwebp", "logo"], options: { filter: "glass", quality: 90 }, expect: { ext: "source", maxRatio: 1.2 } },
   "mark-plain-avif-source": { tool: "mark", files: ["avif", "logo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2 * GENERATION, frames: "source" } },
-  // Stills come back as the image they are. A PNG is lossless both ways; a
-  // JPEG or lossy WebP is held to its source's size (encode/still.ts), which
-  // the codecs' finest settings would pass several times over.
+  // JPEG/lossy WebP stills are held to the source's size (encode/still.ts).
   "mark-plain-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-glass-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-glass-jpg-source": { tool: "mark", files: ["jpg", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
@@ -174,7 +115,6 @@ const CASES = {
   "mark-glass-webp-source": { tool: "mark", files: ["webp", "logo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15, frames: "source" } },
   "mark-blur": { tool: "mark", files: ["video", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
   "mark-blur-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
-  // An SVG logo is rasterized first and then marks like a PNG one.
   "mark-glass-svg-logo": { tool: "mark", files: ["video", "svglogo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
   "mark-plain-svg-logo-png-source": { tool: "mark", files: ["png", "svglogo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: "glass" } },
@@ -182,7 +122,6 @@ const CASES = {
   "preview-glass-svg": { preview: true, files: ["frame", "svglogo"], options: { filter: "glass" } },
 };
 
-// What a result does to its case's `expect`, as lines to print; none = holds.
 function violations(expect, result, sourceFile) {
   if (!expect) return [];
   if (expect.errorCode) {
@@ -234,9 +173,8 @@ function parseArgs(argv) {
   return args;
 }
 
-// The functions are TypeScript with no build of their own (Vercel compiles
-// them at deploy), so emit one. It lands inside the repo, where the emitted
-// modules still resolve their packages.
+// Vercel compiles the functions at deploy; emit a build inside the repo so
+// its imports still resolve node_modules.
 function build(outDir) {
   const require = createRequire(path.join(root, "package.json"));
   const tsc = spawnSync(
@@ -246,7 +184,7 @@ function build(outDir) {
       "-p", path.join(root, "tsconfig.json"),
       "--noEmit", "false",
       "--outDir", outDir,
-      // The repo, not api/: the functions import shared/ from next to it.
+      // Not api/: the functions import shared/.
       "--rootDir", root,
     ],
     { stdio: "inherit" },
@@ -254,9 +192,6 @@ function build(outDir) {
   if (tsc.status !== 0) process.exit(tsc.status ?? 1);
 }
 
-// Finds each role's file(s): the user's where there is one, otherwise made
-// into `madeDir` (fresh on every run, so what a run used sits next to what
-// it produced). Returns role → paths, plus which roles were the user's own.
 function resolveAssets(ffmpeg, userDir, madeDir) {
   fs.mkdirSync(madeDir, { recursive: true });
   const ff = (...args) => {
@@ -292,9 +227,7 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     return [made("animation.gif")];
   });
 
-  // The alpha comes from geq on purpose: drawbox and friends leave the
-  // canvas opaque or empty, and a logo with nothing visible skips the mark
-  // tool's bounds cropping.
+  // geq, not drawbox: a real alpha shape so the mark tool's bounds crop runs.
   use("logo", [own(/^logo\.png$/i)].filter(Boolean), () => {
     ff(
       ...lavfi(
@@ -306,9 +239,7 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     return [made("logo.png")];
   });
 
-  // Only a viewBox, no size (librsvg would draw it at 100x100), and room
-  // around the drawing, which the bounds cropping takes off: what exported
-  // logos tend to look like.
+  // viewBox only (librsvg defaults to 100x100) plus padding, like exported logos.
   use("svglogo", [own(/^logo.svg$/i)].filter(Boolean), () => {
     fs.writeFileSync(
       made("logo.svg"),
@@ -326,7 +257,7 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((f) => path.join(imagesDir, f))
     : [];
-  // Mixed sizes: the sequence tool pads everything to the first image.
+  // Mixed sizes on purpose: the sequence tool pads to the first image.
   use("images", ownImages, () =>
     [1, 2, 3].map((i) => {
       ff(
@@ -341,8 +272,7 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   ff("-i", video, "-frames:v", "1", made("frame.jpg"));
   assets.frame = [made("frame.jpg")];
 
-  // The same clip in the other containers. A remux where the streams fit;
-  // footage that doesn't (say, a video.webm) is encoded instead.
+  // Falls back to encoding when the streams don't fit the container.
   const remux = (name, ...streams) => {
     try {
       ff("-i", video, ...streams, "-c", "copy", made(name));
@@ -395,9 +325,7 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   assets.jpg = [made("still.jpg")];
   ff("-i", video, "-frames:v", "1", "-c:v", "libwebp", "-q:v", "85", made("still.webp"));
   assets.webp = [made("still.webp")];
-  // An EXIF block (APP1, right behind the SOI marker) of one tag:
-  // Orientation (0x0112) = 6, "show me turned a quarter clockwise", the way
-  // a phone held upright saves its photos.
+  // APP1 EXIF after SOI with one tag: Orientation (0x0112) = 6, rotate 90° CW.
   const tiff = Buffer.alloc(26);
   tiff.write("II");
   [[42, 2], [1, 8], [0x0112, 10], [3, 12], [6, 18]].forEach(([v, at]) => tiff.writeUInt16LE(v, at));
@@ -411,10 +339,8 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   return { assets, owned };
 }
 
-// x264 under a bitrate ceiling is not bit-exact from run to run (its rate
-// control reacts to how the encoder's threads happen to interleave), so the
-// same command lands within about a percent of itself. Sizes this close are
-// the same result.
+// x264 under a bitrate cap isn't bit-exact across runs (thread timing affects
+// rate control); sizes within ~1% are the same result.
 const SIZE_TOLERANCE = 0.02;
 function sameResult(before, after) {
   const keys = Object.keys({ ...before, ...after });
@@ -427,7 +353,6 @@ function sameResult(before, after) {
   });
 }
 
-// Old and new side by side, case by case; only what differs is printed.
 function diff(name, before, after, format, same = (a, b) => format(a) === format(b)) {
   const changed = Object.keys({ ...before, ...after }).filter(
     (k) => k in before && k in after && !same(before[k], after[k]),
@@ -460,8 +385,6 @@ const { renderWatermarkFrame } = await load("api/_lib/tools/mark.js");
 process.chdir(root);
 const binaries = await load("api/_lib/binaries.js");
 const ffmpegPath = args.ffmpeg ?? binaries.ffmpegPath;
-// Before any case: the pinned version (unless --ffmpeg asks for another), with
-// every encoder and filter the api uses.
 const ffmpegCheck = checkFfmpeg(ffmpegPath, { version: args.ffmpeg ? undefined : pinnedVersion() });
 if (ffmpegCheck.problems.length) {
   console.error(
@@ -479,7 +402,6 @@ const describe = (paths) =>
     ? `${path.basename(paths[0])} ${bytesOf(paths)}`
     : `${paths.length} files ${bytesOf(paths)}`;
 
-// "Uploads" are addressed by file name, like blobs are.
 const byName = new Map();
 for (const file of Object.values(assets).flat()) {
   const name = path.basename(file);
@@ -492,7 +414,6 @@ const BLOB = "https://smoke.public.blob.vercel-storage.com/";
 const download = async (url, destPath) =>
   fs.copyFileSync(byName.get(decodeURIComponent(path.basename(new URL(url).pathname))), destPath);
 
-// Paths differ per run and machine; the commands should not.
 let workDir = "";
 const recorded = [];
 const normalize = (arg) =>
@@ -508,7 +429,7 @@ class Recorder extends FFmpeg {
   }
 }
 
-// The tools narrate every step; keep the terminal for the table.
+// Silence the tools' step logging.
 const say = console.log;
 console.log = console.error = () => {};
 
@@ -521,7 +442,7 @@ say(
 
 const commands = {};
 const broken = {};
-// Part of the results, so comparing runs made from different inputs says so.
+// Recorded so diffs across different inputs/ffmpeg builds show it.
 const results = {
   "(ffmpeg)": ffmpegCheck.version,
   "(assets)": Object.fromEntries(
@@ -533,7 +454,6 @@ const names = Object.keys(CASES).filter((n) => !only || only.some((o) => n.inclu
 for (const name of names) {
   const { tool, preview, files: roles, options, expect } = CASES[name];
   const files = roles.flatMap((role) => assets[role]);
-  // What the result is measured against: the tool's source, not the logo.
   const source = assets[roles[0]];
   workDir = path.join(outDir, "runs", name);
   fs.mkdirSync(workDir, { recursive: true });
@@ -566,15 +486,12 @@ for (const name of names) {
       outputPath = result.outputPath;
       downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
     }
-    // Probed with a fresh instance, so the probe isn't part of the record.
-    // Best effort: a result ffmpeg cannot read shows as "no video stream",
-    // a finding in any case.
+    // Fresh instance so probes aren't recorded.
     const info = await new FFmpeg(ffmpegPath, "")
       .mediaInfo(outputPath)
       .catch(() => null);
     const bytes = fs.statSync(outputPath).size;
-    // Counted, not computed from duration and rate: a frame lost at a cut
-    // shows in neither.
+    // Decoded, not duration*fps: a frame lost at a cut shows in neither.
     const prober = new FFmpeg(ffmpegPath, "");
     const countFrames = (file) => prober.decodedFrames(file);
     results[name] = {
