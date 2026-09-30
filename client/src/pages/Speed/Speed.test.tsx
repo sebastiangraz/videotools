@@ -36,9 +36,8 @@ describe("Speed", () => {
 
     await renderApp("/speed");
     await user.upload(screen.getByLabelText(/choose video/i), file);
-    // userEvent has no slider support — set the thumb's range input directly.
-    // jsdom has no layout, so Base UI keeps the thumb visibility:hidden
-    // (edge alignment needs measurements); include hidden elements.
+    // No userEvent slider support; jsdom has no layout, so Base UI keeps the
+    // thumb visibility:hidden.
     fireEvent.change(screen.getByRole("slider", { hidden: true }), {
       target: { value: "1" },
     });

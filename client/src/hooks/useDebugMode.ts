@@ -1,11 +1,9 @@
 import { useSyncExternalStore } from "react";
 
-// Debug mode exists on the local dev server only: Vite sets DEV for `vite`
-// (which `vercel dev` runs) and clears it for `vite build`, so no deployment
-// can ever switch it on, and everything behind it drops out of the bundle.
+// Vite sets DEV for `vite` (run by `vercel dev`) and clears it for builds: no
+// deployment can switch it on, and it drops out of the bundle.
 const AVAILABLE = import.meta.env.DEV;
 
-// One mode for the whole app, however many components ask after it.
 let debug = false;
 const listeners = new Set<() => void>();
 
@@ -15,8 +13,7 @@ const toggle = () => {
   listeners.forEach((listener) => listener());
 };
 
-// Shift+D, but not while typing (it is a capital D there) nor as part of
-// another shortcut.
+// Not while typing (a capital D there) nor as part of another shortcut.
 const onKeyDown = (event: KeyboardEvent) => {
   if (
     event.code !== "KeyD" ||
@@ -38,7 +35,6 @@ const onKeyDown = (event: KeyboardEvent) => {
   toggle();
 };
 
-// The shortcut listens for as long as anyone is subscribed.
 const subscribe = (listener: () => void) => {
   if (!AVAILABLE) return () => {};
   if (listeners.size === 0) window.addEventListener("keydown", onKeyDown);
@@ -51,7 +47,6 @@ const subscribe = (listener: () => void) => {
 
 const getSnapshot = () => AVAILABLE && debug;
 
-// Whether debug mode is on; Shift+D flips it and `[data-debug]` on <body>
-// follows. Only the mode itself: what a page shows for it is the page's call.
+// Shift+D flips it; `[data-debug]` on <body> follows.
 export const useDebugMode = (): boolean =>
   useSyncExternalStore(subscribe, getSnapshot, () => false);

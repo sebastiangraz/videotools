@@ -25,8 +25,8 @@ import { Switch } from "../../components/Switch/Switch";
 
 const TOOL = toolById("mark");
 
-// Watermark images: PNG or SVG (the server rasterizes an SVG to the size the
-// frame needs). ".svg" too, for systems that give an SVG no MIME type.
+// The server rasterizes an SVG at the size the frame needs; ".svg" is for
+// systems that give an SVG no MIME type.
 const WATERMARK_ACCEPT = "image/png,image/svg+xml,.svg";
 
 const SIZE_OPTIONS: { value: MarkSize; label: string }[] = [
@@ -40,28 +40,22 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "blur", label: "Blur" },
 ];
 
-// The debug panel's views of the glass, one switch each; the preview shows
-// one at a time, so switching one on switches the others off.
+// The preview shows one at a time, so switching one on switches the others off.
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
-  // The lens's displacement map alone (red x, green y, olive no shift),
-  // over the frame painted light gray.
+  // Displacement map alone (red x, green y, olive no shift) over a light-gray frame.
   { value: "displacement", label: "Depth map" },
-  // The glass over the frame with only its refraction and rim: no frost,
-  // tint, ambient light, shadow or logo (the API's MARK_CLEAR).
+  // Refraction and rim only: no frost, tint, light, shadow or logo (MARK_CLEAR).
   { value: "clear", label: "Pure glass" },
 ];
 
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  // The one tool that takes stills as well: a PNG, JPEG or WebP (still or
-  // animated) comes back marked as the image it is.
   const formatBlocker = useFormatBlocker(
     source.file,
     { stills: true },
     source.nonSquare,
   );
-  // The logo, and the look it is laid on with.
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
@@ -69,13 +63,9 @@ export const Mark = () => {
     useState<Exclude<MarkSize, "dev">>("large");
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
-  // In debug mode (dev only, Shift+D) a panel hangs off the preview, where
-  // the preview can be switched to a debug view of the glass; leaving debug
-  // mode goes back to the mark.
   const debug = useDebugMode();
   const [debugView, setDebugView] = useState<MarkView>("render");
-  // The dev size stands in for the picked one while its switch is on (and
-  // only in debug mode); switching it off goes back to the picked size.
+  // Overrides the picked size while on (debug mode only).
   const [devSize, setDevSize] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
   const pickSize = (picked: MarkSize) => {
@@ -92,8 +82,6 @@ export const Mark = () => {
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
 
-  // Object URL for the watermark thumbnail. Revoked when replaced or on
-  // unmount.
   useEffect(() => {
     if (!watermarkUrl) return;
     return () => URL.revokeObjectURL(watermarkUrl);
@@ -160,15 +148,6 @@ export const Mark = () => {
       run={run}
       onSubmit={submit}
     >
-      {/* Frames of the clip, watermarked by the server with the real
-          graph; moving the pointer across the box scrubs through
-          them (a still has the one, itself). The bare first frame shows until the renders land (and
-          stays as the fallback if they fail); a format the browser
-          can't decode shows the frame's own note instead. While a set
-          of renders is on its way (first logo, new logo, filter changed)
-          a spinner is up and the last set stays, so the frames never
-          disagree with each other. The aspect box waits for the source's
-          metadata. */}
       {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
         <Tooltip
           content={"Toggle zoom"}
@@ -190,10 +169,8 @@ export const Mark = () => {
             className={styles.markPreview}
             style={{ aspectRatio }}
           >
-            {/* Every render of the set is stacked here and only the
-              scrubbed one shown, so scrubbing never waits on an image
-              decode. The set stays up, unchanged, until the next one
-              replaces it. */}
+            {/* All stacked, only the scrubbed one shown, so scrubbing never
+              waits on an image decode. */}
             {preview.previewUrls.map(
               (url, i) =>
                 url && (
@@ -209,8 +186,7 @@ export const Mark = () => {
                   />
                 ),
             )}
-            {/* The bare frame is the renders' stand-in: it lies under
-              them, so they fade in over it when they land. */}
+            {/* Under the renders, so they fade in over it. */}
             <FramePreview
               file={sourceFile}
               second={0}
@@ -224,9 +200,7 @@ export const Mark = () => {
               <Spinner />
             </div>
           </figure>
-          {/* One invisible strip per grabbed frame, side by side
-            across the box: the one under the pointer picks the frame.
-            They sit outside the figure too. */}
+          {/* Invisible hover strips, one per frame, that pick the frame. */}
           {preview.frameCount > 1 && (
             <div className={styles.markPreviewScrub} aria-hidden="true">
               {Array.from({ length: preview.frameCount }, (_, i) => (
@@ -292,8 +266,7 @@ export const Mark = () => {
           </div>
         )}
 
-        {/* Glass and blur take their shape from the logo, so the choice
-          waits for one. */}
+        {/* Glass and blur take their shape from the logo. */}
         {watermark && (
           <div className={form.formGroup}>
             <span id="markFilter" className={form.label}>

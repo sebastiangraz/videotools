@@ -13,8 +13,7 @@ import {
 } from "../../test/media";
 
 describe("Mark", () => {
-  // Uploads keyed by filename, so the video and the watermark can be told
-  // apart in the process request
+  // Keyed by filename to tell video and watermark apart in the request
   const blobFor = (name: string) =>
     `https://store.public.blob.vercel-storage.com/${name}`;
 
@@ -37,7 +36,6 @@ describe("Mark", () => {
       throw new Error(`Unexpected fetch: ${input}`);
     });
 
-  // The server's side of the preview: a JPEG for every frame posted
   const stubPreviewFetch = () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -67,8 +65,6 @@ describe("Mark", () => {
     expect(await screen.findByText(/upload a watermark/i)).toBeInTheDocument();
     await user.unhover(button);
 
-    // Only PNG and SVG logos are taken; the picker's accept list filters the
-    // rest
     const picker = screen.getByLabelText(/choose watermark/i);
     expect(picker).toHaveAttribute("accept", "image/png,image/svg+xml,.svg");
     await user.upload(
@@ -94,7 +90,6 @@ describe("Mark", () => {
     );
     expect(button).toHaveAttribute("aria-disabled", "false");
     expect(screen.getByText("logo.png")).toBeInTheDocument();
-    // Glass is the default look, with plain and blur the alternatives
     expect(screen.getByRole("button", { name: /glass/i })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -105,8 +100,6 @@ describe("Mark", () => {
 
   it("takes a GIF as the mark source and, where there is no ImageDecoder, previews its first frame off an image", async () => {
     const user = userEvent.setup();
-    // jsdom never decodes images: answer the load, give the <img> a size and
-    // stand in for the canvas the frame is drawn on and grabbed through
     stubMediaLoading("decodes");
     stubProperties(HTMLImageElement.prototype, {
       naturalWidth: { get: () => 480 },
@@ -126,8 +119,6 @@ describe("Mark", () => {
       new File(["00"], "logo.png", { type: "image/png" }),
     );
 
-    // The same canvas as for a video carries the first frame, drawn off an
-    // <img> that is never in the page, and the box takes the image's shape
     const frame = screen.getByLabelText(/first frame/i);
     expect(frame.tagName).toBe("CANVAS");
     await waitFor(() =>
@@ -161,13 +152,12 @@ describe("Mark", () => {
   it("takes a photo as the mark source and previews it off an image, whatever decoders the browser has", async () => {
     const user = userEvent.setup();
     stubMediaLoading("decodes");
-    // The size the <img> reports is the one the photo is shown at, turned by
-    // EXIF: a phone's upright shot
+    // An <img> reports its EXIF-rotated size: a phone's upright shot
     stubProperties(HTMLImageElement.prototype, {
       naturalWidth: { get: () => 1080 },
       naturalHeight: { get: () => 1920 },
     });
-    // There to be passed over: an <img> is what draws a photo as EXIF holds it
+    // Must be passed over: only an <img> honours EXIF orientation
     stubImageDecoder(1, 0);
     const drawImage = stubCanvas();
     const fetchMock = stubPreviewFetch();
@@ -179,7 +169,6 @@ describe("Mark", () => {
       picker,
       new File(["00"], "photo.jpg", { type: "image/jpeg" }),
     );
-    // A still is the tool's to take: nothing to say, nothing in the way
     expect(screen.getByText("photo.jpg")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.upload(
@@ -200,12 +189,10 @@ describe("Mark", () => {
     expect(screen.getByLabelText(/watermark preview/i)).toHaveStyle({
       aspectRatio: "1080 / 1920",
     });
-    // One picture, so one render and nothing to scrub through
     expect(fetchMock).toHaveBeenCalledTimes(1);
     for (const [image] of drawImage.mock.calls) {
       expect(image).toBeInstanceOf(HTMLImageElement);
     }
-    // A JPEG has a quality to ask for
     expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
   });
 
@@ -272,8 +259,6 @@ describe("Mark", () => {
 
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
     const user = userEvent.setup();
-    // jsdom neither decodes video nor draws: answer the load, give the
-    // <video> a size and stand in for the canvas the frame is grabbed through
     stubMediaLoading("decodes");
     stubProperties(HTMLVideoElement.prototype, {
       videoWidth: { get: () => 1280 },
@@ -287,7 +272,6 @@ describe("Mark", () => {
       screen.getByLabelText(/choose video/i),
       new File(["00"], "clip.mp4", { type: "video/mp4" }),
     );
-    // Nothing to render until the logo is there too
     expect(
       screen.queryByLabelText(/watermark preview/i),
     ).not.toBeInTheDocument();
@@ -297,12 +281,9 @@ describe("Mark", () => {
       new File(["00"], "logo.png", { type: "image/png" }),
     );
     const preview = screen.getByLabelText(/watermark preview/i);
-    // Inline, not a popup: the bare frame is in the page right away
     expect(screen.getByLabelText(/first frame/i).tagName).toBe("CANVAS");
 
-    // Once the browser has a decoded frame it is grabbed (off a <video> of
-    // its own, never in the page) and sent, with the logo, to be composited
-    // by the real graph. jsdom's video has no duration, so one frame is all
+    // jsdom's video has no duration, so only one frame is grabbed
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/preview",
@@ -319,14 +300,12 @@ describe("Mark", () => {
       ).toHaveAttribute("src", "blob:mock"),
     );
 
-    // Filter mode is the server's business too, so it re-renders
     await user.click(screen.getByRole("button", { name: /blur/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(
       JSON.parse(fetchMock.mock.calls[1][1]?.body as string),
     ).toMatchObject({ filter: "blur", size: "large" });
 
-    // And so is the size
     await user.click(screen.getByRole("button", { name: /small/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(
@@ -358,8 +337,7 @@ describe("Mark", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(view(0)).toBe("render");
 
-    // Shift+D opens the debug panel, where the map is a switch away
-    // (off the file input, where it would be a capital D)
+    // Shift+D, off the file input where it would type a capital D
     await user.click(document.body);
     await user.keyboard("{Shift>}D{/Shift}");
     const displacement = await screen.findByRole("switch", {
@@ -369,7 +347,6 @@ describe("Mark", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(view(1)).toBe("displacement");
 
-    // The clear glass takes over from the map, whose switch goes off
     const clear = screen.getByRole("switch", { name: /pure glass/i });
     await user.click(clear);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
@@ -377,7 +354,6 @@ describe("Mark", () => {
     expect(clear).toBeChecked();
     expect(displacement).not.toBeChecked();
 
-    // Leaving debug mode leaves it too
     await user.keyboard("{Shift>}D{/Shift}");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     expect(view(3)).toBe("render");
@@ -403,7 +379,6 @@ describe("Mark", () => {
     expect(
       await within(preview).findByText(/can.t preview this format/i),
     ).toBeInTheDocument();
-    // Nothing is on its way, so nothing says loading
     await waitFor(() => expect(preview).toHaveAttribute("aria-busy", "false"));
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -426,8 +401,7 @@ describe("Mark", () => {
     );
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
-    // A grab is drawn at the grab's size (five arguments), the bare frame as
-    // it is (three)
+    // Grabs are drawn scaled (five args), the bare frame unscaled (three)
     const drawn = (args: number) =>
       drawImage.mock.calls
         .filter((call) => call.length === args)
@@ -440,8 +414,6 @@ describe("Mark", () => {
 
   it("grabs five evenly spaced frames and scrubs through their renders as the pointer crosses the preview", async () => {
     const user = userEvent.setup();
-    // jsdom neither decodes nor seeks: answer the load, give the <video> a
-    // size and a length, take every seek, and stand in for the canvas
     const seeks: number[] = [];
     stubMediaLoading("decodes");
     stubProperties(HTMLVideoElement.prototype, {
@@ -481,10 +453,8 @@ describe("Mark", () => {
     await waitFor(() =>
       expect(preview.querySelectorAll("img")).toHaveLength(5),
     );
-    // The first frame's render shows until the pointer says otherwise
     const first = within(preview).getByAltText(/watermarked frame/i);
 
-    // One strip per frame, side by side over the box
     const strips = preview.parentElement!.lastElementChild!.children;
     expect(strips).toHaveLength(5);
     fireEvent.pointerEnter(strips[3]);
@@ -508,7 +478,6 @@ describe("Mark", () => {
     // A URL of its own per blob, to tell the sets apart
     let urls = 0;
     URL.createObjectURL = vi.fn(() => `blob:url-${urls++}`);
-    // The server answers when the test says so
     const answers: Array<() => void> = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (input !== "/api/preview")

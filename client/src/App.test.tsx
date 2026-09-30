@@ -4,8 +4,7 @@ import { vi, it, expect, describe } from "vitest";
 import { renderApp, uploadMock } from "./test/renderApp";
 
 describe("App", () => {
-  // The button is aria-disabled rather than natively disabled, so that a
-  // tooltip can explain the state on hover
+  // aria-disabled rather than disabled, so a tooltip can explain it on hover
   it("disables the button until a file is chosen", async () => {
     await renderApp();
     const btn = screen.getByRole("button", { name: /^loop$/i });
@@ -43,7 +42,6 @@ describe("App", () => {
     );
   });
 
-  // The drop zone is the <label> wrapping the aria-labelled file input
   const getDropZone = (pickerLabel: RegExp) =>
     screen.getByLabelText(pickerLabel).closest("label")!;
 
@@ -215,11 +213,9 @@ describe("App", () => {
     await user.upload(screen.getByLabelText(/choose images/i), file);
     await user.click(screen.getByRole("button", { name: /create video/i }));
 
-    // Generic message first; the underlying error hides behind the disclosure
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/you broke it my dude/i);
 
-    // The upload is of no use after a failure, so it is released
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/process",
       expect.objectContaining({
@@ -230,7 +226,6 @@ describe("App", () => {
       }),
     );
 
-    // A fresh attempt clears the stale error
     fetchMock.mockImplementation(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         if (input === "/api/process" && init?.method === "POST") {
@@ -253,8 +248,7 @@ describe("App", () => {
     );
   });
 
-  // A request that never settles on its own, only rejecting once its signal
-  // is aborted — the shape of an upload or encode the user wants out of.
+  // Rejects only once its signal is aborted.
   const hangUntilAborted = <T,>(signal?: AbortSignal | null) =>
     new Promise<T>((_, reject) => {
       signal?.addEventListener("abort", () =>
@@ -284,7 +278,6 @@ describe("App", () => {
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
-    // Hidden (and so out of the accessibility tree) until a run starts
     expect(
       screen.queryByRole("button", { name: /^stop$/i }),
     ).not.toBeInTheDocument();
@@ -299,8 +292,6 @@ describe("App", () => {
 
     await user.click(stop);
 
-    // Back to the idle state: action button usable again, no error box,
-    // and the request itself was aborted
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
         "aria-disabled",
@@ -315,7 +306,6 @@ describe("App", () => {
       ([, init]) => init?.method === "POST",
     )?.[1];
     expect(postInit?.signal?.aborted).toBe(true);
-    // The upload it had already made is swept up
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/process",
@@ -344,8 +334,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: /^loop$/i }));
     expect(uploadSignal?.aborted).toBe(false);
 
-    // The route remounts the uploader per tool, so leaving the tab must not
-    // leave the request running
+    // A tab change unmounts the uploader; the request must not keep running
     await user.click(screen.getByRole("tab", { name: /sequence/i }));
     await screen.findByRole("button", { name: /create video/i });
     expect(uploadSignal?.aborted).toBe(true);

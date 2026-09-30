@@ -18,7 +18,7 @@ import form from "../form.module.css";
 
 const TOOL = toolById("loop");
 
-// Looping techniques. Mirrored in api/_lib/tools/loop.ts (VALID_TECHNIQUES)
+// Mirrored in api/_lib/tools/loop.ts (VALID_TECHNIQUES)
 const TECHNIQUES = [
   { value: "crossfade", label: "Crossfade" },
   { value: "reverse", label: "Forward & reverse" },
@@ -29,8 +29,7 @@ export const Loop = () => {
   const source = useVideoSource();
   const formatBlocker = useFormatBlocker(source.file, {}, source.nonSquare);
   const [technique, setTechnique] = useState<string>("crossfade");
-  // NumberField reports null while its input is empty; submit falls back to
-  // each field's default.
+  // NumberField reports null while empty; submit falls back to the default.
   const [fadeDuration, setFadeDuration] = useState<number | null>(0.5);
   const [startSecond, setStartSecond] = useState<number | null>(0);
   const [quality, setQuality] = useState<number>(100);

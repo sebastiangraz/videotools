@@ -35,11 +35,9 @@ describe("Convert", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await renderApp("/convert");
-    // The dropdown depends on the picked file's format, so it waits for one
     expect(screen.queryByText(/convert to/i)).not.toBeInTheDocument();
 
     await user.upload(screen.getByLabelText(/choose video/i), file);
-    // Open the target menu: the source's own format is not offered
     await user.click(screen.getByLabelText(/convert to/i));
     expect(
       await screen.findByRole("option", { name: /mp4/i }),
@@ -49,7 +47,6 @@ describe("Convert", () => {
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole("option", { name: /gif/i }));
 
-    // GIF-only controls appear with the target
     expect(screen.getByLabelText(/fps/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/width/i)).toBeInTheDocument();
 
@@ -70,8 +67,7 @@ describe("Convert", () => {
       blobUrl: "https://store.public.blob.vercel-storage.com/clip-abc.mov",
       filename: "clip.mov",
     });
-    // fps is absent when the field is left empty — the server then matches
-    // the source framerate
+    // Empty fps is omitted: the server matches the source framerate
     expect(processBody.options).toEqual({
       target: "gif",
       quality: 100,
@@ -111,7 +107,7 @@ describe("Convert", () => {
 
     await renderApp("/convert");
     await user.upload(screen.getByLabelText(/choose video/i), file);
-    // MP4 source: the default target "mp4" is excluded, so WebM takes over
+    // The default target mp4 is the source format, so WebM takes over
     await user.click(screen.getByRole("button", { name: /^convert$/i }));
 
     await waitFor(() =>
@@ -125,7 +121,6 @@ describe("Convert", () => {
         ?.body as string) ?? "{}",
     );
     expect(processBody.tool).toBe("convert");
-    // Exact match: fps/width must not tag along for non-GIF targets
     expect(processBody.options).toEqual({ target: "webm", quality: 100 });
   });
 

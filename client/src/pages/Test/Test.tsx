@@ -22,8 +22,7 @@ const TOGGLE_OPTIONS = [
   { value: "auto", label: "Auto" },
 ];
 
-// A scratch page for the shared components, outside any tool (dev only, see
-// pages/site.ts). The disabled switch turns every control off at once.
+// Dev-only scratch page for the shared components (pages/site.ts).
 export const Test = () => {
   const [disabled, setDisabled] = useState(false);
   const [message, setMessage] = useState(false);

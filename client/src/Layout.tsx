@@ -27,13 +27,10 @@ const Logo = () => (
 );
 
 export const Layout = () => {
-  // The title anchors the app's message area (components/Message). The tabs'
-  // descriptions show there rather than at their own tab, so the card never
-  // moves regardless of which tab is hovered, and so does any <Message>.
+  // Tab descriptions show in the title message area, not at the tab, so the
+  // card never moves.
   const titleRef = useRef<HTMLHeadingElement | null>(null);
-  // The route is the source of truth for the active tab: each tab is a Link,
-  // so clicking navigates and the strip follows the URL (deep links, back and
-  // forward included). Before the index redirect lands no tab is active.
+  // Tabs are Links, so the URL drives the active tab (deep links, back/forward).
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   useDebugMode();
@@ -79,9 +76,7 @@ export const Layout = () => {
 };
 
 export const ToolPage = () => {
-  // The route only lets known tools through (see beforeLoad in App.tsx).
-  // Every tool is its own component, so a tab change unmounts the old page
-  // and all of its state — picked files included — goes with it.
+  // A tab change unmounts the old page, and all its state goes with it.
   const { tool } = useParams({ from: "/$tool" });
   const Page = PAGES[tool as ToolId];
   return <Page />;

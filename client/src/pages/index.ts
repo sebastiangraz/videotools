@@ -6,8 +6,7 @@ import { Speed } from "./Speed/Speed";
 import { Convert } from "./Convert/Convert";
 import { Mark } from "./Mark/Mark";
 
-// The page behind each tool's tab. `satisfies` makes a TOOLS entry without a
-// page a compile error.
+// `satisfies` makes a TOOLS entry without a page a compile error.
 export const PAGES = {
   loop: Loop,
   sequence: Sequence,

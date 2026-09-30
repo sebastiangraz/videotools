@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ToolId } from "../tools";
 
-// Best-effort removal of blobs this client created (uploads, or a result
-// that was already downloaded). Failures are ignored: Blob storage is only
-// a transfer buffer here, and the server sweeps leftovers on its own.
+// Best effort: the server sweeps leftovers anyway.
 function deleteBlobs(urls: string[]) {
   if (!urls.length) return;
   fetch("/api/process", {
@@ -14,11 +12,7 @@ function deleteBlobs(urls: string[]) {
   }).catch(() => {});
 }
 
-// What a page hands over to start a run. `files` are the tool's source(s),
-// uploaded in order; `extras` are further uploads with their own status line
-// (the mark tool's logo). `payload` builds the tool's part of the
-// /api/process body from the uploaded URLs; `tool` and `filename` are added
-// here.
+// `extras`: further uploads with their own status line (mark's logo).
 interface RunRequest {
   files: File[];
   extras?: { file: File; status: string }[];
@@ -28,17 +22,12 @@ interface RunRequest {
   }) => Record<string, unknown>;
 }
 
-// One run of a tool: upload -> process -> download, shared by every page.
 export function useToolRun(tool: ToolId) {
   const [status, setMsg] = useState<string>("");
   const [busy, setBusy] = useState(false);
-  // Underlying failure text, shown inside the expandable error box below the
-  // CTA. Null = no box.
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
-  // Controller for the in-flight run (upload -> process -> download). Stop
-  // aborts it; so does unmounting, since a tab switch unmounts the page and
-  // would otherwise leave the request running against dead state.
+  // Also aborted on unmount: a tab switch unmounts the page.
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -50,8 +39,6 @@ export function useToolRun(tool: ToolId) {
     const controller = new AbortController();
     abortRef.current = controller;
     const { signal } = controller;
-    // Blobs this run has created, so Stop can clean up whatever the server
-    // never got to delete itself.
     const blobUrls: string[] = [];
     const extraUrls: string[] = [];
     let resultUrl: string | null = null;
@@ -61,8 +48,8 @@ export function useToolRun(tool: ToolId) {
         upload(file.name, file, {
           access: "public",
           handleUploadUrl: "/api/upload",
-          // Browsers report no type for some containers (.avi, .mkv on
-          // certain systems); fall back so the upload token isn't refused.
+          // Some systems report no type for .avi/.mkv; an empty one gets the
+          // upload token refused.
           contentType: file.type || "application/octet-stream",
           abortSignal: signal,
         });
@@ -98,15 +85,11 @@ export function useToolRun(tool: ToolId) {
       }
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
-      // The server names the result; the stand-in keeps the source's name
-      // and extension, which is the format every tool hands back unless it
-      // was asked for another.
       const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
       const downloadName = resultName || `${base}_${tool}${ext}`;
 
       setMsg(`Downloading ${downloadName.slice(0, 28)}`);
-      // Result lives on Blob storage (cross-origin), where the anchor
-      // `download` attribute is ignored — fetch to an object URL instead.
+      // Blob storage is cross-origin, where `download` is ignored.
       const fileRes = await fetch(url, { signal });
       if (!fileRes.ok)
         throw new Error(`Failed to download result (${fileRes.status})`);
@@ -120,18 +103,13 @@ export function useToolRun(tool: ToolId) {
 
       deleteBlobs([url]);
     } catch (err: unknown) {
-      // Whatever went wrong, nothing this run uploaded is of use any more:
-      // the server only deletes inputs when it gets to run, an upload cut
-      // short never reaches it, and a result nobody downloaded is just
-      // storage. Deleting again what the server already removed is harmless.
+      // The server only deletes inputs once it runs; double deletes are harmless.
       const uploaded = [...blobUrls, ...extraUrls];
       deleteBlobs(resultUrl ? [...uploaded, resultUrl] : uploaded);
       if (signal.aborted) {
         // Stopped on purpose: no error box.
       } else {
         console.error(err);
-        // The status message only renders inside the button while busy, so
-        // failures surface through the error box instead.
         setErrorDetail(err instanceof Error ? err.message : String(err));
       }
     } finally {
@@ -142,7 +120,6 @@ export function useToolRun(tool: ToolId) {
 
   const stop = () => abortRef.current?.abort();
 
-  // Picking a new file dismisses the last run's error.
   const clearError = () => setErrorDetail(null);
 
   return { busy, status, errorDetail, clearError, start, stop };

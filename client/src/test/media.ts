@@ -1,8 +1,7 @@
 import { vi, onTestFinished } from "vitest";
 
-// jsdom never loads media, and frame sources (frameSource.ts) work off
-// elements that are never in the page, so there is nothing to fire an event
-// at. These stand in for the browser until the test is over.
+// jsdom never loads media, and frame sources use detached elements, so there
+// is nothing to fire events at. These stubs last until the test ends.
 
 const answerSrc = (proto: object, event: string) => {
   const original = Object.getOwnPropertyDescriptor(proto, "src")!;
@@ -18,9 +17,8 @@ const answerSrc = (proto: object, event: string) => {
   });
 };
 
-// Answers every `src` set on a <video> or an <img> as a browser that can
-// (`loadeddata` / `load`) or can't (`error`) decode it. Elements React
-// renders are left alone: it sets the attribute, not the property.
+// Hooks the `src` property setter; React-rendered elements set the attribute,
+// so they are left alone.
 export const stubMediaLoading = (outcome: "decodes" | "fails") => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const ok = outcome === "decodes";
@@ -28,7 +26,6 @@ export const stubMediaLoading = (outcome: "decodes" | "fails") => {
   answerSrc(HTMLImageElement.prototype, ok ? "load" : "error");
 };
 
-// Overrides getters (sizes, duration, …) on an element prototype.
 export const stubProperties = (
   proto: object,
   stubs: Record<string, PropertyDescriptor>,
@@ -43,7 +40,6 @@ export const stubProperties = (
   }
 };
 
-// The 2D context every canvas hands out, and a JPEG for every `toBlob`.
 // Returns the context's `drawImage`.
 export const stubCanvas = () => {
   const drawImage = vi.fn();
@@ -58,15 +54,12 @@ export const stubCanvas = () => {
   return drawImage;
 };
 
-// What the fake decoder hands to `drawImage`: tagged with its index.
 export interface FakeFrame {
   frameIndex: number;
 }
 
-// An ImageDecoder for an animation of `frameCount` frames, each showing for
-// `frameMs` (whole numbers, so the times add up exactly). Like the real one,
-// the track (and its frame count) isn't there until `tracks.ready` resolves,
-// even with `completed` resolved.
+// Like the real one, the track isn't there until `tracks.ready`, even after
+// `completed`. Whole-ms frames keep the times exact.
 export const stubImageDecoder = (frameCount: number, frameMs: number) => {
   class FakeImageDecoder {
     completed = Promise.resolve();
@@ -100,8 +93,7 @@ export const stubImageDecoder = (frameCount: number, frameMs: number) => {
   });
 };
 
-// A VideoFrame off a <video> that is stored at `width`×`height`, whatever
-// size the element says it plays at.
+// Coded size, independent of the element's display size.
 export const stubVideoFrame = (width: number, height: number) => {
   vi.stubGlobal(
     "VideoFrame",
@@ -115,8 +107,7 @@ export const stubVideoFrame = (width: number, height: number) => {
   });
 };
 
-// A picked WebP: its header as far as the animation flag, which is all that
-// is read of it ("RIFF" size "WEBP" "VP8X" size flags; animation is bit 1).
+// Just the header up to the VP8X animation flag, all that is read.
 export const webpFile = (name: string, animated: boolean) =>
   new File(
     [
@@ -130,7 +121,7 @@ export const webpFile = (name: string, animated: boolean) =>
     { type: "image/webp" },
   );
 
-// A picked GIF. jsdom's File has no stream() to hand its bytes over.
+// jsdom's File has no stream().
 export const gifFile = (name: string) => {
   const file = new File(["00"], name, { type: "image/gif" });
   file.stream = () => new ReadableStream();

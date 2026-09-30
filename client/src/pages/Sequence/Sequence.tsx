@@ -14,16 +14,13 @@ import form from "../form.module.css";
 
 const TOOL = toolById("sequence");
 
-// Stills have no format of their own to keep, so this tool asks for one
-// (shared/formats.ts, which the functions validate against too).
+// Stills have no format of their own to keep, so the user picks one.
 const FORMATS = SEQUENCE_FORMATS.map((id) => ({
   value: id,
   label: formatById(id).label,
 }));
 
-// Rough output-size model: bytes per pixel per frame at quality 0 → 100.
-// Real encoders vary wildly with content, so this is an order-of-magnitude
-// estimate only.
+// Bytes per pixel per frame at quality 0 → 100: an order-of-magnitude guess.
 const SIZE_BPP: Record<string, { min: number; max: number }> = {
   mp4: { min: 0.01, max: 0.15 },
   gif: { min: 0.05, max: 0.5 },
@@ -55,18 +52,13 @@ function formatBytes(bytes: number): string {
 export const Sequence = () => {
   const run = useToolRun(TOOL.value);
   const [files, setFiles] = useState<File[]>([]);
-  // The zone takes any image (an animated one gives its first frame), but a
-  // pick that mixes formats (PNG with JPEG, WebP or GIF) is in the way:
-  // ffmpeg reads a sequence through one image demuxer, and frames come back
-  // blank or gone.
   const formatBlocker = useFormatBlocker(files, {
     stills: true,
     foreign: false,
     oneFormat: true,
   });
   const [imageDims, setImageDims] = useState<Dims | null>(null);
-  // NumberField reports null while its input is empty; submit falls back to
-  // the default.
+  // NumberField reports null while empty; submit falls back to the default.
   const [frameDuration, setFrameDuration] = useState<number | null>(1);
   const [format, setFormat] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
@@ -79,8 +71,7 @@ export const Sequence = () => {
 
     const first = sorted[0];
     if (first.type.startsWith("image/")) {
-      // First image's dimensions drive the output frame size (and the
-      // size estimate)
+      // The first image sets the output frame size.
       const img = new Image();
       img.onload = () => {
         setImageDims({ w: img.naturalWidth, h: img.naturalHeight });

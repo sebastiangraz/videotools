@@ -20,8 +20,7 @@ import {
 } from "../../test/media";
 
 describe("Loop", () => {
-  // NumberField parses typed values with the runtime locale, so type the
-  // locale's own decimal separator ("." in en-US, "," in sv-SE, …).
+  // NumberField parses with the runtime locale: type its decimal separator
   it("accepts decimal values in number fields", async () => {
     const sep = (1.1).toLocaleString().charAt(1);
     const user = userEvent.setup();
@@ -81,8 +80,6 @@ describe("Loop", () => {
 
   it("shows a start-frame preview card when hovering the Start at input", async () => {
     const user = userEvent.setup();
-    // jsdom neither decodes nor seeks: answer the load and every seek, and
-    // stand in for the canvas
     const seeks: number[] = [];
     stubMediaLoading("decodes");
     stubProperties(HTMLVideoElement.prototype, {
@@ -98,15 +95,11 @@ describe("Loop", () => {
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
 
-    // Hidden until the user reaches for the field
     expect(
       screen.queryByLabelText(/start frame preview/i),
     ).not.toBeInTheDocument();
 
-    // The preview lives in a Base UI PreviewCard triggered from the input
     await user.hover(screen.getByLabelText(/start at/i));
-    // One canvas, whatever the source: the frame is drawn off a <video>
-    // that is never in the page
     const preview = await screen.findByLabelText(/start frame preview/i);
     expect(preview.tagName).toBe("CANVAS");
     await waitFor(() =>
@@ -119,7 +112,6 @@ describe("Loop", () => {
     expect(preview).toHaveProperty("width", 1280);
     expect(document.querySelector("video")).not.toBeInTheDocument();
 
-    // The frame follows the field
     const sep = (1.1).toLocaleString().charAt(1);
     fireEvent.change(screen.getByLabelText(/start at/i), {
       target: { value: `1${sep}5` },
@@ -169,8 +161,6 @@ describe("Loop", () => {
       screen.getByLabelText(/choose video/i),
       new File(["00"], "tiny.mp4", { type: "video/mp4" }),
     );
-    // jsdom never loads media: the pick's probe (a frame source) is the one
-    // <video> not in the page
     const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
     fireEvent.change(start, { target: { value: "99" } });
     fireEvent.blur(start);
@@ -205,10 +195,8 @@ describe("Loop", () => {
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
 
-    // Wheel scrub requires the input to be focused; one wheel tick steps by
-    // `step` (0.1). The listener is a native one NumberField.Root attaches to
-    // the input node, so it must survive the preview card appearing around
-    // the input when a video is picked.
+    // Wheel scrub needs focus; NumberField's native listener must survive the
+    // preview card wrapping the input once a video is picked.
     const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
     start.focus();
     fireEvent.wheel(start, { deltaY: -1 });
@@ -223,8 +211,7 @@ describe("Loop", () => {
   it("shows an error in the preview card when the browser can't decode the video", async () => {
     const user = userEvent.setup();
     const file = new File(["00"], "clip.avi", { type: "video/x-msvideo" });
-    // jsdom never decodes media; simulate the failure browsers report for
-    // containers <video> can't play (AVI, WMV, …)
+    // What browsers report for containers <video> can't play (AVI, WMV, …)
     stubMediaLoading("fails");
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), file);
@@ -298,7 +285,6 @@ describe("Loop", () => {
       new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
     );
 
-    // Said in the message area over the title, not in the panel.
     const message = screen.getByRole("alert");
     expect(screen.getByRole("main")).not.toContainElement(message);
     expect(message).toHaveTextContent(/AVI files need to be/i);
@@ -312,8 +298,7 @@ describe("Loop", () => {
     expect(uploadMock).not.toHaveBeenCalled();
   });
 
-  // A .webp is either kind, and a still is no format this tool can hand
-  // back: it goes the way of any other still once its header says so.
+  // A .webp may be either kind; a still one is refused once its header says so.
   it("takes an animated WebP and sends a still one through convert", async () => {
     const user = userEvent.setup();
     await renderApp();
@@ -357,9 +342,7 @@ describe("Loop", () => {
 
     // The description would land on the same spot; the message has it.
     await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
-    // Long enough for the description to have opened if it were going to.
-    // Base UI animates the card open over a frame and a timer of its own, so
-    // the wait is act-wrapped: whatever it sets belongs to this step.
+    // Base UI opens the card over a frame and its own timer; act-wrap the wait.
     await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
     expect(screen.queryByText(/change video speed/i)).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();

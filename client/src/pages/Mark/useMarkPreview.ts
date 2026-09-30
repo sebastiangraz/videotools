@@ -5,35 +5,23 @@ import {
   type FrameSource,
 } from "../../frameSource";
 
-// The watermark's size choice (the API's MARK_SIZES); "dev" is debug mode's.
+// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_VIEWS.
 export type MarkSize = "small" | "large" | "dev";
-// The watermark's look (the API's MARK_FILTERS).
 export type MarkFilter = "plain" | "glass" | "blur";
-// What the preview shows: the mark, or a debug view of the glass (the
-// API's MARK_VIEWS).
 export type MarkView = "render" | "displacement" | "clear";
 
-// The mark preview is rendered by the server with the real ffmpeg graph, so
-// it always matches the encode. The browser sends frames of the source
-// (grabbed through a frame source, downscaled: the geometry is relative to
-// the frame, so a smaller one previews the same) and the logo inline.
+// The server renders the preview with the real ffmpeg graph. Mark geometry is
+// relative to the frame, so a downscaled frame previews the same.
 const PREVIEW_MAX_WIDTH = 1280;
 
-// How many frames the mark preview grabs, evenly spaced from the start of
-// the clip, so hovering across it scrubs through time.
 const SCRUB_FRAMES = 5;
 
-// The times (seconds) to grab the preview's frames at: SCRUB_FRAMES evenly
-// spaced from the start (0, 1/5, 2/5… of the clip: the end itself rarely
-// seeks to a drawable frame), or just the first frame where the duration
-// isn't known (0).
+// 0, 1/5, 2/5… of the clip: the end itself rarely seeks to a drawable frame.
 export const scrubTimes = (duration: number): number[] => {
   const count = duration > 0 ? SCRUB_FRAMES : 1;
   return Array.from({ length: count }, (_, i) => (duration * i) / count);
 };
 
-// Draws a frame onto a canvas and encodes it as a JPEG. Null when there is
-// nothing to draw (no size) or the canvas is unavailable.
 const grabFrame = ({ image, width, height }: Frame) =>
   new Promise<Blob | null>((resolve) => {
     if (!width || !height) return resolve(null);
@@ -55,11 +43,6 @@ const toDataUrl = (blob: Blob) =>
     reader.readAsDataURL(blob);
   });
 
-// The mark preview: frames grabbed off `source`, and the server's render of
-// each (object URLs, slot for slot; none until the first set lands),
-// refreshed as a set whenever the frames, logo, filter, size or view
-// change, with `loading` up in between. `scrubIndex` is the slot the
-// pointer's horizontal position picks.
 export function useMarkPreview(
   source: File | null,
   watermark: File | null,
@@ -71,8 +54,7 @@ export function useMarkPreview(
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
   const [previewError, setPreviewError] = useState(false);
-  // What the last finished round of renders (landed or failed) was asked
-  // for; anything else on the table is still on its way.
+  // Inputs of the last finished round (landed or failed); drives `loading`.
   const [settled, setSettled] = useState<{
     frameBlobs: Blob[];
     watermark: File;
@@ -80,11 +62,8 @@ export function useMarkPreview(
     size: MarkSize;
     view: MarkView;
   } | null>(null);
-  // The source no frame could be grabbed off, so there is nothing to wait for.
   const [failedSource, setFailedSource] = useState<File | null>(null);
 
-  // A set's URLs are revoked once a newer set (or a reset) has pushed them
-  // out, and whatever is left goes on unmount.
   const liveUrls = useRef<string[]>([]);
   useEffect(() => {
     for (const url of liveUrls.current) {
@@ -99,12 +78,8 @@ export function useMarkPreview(
     [],
   );
 
-  // Asks the server for the composited frames, all at once, and puts them up
-  // as one set when the last has landed: scrubbing never crosses a mix of
-  // new renders and ones from before the change. Until then the previous set
-  // stays up (`loading` says so); if one fails, it stays for good. A change
-  // while renders are in flight abandons them (the function stops encoding
-  // when the disconnect reaches it) and starts over.
+  // Swap in all renders at once so scrubbing never mixes old and new. Aborting
+  // disconnects, which makes the function stop encoding.
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
     const controller = new AbortController();
@@ -144,11 +119,7 @@ export function useMarkPreview(
     return () => controller.abort();
   }, [frameBlobs, watermark, filterMode, size, view]);
 
-  // Grabs the source's frames at scrubTimes, through a frame source of its
-  // own, so its seeking never shows in the bare frame. A source without a usable duration (or an animated
-  // image where there is no ImageDecoder) gives just its first frame. A
-  // source picked meanwhile drops the grab instead of landing its frames; one
-  // the browser can't decode gives none, and the bare frame's note says so.
+  // Its own frame source, so its seeking never shows in the bare frame.
   useEffect(() => {
     if (!source) return;
     let cancelled = false;
@@ -177,23 +148,17 @@ export function useMarkPreview(
     };
   }, [source]);
 
-  // For a newly picked source: drops the frames and renders of the last one.
   const reset = () => {
     setFrameBlobs([]);
     setPreviewUrls([]);
     setScrubIndex(0);
   };
 
-  // The render on show: the scrubbed slot's, or the first where the set up
-  // has no such slot. -1 = no set yet (the bare frame shows).
+  // -1 = no set yet (the bare frame shows).
   const shownRender = previewUrls[scrubIndex]
     ? scrubIndex
     : previewUrls.findIndex(Boolean);
 
-  // Frames are being grabbed or rendered for what is picked now: from the
-  // moment there is a source and a logo until a set of renders for exactly
-  // these frames, this logo, this filter, this size and this view has
-  // landed (or failed).
   const loading =
     source !== null &&
     watermark !== null &&

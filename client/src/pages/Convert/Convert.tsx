@@ -16,8 +16,7 @@ const TOOL = toolById("convert");
 export const Convert = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  // Foreign sources (.avi, .mkv, ...) are this tool's whole point, so no
-  // file ffmpeg reads is turned away for its format.
+  // Foreign sources (.avi, .mkv, ...) are this tool's whole point.
   const formatBlocker = useFormatBlocker(
     source.file,
     { foreign: false },
@@ -27,12 +26,11 @@ export const Convert = () => {
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the server probes it, capped at 30)
   const [gifFps, setGifFps] = useState<number | null>(null);
-  // NumberField reports null while its input is empty; submit falls back to
-  // the default.
+  // NumberField reports null while empty; submit falls back to the default.
   const [gifWidth, setGifWidth] = useState<number | null>(640);
 
   // `target` survives a file swap; if the new source claims it, fall to the
-  // first remaining option instead of resetting state.
+  // first remaining option.
   const sourceFormat = source.file ? fileFormat(source.file) : null;
   const targetOptions = targetsFor(source.file);
   const effectiveTarget = targetOptions.some((t) => t.value === target)
@@ -55,8 +53,6 @@ export const Convert = () => {
           quality,
           ...(effectiveTarget === "gif"
             ? {
-                // fps stays home when empty: the server then matches the
-                // source framerate
                 ...(gifFps != null ? { fps: gifFps } : {}),
                 width: gifWidth ?? 640,
               }
@@ -80,8 +76,6 @@ export const Convert = () => {
       run={run}
       onSubmit={submit}
     >
-      {/* The dropdown waits for a file: its options depend on the picked
-          file's format (a source isn't offered as its own target). */}
       {source.file && (
         <>
           <div className={form.formGroup}>
@@ -141,8 +135,7 @@ export const Convert = () => {
               label={
                 <>
                   {/* WebP at 100 is lossless only from a lossless source
-                      (api/_lib/encode/webp.ts); of those, only a GIF shows
-                      by its name. */}
+                      (encode/webp.ts); of those only a GIF shows by name. */}
                   {effectiveTarget === "webp" &&
                   quality === 100 &&
                   sourceFormat?.id === "gif"

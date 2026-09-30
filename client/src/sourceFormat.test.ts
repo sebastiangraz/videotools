@@ -34,8 +34,6 @@ describe("formatBlock", () => {
     expect(formatBlocker(file("clip.mkv"))).toMatch(/convert/i);
   });
 
-  // The tools that are asked for a format (convert, sequence): a source in
-  // none of the app's is what they are for, and only a dead end stops them.
   it("lets a foreign source through where there is no format to keep", () => {
     expect(formatBlock(file("clip.mkv"), { foreign: false })).toBeNull();
     expect(formatBlocker(file("clip.mkv"), { foreign: false })).toBeNull();
@@ -43,7 +41,6 @@ describe("formatBlock", () => {
     expect(formatBlock(still, { foreign: false }, true)).toBeNull();
   });
 
-  // Taken for an animation until its header says otherwise (isAnimatedWebp)
   it("takes a WebP for the format, and a still one for a still", () => {
     const webp = file("anim.webp", "image/webp");
     expect(formatBlock(webp)).toBeNull();
@@ -68,18 +65,15 @@ describe("stills", () => {
     expect(formatBlock(photo)).toEqual({ state: "foreign", name: "JPG" });
     expect(formatBlock(photo, { stills: true })).toBeNull();
     expect(formatBlocker(photo, { stills: true })).toBeNull();
-    // Taken for a still until its content says otherwise (isAnimatedWebp)
     expect(
       formatBlock(file("photo.webp", "image/webp"), { stills: true }),
     ).toBeNull();
-    // What no tool takes stays out either way
     expect(formatBlock(file("clip.mkv"), { stills: true })).toMatchObject({
       state: "foreign",
     });
   });
 
-  // "RIFF" size "WEBP", then the first chunk: VP8X carries the flags, a
-  // plain lossy file starts right away with its VP8 data.
+  // VP8X carries the flags; a plain lossy file starts right away with VP8.
   const webp = (chunk: string, flags: number) =>
     new File(
       [
@@ -112,7 +106,6 @@ describe("hasFrames", () => {
     expect(isAnimatedImage(file("anim.gif", "image/gif"))).toBe(true);
     expect(isAnimatedImage(file("anim.avif", "image/avif"))).toBe(true);
     expect(isStillImage(file("photo.jpg", "image/jpeg"))).toBe(true);
-    // A .webp is a still until its content says otherwise
     expect(isStillImage(file("anim.webp", "image/webp"))).toBe(true);
     expect(isAnimatedImage(file("anim.webp", "image/webp"))).toBe(false);
     expect(isAnimatedImage(file("clip.mp4", "video/mp4"))).toBe(false);

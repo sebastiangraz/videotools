@@ -38,7 +38,6 @@ describe("Sequence", () => {
 
     await renderApp("/sequence");
     await user.upload(screen.getByLabelText(/choose images/i), [fileB, fileA]);
-    // Format dropdown is a Base UI Select: open the trigger, pick an option
     await user.click(screen.getByLabelText(/output format/i));
     await user.click(await screen.findByRole("option", { name: /gif/i }));
     await user.click(screen.getByRole("button", { name: /create video/i }));
@@ -77,8 +76,6 @@ describe("Sequence", () => {
     });
   });
 
-  // An animated WebP gives its first frame, like a GIF; with a still one it
-  // is one format, whatever the headers say.
   it("takes WebP images whichever kind they are", async () => {
     const user = userEvent.setup();
     await renderApp("/sequence");
@@ -93,8 +90,6 @@ describe("Sequence", () => {
     ).toHaveAttribute("aria-disabled", "false");
   });
 
-  // ffmpeg reads a sequence through one image demuxer, so a pick that mixes
-  // formats comes back with frames blank or missing: it is turned away.
   it("turns a pick of mixed formats away", async () => {
     const user = userEvent.setup();
     await renderApp("/sequence");
@@ -111,7 +106,6 @@ describe("Sequence", () => {
       screen.getByRole("button", { name: /create video/i }),
     ).toHaveAttribute("aria-disabled", "true");
 
-    // Files of one format go through
     await user.upload(picker, [
       new File(["00"], "c.jpg", { type: "image/jpeg" }),
       new File(["00"], "d.jpeg", { type: "image/jpeg" }),
