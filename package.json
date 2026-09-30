@@ -20,7 +20,7 @@
     "ffmpeg:mirror": "node scripts/ffmpeg-mirror.mjs",
     "gifski:mirror": "node scripts/gifski-mirror.mjs",
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p client",
     "lint:fix": "npm run lint -- --fix"
   },
   "dependencies": {

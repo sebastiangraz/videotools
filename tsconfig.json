@@ -12,6 +12,7 @@
     "noEmit": true
   },
   // shared/ is the one module both the functions and the client compile.
-  "include": ["api", "shared"],
+  // client/vite.config.ts runs in Node, so it is checked here, not in client/.
+  "include": ["api", "shared", "client/vite.config.ts"],
   "exclude": ["api/_bin"]
 }

@@ -10,4 +10,3 @@ api/_bin/gifski/*/
 
 .vercel
 .env*
-*.tsbuildinfo
