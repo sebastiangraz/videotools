@@ -23,6 +23,15 @@ const PREVIEW_MAX_WIDTH = 1280;
 // the clip, so hovering across it scrubs through time.
 const SCRUB_FRAMES = 5;
 
+// The times (seconds) to grab the preview's frames at: SCRUB_FRAMES evenly
+// spaced from the start (0, 1/5, 2/5… of the clip: the end itself rarely
+// seeks to a drawable frame), or just the first frame where the duration
+// isn't known (0).
+export const scrubTimes = (duration: number): number[] => {
+  const count = duration > 0 ? SCRUB_FRAMES : 1;
+  return Array.from({ length: count }, (_, i) => (duration * i) / count);
+};
+
 // Draws a frame onto a canvas and encodes it as a JPEG. Null when there is
 // nothing to draw (no size) or the canvas is unavailable.
 const grabFrame = ({ image, width, height }: Frame) =>
@@ -135,10 +144,8 @@ export function useMarkPreview(
     return () => controller.abort();
   }, [frameBlobs, watermark, filterMode, size, view]);
 
-  // Grabs SCRUB_FRAMES frames of the source, evenly spaced from the start
-  // (0, 1/5, 2/5… of the clip: the end itself rarely seeks to a drawable
-  // frame), through a frame source of its own, so its seeking never shows
-  // in the bare frame. A source without a usable duration (or an animated
+  // Grabs the source's frames at scrubTimes, through a frame source of its
+  // own, so its seeking never shows in the bare frame. A source without a usable duration (or an animated
   // image where there is no ImageDecoder) gives just its first frame. A
   // source picked meanwhile drops the grab instead of landing its frames; one
   // the browser can't decode gives none, and the bare frame's note says so.
@@ -150,10 +157,9 @@ export function useMarkPreview(
       frames = await openFrameSource(source);
       if (cancelled) return;
       const duration = await frames.duration();
-      const count = duration > 0 ? SCRUB_FRAMES : 1;
       const blobs: Blob[] = [];
-      for (let i = 0; i < count; i++) {
-        const frame = await frames.frameAt((duration * i) / count);
+      for (const second of scrubTimes(duration)) {
+        const frame = await frames.frameAt(second);
         const blob = await grabFrame(frame);
         frame.close();
         if (cancelled) return;

@@ -31,6 +31,24 @@ export function stillFormat(file: File): Still | null {
   );
 }
 
+// Every format the app writes (shared/formats.ts, which the functions'
+// encoders follow too), as convert targets. GIF is encoded by gifski
+// server-side, the rest by ffmpeg — the dropdown deliberately doesn't
+// distinguish.
+const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
+
+// The convert targets for a picked file: all but its own format, which every
+// other tool already hands back. A file in none of the app's formats (.avi,
+// .mkv, ...) keeps the full list.
+export function targetsFor(source: File | null) {
+  const own = source ? fileFormat(source)?.id : undefined;
+  return CONVERT_TARGETS.filter((t) => t.value !== own);
+}
+
+// Frame order for a pick: by filename, naturally (img2 before img10).
+export const byFilename = (a: File, b: File) =>
+  a.name.localeCompare(b.name, undefined, { numeric: true });
+
 // The sources an <img> shows and a <video> doesn't: the stills the mark tool
 // takes (one frame, which is all there is to show) and the animated images.
 // A .webp is a still here, as it is to the picker, until its content says
@@ -48,9 +66,8 @@ export const hasFrames = (file: File) =>
 // Whether a WebP is the animated kind rather than a still: the animation
 // bit (0x02) in the flags of the VP8X chunk, which an animated file
 // has to start with ("RIFF" size "WEBP" "VP8X" size flags, so byte 20). A
-// file too short or without the chunk is a plain still. (Through FileReader:
-// jsdom's Blob has no arrayBuffer.) Read once per file: everything that
-// opens a pick asks (the blocker, the frame sources).
+// file too short or without the chunk is a plain still. Read once per file:
+// everything that opens a pick asks (the blocker, the frame sources).
 const webpHeaders = new WeakMap<File, Promise<boolean>>();
 export function isAnimatedWebp(file: File): Promise<boolean> {
   let answer = webpHeaders.get(file);
@@ -61,23 +78,16 @@ export function isAnimatedWebp(file: File): Promise<boolean> {
   return answer;
 }
 
-function readWebpHeader(file: File): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const head = new Uint8Array(reader.result as ArrayBuffer);
-      const tag = (at: number) => String.fromCharCode(...head.subarray(at, at + 4));
-      resolve(
-        head.length > 20 &&
-          tag(0) === "RIFF" &&
-          tag(8) === "WEBP" &&
-          tag(12) === "VP8X" &&
-          (head[20] & 0x02) !== 0,
-      );
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file.slice(0, 21));
-  });
+async function readWebpHeader(file: File): Promise<boolean> {
+  const head = await file.slice(0, 21).bytes();
+  const tag = (at: number) => String.fromCharCode(...head.subarray(at, at + 4));
+  return (
+    head.length > 20 &&
+    tag(0) === "RIFF" &&
+    tag(8) === "WEBP" &&
+    tag(12) === "VP8X" &&
+    (head[20] & 0x02) !== 0
+  );
 }
 
 // Whether a picked file is an animated image: a GIF or AVIF by its name or
@@ -136,7 +146,7 @@ export function formatBlock(
 // error over the title, as plain text. A foreign line stops before
 // "converted": the link to the convert tool is affixed there
 // (useFormatBlocker).
-export type BlockerText = {
+type BlockerText = {
   short: string;
   long: string;
 };

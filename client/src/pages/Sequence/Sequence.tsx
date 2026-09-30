@@ -7,6 +7,7 @@ import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import type { Dims } from "../../hooks/useVideoSource";
+import { byFilename } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { SEQUENCE_FORMATS, formatById } from "../../../../shared/formats";
 import form from "../form.module.css";
@@ -72,11 +73,7 @@ export const Sequence = () => {
 
   const pick = (picked: File[]) => {
     run.clearError();
-    // Frame order follows the filenames (natural sort, so img2 sorts before
-    // img10).
-    const sorted = [...picked].sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { numeric: true }),
-    );
+    const sorted = [...picked].sort(byFilename);
     setFiles(sorted);
     setImageDims(null);
 

@@ -19,7 +19,7 @@ function deleteBlobs(urls: string[]) {
 // (the mark tool's logo). `payload` builds the tool's part of the
 // /api/process body from the uploaded URLs; `tool` and `filename` are added
 // here.
-export interface RunRequest {
+interface RunRequest {
   files: File[];
   extras?: { file: File; status: string }[];
   payload: (urls: {

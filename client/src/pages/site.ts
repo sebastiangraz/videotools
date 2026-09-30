@@ -7,7 +7,7 @@ import { Test } from "./Test/Test";
 // by the dev server; in a build their path falls through to /$tool and
 // redirects like any unknown one. Pages render their content in
 // components/Page.
-export type SitePage = { component: RouteComponent; devOnly?: boolean };
+type SitePage = { component: RouteComponent; devOnly?: boolean };
 
 const pages = {
   "/test": { component: Test, devOnly: true },

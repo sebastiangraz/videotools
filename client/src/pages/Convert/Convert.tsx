@@ -7,17 +7,11 @@ import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { fileFormat } from "../../sourceFormat";
+import { fileFormat, targetsFor } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import { FORMATS } from "../../../../shared/formats";
 import form from "../form.module.css";
 
 const TOOL = toolById("convert");
-
-// Every format the app writes (shared/formats.ts, which the functions'
-// encoders follow too). GIF is encoded by gifski server-side, the rest by
-// ffmpeg — the dropdown deliberately doesn't distinguish.
-const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
 
 export const Convert = () => {
   const run = useToolRun(TOOL.value);
@@ -37,15 +31,10 @@ export const Convert = () => {
   // the default.
   const [gifWidth, setGifWidth] = useState<number | null>(640);
 
-  // Convert targets minus the picked file's own format: every other tool
-  // already hands that one back. Sources in no format of the app's (.avi,
-  // .mkv, ...) keep the full list. `target` survives a file swap; if the new
-  // source claims it, fall to the first remaining option instead of
-  // resetting state.
+  // `target` survives a file swap; if the new source claims it, fall to the
+  // first remaining option instead of resetting state.
   const sourceFormat = source.file ? fileFormat(source.file) : null;
-  const targetOptions = CONVERT_TARGETS.filter(
-    (t) => t.value !== sourceFormat?.id,
-  );
+  const targetOptions = targetsFor(source.file);
   const effectiveTarget = targetOptions.some((t) => t.value === target)
     ? target
     : targetOptions[0].value;

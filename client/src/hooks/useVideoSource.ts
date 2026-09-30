@@ -2,6 +2,21 @@ import { useRef, useState } from "react";
 import { hasFrames } from "../sourceFormat";
 import { openFrameSource } from "../frameSource";
 
+// The last start second a source of `duration` has room for, in tenths
+// (a start field's steps); open-ended (undefined) while the length isn't
+// known (0).
+export const maxStart = (duration: number): number | undefined =>
+  duration > 0 ? Math.floor(duration * 10) / 10 : undefined;
+
+// A start second typed for an earlier, longer file, brought within this one.
+export const clampStart = (
+  startSecond: number | null,
+  duration: number,
+): number | null =>
+  startSecond === null
+    ? null
+    : Math.min(startSecond, maxStart(duration) ?? Infinity);
+
 export interface Dims {
   w: number;
   h: number;

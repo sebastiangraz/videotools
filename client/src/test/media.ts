@@ -130,7 +130,7 @@ export const webpFile = (name: string, animated: boolean) =>
     { type: "image/webp" },
   );
 
-// A picked GIF. jsdom's File can't hand over its bytes.
+// A picked GIF. jsdom's File has no stream() to hand its bytes over.
 export const gifFile = (name: string) => {
   const file = new File(["00"], name, { type: "image/gif" });
   file.stream = () => new ReadableStream();
