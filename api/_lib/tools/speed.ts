@@ -14,32 +14,24 @@ import { clamp, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
 
-// The formats that are a list of frames with delays, and the most frames a
-// second each can show.
+// Frame-list formats (frames with delays) and their max fps.
 const MAX_FPS: Partial<Record<FormatId, number>> = {
   gif: MAX_GIF_FPS,
   webp: MAX_WEBP_FPS,
   avif: MAX_AVIF_FPS,
 };
 
-// setpts rescales the frame timestamps; the fps filter then settles what is
-// shown at the new pace.
 export function changeSpeed(source: Source, multiplier: number): Render {
   const sourceFps = source.profile.fps ?? DEFAULT_FPS;
-  // Video keeps its frame rate: speed-ups drop frames (rather than raising
-  // the rate past what screens show) and slow-downs repeat them. A GIF,
-  // WebP or AVIF is a list of frames with delays (a slideshow's AVIF holds
-  // three pictures a second apart), so there the delays change and every
-  // frame stays, up to what the format can show.
+  // Video keeps its rate (drops/repeats frames); frame-list formats change
+  // their delays and keep every frame, up to the format's max fps.
   const maxFps = source.format && MAX_FPS[source.format];
   const fps = maxFps ? Math.min(sourceFps * multiplier, maxFps) : sourceFps;
   return sourceRender(source, {
     filter: `${videoPad(source)}setpts=PTS/${multiplier},fps=${frameRate(fps)}[out]`,
-    // Like the other tools that change a clip's timing, without its audio.
     keepAudio: false,
     duration: source.profile.duration / multiplier,
     fps,
-    // The frames that stay go by this much faster, and keep their bits.
     pace: fps / sourceFps,
   });
 }
@@ -54,8 +46,7 @@ export const speed: Tool = {
     const multiplier = ratio >= 0 ? 1 + ratio : 1 / (1 - ratio);
 
     const source = await openSource(job, inputs[0]);
-    // Comes back in the format it came in, and at the quality: the tool has
-    // no slider, so it spends what keeping the source's look takes (rate.ts).
+    // No quality slider: spend what keeping the source's look takes (rate.ts).
     const format = preservedFormat(source);
     console.log(`Changing playback speed of ${format} by ${multiplier}x...`);
 

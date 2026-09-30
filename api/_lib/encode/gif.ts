@@ -12,19 +12,14 @@ import {
   sourceBytesBudget,
 } from "./render.js";
 
-// Two budgets for a GIF, both about the PNG frames gifski reads: their
-// number (the list is gifski's command line, and Windows ends those at 32k
-// characters) and their pixels (they land on the function's ~500MB ephemeral
-// disk; this many is what 600 frames at 800×800 come to, which is what the
-// converter has always allowed).
+// Frames go on gifski's command line (Windows: 32k chars); pixels land on the
+// function's ~500MB ephemeral disk.
 const MAX_GIF_FRAMES = 1500;
 const MAX_GIF_PIXELS = 600 * 800 * 800;
 
-// GIF delays are whole centiseconds and browsers slow anything under 2cs
-// down, so 50 is the most frames a second it can show.
+// Delays are whole centiseconds; browsers slow anything under 2cs.
 export const MAX_GIF_FPS = 50;
 
-// Width and height of a PNG, from its IHDR chunk.
 async function pngSize(file: string): Promise<[number, number]> {
   const handle = await fs.open(file, "r");
   try {
@@ -37,17 +32,13 @@ async function pngSize(file: string): Promise<[number, number]> {
   }
 }
 
-// Every GIF goes through the vendored gifski binary rather than ffmpeg's own
-// GIF encoder: ffmpeg renders the frames, gifski brings pngquant palettes
-// and temporal dithering.
+// gifski over ffmpeg's GIF encoder for pngquant palettes and temporal dithering.
 export const encodeGif: Encoder = async (
   ff,
   render,
   { outputFile, quality, fps = null, width = 640, everyFrame = false },
 ) => {
-  // No explicit fps → match the pictures, capped at 30: gifski alternates
-  // 3cs and 4cs delays for it, and past that a converted video only gets
-  // heavier. (A tool that hands a GIF back asks for the GIF's own rate.)
+  // Capped at 30 (gifski alternates 3cs/4cs); more only adds weight.
   if (fps == null) {
     fps = Math.max(1, Math.round(conversionFps(render)));
   }
@@ -57,7 +48,7 @@ export const encodeGif: Encoder = async (
       `${width == null ? "source size" : `${width}px`})...`,
   );
 
-  // A palindrome's second half is the first half's files again, backwards.
+  // A palindrome reuses the first half's files backwards.
   const total = Math.ceil(render.duration * fps);
   const rendered = render.palindrome ? Math.ceil(total / 2) : total;
   const size = scaledSize(render, width);
@@ -72,7 +63,6 @@ export const encodeGif: Encoder = async (
     );
   }
 
-  // Frames the tool already has as files are read where they are.
   const given = render.frames?.length && width == null ? render.frames : null;
   const framesDir = given
     ? path.dirname(given[0])
@@ -82,15 +72,13 @@ export const encodeGif: Encoder = async (
   try {
     const chain = everyFrame ? [] : [`fps=${fps}`];
     if (width != null) chain.push(fitWidth(width));
-    // Transparency survives the PNG frames only if nothing on the way picks
-    // an opaque format for them.
+    // Otherwise negotiation may pick an opaque format and drop transparency.
     if (render.source && hasAlpha(render.source.profile.pixFmt)) {
       chain.push("format=rgba");
     }
     if (!given) {
       await ff.runFFmpeg([
         ...graphArgs({ ...render, palindrome: false }, chain, "rgba"),
-        // One file per picture, whatever their timestamps say.
         ...(everyFrame ? ["-fps_mode", "passthrough"] : []),
         path.join(framesDir, "frame_%05d.png"),
       ]);
@@ -106,21 +94,16 @@ export const encodeGif: Encoder = async (
       ? [...forward, ...[...forward].reverse()]
       : forward;
 
-    // Without a size gifski scales anything beyond about 800×600 down on
-    // its own, so it is always told the size the frames already have.
+    // Without an explicit size gifski downscales past ~800×600.
     const [w, h] = await pngSize(path.join(framesDir, forward[0]));
 
-    // gifski has no rate control, only its 1–100 quality, and that moves
-    // size in steps (hardly anything between 90 and 70, a lot at 100 → 90
-    // and again at 50). So a GIF that outgrows its source is encoded again
-    // one step down, from the frames already on disk — while there is time.
+    // gifski quality moves size in steps (100→90 and →50; little between
+    // 90 and 70), so over-budget retries use those.
     const budget = await sourceBytesBudget(render, "gif", frames.length);
     const ladder = [...new Set([quality, Math.min(quality, 90), Math.min(quality, 50)])];
     for (const [i, step] of ladder.entries()) {
       const started = Date.now();
-      // spawn uses no shell, so the frames are explicit arguments: bare
-      // names, from inside their folder, to stay under the platform's
-      // command line limit (Windows: 32k characters).
+      // No shell globbing: bare names from cwd keep under Windows' 32k limit.
       await ff.runGifski(
         [
           "--fps",

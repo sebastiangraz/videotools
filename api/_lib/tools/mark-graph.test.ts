@@ -11,9 +11,7 @@ import {
 } from "./mark-graph.js";
 
 
-// Nothing here pins a tuned number: what the layout should come to is worked
-// out from MARK, so the constants can be tweaked freely and the tests keep
-// checking the model (the area budget, the frame-based gap, the bounds).
+// Expectations derive from MARK, so the tuned constants can change freely.
 const HD = { width: 1920, height: 1080 };
 // Big enough that rounding to even pixels is well under a percent.
 const UHD = { width: 3840, height: 2160 };
@@ -28,8 +26,7 @@ const layout = (
     height: Math.round(base / Math.sqrt(aspect)),
   });
 
-// The suite runs on the values as tuned and on two quite different tunings,
-// so it is known to hold across the range the constants might move in.
+// Two alternative tunings prove the model holds as the constants move.
 const TUNINGS: [string, Partial<typeof MARK>][] = [
   ["as tuned", {}],
   [
@@ -126,7 +123,6 @@ describe.each(TUNINGS)("watermarkLayout (%s)", (_name, tuning) => {
         for (const n of [l.VW, l.VH, l.LW, l.LH]) expect(n % 2).toBe(0);
         expect(l.LW).toBeLessThanOrEqual(MARK.maxSpan * l.VW + 1);
         expect(l.LH).toBeLessThanOrEqual(MARK.maxSpan * l.VH + 1);
-        // The cell: the logo plus the margin on every side.
         expect(l.LX - l.margin).toBeGreaterThanOrEqual(0);
         expect(l.LY - l.margin).toBeGreaterThanOrEqual(0);
         expect(l.LX + l.LW + l.margin).toBe(l.VW);

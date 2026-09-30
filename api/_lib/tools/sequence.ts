@@ -8,27 +8,21 @@ import type { Tool, ToolJob } from "./types.js";
 
 const MAX_IMAGES = 100;
 
-// The longest side a sequence's frames get: bounds gif/avif encode cost.
+// Bounds gif/avif encode cost.
 const MAX_SIDE = 1920;
 
-// Stills, one after the other, each shown for `frameDuration` seconds. The
-// one tool with a format of its own to pick: stills have none to hand back.
 async function imageSequence(
   { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
   imagePaths: string[],
   { frameDuration, format }: { frameDuration: number; format: FormatId },
 ): Promise<Render> {
-  // Target frame size: first image's dimensions, capped at MAX_SIDE on the
-  // longest side, floored to even for yuv420p/x264.
+  // Floored to even for yuv420p/x264.
   const { width: w, height: h } = await ff.mediaInfo(imagePaths[0]);
   const scaleFactor = Math.min(1, MAX_SIDE / Math.max(w, h));
   const W = Math.max(2, Math.floor((w * scaleFactor) / 2) * 2);
   const H = Math.max(2, Math.floor((h * scaleFactor) / 2) * 2);
 
-  // Normalize every image to a uniform PNG frame (mixed formats and
-  // dimensions are the norm for user uploads; the sequence demuxer
-  // needs identical frames). Lossless, so nothing is spent before the one
-  // encode.
+  // The image2 demuxer needs identical frames; PNG keeps this step lossless.
   const framesDir = path.join(workDir, "frames");
   await fs.mkdir(framesDir, { recursive: true });
   const frames: string[] = [];
@@ -50,9 +44,8 @@ async function imageSequence(
     frames.push(framePath);
   }
 
-  // Video gets a constant 30 fps (each still repeated by the fps filter),
-  // so every player handles it: a frame every few seconds is a rate many
-  // of them refuse. The animated-image formats hold one frame per still.
+  // Many players refuse a video at one frame every few seconds, so mp4 gets a
+  // constant 30 fps; animated images hold one frame per still.
   const video = format === "mp4";
   return {
     inputArgs: [
@@ -104,10 +97,7 @@ export const sequence: Tool = {
     );
 
     const render = await imageSequence(job, imagePaths, { frameDuration, format });
-    // The pictures as they are: one frame per still, at their own size.
-    // Stills are pristine, which is what AVIF's lossless mode (at 100) and
-    // full chroma resolution (from 90) are for; a video's frames have been
-    // through both losses already, so conversions never ask for them.
+    // Stills are pristine, so they alone get AVIF's lossless and 4:4:4 modes.
     const outputPath = await encodeRender(job, render, {
       format,
       quality,

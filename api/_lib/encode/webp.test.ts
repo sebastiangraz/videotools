@@ -61,7 +61,6 @@ describe("isLosslessWebp", () => {
   });
 });
 
-// Only what isLosslessSource reads of a source.
 const source = (
   format: Source["format"],
   codec: string,

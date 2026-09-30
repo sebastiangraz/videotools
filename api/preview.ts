@@ -12,11 +12,7 @@ import {
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { allowMethods, runJob } from "./_lib/request.js";
 
-// Renders the "mark" tool's preview: the browser sends the video's first
-// frame (a small JPEG it grabbed itself) and the logo (a PNG or SVG) as data URLs,
-// and gets back one frame composited by the same ffmpeg graph the encode
-// uses. Both images travel inline: the frame is downscaled client-side and
-// logos are small, so there is no need for Blob storage here.
+// Frame and logo travel inline as data URLs (both small), skipping Blob storage.
 const MAX_BYTES = 8 * 1024 * 1024;
 
 type PreviewBody = {
@@ -27,7 +23,6 @@ type PreviewBody = {
   view?: unknown;
 };
 
-// Decodes an image data URL into bytes. Null when it isn't one.
 function decodeDataUrl(value: unknown): Uint8Array | null {
   if (typeof value !== "string") return null;
   const match = /^data:image\/[\w.+-]+;base64,([A-Za-z0-9+/=]+)$/.exec(value);
@@ -48,10 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(413).json({ error: "Preview images too large" });
   }
 
-  // A stale preview (the user toggled again) is abandoned client-side; a
-  // logo that is no PNG or SVG is the caller's to fix (a 400).
   await runJob(res, "Preview", async (workDir, signal) => {
-    // (The names only make ffmpeg's logs readable; it sniffs the content.)
+    // Names are cosmetic; ffmpeg sniffs the content.
     const framePath = path.join(workDir, "frame.jpg");
     const logoPath = path.join(workDir, "logo.png");
     await fsp.writeFile(framePath, frameImage);

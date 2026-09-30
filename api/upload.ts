@@ -13,9 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       request: req,
       onBeforeGenerateToken: () =>
         Promise.resolve({
-          // ffmpeg detects the container from the file content, so accept any
-          // video/image type; octet-stream covers formats the browser can't
-          // identify (e.g. .mkv or .avi on some systems).
+          // octet-stream: browsers can't type .mkv/.avi on some systems.
           allowedContentTypes: ["video/*", "image/*", "application/octet-stream"],
           maximumSizeInBytes: MAX_UPLOAD_BYTES,
           addRandomSuffix: true,

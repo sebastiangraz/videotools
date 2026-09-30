@@ -5,8 +5,6 @@ import { clamp, pick, singleVideo } from "../request.js";
 import { openSource } from "../source.js";
 import type { Tool } from "./types.js";
 
-// No transformation of its own: the source goes straight to the output stage
-// (encode/), with the format and quality the user picked.
 export const convert: Tool = {
   inputs: singleVideo,
   async run(job) {
@@ -14,8 +12,7 @@ export const convert: Tool = {
     const target = pick(options.target, FORMAT_IDS, "mp4");
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
-    // Any source ffmpeg reads will do here: this is the tool that turns the
-    // ones no other tool can hand back (avi, mkv, ...) into ones they can.
+    // Unlike other tools, accepts any readable source (avi, mkv, ...).
     const source = await openSource(job, inputs[0]);
     const render = sourceRender(source);
 
@@ -24,10 +21,8 @@ export const convert: Tool = {
       quality,
       ...(target === "gif"
         ? {
-            // Absent fps → match the source framerate (capped in the
-            // encoder). 30 is the practical GIF ceiling: delays are
-            // centiseconds, so gifski alternates 3/4cs frames for 30fps;
-            // browsers clamp ≥50fps.
+            // null = source fps. GIF delays are centiseconds (30fps alternates
+            // 3/4cs) and browsers clamp ≥50fps, so 30 is the practical cap.
             fps:
               options.fps == null
                 ? null

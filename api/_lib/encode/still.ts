@@ -12,34 +12,17 @@ import {
 } from "./render.js";
 import { WEBP_LOSSLESS, webpLevels } from "./webp.js";
 
-// mjpeg's scale: 1 is its finest, 31 its coarsest.
 const JPEG_COARSEST = 31;
 
-// The mjpeg settings the slider stands for (levelRange).
 const jpegLevels = (quality: number) =>
   levelRange(
     Math.round(1 + ((100 - quality) / 99) * (JPEG_COARSEST - 1)),
     JPEG_COARSEST,
   );
 
-// The stills' side of the output stage: the one picture a render of a still
-// source comes to, written as the kind of image the source is (the mark tool
-// is the only one that has any).
-//   PNG   lossless whatever the slider says, with alpha if the source has it.
-//         (8 bits a channel: the graphs composite in RGBA.)
-//   JPEG  the slider runs over mjpeg's whole scale, 100 = its finest (-q:v 1),
-//         at the source's chroma subsampling.
-//   WebP  lossless at 100 if the source is; else lossy on the animated
-//         encoder's curve (webp.ts). A lossy source written lossless would be
-//         several times its size for nothing: its losses are in the pixels
-//         already.
-// Quality is relative to the source here too. A video is held to a share of
-// its source's bitrate (rate.ts); a lossy still, which has no rate control,
-// to the same share of its source's bytes, plus TOOL_ALLOWANCE for what the
-// mark adds. Without it 100 is the codec's finest whatever the source was saved
-// at, and encodes its artifacts as detail: libwebp's 100 came to 3.2× a
-// photo saved at 85. A picture over the ceiling is encoded again coarser,
-// bisecting the settings the slider has left; these encodes take a second.
+// PNG is always lossless; WebP only at 100 from a lossless source. Lossy
+// stills are capped at quality% of the source's bytes (+TOOL_ALLOWANCE):
+// uncapped, libwebp 100 came to 3.2× a photo saved at 85.
 export async function encodeStill(
   { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
   render: Render,
@@ -48,7 +31,6 @@ export async function encodeStill(
   const pixFmt = render.source?.profile.pixFmt ?? "";
   console.log(`Encoding ${still} (quality ${quality})...`);
   const outputFile = path.join(workDir, `output.${still}`);
-  // The pictures to encode: the tool's render, until a file stands in for it.
   let pictures = render;
   const encode = (codecArgs: string[], to = outputFile) =>
     ff.runFFmpeg([
@@ -77,8 +59,7 @@ export async function encodeStill(
   }
 
   const levels = still === "jpg" ? jpegLevels(quality) : webpLevels(quality);
-  // What the encoder takes of what JPEGs come in; grey, CMYK and the odd
-  // subsamplings get full chroma, since the logo may bring colour.
+  // Grey, CMYK and odd subsamplings get full chroma: the logo may add colour.
   const jpegPixFmt = /^yuvj4(20|22|44)p$/.test(pixFmt) ? pixFmt : "yuvj444p";
   const codecArgs = (level: number) =>
     still === "jpg"
@@ -107,10 +88,7 @@ export async function encodeStill(
   };
   if (await fits(0)) return outputFile;
 
-  // More tries to come, so the marked picture is rendered once more, to a
-  // PNG (lossless, so no generation is lost to it, and barely compressed,
-  // since it is gone in a moment), and the tries read that: what a try
-  // costs is then the encode and not the tool's graph.
+  // Render the graph once to a fast lossless PNG so retries only re-encode.
   const marked = path.join(workDir, "marked.png");
   await encode(
     ["-c:v", "png", "-compression_level", "1", "-pix_fmt", "rgba"],
@@ -118,7 +96,6 @@ export async function encodeStill(
   );
   pictures = { ...render, inputArgs: ["-i", marked], filter: undefined, source: null };
 
-  // The finest setting that fits, or the coarsest of all, tried or not.
   const { pick } = await bisect(levels.length, fits);
   console.log(
     `Over the ${Math.round(ceiling)} bytes its source allows at ` +
