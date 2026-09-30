@@ -1,9 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
 
-import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { renderWatermarkFrame } from "./_lib/tools/mark.js";
 import {
@@ -12,6 +10,7 @@ import {
   isMarkView,
 } from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
+import { allowMethods, runJob } from "./_lib/request.js";
 
 // Renders the "mark" tool's preview: the browser sends the video's first
 // frame (a small JPEG it grabbed itself) and the logo (a PNG or SVG) as data URLs,
@@ -37,9 +36,7 @@ function decodeDataUrl(value: unknown): Uint8Array | null {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (!allowMethods(req, res, "POST")) return;
 
   const { frame, logo, filter, size, view } = (req.body ?? {}) as PreviewBody;
   const frameImage = decodeDataUrl(frame);
@@ -51,19 +48,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(413).json({ error: "Preview images too large" });
   }
 
-  let workDir: string | undefined;
-
-  // A stale preview (the user toggled again) is abandoned client-side; stop
-  // rendering it when the disconnect reaches the function.
-  const abort = new AbortController();
-  res.on("close", () => {
-    if (!res.writableFinished) abort.abort();
-  });
-
-  try {
-    workDir = await fsp.mkdtemp(
-      path.join(os.tmpdir(), "videotools-preview-"),
-    );
+  // A stale preview (the user toggled again) is abandoned client-side; a
+  // logo that is no PNG or SVG is the caller's to fix (a 400).
+  await runJob(res, "Preview", "videotools-preview-", async (workDir, signal) => {
     // (The names only make ffmpeg's logs readable; it sniffs the content.)
     const framePath = path.join(workDir, "frame.jpg");
     const logoPath = path.join(workDir, "logo.png");
@@ -71,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await fsp.writeFile(logoPath, logoImage);
 
     const outputPath = await renderWatermarkFrame(
-      new FFmpeg(ffmpegPath, gifskiPath, abort.signal),
+      new FFmpeg(ffmpegPath, gifskiPath, signal),
       framePath,
       logoPath,
       workDir,
@@ -82,20 +69,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Cache-Control", "no-store");
-    return res.status(200).send(await fsp.readFile(outputPath));
-  } catch (err) {
-    if (abort.signal.aborted) return;
-    console.error("Preview error:", err);
-    // A logo that is no PNG or SVG is the caller's to fix, not a server fault.
-    if (err instanceof InputError) {
-      return res.status(400).json({ error: err.message, code: err.code });
-    }
-    return res.status(500).json({
-      error: err instanceof Error ? err.message : "Preview failed",
-    });
-  } finally {
-    if (workDir) {
-      await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
-    }
-  }
+    res.status(200).send(await fsp.readFile(outputPath));
+  });
 }

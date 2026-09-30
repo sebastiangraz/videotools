@@ -1,7 +1,10 @@
-import { spawn } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { InputError } from "./errors.js";
 
-// Only `cwd` is ever passed through to spawn.
+const execFileAsync = promisify(execFile);
+
+// Only `cwd` is ever passed through to execFile.
 type RunOptions = { cwd?: string };
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
@@ -211,14 +214,6 @@ export class FFmpeg {
     this.signal = signal;
   }
 
-  async duration(inputFile: string): Promise<number> {
-    return (await this.mediaInfo(inputFile)).duration;
-  }
-
-  async fps(inputFile: string): Promise<number> {
-    return (await this.mediaInfo(inputFile)).fps ?? 30;
-  }
-
   // ffmpeg itself reports everything the tools need to know about an input,
   // so there is no separate ffprobe binary to ship. `ffmpeg -i` with no
   // output prints the stream summary to stderr and exits non-zero, which is
@@ -366,10 +361,10 @@ export class FFmpeg {
   }
 
   // Resolves with the child's stdout; a non-zero exit is an error.
-  async runCommand(
+  private async runCommand(
     command: string,
     args: string[],
-    options: RunOptions = {},
+    options: RunOptions,
   ): Promise<string> {
     const { code, stdout, stderr } = await this.run(command, args, options);
     if (code === 0) return stdout;
@@ -382,57 +377,56 @@ export class FFmpeg {
     throw new Error(`Command failed: ${stderr || `Exit code ${code}`}`);
   }
 
-  // Runs the child to completion and reports its exit code and output;
-  // rejects only when it could not be started or was cancelled.
-  run(
+  // Runs the child to completion and reports its exit code and output: a
+  // non-zero exit resolves too, since probes like `ffmpeg -i` always end
+  // in one. Rejects only when it could not be started or was cancelled.
+  async run(
     command: string,
     args: string[],
     options: RunOptions = {},
   ): Promise<RunResult> {
-    return new Promise<RunResult>((resolve, reject) => {
-      console.log(`Running: ${command} ${args.join(" ")}`);
-      if (options.cwd) {
-        console.log(`Working directory: ${options.cwd}`);
-      }
+    console.log(`Running: ${command} ${args.join(" ")}`);
+    if (options.cwd) {
+      console.log(`Working directory: ${options.cwd}`);
+    }
 
-      // Node kills the child (SIGKILL: the partial output is discarded
-      // anyway) when the signal fires, and emits 'error' if it already had.
-      const signal = this.signal ?? undefined;
-      const process = spawn(command, args, {
-        stdio: ["ignore", "pipe", "pipe"],
+    // Node kills the child (SIGKILL: the partial output is discarded
+    // anyway) when the signal fires.
+    const signal = this.signal ?? undefined;
+    const cancelled = () => new Error("Cancelled");
+    try {
+      const running = execFileAsync(command, args, {
+        cwd: options.cwd,
         signal,
         killSignal: "SIGKILL",
-        ...options,
+        maxBuffer: Infinity,
       });
-
-      let stdout = "";
-      let stderr = "";
-
-      process.stdout.on("data", (data: Buffer) => {
-        stdout += data.toString();
+      // Nothing is fed to the child: EOF right away, as an ignored stdin.
+      running.child.stdin?.end();
+      const { stdout, stderr } = await running;
+      if (signal?.aborted) throw cancelled();
+      return { code: 0, stdout, stderr };
+    } catch (error) {
+      if (signal?.aborted) throw cancelled();
+      const failure = error as NodeJS.ErrnoException & {
+        code?: number | string | null;
+        stdout?: string;
+        stderr?: string;
+      };
+      // A child that ran and exited (or died of a signal) carries its
+      // output; one that never started has a syscall ("spawn ...").
+      if (failure.syscall === undefined && typeof failure.stderr === "string") {
+        return {
+          code: typeof failure.code === "number" ? failure.code : null,
+          stdout: failure.stdout ?? "",
+          stderr: failure.stderr,
+        };
+      }
+      console.error(`Failed to start command: ${command} ${args.join(" ")}`);
+      console.error(`Error: ${failure.message}`);
+      throw new Error(`Failed to start command: ${failure.message}`, {
+        cause: error,
       });
-
-      process.stderr.on("data", (data: Buffer) => {
-        stderr += data.toString();
-      });
-
-      process.on("close", (code) => {
-        if (signal?.aborted) {
-          reject(new Error("Cancelled"));
-        } else {
-          resolve({ code, stdout, stderr });
-        }
-      });
-
-      process.on("error", (error) => {
-        if (signal?.aborted) {
-          reject(new Error("Cancelled"));
-          return;
-        }
-        console.error(`Failed to start command: ${command} ${args.join(" ")}`);
-        console.error(`Error: ${error.message}`);
-        reject(new Error(`Failed to start command: ${error.message}`));
-      });
-    });
+    }
   }
 }

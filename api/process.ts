@@ -1,17 +1,18 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { put, del } from "@vercel/blob";
 import fs from "node:fs";
-import fsp from "node:fs/promises";
-import path from "node:path";
-import os from "node:os";
 
 import { mimeOf } from "../shared/formats.js";
 import { isToolId } from "../shared/tools.js";
-import { InputError } from "./_lib/errors.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
-import { downloadBlob, isBlobUrl } from "./_lib/request.js";
+import {
+  allowMethods,
+  downloadBlob,
+  isBlobUrl,
+  runJob,
+} from "./_lib/request.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { sweepStaleBlobs } from "./_lib/blob-sweep.js";
 
@@ -23,6 +24,8 @@ type ProcessBody = Partial<ToolRequest> & {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (!allowMethods(req, res, "DELETE", "POST")) return;
+
   if (req.method === "DELETE") {
     const { urls } = (req.body ?? {}) as { urls?: unknown };
     const valid = Array.isArray(urls) ? urls.filter(isBlobUrl) : [];
@@ -30,10 +33,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await del(valid).catch(() => {});
     }
     return res.status(204).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const {
@@ -68,26 +67,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const inputBlobUrls = picked;
 
-  let workDir: string | undefined;
+  const base = String(filename)
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^\w.-]/g, "_");
 
-  // The client's Stop button aborts its request. When the disconnect
-  // reaches the function (best effort: it depends on the platform
-  // propagating it), stop encoding instead of finishing work nobody will
-  // download. The response's 'close' fires on normal completion too, hence
-  // the writableFinished check.
-  const abort = new AbortController();
-  res.on("close", () => {
-    if (!res.writableFinished) abort.abort();
-  });
-  const { signal } = abort;
-
-  try {
-    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), "videotools-"));
-
-    const base = String(filename)
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^\w.-]/g, "_");
-
+  await runJob(res, "Processing", "videotools-", async (workDir, signal) => {
     const { outputPath, suffix, ext } = await run({
       ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
       workDir,
@@ -108,33 +92,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     );
 
-    return res.status(200).json({
+    res.status(200).json({
       url: result.url,
       downloadUrl: result.downloadUrl,
       filename: outputName,
     });
-  } catch (err) {
-    if (signal.aborted) {
-      // Nobody is listening any more; just clean up (finally).
-      console.log("Processing cancelled by client");
-      return;
-    }
-    console.error("Processing error:", err);
-    // What is wrong with the input (a source the tool cannot hand back, a
-    // clip too long for the format, ...) is the user's to fix, not a server
-    // fault; the code lets the client tell these apart.
-    if (err instanceof InputError) {
-      return res.status(400).json({ error: err.message, code: err.code });
-    }
-    return res.status(500).json({
-      error: err instanceof Error ? err.message : "Processing failed",
-    });
-  } finally {
-    await del(inputBlobUrls).catch(() => {});
-    if (workDir) {
-      await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
-    }
-    // Runs after the response has been sent, so the client never waits on it.
-    await sweepStaleBlobs(inputBlobUrls);
-  }
+  });
+  // runJob answers every failure itself; the uploads go either way.
+  await del(inputBlobUrls).catch(() => {});
+  // Runs after the response has been sent, so the client never waits on it.
+  await sweepStaleBlobs(inputBlobUrls);
 }
