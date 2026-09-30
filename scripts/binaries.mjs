@@ -4,7 +4,7 @@
 //
 // To upgrade (rare): gzip each platform's new binary, `gh release create
 // <tool>-<version>` with the .gz files attached, update the entry below, then
-// `npm install` and `npm run smoke -- <label> --diff <previous label>`.
+// `bun install` and `bun run smoke -- <label> --diff <previous label>`.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 

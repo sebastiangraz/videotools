@@ -1,7 +1,7 @@
 // Postinstall: fetches the binaries BINARIES (binaries.mjs) pins into
 // api/_bin/<tool>/<platform>/ (on Vercel, before the functions are bundled).
 //
-//   BIN_PLATFORM=linux-x64 node scripts/binaries-install.mjs
+//   BIN_PLATFORM=linux-x64 bun scripts/binaries-install.mjs
 //                         another platform's binaries (to inspect them; the
 //                         app only uses the host's)
 import { createHash } from "node:crypto";

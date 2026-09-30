@@ -1,7 +1,7 @@
 // Checks an ffmpeg has the pinned version and everything api/_lib/ spawns it
 // with, so a build missing a library fails here rather than on a user's file.
 //
-//   node scripts/ffmpeg-check.mjs [<ffmpeg path>]   default: the pinned one
+//   bun scripts/ffmpeg-check.mjs [<ffmpeg path>]    default: the pinned one
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { BINARIES, binaryPath } from "./binaries.mjs";

@@ -15,7 +15,7 @@ const pinned = (tool: string): string =>
 const required = (tool: string, file: string): string => {
   if (!fs.existsSync(file)) {
     throw new Error(
-      `No ${tool} at ${file}; run \`node scripts/binaries-install.mjs\` (npm install does)`,
+      `No ${tool} at ${file}; run \`bun scripts/binaries-install.mjs\` (bun install does)`,
     );
   }
   return file;

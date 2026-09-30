@@ -2,13 +2,12 @@
 // (no Vercel/Blob), recording every command and output. Refactors must diff
 // identical; failed `expect`s exit 1. Outputs: .smoke/<label>/runs/<case>/.
 //
-//   npm run smoke -- before                        run all cases into .smoke/before
-//   npm run smoke -- after --diff before           run again and compare
-//   npm run smoke -- gif --only gif,webp           only cases whose name contains these
-//   npm run smoke -- next --ffmpeg <path>          an ffmpeg other than the pinned one
-//   npm run smoke -- real --assets D:/footage      own inputs (default scripts/smoke-assets)
+//   bun run smoke -- before                        run all cases into .smoke/before
+//   bun run smoke -- after --diff before           run again and compare
+//   bun run smoke -- gif --only gif,webp           only cases whose name contains these
+//   bun run smoke -- next --ffmpeg <path>          an ffmpeg other than the pinned one
+//   bun run smoke -- real --assets D:/footage      own inputs (default scripts/smoke-assets)
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -38,10 +37,9 @@ const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 const args = parseArgs(process.argv.slice(2));
 const outDir = path.join(smokeDir, args.label);
 fs.rmSync(outDir, { recursive: true, force: true });
-const buildDir = path.join(outDir, "build");
-build(buildDir);
-const load = (rel) => import(pathToFileURL(path.join(buildDir, rel)).href);
-const { GENERATION } = await load("api/_lib/encode/rate.js");
+// Bun runs the api's TypeScript as is (its .js specifiers resolve to .ts).
+const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
+const { GENERATION } = await load("api/_lib/encode/rate.ts");
 
 // Each case is a /api/process request (`preview`: /api/preview's single frame).
 // `expect`:
@@ -192,35 +190,12 @@ function parseArgs(argv) {
   }
   if (!args.label || !/^[\w.-]+$/.test(args.label)) {
     console.error(
-      "usage: npm run smoke -- <label> [--diff <label>] [--only <text,text>] " +
+      "usage: bun run smoke -- <label> [--diff <label>] [--only <text,text>] " +
         "[--ffmpeg <path>] [--assets <dir>]",
     );
     process.exit(2);
   }
   return args;
-}
-
-// Vercel compiles the functions at deploy; emit a build inside the repo so
-// its imports still resolve node_modules.
-function build(outDir) {
-  const require = createRequire(path.join(root, "package.json"));
-  const tsc = spawnSync(
-    process.execPath,
-    [
-      require.resolve("typescript/bin/tsc"),
-      "-p",
-      path.join(root, "tsconfig.json"),
-      "--noEmit",
-      "false",
-      "--outDir",
-      outDir,
-      // Not api/: the functions import shared/.
-      "--rootDir",
-      root,
-    ],
-    { stdio: "inherit" },
-  );
-  if (tsc.status !== 0) process.exit(tsc.status ?? 1);
 }
 
 function resolveAssets(ffmpeg, userDir, madeDir) {
@@ -484,12 +459,12 @@ function diff(
   return false;
 }
 
-const { FFmpeg } = await load("api/_lib/ffmpeg.js");
-const { TOOLS } = await load("api/_lib/tools/index.js");
-const { renderWatermarkFrame } = await load("api/_lib/tools/mark.js");
-// binaries.js resolves gifski from the cwd, as it does on Vercel.
+const { FFmpeg } = await load("api/_lib/ffmpeg.ts");
+const { TOOLS } = await load("api/_lib/tools/index.ts");
+const { renderWatermarkFrame } = await load("api/_lib/tools/mark.ts");
+// binaries.ts resolves gifski from the cwd, as it does on Vercel.
 process.chdir(root);
-const binaries = await load("api/_lib/binaries.js");
+const binaries = await load("api/_lib/binaries.ts");
 const ffmpegPath = args.ffmpeg ?? binaries.ffmpegPath;
 const ffmpegCheck = checkFfmpeg(ffmpegPath, {
   version: args.ffmpeg ? undefined : pinnedVersion(),
@@ -672,7 +647,6 @@ fs.writeFileSync(
   path.join(outDir, "results.json"),
   JSON.stringify(results, null, 1),
 );
-fs.rmSync(buildDir, { recursive: true, force: true });
 say(`\nsaved to ${path.relative(root, outDir)}`);
 
 const brokenNames = Object.keys(broken);

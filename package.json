@@ -8,24 +8,23 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "npm run vercel",
-    "vercel": "vercel dev",
-    "build": "npm run build --workspace client",
-    "test": "npm run test --workspace client",
-    "smoke": "node scripts/smoke.mjs",
-    "postinstall": "node scripts/binaries-install.mjs",
-    "lint": "oxlint",
+    "dev": "vercel dev",
+    "build": "bun --filter client build",
+    "test": "bun --filter client test",
+    "smoke": "bun scripts/smoke.mjs",
+    "postinstall": "bun scripts/binaries-install.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p client",
+    "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check"
   },
   "dependencies": {
-    "@vercel/blob": "^2.8.0"
+    "@vercel/blob": "^2.8.0",
+    "@vercel/functions": "^3.9.9"
   },
   "devDependencies": {
     "@types/node": "^24.19.0",
-    "@vercel/node": "^16.0.2",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
     "oxlint-tsgolint": "^7.0.2003",
