@@ -23,9 +23,9 @@ export const MARK = {
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1, //0.1
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
-  refractRatio: 1.03, //0.088 of the frame minimum
+  refractRatio: 1.0, //0.088 of the frame minimum
   // Red and blue edge shift split around green.
-  chroma: 0.08, //0.15
+  chroma: 0.02, //0.15
   // Light direction in degrees clockwise from the top.
   lightAngle: -45, //-45
   // Lit rim opacity.
