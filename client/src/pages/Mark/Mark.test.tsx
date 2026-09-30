@@ -363,14 +363,14 @@ describe("Mark", () => {
     await user.click(document.body);
     await user.keyboard("{Shift>}D{/Shift}");
     const displacement = await screen.findByRole("switch", {
-      name: /displacement map/i,
+      name: /depth map/i,
     });
     await user.click(displacement);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(view(1)).toBe("displacement");
 
     // The clear glass takes over from the map, whose switch goes off
-    const clear = screen.getByRole("switch", { name: /clear glass/i });
+    const clear = screen.getByRole("switch", { name: /pure glass/i });
     await user.click(clear);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(view(2)).toBe("clear");
