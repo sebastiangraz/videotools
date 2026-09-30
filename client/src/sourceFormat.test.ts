@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  byFilename,
   fileFormat,
   formatBlock,
   formatBlocker,
@@ -7,7 +8,9 @@ import {
   isAnimatedImage,
   isAnimatedWebp,
   isStillImage,
+  pickedFormats,
   stillFormat,
+  targetsFor,
 } from "./sourceFormat";
 import { file, webpFile } from "./test/media";
 
@@ -77,7 +80,9 @@ describe("stills", () => {
     expect(await isAnimatedWebp(webpFile("photo.webp", 0x02))).toBe(true);
     expect(await isAnimatedWebp(webpFile("photo.webp", 0x12))).toBe(true);
     expect(await isAnimatedWebp(webpFile("photo.webp", 0x10))).toBe(false);
-    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02, "VP8 "))).toBe(false);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02, "VP8 "))).toBe(
+      false,
+    );
     expect(await isAnimatedWebp(file("photo.webp", "image/webp"))).toBe(false);
   });
 });
@@ -99,5 +104,43 @@ describe("hasFrames", () => {
     expect(hasFrames(file("download", "image/gif"))).toBe(true);
     expect(hasFrames(file("photo.png", "image/png"))).toBe(true);
     expect(hasFrames(file("notes.txt", "text/plain"))).toBe(false);
+  });
+});
+
+describe("targetsFor", () => {
+  it("offers every format but the source's own", () => {
+    const all = targetsFor(null).map((t) => t.value);
+    expect(all).toContain("mov");
+    expect(
+      targetsFor(file("clip.mov", "video/quicktime")).map((t) => t.value),
+    ).toEqual(all.filter((id) => id !== "mov"));
+    expect(targetsFor(file("clip.avi", "video/x-msvideo"))).toHaveLength(
+      all.length,
+    );
+  });
+});
+
+describe("pickedFormats", () => {
+  it("names each format once, a still's under its own label", () => {
+    const png = file("a.png", "image/png");
+    expect(pickedFormats([png, file("b.PNG")])).toEqual(["PNG"]);
+    expect(pickedFormats([file("c.jpg"), file("d.jpeg")])).toEqual(["JPEG"]);
+    expect(pickedFormats([png, file("b.jpg"), file("c.xyz")])).toEqual([
+      "PNG",
+      "JPEG",
+      "XYZ",
+    ]);
+  });
+});
+
+describe("byFilename", () => {
+  it("sorts in natural order", () => {
+    const names = ["img10.png", "b.png", "img2.png", "a.png"];
+    expect(
+      names
+        .map((name) => file(name))
+        .sort(byFilename)
+        .map((f) => f.name),
+    ).toEqual(["a.png", "b.png", "img2.png", "img10.png"]);
   });
 });
