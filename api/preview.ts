@@ -58,13 +58,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await fsp.writeFile(logoPath, logoImage);
 
     const outputPath = await renderWatermarkFrame(
-      new FFmpeg(ffmpegPath, gifskiPath, signal),
-      framePath,
-      logoPath,
-      workDir,
-      isMarkFilter(filter) ? filter : "glass",
-      isMarkSize(size) ? size : "large",
-      isMarkView(view) ? view : "render",
+      { ff: new FFmpeg(ffmpegPath, gifskiPath, signal), workDir },
+      {
+        frameFile: framePath,
+        logoFile: logoPath,
+        filter: isMarkFilter(filter) ? filter : "glass",
+        size: isMarkSize(size) ? size : "large",
+        view: isMarkView(view) ? view : "render",
+      },
     );
 
     res.setHeader("Content-Type", "image/jpeg");

@@ -549,7 +549,10 @@ for (const name of names) {
         fs.copyFileSync(f, copy);
         return copy;
       });
-      outputPath = await renderWatermarkFrame(ff, frame, logo, workDir, options.filter);
+      outputPath = await renderWatermarkFrame(
+        { ff, workDir },
+        { frameFile: frame, logoFile: logo, filter: options.filter },
+      );
       downloadName = path.basename(outputPath);
     } else {
       const urls = files.map((f) => BLOB + encodeURIComponent(path.basename(f)));

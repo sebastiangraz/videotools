@@ -222,14 +222,16 @@ export class FFmpeg {
   // so there is no separate ffprobe binary to ship. `ffmpeg -i` with no
   // output prints the stream summary to stderr and exits non-zero, which is
   // the expected outcome here rather than a failure.
-  async mediaInfo(inputFile: string): Promise<SourceProfile> {
+  async summary(inputFile: string): Promise<string> {
+    const { stderr } = await this.run(this.ffmpeg, ["-hide_banner", "-i", inputFile]);
+    return stderr;
+  }
+
+  // The input's summary, parsed. `summary` is one already read, if any.
+  async mediaInfo(inputFile: string, summary?: string): Promise<SourceProfile> {
     const cached = this.infoCache.get(inputFile);
     if (cached) return cached;
-    const { stderr } = await this.run(this.ffmpeg, [
-      "-hide_banner",
-      "-i",
-      inputFile,
-    ]);
+    const stderr = summary ?? (await this.summary(inputFile));
     const info = parseSourceProfile(stderr);
     // A WebP is the one image the client passes on unchecked (it can't tell
     // a damaged one), so its failure is the user's to hear about.

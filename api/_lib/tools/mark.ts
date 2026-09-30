@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { FormatId } from "../../../shared/formats.js";
 import { InputError } from "../errors.js";
 import type { FFmpeg, MediaInfo } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
@@ -16,7 +17,17 @@ import {
   type MarkSize,
   type MarkView,
 } from "./mark-graph.js";
-import type { Tool } from "./types.js";
+import type { Tool, ToolJob } from "./types.js";
+
+// The preview's JPEG quality (mjpeg's -q:v, 1 finest – 31 coarsest).
+const PREVIEW_JPEG_Q = "3";
+
+// The side of the square an SVG logo is drawn into (rasterizeSvg): the
+// frame's long side, within these bounds.
+const SVG_SIDE = { min: 512, max: 4096, fallback: 1920 };
+
+// How a mark looks: see MARK_FILTERS, MARK_SIZES and MARK_VIEWS.
+type MarkLook = { filter?: MarkFilter; size?: MarkSize; view?: MarkView };
 
 /**
  * Stamps `logoFile` (a PNG or SVG) onto the bottom-right corner of `source`, a
@@ -27,9 +38,7 @@ import type { Tool } from "./types.js";
 async function addWatermark(
   ff: FFmpeg,
   source: Source,
-  logoFile: string,
-  filter: MarkFilter = "glass",
-  size: MarkSize = "large",
+  { logoFile, filter = "glass", size = "large" }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // A still is laid out by the size it decodes to: a JPEG that EXIF says
   // to turn reaches the graph turned (FFmpeg.shownSize).
@@ -37,24 +46,20 @@ async function addWatermark(
     ? { ...source.profile, ...(await ff.shownSize(source.path)) }
     : source.profile;
   const { logoPng, logo } = await openLogo(ff, logoFile, frame);
-  const graph = watermarkGraph(
-    frame,
-    logo,
+  const graph = watermarkGraph(frame, logo, {
     filter,
-    await logoBounds(ff, logoPng, logo),
-    {
-      // A GIF or animated WebP is RGB(A) going in and coming out, so it is
-      // never taken through yuv420p in between (mark-graph.ts). Nor is a
-      // still: its alpha, its odd row or column of pixels and its full
-      // chroma resolution are all its format's to keep.
-      base:
-        source.format === "gif" || source.format === "webp" || source.still
-          ? "rgba"
-          : "yuv420p",
-      pad: videoPad(source),
-      size,
-    },
-  );
+    bounds: await logoBounds(ff, logoPng, logo),
+    // A GIF or animated WebP is RGB(A) going in and coming out, so it is
+    // never taken through yuv420p in between (mark-graph.ts). Nor is a
+    // still: its alpha, its odd row or column of pixels and its full
+    // chroma resolution are all its format's to keep.
+    base:
+      source.format === "gif" || source.format === "webp" || source.still
+        ? "rgba"
+        : "yuv420p",
+    pad: videoPad(source),
+    size,
+  });
   return sourceRender(source, {
     // The logo is a one-frame stream, which overlay simply holds for the
     // whole video.
@@ -73,23 +78,23 @@ async function addWatermark(
  * `view` swaps the mark for one of the graph's debug views. Returns a JPEG.
  */
 export async function renderWatermarkFrame(
-  ff: FFmpeg,
-  frameFile: string,
-  logoFile: string,
-  workDir: string,
-  filter: MarkFilter = "glass",
-  size: MarkSize = "large",
-  view: MarkView = "render",
+  { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
+  {
+    frameFile,
+    logoFile,
+    filter = "glass",
+    size = "large",
+    view = "render",
+  }: MarkLook & { frameFile: string; logoFile: string },
 ): Promise<string> {
   const frame = await ff.mediaInfo(frameFile);
   const { logoPng, logo } = await openLogo(ff, logoFile, frame);
-  const graph = watermarkGraph(
-    frame,
-    logo,
+  const graph = watermarkGraph(frame, logo, {
     filter,
-    await logoBounds(ff, logoPng, logo),
-    { size, view },
-  );
+    bounds: await logoBounds(ff, logoPng, logo),
+    size,
+    view,
+  });
 
   const outputFile = path.join(workDir, "preview.jpg");
   await ff.runFFmpeg([
@@ -105,7 +110,7 @@ export async function renderWatermarkFrame(
     "-frames:v",
     "1",
     "-q:v",
-    "3",
+    PREVIEW_JPEG_Q,
     outputFile,
   ]);
 
@@ -124,11 +129,10 @@ async function openLogo(
 ): Promise<{ logoPng: string; logo: MediaInfo }> {
   // The demuxer is sniffed before anything is taken from the probe: an SVG
   // whose declared size librsvg won't render probes with none at all.
-  const { stderr } = await ff.run(ff.ffmpeg, ["-hide_banner", "-i", logoFile]);
-  const logoPng = /^Input #0, svg_pipe,/m.test(stderr)
-    ? await rasterizeSvg(ff, logoFile, frame)
-    : logoFile;
-  const logo = await ff.mediaInfo(logoPng);
+  const summary = await ff.summary(logoFile);
+  const svg = /^Input #0, svg_pipe,/m.test(summary);
+  const logoPng = svg ? await rasterizeSvg(ff, logoFile, frame) : logoFile;
+  const logo = await ff.mediaInfo(logoPng, svg ? undefined : summary);
   if (logo.codec !== "png") {
     throw new InputError(
       `Watermark must be a PNG or SVG image (got ${logo.codec || "an unknown format"})`,
@@ -153,8 +157,9 @@ async function rasterizeSvg(
   svgFile: string,
   frame: { width: number; height: number },
 ): Promise<string> {
+  const { min, max, fallback } = SVG_SIDE;
   const side = String(
-    Math.round(clamp(Math.max(frame.width, frame.height), 512, 4096, 1920)),
+    Math.round(clamp(Math.max(frame.width, frame.height), min, max, fallback)),
   );
   const pngFile = path.join(path.dirname(svgFile), "logo-svg.png");
   await ff.runFFmpeg([
@@ -220,17 +225,18 @@ export const mark: Tool = {
     const source = await openSource(job, inputs[0]);
     // A marked file comes back in the format it came in: a still as the
     // kind of image it is, the one tool that takes them.
-    const format = source.still ?? preservedFormat(source);
+    const { still } = source;
+    const format = still ?? preservedFormat(source);
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
     console.log(
       `Adding watermark to ${format} (${size}, ${filter}, quality ${quality})...`,
     );
 
-    const render = await addWatermark(ff, source, logoPath, filter, size);
-    const outputPath = source.still
-      ? await encodeStill(job, render, { format: source.still, quality })
-      : await encodePreserved(job, render, { format: preservedFormat(source), quality });
+    const render = await addWatermark(ff, source, { logoFile: logoPath, filter, size });
+    const outputPath = still
+      ? await encodeStill(job, render, { format: still, quality })
+      : await encodePreserved(job, render, { format: format as FormatId, quality });
     return { outputPath, suffix: "marked", ext: format };
   },
 };

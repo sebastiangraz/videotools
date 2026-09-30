@@ -13,46 +13,46 @@ export const MARK = {
   paddingRatio: 0.05,
 
   // Frost blur fraction of the width and height minimum.
-  blurRatio: 0.012, //0.012
+  blurRatio: 0.012,
   // Bevel blur floor fraction of the width and height minimum.
-  minBlurRatio: 0.0008, //0.0015
+  minBlurRatio: 0.0008,
   // Frost saturation multiplier with no change at 1.
-  saturation: 1.8, //1.35
+  saturation: 1.8,
   // Frost white mix.
-  tint: 0.12, //0.22
+  tint: 0.12,
   // Bevel width fraction of the logo width and height minimum.
-  bevelRatio: 0.1, //0.1
+  bevelRatio: 0.1,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
-  refractRatio: 1.0, //0.088 of the frame minimum
+  refractRatio: 1.0,
   // Red and blue edge shift split around green.
-  chroma: 0.02, //0.15
+  chroma: 0.02,
   // Light direction in degrees clockwise from the top.
-  lightAngle: -45, //-45
+  lightAngle: -45,
   // Lit rim opacity.
-  rimOpacity: 0.8, //0.85
+  rimOpacity: 0.8,
   // Unlit rim brightness share of the lit rim.
-  glint: 0.66, //0.35
+  glint: 0.66,
   // Rim backdrop saturation multiplier with no change at 1.
-  rimSaturation: 2, //1.4
+  rimSaturation: 2,
   // Rim brightness multiplier.
-  rimGain: 7, //3
+  rimGain: 7,
   // Rim white mix with a plain white rim at 1.
-  rimWhite: 0.4, //0.15
+  rimWhite: 0.4,
   // Glass light opacity on the side opposite the light.
-  ambient: 0.12, //0.16
+  ambient: 0.12,
   // Shade side opacity share of the bright side.
-  ambientShade: 0.5, //0.5
+  ambientShade: 0.5,
   // Ambient gradient radius in logo radii from a point outside the logo.
-  ambientReach: 1.8, //2.4
+  ambientReach: 1.8,
 
   // Drop shadow blur fraction of the width and height minimum.
-  shadowBlurRatio: 0.016, //0.012
+  shadowBlurRatio: 0.016,
   // Downward y-axis shadow offset fraction of the width and height minimum.
-  shadowOffsetRatio: 0.016, //0.006
+  shadowOffsetRatio: 0.016,
   // Drop shadow opacity.
-  shadowOpacity: 0.08, //0.35
+  shadowOpacity: 0.08,
   // Logo pixel opacity over the glass.
-  logoOpacity: 0.05, //0.45
+  logoOpacity: 0.05,
 
   // Blur filter blur fraction of the width and height minimum.
   blurFilterRatio: 0.016,
@@ -111,6 +111,19 @@ const MARK_CLEAR: Partial<typeof MARK> = {
 // The displacement view's stand-in for the frame: light enough that the map's
 // neutral olive stands apart from it.
 const DEBUG_BACKDROP = "0xD9D9D9";
+
+// Frames this tall and up are HD: the glass's matrix and rim go by it.
+const HD_HEIGHT = 720;
+
+// The Sobel kernels, 3×3 row by row: the heightfield's slope along each axis.
+const SOBEL = {
+  x: [-1, 0, 1, -2, 0, 2, -1, 0, 1],
+  y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
+};
+
+// Three gray planes, in gbrp's plane order (g, b, r), as one picture.
+const MERGE_GBR =
+  "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp";
 
 // Where the logo goes and how big, from the frame and the logo's visible
 // bounds alone (see MARK for the model). One continuous formula: the
@@ -204,22 +217,25 @@ const saturate = (s: number) => {
 //
 // `filter` picks one of MARK_FILTERS; `size` one of MARK_SIZES; `view` one
 // of MARK_VIEWS (a debug view shows the glass whatever the filter).
+// `bounds` is the logo's visible part (the whole image unless given).
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
-  filter: MarkFilter,
-  bounds: Bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
   {
+    filter,
+    bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
     base = "yuv420p",
     pad = "[0:v]",
     size = "large",
     view = "render",
   }: {
+    filter: MarkFilter;
+    bounds?: Bounds;
     base?: "yuv420p" | "rgba";
     pad?: string;
     size?: MarkSize;
     view?: MarkView;
-  } = {},
+  },
 ): string {
   const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
   const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
@@ -277,7 +293,7 @@ export function watermarkGraph(
   // cell's colours; matching the tag matters too, as links carry a colour
   // space and a cell tagged differently from the base makes overlay
   // convert the whole frame (and a JPEG cannot say it is bt709).
-  const matrix = video.matrix ?? (VH >= 720 ? "bt709" : "bt601");
+  const matrix = video.matrix ?? (VH >= HD_HEIGHT ? "bt709" : "bt601");
   const toRgb = rgb ? "" : `scale=in_color_matrix=${matrix}:in_range=tv,`;
   const fromRgb = rgb
     ? ""
@@ -322,7 +338,7 @@ export function watermarkGraph(
   // share of it in, so the last pixel of the band is only partly covered:
   // what an antialiased line that thin comes to.
   const rimWidth =
-    Math.max(1, Math.round(Math.min(VW, VH) / 720)) * MARK_SIZES[size].rim;
+    Math.max(1, Math.round(Math.min(VW, VH) / HD_HEIGHT)) * MARK_SIZES[size].rim;
   const rimPx = Math.floor(rimWidth + 1e-6);
   const rimPart = rimWidth - rimPx;
   const erode = (passes: number) =>
@@ -373,10 +389,6 @@ export function watermarkGraph(
   // full and only then applies rdiv and rounds, so the scale costs no
   // precision there.
   const refractPx = Math.min(LW, LH) * M.refractRatio * SS;
-  const SOBEL = {
-    x: [-1, 0, 1, -2, 0, 2, -1, 0, 1],
-    y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
-  };
   const sobel = (axis: "x" | "y", shift: number) => {
     const scale = shift / (8 * edgeSlope);
     return `convolution=0m='${SOBEL[axis].join(" ")}':0rdiv=${scale.toPrecision(6)}:0bias=${MID}`;
@@ -409,7 +421,7 @@ export function watermarkGraph(
       `[hx]${sobel("x", MID - 1)},format=gray[mx]`,
       `[hy]${sobel("y", MID - 1)},format=gray[my]`,
       `[hz]format=gray,lut=c0=0[mz]`,
-      `[my][mz][mx]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,format=rgba[map]`,
+      `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
       `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
       `[base][cell]${onto(CX, CY)}[out]`,
     ].join(";");
@@ -431,10 +443,8 @@ export function watermarkGraph(
   const radius = Math.hypot(LW, LH) / 2;
   const [ax, ay] = [CW / 2 - lx * radius, CH / 2 - ly * radius];
   const ambientS = `(1-2*min(hypot(X-${ax.toFixed(1)},Y-${ay.toFixed(1)})/${(radius * M.ambientReach).toFixed(1)},1))`;
-  const KX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-  const KY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-  const lightKernel = KX.map((k, i) =>
-    Math.round(-100 * (k * lx + KY[i] * ly)),
+  const lightKernel = SOBEL.x.map((k, i) =>
+    Math.round(-100 * (k * lx + SOBEL.y[i] * ly)),
   ).join(" ");
   const lighting = `convolution=0m='${lightKernel}':0rdiv=1:0bias=128`;
   // The whole rim sits at the glint level and the lit side (above 128)
@@ -502,7 +512,7 @@ export function watermarkGraph(
     `[cr][xr][yr]remap=format=gray[dr]`,
     `[cg][xg][yg]remap=format=gray[dg]`,
     `[cb][xb][yb]remap=format=gray[db]`,
-    `[dg][db][dr]mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp,scale=${CW}:${CH}:flags=bicubic,format=rgba,split=3[rf1][rf2][rf3]`,
+    `[dg][db][dr]${MERGE_GBR},scale=${CW}:${CH}:flags=bicubic,format=rgba,split=3[rf1][rf2][rf3]`,
     // Frosted fill: blurred where the heightfield is flat, the barely
     // blurred (minBlurRatio) refracted backdrop where it is still rising
     // (the bevel, laid over the frost with the inverted heightfield as its
