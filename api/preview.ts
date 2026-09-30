@@ -1,4 +1,3 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import fsp from "node:fs/promises";
 import path from "node:path";
 
@@ -10,7 +9,7 @@ import {
   isMarkView,
 } from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
-import { allowMethods, runJob } from "./_lib/request.js";
+import { jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
 
 // Frame and logo travel inline as data URLs (both small), skipping Blob storage.
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -30,39 +29,48 @@ function decodeDataUrl(value: unknown): Uint8Array | null {
   return new Uint8Array(Buffer.from(match[1], "base64"));
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!allowMethods(req, res, "POST")) return;
+export default {
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== "POST") return methodNotAllowed();
 
-  const { frame, logo, filter, size, view } = (req.body ?? {}) as PreviewBody;
-  const frameImage = decodeDataUrl(frame);
-  const logoImage = decodeDataUrl(logo);
-  if (!frameImage || !logoImage) {
-    return res.status(400).json({ error: "Expected frame and logo images" });
-  }
-  if (frameImage.length + logoImage.length > MAX_BYTES) {
-    return res.status(413).json({ error: "Preview images too large" });
-  }
+    const { frame, logo, filter, size, view }: PreviewBody =
+      await jsonBody(request);
+    const frameImage = decodeDataUrl(frame);
+    const logoImage = decodeDataUrl(logo);
+    if (!frameImage || !logoImage) {
+      return Response.json(
+        { error: "Expected frame and logo images" },
+        { status: 400 },
+      );
+    }
+    if (frameImage.length + logoImage.length > MAX_BYTES) {
+      return Response.json(
+        { error: "Preview images too large" },
+        { status: 413 },
+      );
+    }
 
-  await runJob(res, "Preview", async (workDir, signal) => {
-    // Names are cosmetic; ffmpeg sniffs the content.
-    const framePath = path.join(workDir, "frame.jpg");
-    const logoPath = path.join(workDir, "logo.png");
-    await fsp.writeFile(framePath, frameImage);
-    await fsp.writeFile(logoPath, logoImage);
+    return runJob(request, "Preview", async (workDir, signal) => {
+      // Names are cosmetic; ffmpeg sniffs the content.
+      const framePath = path.join(workDir, "frame.jpg");
+      const logoPath = path.join(workDir, "logo.png");
+      await fsp.writeFile(framePath, frameImage);
+      await fsp.writeFile(logoPath, logoImage);
 
-    const outputPath = await renderWatermarkFrame(
-      { ff: new FFmpeg(ffmpegPath, gifskiPath, signal), workDir },
-      {
-        frameFile: framePath,
-        logoFile: logoPath,
-        filter: isMarkFilter(filter) ? filter : "glass",
-        size: isMarkSize(size) ? size : "large",
-        view: isMarkView(view) ? view : "render",
-      },
-    );
+      const outputPath = await renderWatermarkFrame(
+        { ff: new FFmpeg(ffmpegPath, gifskiPath, signal), workDir },
+        {
+          frameFile: framePath,
+          logoFile: logoPath,
+          filter: isMarkFilter(filter) ? filter : "glass",
+          size: isMarkSize(size) ? size : "large",
+          view: isMarkView(view) ? view : "render",
+        },
+      );
 
-    res.setHeader("Content-Type", "image/jpeg");
-    res.setHeader("Cache-Control", "no-store");
-    res.status(200).send(await fsp.readFile(outputPath));
-  });
-}
+      return new Response(await fsp.readFile(outputPath), {
+        headers: { "Content-Type": "image/jpeg", "Cache-Control": "no-store" },
+      });
+    });
+  },
+};

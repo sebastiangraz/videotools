@@ -1,7 +1,6 @@
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { InputError } from "./errors.js";
 import type { ToolRequest } from "./tools/types.js";
 
@@ -47,45 +46,38 @@ export function singleVideo({ blobUrl }: ToolRequest) {
   return isBlobUrl(blobUrl) ? [blobUrl] : { error: "Invalid blob URL" };
 }
 
-export function allowMethods(
-  req: VercelRequest,
-  res: VercelResponse,
-  ...methods: string[]
-): boolean {
-  if (methods.includes(req.method ?? "")) return true;
-  res.status(405).json({ error: "Method not allowed" });
-  return false;
-}
+export const methodNotAllowed = () =>
+  Response.json({ error: "Method not allowed" }, { status: 405 });
 
-// `signal` fires when the client disconnects (best effort: depends on the
-// platform propagating it). InputError → 400 with code; anything else → generic 500.
+// Parsed JSON body, or {} when there is none (or it isn't JSON).
+export const jsonBody = async (request: Request): Promise<object> => {
+  const body: unknown = await request.json().catch(() => null);
+  return body && typeof body === "object" ? body : {};
+};
+
+// `request.signal` fires when the client disconnects (supportsCancellation in
+// vercel.json). InputError → 400 with code; anything else → generic 500.
 export async function runJob(
-  res: VercelResponse,
+  request: Request,
   name: string,
-  work: (workDir: string, signal: AbortSignal) => Promise<unknown>,
-): Promise<void> {
-  const abort = new AbortController();
-  // 'close' also fires on normal completion.
-  res.on("close", () => {
-    if (!res.writableFinished) abort.abort();
-  });
-  const { signal } = abort;
+  work: (workDir: string, signal: AbortSignal) => Promise<Response>,
+): Promise<Response> {
+  const { signal } = request;
   let workDir: string | undefined;
   try {
     const prefix = `videotools-${name.toLowerCase()}-`;
     workDir = await fsp.mkdtemp(path.join(os.tmpdir(), prefix));
-    await work(workDir, signal);
+    return await work(workDir, signal);
   } catch (err) {
     if (signal.aborted) {
       console.log(`${name} cancelled by client`);
-      return;
+      // Nobody is listening; any status will do.
+      return new Response(null, { status: 499 });
     }
     console.error(`${name} error:`, err);
-    if (err instanceof InputError) {
-      res.status(400).json({ error: err.message, code: err.code });
-    } else {
-      res.status(500).json({ error: `${name} failed` });
-    }
+    return err instanceof InputError
+      ? Response.json({ error: err.message, code: err.code }, { status: 400 })
+      : Response.json({ error: `${name} failed` }, { status: 500 });
   } finally {
     if (workDir) {
       await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});

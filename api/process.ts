@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { put, del, list } from "@vercel/blob";
+import { waitUntil } from "@vercel/functions";
 import fs from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -10,7 +10,12 @@ import { isToolId } from "../shared/tools.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
-import { allowMethods, isBlobUrl, runJob } from "./_lib/request.js";
+import {
+  isBlobUrl,
+  jsonBody,
+  methodNotAllowed,
+  runJob,
+} from "./_lib/request.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 type ProcessBody = Partial<ToolRequest> & {
@@ -18,84 +23,93 @@ type ProcessBody = Partial<ToolRequest> & {
   filename?: unknown;
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!allowMethods(req, res, "DELETE", "POST")) return;
-
-  if (req.method === "DELETE") {
-    const { urls } = (req.body ?? {}) as { urls?: unknown };
-    const valid = Array.isArray(urls) ? urls.filter(isBlobUrl) : [];
-    if (valid.length) {
-      await del(valid).catch(() => {});
+export default {
+  async fetch(request: Request): Promise<Response> {
+    if (request.method === "DELETE") {
+      const { urls }: { urls?: unknown } = await jsonBody(request);
+      const valid = Array.isArray(urls) ? urls.filter(isBlobUrl) : [];
+      if (valid.length) {
+        await del(valid).catch(() => {});
+      }
+      return new Response(null, { status: 204 });
     }
-    return res.status(204).end();
-  }
+    if (request.method !== "POST") return methodNotAllowed();
 
-  const {
-    tool,
-    filename = "video",
-    blobUrl,
-    blobUrls,
-    watermarkUrl,
-    options = {},
-  } = (req.body ?? {}) as ProcessBody;
+    const {
+      tool,
+      filename = "video",
+      blobUrl,
+      blobUrls,
+      watermarkUrl,
+      options = {},
+    }: ProcessBody = await jsonBody(request);
 
-  // Uploads happen first, so a rejected request must still delete them.
-  const uploaded = [
-    blobUrl,
-    watermarkUrl,
-    ...(Array.isArray(blobUrls) ? (blobUrls as unknown[]) : []),
-  ].filter(isBlobUrl);
-  const reject = async (error: string) => {
-    if (uploaded.length) await del(uploaded).catch(() => {});
-    return res.status(400).json({ error });
-  };
+    // Uploads happen first, so a rejected request must still delete them.
+    const uploaded = [
+      blobUrl,
+      watermarkUrl,
+      ...(Array.isArray(blobUrls) ? (blobUrls as unknown[]) : []),
+    ].filter(isBlobUrl);
+    const reject = async (error: string) => {
+      if (uploaded.length) await del(uploaded).catch(() => {});
+      return Response.json({ error }, { status: 400 });
+    };
 
-  if (!isToolId(tool)) {
-    return reject("Unknown tool");
-  }
-  const { inputs, run } = TOOLS[tool];
+    if (!isToolId(tool)) {
+      return reject("Unknown tool");
+    }
+    const { inputs, run } = TOOLS[tool];
 
-  const picked = inputs({ blobUrl, blobUrls, watermarkUrl, options });
-  if (!Array.isArray(picked)) {
-    return reject(picked.error);
-  }
-  const inputBlobUrls = picked;
+    const picked = inputs({ blobUrl, blobUrls, watermarkUrl, options });
+    if (!Array.isArray(picked)) {
+      return reject(picked.error);
+    }
+    const inputBlobUrls = picked;
 
-  const base = String(filename)
-    .replace(/\.[^.]+$/, "")
-    .replace(/[^\w.-]/g, "_");
+    const base = String(filename)
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^\w.-]/g, "_");
 
-  await runJob(res, "Processing", async (workDir, signal) => {
-    const { outputPath, suffix, ext } = await run({
-      ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
-      workDir,
-      inputs: inputBlobUrls,
-      options,
-      download: (url, destPath) => downloadBlob(url, destPath, signal),
-    });
-    const outputName = `${base}_${suffix}.${ext}`;
+    const response = await runJob(
+      request,
+      "Processing",
+      async (workDir, signal) => {
+        const { outputPath, suffix, ext } = await run({
+          ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
+          workDir,
+          inputs: inputBlobUrls,
+          options,
+          download: (url, destPath) => downloadBlob(url, destPath, signal),
+        });
+        const outputName = `${base}_${suffix}.${ext}`;
 
-    const result = await put(
-      `results/${outputName}`,
-      fs.createReadStream(outputPath),
-      {
-        access: "public",
-        contentType: mimeOf(ext),
-        addRandomSuffix: true,
-        abortSignal: signal,
+        const result = await put(
+          `results/${outputName}`,
+          fs.createReadStream(outputPath),
+          {
+            access: "public",
+            contentType: mimeOf(ext),
+            addRandomSuffix: true,
+            abortSignal: signal,
+          },
+        );
+
+        return Response.json({
+          url: result.url,
+          downloadUrl: result.downloadUrl,
+          filename: outputName,
+        });
       },
     );
-
-    res.status(200).json({
-      url: result.url,
-      downloadUrl: result.downloadUrl,
-      filename: outputName,
-    });
-  });
-  await del(inputBlobUrls).catch(() => {});
-  // After the response is sent, so the client never waits on it.
-  await sweepStaleBlobs(inputBlobUrls);
-}
+    // After the response is sent, so the client never waits on it.
+    waitUntil(
+      del(inputBlobUrls)
+        .catch(() => {})
+        .then(() => sweepStaleBlobs(inputBlobUrls)),
+    );
+    return response;
+  },
+};
 
 // A hard kill (timeout, OOM) skips the in-line deletes, so each job sweeps
 // leftovers; no cron needed since nothing accrues while the app is idle.

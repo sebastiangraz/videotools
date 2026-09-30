@@ -8,7 +8,8 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "vercel dev",
+    "dev": "bun run vercel",
+    "vercel": "vercel dev",
     "build": "bun --filter client build",
     "test": "bun --filter client test",
     "smoke": "bun scripts/smoke.mjs",

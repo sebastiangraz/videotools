@@ -34,9 +34,9 @@ A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per t
 2. It POSTs the tool id, blob URL(s) and options to `/api/process`, which downloads the inputs to a temp dir, runs the tool (one ffmpeg pass, plus gifski for GIF), uploads the result to Blob and returns its URL.
 3. The browser downloads the result and asks `DELETE /api/process` to remove it. Input blobs are deleted by the function once it is done.
 
-Stop (or leaving the tab) aborts the whole chain client-side; server-side a client disconnect aborts the job and kills ffmpeg (best effort). A hard kill skips cleanup, so every job ends with a sweep of stale blobs (uploads after 1 h, results after 24 h). `/api/preview` renders Mark's preview frames: the frame and logo come inline as data URLs, the same graph runs, and a JPEG comes back, with no Blob involved.
+Stop (or leaving the tab) aborts the whole chain client-side; server-side a client disconnect fires `request.signal` (`supportsCancellation` in `vercel.json`), which kills ffmpeg. A hard kill skips cleanup, so every job ends with a sweep of stale blobs (uploads after 1 h, results after 24 h). `/api/preview` renders Mark's preview frames: the frame and logo come inline as data URLs, the same graph runs, and a JPEG comes back, with no Blob involved.
 
-Handlers go through `allowMethods` and `runJob` (`api/_lib/request.ts`): an `InputError` becomes a 400 with its message and `code`, anything else a generic 500.
+Handlers are web-standard (`export default { fetch(request) }`, returning a `Response`) and go through `runJob` (`api/_lib/request.ts`): an `InputError` becomes a 400 with its message and `code`, anything else a generic 500.
 
 ## Principles
 
