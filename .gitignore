@@ -2,7 +2,7 @@ node_modules/
 dist/
 tmp/
 .smoke/
-# Fetched by the postinstall from ffmpeg.json and gifski.json
+# Fetched by the postinstall (scripts/binaries.mjs pins them)
 api/_bin/ffmpeg/
 api/_bin/gifski/*/
 

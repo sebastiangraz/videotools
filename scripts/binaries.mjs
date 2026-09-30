@@ -1,81 +1,68 @@
-// Shared by the binary mirror, install and check scripts.
-import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import fs from "node:fs";
+// The pinned ffmpeg and gifski, installed by binaries-install.mjs. Each
+// platform's binary is gzipped, unmodified, in this repo's <tool>-<version>
+// release; sha256 is the unpacked binary's.
+//
+// To upgrade (rare): gzip each platform's new binary, `gh release create
+// <tool>-<version>` with the .gz files attached, update the entry below, then
+// `npm install` and `npm run smoke -- <label> --diff <previous label>`.
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
-import zlib from "node:zlib";
+
+const release = (tag, file) =>
+  `https://github.com/sebastiangraz/videotools/releases/download/${tag}/${file}`;
+
+export const BINARIES = {
+  // GPL builds of the n9.0.2 tag (https://github.com/FFmpeg/FFmpeg): BtbN/FFmpeg-Builds
+  // autobuild-2026-09-19-13-11 for Windows and Linux, ffmpeg.martin-riedl.de 9.0.2 for macOS.
+  ffmpeg: {
+    version: "9.0.2",
+    platforms: {
+      "win32-x64": {
+        url: release("ffmpeg-9.0.2", "ffmpeg-win32-x64.gz"),
+        sha256: "c0206dea70e1dd0e759ebbc61fc826834a943cd9c93c7c094c529b685f0b8f67",
+      },
+      "linux-x64": {
+        url: release("ffmpeg-9.0.2", "ffmpeg-linux-x64.gz"),
+        sha256: "a4ffb15bfd918552ecac91353a87d777175d820a6ac4aa4898dfaf9c90bed704",
+      },
+      "darwin-arm64": {
+        url: release("ffmpeg-9.0.2", "ffmpeg-darwin-arm64.gz"),
+        sha256: "2e11c6f90993cdb79fff84d3f90044d28316b310e75b3e030cfc9a54f2c9d384",
+      },
+      "darwin-x64": {
+        url: release("ffmpeg-9.0.2", "ffmpeg-darwin-x64.gz"),
+        sha256: "b25689cf2211c0582d317e849912769a1f1c93904fe102c485b5364a425633d1",
+      },
+    },
+  },
+  // AGPL-3.0, from https://github.com/ImageOptim/gifski/releases/tag/1.34.0
+  // (gifski-1.34.0.tar.xz); the macOS binary is universal.
+  gifski: {
+    version: "1.34.0",
+    platforms: {
+      "win32-x64": {
+        url: release("gifski-1.34.0", "gifski-win32-x64.gz"),
+        sha256: "9da8553cbe71c0facf544634b4e377262ea30d34becdc0ca077306342e776295",
+      },
+      "linux-x64": {
+        url: release("gifski-1.34.0", "gifski-linux-x64.gz"),
+        sha256: "937ebdad4ec80c7ef647bc838083fd3948f92d6af206cf341724501eb640b8f7",
+      },
+      "darwin-arm64": {
+        url: release("gifski-1.34.0", "gifski-darwin.gz"),
+        sha256: "f5f73e09fba870a21e8c502f3191e58633e5081b1914f71e32d5ee714450e839",
+      },
+      "darwin-x64": {
+        url: release("gifski-1.34.0", "gifski-darwin.gz"),
+        sha256: "f5f73e09fba870a21e8c502f3191e58633e5081b1914f71e32d5ee714450e839",
+      },
+    },
+  },
+};
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const hostPlatform = `${process.platform}-${process.arch}`;
 
-const manifestPath = (tool) => path.join(root, `${tool}.json`);
-export const readManifest = (tool) => JSON.parse(fs.readFileSync(manifestPath(tool), "utf8"));
-export const writeManifest = (tool, manifest) =>
-  fs.writeFileSync(manifestPath(tool), JSON.stringify(manifest, null, 2) + "\n");
-
 // Must match api/_lib/binaries.ts, which finds the binary here at runtime.
 export const binaryPath = (tool, key = hostPlatform) =>
   path.join(root, "api", "_bin", tool, key, key.startsWith("win32-") ? `${tool}.exe` : tool);
-
-export function gh(args, options = {}) {
-  const r = spawnSync("gh", args, { encoding: "utf8", ...options });
-  if (r.status !== 0) throw new Error(`gh ${args.join(" ")}\n${r.stderr}`);
-  return r.stdout;
-}
-
-// Windows' own tar (bsdtar) reads both .zip and .tar.xz; Git's GNU tar on
-// the PATH reads neither zip nor, without xz installed, .tar.xz.
-export const tar = process.platform === "win32"
-  ? path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
-  : "tar";
-
-export const sha256 = (file) =>
-  new Promise((resolve, reject) => {
-    const hash = createHash("sha256");
-    fs.createReadStream(file)
-      .on("data", (d) => hash.update(d))
-      .on("end", () => resolve(hash.digest("hex")))
-      .on("error", reject);
-  });
-
-export async function pack(binary, gz, tag, bin) {
-  await pipeline(fs.createReadStream(binary), zlib.createGzip({ level: 9 }), fs.createWriteStream(gz));
-  console.log(
-    `  ${bin}: ${(fs.statSync(binary).size / 1e6).toFixed(1)} MB, ` +
-      `${(fs.statSync(gz).size / 1e6).toFixed(1)} MB gzipped`,
-  );
-  return {
-    url: `https://github.com/sebastiangraz/videotools/releases/download/${tag}/${path.basename(gz)}`,
-    sha256: await sha256(gz),
-    binarySha256: await sha256(binary),
-    bin,
-  };
-}
-
-// `added`: upload into the existing release instead of creating it.
-export function publish(tool, manifest, { tag, uploads, dryRun, added, notes, next }) {
-  if (dryRun) {
-    console.log(JSON.stringify(manifest, null, 2));
-    return;
-  }
-  if (added) {
-    gh(["release", "upload", tag, ...uploads], { cwd: root });
-  } else {
-    const exists = spawnSync("gh", ["release", "view", tag], { cwd: root, encoding: "utf8" }).status === 0;
-    if (exists) throw new Error(`release ${tag} already exists; delete it first to re-mirror`);
-    gh([
-      "release", "create", tag, ...uploads,
-      "--title", `${tool} ${manifest.version}`,
-      "--notes", notes,
-      "--latest=false",
-    ], { cwd: root });
-  }
-  writeManifest(tool, manifest);
-  console.log(
-    added
-      ? `added ${added.join(", ")} to ${tag}. Next: ${next}`
-      : `published ${tag}; ${tool}.json now pins ${manifest.version}. Next: ${next}`,
-  );
-}

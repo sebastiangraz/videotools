@@ -5,7 +5,7 @@
 //   npm run smoke -- before                        run all cases into .smoke/before
 //   npm run smoke -- after --diff before           run again and compare
 //   npm run smoke -- gif --only gif,webp           only cases whose name contains these
-//   npm run smoke -- next --ffmpeg <path>          an ffmpeg other than ffmpeg.json's pin
+//   npm run smoke -- next --ffmpeg <path>          an ffmpeg other than the pinned one
 //   npm run smoke -- real --assets D:/footage      own inputs (default scripts/smoke-assets)
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";

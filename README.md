@@ -26,7 +26,7 @@ Debug mode (dev only, never in a build): press Shift+D to toggle it. It sets `[d
 
 ## Architecture
 
-A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool) and Vercel functions in `api/` (`upload.ts`, `process.ts`, `preview.ts`). Their private code lives in `api/_lib/` (the leading underscore keeps Vercel from deploying it as functions): `tools/` holds one module per tool, `encode/` one encoder per output format. `shared/` (formats, tool ids) is compiled by both sides. ffmpeg and gifski are real, pinned binaries: `npm install`'s postinstall fetches the host's builds listed in `ffmpeg.json` / `gifski.json` into `api/_bin/` (gitignored, sha256-checked); `vercel.json` ships the linux-x64 ones with the functions. There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
+A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool) and Vercel functions in `api/` (`upload.ts`, `process.ts`, `preview.ts`). Their private code lives in `api/_lib/` (the leading underscore keeps Vercel from deploying it as functions): `tools/` holds one module per tool, `encode/` one encoder per output format. `shared/` (formats, tool ids) is compiled by both sides. ffmpeg and gifski are real, pinned binaries: `npm install`'s postinstall fetches the host's builds pinned in `scripts/binaries.mjs` into `api/_bin/` (gitignored, sha256-checked); `vercel.json` ships the linux-x64 ones with the functions. There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
 
 ## Request flow
 
@@ -47,7 +47,7 @@ Handlers go through `allowMethods` and `runJob` (`api/_lib/request.ts`): an `Inp
 
 ## ffmpeg
 
-One pinned ffmpeg (`ffmpeg.json`, currently 9.0.2), the same build locally and on Vercel, with no version workarounds in code. To upgrade: `npm run ffmpeg:mirror -- <version>` (publishes a release mirror and rewrites `ffmpeg.json`; needs `gh`), `npm install`, then `npm run smoke -- <label> --diff <previous label>`. The smoke diff is the gate. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
+One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build locally and on Vercel, with no version workarounds in code. Upgrades are rare and manual: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `npm install`, then `npm run smoke -- <label> --diff <previous label>`. The smoke diff is the gate. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
 
 ## Adding a tool
 

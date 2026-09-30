@@ -4,9 +4,9 @@
 //   node scripts/ffmpeg-check.mjs [<ffmpeg path>]   default: the pinned one
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { binaryPath, readManifest } from "./binaries.mjs";
+import { BINARIES, binaryPath } from "./binaries.mjs";
 
-export const pinnedVersion = () => readManifest("ffmpeg").version;
+export const pinnedVersion = () => BINARIES.ffmpeg.version;
 
 const NEEDS = {
   encoders: [
@@ -43,7 +43,7 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
   // BtbN builds say "n8.1.3-20260922", a branch head "n9.0.2-3-ga5923073bf-…".
   const bare = found.replace(/^n/, "");
   if (version && !(bare === version || bare.startsWith(`${version}-`))) {
-    problems.push(`version ${found}, ffmpeg.json pins ${version}`);
+    problems.push(`version ${found}, binaries.mjs pins ${version}`);
   }
   for (const [kind, names] of Object.entries(NEEDS)) {
     const r = spawnSync(ffmpeg, ["-hide_banner", `-${kind}`], { encoding: "utf8" });
