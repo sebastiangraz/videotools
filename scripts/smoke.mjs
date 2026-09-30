@@ -17,9 +17,9 @@ import { checkFfmpeg, pinnedVersion } from "./ffmpeg-check.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const smokeDir = path.join(root, ".smoke");
 
-// Input roles. The first four come from the assets folder if present, else are
-// synthesized (test patterns: fine for diffs, not for judging quality). Keep
-// clips a few seconds (AVIF/lossless WebP are slow; loop cases need ~4s).
+// Input roles. The first five come from the assets folder, which must have
+// them all. Keep clips a few seconds (AVIF/lossless WebP are slow; loop cases
+// need ~4s).
 //   video      video.<ext>     the clip every video tool works on
 //   animation  animation.gif   GIF source
 //   logo       logo.png        watermark with alpha
@@ -35,6 +35,14 @@ const smokeDir = path.join(root, ".smoke");
 //   turned                     still.jpg with EXIF orientation 6
 const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 
+const args = parseArgs(process.argv.slice(2));
+const outDir = path.join(smokeDir, args.label);
+fs.rmSync(outDir, { recursive: true, force: true });
+const buildDir = path.join(outDir, "build");
+build(buildDir);
+const load = (rel) => import(pathToFileURL(path.join(buildDir, rel)).href);
+const { GENERATION } = await load("api/_lib/encode/rate.js");
+
 // Each case is a /api/process request (`preview`: /api/preview's single frame).
 // `expect`:
 //   ext        extension; "source" = the first upload's
@@ -43,9 +51,6 @@ const IMAGE_EXT = /\.(png|jpe?g|webp|avif|gif|bmp|tiff?)$/i;
 //   frames     "source" = same frame count, "double" = twice (reverse loops)
 //   turned     width/height swapped (EXIF-rotated JPEG)
 //   errorCode  must be refused with this InputError code
-// Mirrors GENERATION in api/_lib/encode/rate.ts.
-const GENERATION = 2;
-
 const CASES = {
   "loop-reverse": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 * GENERATION } },
   "loop-reverse-q60": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 60 }, expect: { ext: "source", frames: "double", maxRatio: 1.4 * GENERATION } },
@@ -198,76 +203,31 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     const r = spawnSync(ffmpeg, ["-y", "-hide_banner", "-loglevel", "error", ...args]);
     if (r.status !== 0) throw new Error(`could not make an asset: ${r.stderr}`);
   };
-  const lavfi = (graph) => ["-f", "lavfi", "-i", graph];
   const made = (name) => path.join(madeDir, name);
   const listed = fs.existsSync(userDir) ? fs.readdirSync(userDir) : [];
   const own = (pattern) => {
     const name = listed.find((f) => pattern.test(f));
-    return name && path.join(userDir, name);
+    return name ? [path.join(userDir, name)] : [];
   };
-  const assets = {};
-  const owned = [];
-  const use = (role, ownPaths, make) => {
-    if (ownPaths?.length) owned.push(role);
-    assets[role] = ownPaths?.length ? ownPaths : make();
-  };
-
-  use("video", [own(/^video\.\w+$/i)].filter(Boolean), () => {
-    ff(
-      ...lavfi("testsrc2=size=320x240:rate=30:duration=4"),
-      ...lavfi("sine=frequency=440:duration=4"),
-      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", made("video.mp4"),
-    );
-    return [made("video.mp4")];
-  });
-  const [video] = assets.video;
-
-  use("animation", [own(/^animation\.gif$/i)].filter(Boolean), () => {
-    ff("-i", video, "-t", "2", "-vf", "fps=10,scale=160:-2", made("animation.gif"));
-    return [made("animation.gif")];
-  });
-
-  // geq, not drawbox: a real alpha shape so the mark tool's bounds crop runs.
-  use("logo", [own(/^logo\.png$/i)].filter(Boolean), () => {
-    ff(
-      ...lavfi(
-        "color=c=black:size=300x120,format=rgba," +
-          "geq=r=255:g=255:b=255:a='255*between(X,40,240)*between(Y,30,90)'",
-      ),
-      "-frames:v", "1", made("logo.png"),
-    );
-    return [made("logo.png")];
-  });
-
-  // viewBox only (librsvg defaults to 100x100) plus padding, like exported logos.
-  use("svglogo", [own(/^logo.svg$/i)].filter(Boolean), () => {
-    fs.writeFileSync(
-      made("logo.svg"),
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 24">' +
-        '<rect x="6" y="5" width="48" height="14" rx="7" fill="#fff"/></svg>',
-    );
-    return [made("logo.svg")];
-  });
-
   const imagesDir = path.join(userDir, "images");
-  const ownImages = fs.existsSync(imagesDir)
-    ? fs
-        .readdirSync(imagesDir)
-        .filter((f) => IMAGE_EXT.test(f))
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map((f) => path.join(imagesDir, f))
-    : [];
-  // Mixed sizes on purpose: the sequence tool pads to the first image.
-  use("images", ownImages, () =>
-    [1, 2, 3].map((i) => {
-      ff(
-        "-ss", String(i),
-        ...lavfi(`testsrc2=size=${200 + i * 10}x150:rate=1`),
-        "-frames:v", "1", made(`img${i}.png`),
-      );
-      return made(`img${i}.png`);
-    }),
-  );
+  const assets = {
+    video: own(/^video\.\w+$/i),
+    animation: own(/^animation\.gif$/i),
+    logo: own(/^logo\.png$/i),
+    svglogo: own(/^logo\.svg$/i),
+    images: fs.existsSync(imagesDir)
+      ? fs
+          .readdirSync(imagesDir)
+          .filter((f) => IMAGE_EXT.test(f))
+          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+          .map((f) => path.join(imagesDir, f))
+      : [],
+  };
+  const missing = Object.keys(assets).filter((role) => !assets[role].length);
+  if (missing.length) {
+    throw new Error(`missing smoke assets in ${userDir}: ${missing.join(", ")}`);
+  }
+  const [video] = assets.video;
 
   ff("-i", video, "-frames:v", "1", made("frame.jpg"));
   assets.frame = [made("frame.jpg")];
@@ -336,7 +296,7 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   fs.writeFileSync(made("turned.jpg"), Buffer.concat([jpeg.subarray(0, 2), app1, exif, jpeg.subarray(2)]));
   assets.turned = [made("turned.jpg")];
 
-  return { assets, owned };
+  return assets;
 }
 
 // x264 under a bitrate cap isn't bit-exact across runs (thread timing affects
@@ -371,13 +331,6 @@ function diff(name, before, after, format, same = (a, b) => format(a) === format
   return false;
 }
 
-const args = parseArgs(process.argv.slice(2));
-const outDir = path.join(smokeDir, args.label);
-fs.rmSync(outDir, { recursive: true, force: true });
-const buildDir = path.join(outDir, "build");
-build(buildDir);
-
-const load = (rel) => import(pathToFileURL(path.join(buildDir, rel)).href);
 const { FFmpeg } = await load("api/_lib/ffmpeg.js");
 const { TOOLS } = await load("api/_lib/tools/index.js");
 const { renderWatermarkFrame } = await load("api/_lib/tools/mark.js");
@@ -395,7 +348,7 @@ if (ffmpegCheck.problems.length) {
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
 const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
-const { assets, owned } = resolveAssets(ffmpegPath, userDir, path.join(outDir, "assets"));
+const assets = resolveAssets(ffmpegPath, userDir, path.join(outDir, "assets"));
 const bytesOf = (paths) => paths.reduce((sum, p) => sum + fs.statSync(p).size, 0);
 const describe = (paths) =>
   paths.length === 1
@@ -433,12 +386,7 @@ class Recorder extends FFmpeg {
 const say = console.log;
 console.log = console.error = () => {};
 
-say(
-  owned.length
-    ? `assets from ${userDirShown}: ${owned.join(", ")}` +
-        ` (the rest synthesized)\n`
-    : `synthetic assets (none found in ${userDirShown})\n`,
-);
+say(`assets from ${userDirShown}\n`);
 
 const commands = {};
 const broken = {};
