@@ -1,18 +1,13 @@
-// @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { parseMediaInfo, parseOutputSize } from "./ffmpeg.js";
+import { parseMediaInfo, parseOutputSize } from "../_lib/ffmpeg.js";
 
 describe("parseMediaInfo", () => {
-  // The watermark's PNG check goes by this, so the lines are ffmpeg's own:
-  // each of these files was probed under the name logo.png.
+  // Real ffmpeg lines, each file probed as logo.png (the watermark PNG check).
   it.each([
     ["png", "png, rgb24(pc, gbr/unknown/unknown), 200x100 [SAR 1:1 DAR 2:1]"],
     ["gif", "gif, bgra, 200x100 [SAR 64:64 DAR 2:1]"],
     ["apng", "apng, rgb24(pc, gbr/unknown/unknown), 200x100 [SAR 1:1 DAR 2:1]"],
-    [
-      "mjpeg",
-      "mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 200x100 [SAR 1:1 DAR 2:1]",
-    ],
+    ["mjpeg", "mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 200x100 [SAR 1:1 DAR 2:1]"],
     ["webp", "webp, yuv420p(tv, bt470bg/unknown/unknown), 200x100"],
   ])("reads the codec of %s content, whatever the file is called", (codec, stream) => {
     const summary = [
@@ -29,9 +24,8 @@ describe("parseMediaInfo", () => {
 });
 
 describe("parseOutputSize", () => {
-  // `ffmpeg -i turned.jpg -frames:v 1 -f null -` (9.0.2) on a 1600x1080 JPEG
-  // whose EXIF orientation stands it on end: the input line has the size as
-  // stored, the output line the size the picture is decoded to.
+  // 9.0.2 on an EXIF-rotated 1600x1080 JPEG: input line = stored size,
+  // output line = decoded size.
   const log = `Input #0, image2, from 'turned.jpg':
   Duration: 00:00:00.04, start: 0.000000, bitrate: 9712 kb/s
   Stream #0:0: Video: mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 1600x1080, 25 fps, 25 tbr, 25 tbn

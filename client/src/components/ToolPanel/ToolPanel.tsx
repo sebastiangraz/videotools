@@ -67,16 +67,11 @@ export const ToolPanel = ({
               />
             }
           >
-            {busy ? status && status : tool.actionLabel}
+            {busy ? status : tool.actionLabel}
             {busy && <Spinner className={styles.spinner} />}
           </Tooltip>
 
-          <button
-            type="button"
-            onClick={stop}
-            hidden={!busy}
-            className={styles.stopButton}
-          >
+          <button type="button" onClick={stop} hidden={!busy} className={styles.stopButton}>
             Stop
           </button>
         </div>

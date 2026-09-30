@@ -1,31 +1,32 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { jsonBody, methodNotAllowed } from "./_lib/request.js";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 
-  try {
-    const jsonResponse = await handleUpload({
-      body: req.body as HandleUploadBody,
-      request: req,
-      onBeforeGenerateToken: () =>
-        Promise.resolve({
-          // ffmpeg detects the container from the file content, so accept any
-          // video/image type; octet-stream covers formats the browser can't
-          // identify (e.g. .mkv or .avi on some systems).
-          allowedContentTypes: ["video/*", "image/*", "application/octet-stream"],
-          maximumSizeInBytes: 200 * 1024 * 1024,
-          addRandomSuffix: true,
-        }),
-      // Not invoked on localhost (Blob can't reach a local callback URL) — harmless.
-      onUploadCompleted: async () => {},
-    });
-    return res.status(200).json(jsonResponse);
-  } catch (err) {
-    return res
-      .status(400)
-      .json({ error: err instanceof Error ? err.message : "Upload token error" });
-  }
-}
+export default {
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== "POST") return methodNotAllowed();
+
+    try {
+      const jsonResponse = await handleUpload({
+        body: (await jsonBody(request)) as HandleUploadBody,
+        request,
+        onBeforeGenerateToken: () =>
+          Promise.resolve({
+            // octet-stream: browsers can't type .mkv/.avi on some systems.
+            allowedContentTypes: ["video/*", "image/*", "application/octet-stream"],
+            maximumSizeInBytes: MAX_UPLOAD_BYTES,
+            addRandomSuffix: true,
+          }),
+        // Not invoked on localhost (Blob can't reach a local callback URL) — harmless.
+        onUploadCompleted: async () => {},
+      });
+      return Response.json(jsonResponse);
+    } catch (err) {
+      return Response.json(
+        { error: err instanceof Error ? err.message : "Upload token error" },
+        { status: 400 },
+      );
+    }
+  },
+};

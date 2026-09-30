@@ -7,45 +7,28 @@ import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { fileFormat } from "../../sourceFormat";
+import { fileFormat, targetsFor } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import { FORMATS } from "../../../../shared/formats";
 import form from "../form.module.css";
 
 const TOOL = toolById("convert");
 
-// Every format the app writes (shared/formats.ts, which the functions'
-// encoders follow too). GIF is encoded by gifski server-side, the rest by
-// ffmpeg — the dropdown deliberately doesn't distinguish.
-const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
-
 export const Convert = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  // Foreign sources (.avi, .mkv, ...) are this tool's whole point, so no
-  // file ffmpeg reads is turned away for its format.
-  const formatBlocker = useFormatBlocker(
-    source.file,
-    { foreign: false },
-    source.nonSquare,
-  );
+  // Foreign sources (.avi, .mkv, ...) are this tool's whole point.
+  const formatBlocker = useFormatBlocker(source.file, { foreign: false }, source.nonSquare);
   const [target, setTarget] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the server probes it, capped at 30)
   const [gifFps, setGifFps] = useState<number | null>(null);
-  // NumberField reports null while its input is empty; submit falls back to
-  // the default.
+  // NumberField reports null while empty; submit falls back to the default.
   const [gifWidth, setGifWidth] = useState<number | null>(640);
 
-  // Convert targets minus the picked file's own format: every other tool
-  // already hands that one back. Sources in no format of the app's (.avi,
-  // .mkv, ...) keep the full list. `target` survives a file swap; if the new
-  // source claims it, fall to the first remaining option instead of
-  // resetting state.
+  // `target` survives a file swap; if the new source claims it, fall to the
+  // first remaining option.
   const sourceFormat = source.file ? fileFormat(source.file) : null;
-  const targetOptions = CONVERT_TARGETS.filter(
-    (t) => t.value !== sourceFormat?.id,
-  );
+  const targetOptions = targetsFor(source.file);
   const effectiveTarget = targetOptions.some((t) => t.value === target)
     ? target
     : targetOptions[0].value;
@@ -66,8 +49,6 @@ export const Convert = () => {
           quality,
           ...(effectiveTarget === "gif"
             ? {
-                // fps stays home when empty: the server then matches the
-                // source framerate
                 ...(gifFps != null ? { fps: gifFps } : {}),
                 width: gifWidth ?? 640,
               }
@@ -80,19 +61,11 @@ export const Convert = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={
-        <DropZone
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-        />
-      }
+      inputs={<DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
-      {/* The dropdown waits for a file: its options depend on the picked
-          file's format (a source isn't offered as its own target). */}
       {source.file && (
         <>
           <div className={form.formGroup}>
@@ -152,11 +125,8 @@ export const Convert = () => {
               label={
                 <>
                   {/* WebP at 100 is lossless only from a lossless source
-                      (api/_lib/encode/webp.ts); of those, only a GIF shows
-                      by its name. */}
-                  {effectiveTarget === "webp" &&
-                  quality === 100 &&
-                  sourceFormat?.id === "gif"
+                      (encode/webp.ts); of those only a GIF shows by name. */}
+                  {effectiveTarget === "webp" && quality === 100 && sourceFormat?.id === "gif"
                     ? `Lossless ${quality}%`
                     : `Quality ${quality}%`}
                 </>

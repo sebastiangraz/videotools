@@ -1,9 +1,5 @@
-// Something about the request that is the user's to fix: a source the tool
-// cannot give back, a clip too long for the format, a logo that is no PNG or SVG.
-// The functions answer these with a 400 and the `code`, which the client (and
-// the smoke run) can tell apart without reading the message; anything else
-// that gets thrown is a server fault (500).
-export type InputErrorCode =
+// User-fixable errors → 400; the client and smoke run branch on `code`.
+type InputErrorCode =
   | "unsupported-source"
   | "unreadable-source"
   | "too-long"

@@ -1,10 +1,4 @@
-import {
-  ReactNode,
-  RefObject,
-  useEffect,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { ReactNode, RefObject, useEffect, useState, useSyncExternalStore } from "react";
 import {
   PreviewCard as BasePreviewCard,
   type PreviewCardTriggerProps,
@@ -44,15 +38,8 @@ const centerOverAnchor = ({
 // the layout's title, so it never moves whoever is speaking. It is open while
 // a <Message> is up or a MessageTrigger is hovered or focused; the message
 // wins, so it stays put until it is gone.
-export const MessageArea = ({
-  anchor,
-}: {
-  anchor: RefObject<HTMLElement | null>;
-}) => {
-  const { active, message } = useSyncExternalStore(
-    messages.subscribe,
-    messages.getSnapshot,
-  );
+export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> }) => {
+  const { active, message } = useSyncExternalStore(messages.subscribe, messages.getSnapshot);
   const [triggered, setTriggered] = useState(false);
 
   // A message that goes while a trigger holds the card open hands over to
@@ -79,9 +66,7 @@ export const MessageArea = ({
         const error = !triggerSpeaks && message?.kind === "error";
         return (
           <PreviewCardPopup
-            popupClassName={
-              error ? `${styles.message} ${styles.error}` : styles.message
-            }
+            popupClassName={error ? `${styles.message} ${styles.error}` : styles.message}
             anchor={anchor}
             side="bottom"
             align="end"
@@ -119,12 +104,7 @@ export const MessageTrigger = ({
   render: PreviewCardTriggerProps["render"];
   children: ReactNode;
 }) => (
-  <BasePreviewCard.Trigger
-    handle={messageHandle}
-    payload={message}
-    delay={200}
-    render={render}
-  >
+  <BasePreviewCard.Trigger handle={messageHandle} payload={message} delay={200} render={render}>
     {children}
   </BasePreviewCard.Trigger>
 );

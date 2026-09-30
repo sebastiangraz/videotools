@@ -4,12 +4,7 @@ import styles from "./Footer.module.css";
 export const Footer = () => (
   <div className={styles.footer}>
     <div className={styles.footerGroup}>
-      <a
-        href="https://graz.io"
-        target="_blank"
-        aria-label="logo"
-        className={styles.logoLink}
-      >
+      <a href="https://graz.io" target="_blank" aria-label="logo" className={styles.logoLink}>
         G
       </a>
       <VersionLabel />
@@ -18,14 +13,9 @@ export const Footer = () => (
       <input
         type="checkbox"
         aria-label="Toggle dark mode"
-        defaultChecked={document.documentElement.hasAttribute(
-          "data-theme-invert",
-        )}
+        defaultChecked={document.documentElement.hasAttribute("data-theme-invert")}
         onChange={(e) => {
-          document.documentElement.toggleAttribute(
-            "data-theme-invert",
-            e.target.checked,
-          );
+          document.documentElement.toggleAttribute("data-theme-invert", e.target.checked);
           localStorage.setItem("theme-invert", e.target.checked ? "1" : "0");
         }}
       />

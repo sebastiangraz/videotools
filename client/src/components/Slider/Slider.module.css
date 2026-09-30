@@ -147,11 +147,7 @@
   --h: calc(var(--minor-h) + (var(--minor-peak) - var(--minor-h)) * var(--s));
   /* 1 when this tick is in the filled span, else 0 */
   --on: clamp(0, calc((var(--fill-ratio) - var(--pos)) * 1000 + 1), 1);
-  background-color: color-mix(
-    in srgb,
-    var(--fg-tertiary) calc(var(--on) * 100%),
-    var(--border)
-  );
+  background-color: color-mix(in srgb, var(--fg-tertiary) calc(var(--on) * 100%), var(--border));
   transform: scaleY(calc(var(--h) / var(--major-h-active)));
   transition:
     transform 100ms ease,

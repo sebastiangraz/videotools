@@ -1,43 +1,32 @@
+import type { FormatId } from "../formats.js";
 import { encodePreserved } from "../encode/index.js";
+import { DEFAULT_FPS } from "../ffmpeg.js";
 import { MAX_AVIF_FPS } from "../encode/avif.js";
 import { MAX_GIF_FPS } from "../encode/gif.js";
 import { MAX_WEBP_FPS } from "../encode/webp.js";
-import {
-  frameRate,
-  sourceRender,
-  videoPad,
-  type Render,
-} from "../encode/render.js";
+import { frameRate, sourceRender, videoPad, type Render } from "../encode/render.js";
 import { clamp, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
 
-// setpts rescales the frame timestamps; the fps filter then settles what is
-// shown at the new pace.
+// Frame-list formats (frames with delays) and their max fps.
+const MAX_FPS: Partial<Record<FormatId, number>> = {
+  gif: MAX_GIF_FPS,
+  webp: MAX_WEBP_FPS,
+  avif: MAX_AVIF_FPS,
+};
+
 export function changeSpeed(source: Source, multiplier: number): Render {
-  const sourceFps = source.profile.fps ?? 30;
-  // Video keeps its frame rate: speed-ups drop frames (rather than raising
-  // the rate past what screens show) and slow-downs repeat them. A GIF,
-  // WebP or AVIF is a list of frames with delays (a slideshow's AVIF holds
-  // three pictures a second apart), so there the delays change and every
-  // frame stays, up to what the format can show.
-  const maxFps =
-    source.format === "gif"
-      ? MAX_GIF_FPS
-      : source.format === "webp"
-        ? MAX_WEBP_FPS
-        : source.format === "avif"
-          ? MAX_AVIF_FPS
-          : null;
-  const fps =
-    maxFps === null ? sourceFps : Math.min(sourceFps * multiplier, maxFps);
+  const sourceFps = source.profile.fps ?? DEFAULT_FPS;
+  // Video keeps its rate (drops/repeats frames); frame-list formats change
+  // their delays and keep every frame, up to the format's max fps.
+  const maxFps = source.format && MAX_FPS[source.format];
+  const fps = maxFps ? Math.min(sourceFps * multiplier, maxFps) : sourceFps;
   return sourceRender(source, {
     filter: `${videoPad(source)}setpts=PTS/${multiplier},fps=${frameRate(fps)}[out]`,
-    // Like the other tools that change a clip's timing, without its audio.
     keepAudio: false,
     duration: source.profile.duration / multiplier,
     fps,
-    // The frames that stay go by this much faster, and keep their bits.
     pace: fps / sourceFps,
   });
 }
@@ -45,20 +34,22 @@ export function changeSpeed(source: Source, multiplier: number): Render {
 export const speed: Tool = {
   inputs: singleVideo,
   async run(job) {
-    const { ff, workDir, inputs, options } = job;
+    const { inputs, options } = job;
     // Signed ratio: ±1 → 2× faster/slower, ±3 → 4×. Mirrored in
     // client/src/pages/Speed/Speed.tsx.
     const ratio = clamp(options.speed, -3, 3, 0);
     const multiplier = ratio >= 0 ? 1 + ratio : 1 / (1 - ratio);
 
     const source = await openSource(job, inputs[0]);
-    // Comes back in the format it came in, and at the quality: the tool has
-    // no slider, so it spends what keeping the source's look takes (rate.ts).
+    // No quality slider: spend what keeping the source's look takes (rate.ts).
     const format = preservedFormat(source);
     console.log(`Changing playback speed of ${format} by ${multiplier}x...`);
 
     const render = changeSpeed(source, multiplier);
-    const outputPath = await encodePreserved(ff, render, workDir, format, 100);
+    const outputPath = await encodePreserved(job, render, {
+      format,
+      quality: 100,
+    });
     return { outputPath, suffix: "speed", ext: format };
   },
 };

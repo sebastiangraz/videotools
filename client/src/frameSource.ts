@@ -1,6 +1,5 @@
-import { isAnimation, isStillImage } from "./sourceFormat";
+import { fileFormat, isAnimatedImage, isStillImage, stillFormat } from "./sourceFormat";
 
-// A frame to draw on a canvas, and its size. `close` frees a decoded one.
 export interface Frame {
   image: CanvasImageSource;
   width: number;
@@ -8,31 +7,17 @@ export interface Frame {
   close(): void;
 }
 
-// The frames of a picked file, by time, whatever it takes to decode them.
 export interface FrameSource {
-  // Seconds; 0 = the source can't tell (or is a still).
+  // Seconds; 0 = unknown (or a still).
   duration(): Promise<number>;
-  // The frame on screen at `second`; past the end, the last one.
+  // Past the end: the last frame.
   frameAt(second: number): Promise<Frame>;
-  // Whether the pixels aren't square: stored at another shape than they play
-  // at. Videos only, where the browser has VideoFrame to tell.
+  // Videos only (VideoFrame can tell).
   nonSquare?(): boolean;
   close(): void;
 }
 
-// Settles once the element has something to draw, or can't decode its source.
-const loaded = (element: HTMLElement, ready: string) =>
-  new Promise<void>((resolve, reject) => {
-    element.addEventListener(ready, () => resolve(), { once: true });
-    element.addEventListener(
-      "error",
-      () => reject(new Error("The browser can't decode this file")),
-      { once: true },
-    );
-  });
-
-// A <video> that is never in the page: seeked to the frame, which is then
-// drawn off it. The browser clamps out-of-range times to the clip length.
+// Detached <video>; the browser clamps out-of-range seeks to the clip length.
 const openVideo = async (file: File): Promise<FrameSource> => {
   const url = URL.createObjectURL(file);
   const video = document.createElement("video");
@@ -45,7 +30,14 @@ const openVideo = async (file: File): Promise<FrameSource> => {
     URL.revokeObjectURL(url);
   };
   try {
-    const ready = loaded(video, "loadeddata");
+    const ready = new Promise<void>((resolve, reject) => {
+      video.addEventListener("loadeddata", () => resolve(), { once: true });
+      video.addEventListener(
+        "error",
+        () => reject(new Error("The browser can't decode this file")),
+        { once: true },
+      );
+    });
     video.src = url;
     await ready;
   } catch (err) {
@@ -53,16 +45,12 @@ const openVideo = async (file: File): Promise<FrameSource> => {
     throw err;
   }
   return {
-    duration: async () =>
-      Number.isFinite(video.duration) ? video.duration : 0,
+    duration: async () => (Number.isFinite(video.duration) ? video.duration : 0),
     frameAt: async (second) => {
       if (video.currentTime !== second) video.currentTime = second;
-      // Also true for a seek an earlier call started: the frame isn't there
-      // to draw until it lands.
+      // May be an earlier call's seek; nothing to draw until it lands.
       if (video.seeking) {
-        await new Promise((resolve) =>
-          video.addEventListener("seeked", resolve, { once: true }),
-        );
+        await new Promise((resolve) => video.addEventListener("seeked", resolve, { once: true }));
       }
       return {
         image: video,
@@ -72,15 +60,11 @@ const openVideo = async (file: File): Promise<FrameSource> => {
       };
     },
     nonSquare: () => {
-      if (typeof VideoFrame === "undefined") return false;
       try {
         const frame = new VideoFrame(video);
         const stored = frame.visibleRect;
         frame.close();
-        return (
-          !!stored &&
-          stored.width * video.videoHeight !== video.videoWidth * stored.height
-        );
+        return !!stored && stored.width * video.videoHeight !== video.videoWidth * stored.height;
       } catch {
         return false;
       }
@@ -89,22 +73,24 @@ const openVideo = async (file: File): Promise<FrameSource> => {
   };
 };
 
-// An animated image (GIF, WebP, AVIF): the browser's ImageDecoder takes it
-// apart into frames with timestamps.
-const openAnimation = async (file: File): Promise<FrameSource> => {
-  const decoder = new ImageDecoder({ data: file.stream(), type: file.type });
-  // `completed` = every byte is in, so the frame count is final; the track
-  // (and that count) only exists once `tracks.ready` is.
+// Stills and animations alike. A frame carries the EXIF orientation, which
+// drawImage applies (and displayWidth/Height include), as the server does.
+const openImage = async (file: File): Promise<FrameSource> => {
+  // Dropped files can come without a type.
+  const type = (stillFormat(file) ?? fileFormat(file))?.mime ?? file.type;
+  const decoder = new ImageDecoder({ data: file.stream(), type });
+  // The frame count is final only after `completed`, and exists only after
+  // `tracks.ready`.
   await Promise.all([decoder.completed, decoder.tracks.ready]);
-  const count = decoder.tracks.selectedTrack?.frameCount ?? 0;
+  const track = decoder.tracks.selectedTrack;
+  const count = track?.frameCount ?? 0;
   if (!count) {
     decoder.close();
     throw new Error("No frames");
   }
 
-  // When each frame stops showing (seconds). GIF delays vary by frame, so
-  // they cannot be computed from a rate: it takes a pass over every frame,
-  // put off until something past the first one is asked for.
+  // Frame end times (s). GIF delays vary per frame, so this needs a lazy pass
+  // over every frame.
   let ends: Promise<number[]> | undefined;
   const frameEnds = () =>
     (ends ??= (async () => {
@@ -118,10 +104,10 @@ const openAnimation = async (file: File): Promise<FrameSource> => {
     })());
 
   return {
-    duration: async () => (await frameEnds())[count - 1],
+    duration: async () => (track?.animated ? (await frameEnds())[count - 1] : 0),
     frameAt: async (second) => {
       let frameIndex = 0;
-      if (second > 0) {
+      if (second > 0 && count > 1) {
         const found = (await frameEnds()).findIndex((end) => end > second);
         frameIndex = found < 0 ? count - 1 : found;
       }
@@ -137,42 +123,6 @@ const openAnimation = async (file: File): Promise<FrameSource> => {
   };
 };
 
-// An animated image where there is no ImageDecoder (or it can't read the
-// file): an <img> is all there is, and a canvas always draws an animated
-// image's first frame, so that one frame is the whole source. It is for a
-// still anyway, which comes through here whatever the browser has: an <img>
-// is drawn the way EXIF says a photo is held, as the server will mark it.
-const openStill = async (file: File): Promise<FrameSource> => {
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  try {
-    const ready = loaded(img, "load");
-    img.src = url;
-    await ready;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-  return {
-    duration: async () => 0,
-    frameAt: async (second) => {
-      if (second > 0) throw new Error("Only the first frame can be drawn");
-      return {
-        image: img,
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-        close: () => {},
-      };
-    },
-    close: () => {},
-  };
-};
-
-// Rejects when the browser can't decode the file.
-export const openFrameSource = async (file: File): Promise<FrameSource> => {
-  if (await isAnimation(file)) {
-    return typeof ImageDecoder !== "undefined"
-      ? openAnimation(file).catch(() => openStill(file))
-      : openStill(file);
-  }
-  return isStillImage(file) ? openStill(file) : openVideo(file);
-};
+// Rejects when the browser can't decode the file (or has no ImageDecoder).
+export const openFrameSource = async (file: File): Promise<FrameSource> =>
+  isStillImage(file) || isAnimatedImage(file) ? openImage(file) : openVideo(file);

@@ -1,8 +1,8 @@
 # gifski
 
-`gifski.json` pins the gifski CLI (currently **1.34.0**, from
+`scripts/binaries.mjs` pins the gifski CLI (currently **1.34.0**, from
 https://github.com/ImageOptim/gifski/releases/tag/1.34.0). Its binaries are
-mirrored, unmodified, to this repo's `gifski-<version>` release, and `npm
+mirrored, unmodified, to this repo's `gifski-<version>` release, and `bun
 install`'s postinstall (`scripts/binaries-install.mjs`) fetches the host's into
 `api/_bin/gifski/<platform>/` (gitignored), as it does for ffmpeg:
 
@@ -14,6 +14,7 @@ install`'s postinstall (`scripts/binaries-install.mjs`) fetches the host's into
 gifski is AGPL-3.0 (see LICENSE). It runs as an unmodified, separate
 subprocess, which is aggregation — it does not affect this repo's licensing.
 
-To update: `npm run gifski:mirror -- <version>` (publishes the release and
-rewrites `gifski.json`; needs gh), then `npm install` and
-`npm run smoke -- <label> --only gif`.
+To update: split a new release tarball into gzipped per-platform binaries,
+attach them (and LICENSE) to a new `gifski-<version>` release here, update
+`BINARIES` in `scripts/binaries.mjs`, then `bun install` and
+`bun run smoke -- <label> --only gif`.

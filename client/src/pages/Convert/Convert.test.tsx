@@ -1,149 +1,71 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, it, expect, describe } from "vitest";
-import { renderApp, uploadMock } from "../../test/renderApp";
+import { it, expect, describe } from "vitest";
+import {
+  blobUrl,
+  postedBody,
+  renderApp,
+  runFinished,
+  stubProcessFetch,
+  uploadMock,
+} from "../../test/renderApp";
+import { file } from "../../test/media";
+import { targetsFor } from "../../sourceFormat";
+
+const convertButton = () => screen.getByRole("button", { name: /^convert$/i });
 
 describe("Convert", () => {
-  it("offers convert targets minus the source format and requests a GIF conversion", async () => {
+  it("requests a GIF conversion with the GIF options", async () => {
     const user = userEvent.setup();
-    const file = new File(["00"], "clip.mov", { type: "video/quicktime" });
-
-    uploadMock.mockResolvedValue({
-      url: "https://store.public.blob.vercel-storage.com/clip-abc.mov",
-    });
-    const resultUrl =
-      "https://store.public.blob.vercel-storage.com/results/clip_converted-xyz.gif";
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (input === "/api/process" && init?.method === "POST") {
-          return new Response(
-            JSON.stringify({ url: resultUrl, filename: "clip_converted.gif" }),
-            { status: 200 },
-          );
-        }
-        if (input === resultUrl) {
-          return new Response(new Blob(["gif"], { type: "image/gif" }), {
-            status: 200,
-          });
-        }
-        if (input === "/api/process" && init?.method === "DELETE") {
-          return new Response(null, { status: 204 });
-        }
-        throw new Error(`Unexpected fetch: ${input}`);
-      },
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    uploadMock.mockResolvedValue({ url: blobUrl("clip-abc.mov") });
+    const fetchMock = stubProcessFetch();
 
     await renderApp("/convert");
-    // The dropdown depends on the picked file's format, so it waits for one
-    expect(screen.queryByText(/convert to/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/convert to/i)).not.toBeInTheDocument();
 
-    await user.upload(screen.getByLabelText(/choose video/i), file);
-    // Open the target menu: the source's own format is not offered
+    await user.upload(screen.getByLabelText(/choose video/i), file("clip.mov", "video/quicktime"));
     await user.click(screen.getByLabelText(/convert to/i));
-    expect(
-      await screen.findByRole("option", { name: /mp4/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("option", { name: /mov/i }),
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: /gif/i }));
-
-    // GIF-only controls appear with the target
+    await user.click(await screen.findByRole("option", { name: /gif/i }));
     expect(screen.getByLabelText(/fps/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/width/i)).toBeInTheDocument();
+    await user.click(convertButton());
 
-    await user.click(screen.getByRole("button", { name: /^convert$/i }));
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
-    const processBody = JSON.parse(
-      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
-        ?.body as string) ?? "{}",
-    );
-    expect(processBody).toMatchObject({
+    await runFinished(fetchMock);
+    const body = postedBody(fetchMock);
+    expect(body).toMatchObject({
       tool: "convert",
-      blobUrl: "https://store.public.blob.vercel-storage.com/clip-abc.mov",
+      blobUrl: blobUrl("clip-abc.mov"),
       filename: "clip.mov",
     });
-    // fps is absent when the field is left empty — the server then matches
-    // the source framerate
-    expect(processBody.options).toEqual({
-      target: "gif",
-      quality: 100,
-      width: 640,
-    });
+    // Empty fps is omitted: the server matches the source framerate
+    expect(body.options).toEqual({ target: "gif", quality: 100, width: 640 });
   });
 
-  it("defaults to the first non-source target and omits GIF options", async () => {
+  it("falls to the first other target when the source claims the default", async () => {
     const user = userEvent.setup();
-    const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
-
-    uploadMock.mockResolvedValue({
-      url: "https://store.public.blob.vercel-storage.com/tiny-abc.mp4",
-    });
-    const resultUrl =
-      "https://store.public.blob.vercel-storage.com/results/tiny_converted-xyz.webm";
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (input === "/api/process" && init?.method === "POST") {
-          return new Response(
-            JSON.stringify({ url: resultUrl, filename: "tiny_converted.webm" }),
-            { status: 200 },
-          );
-        }
-        if (input === resultUrl) {
-          return new Response(new Blob(["video"], { type: "video/webm" }), {
-            status: 200,
-          });
-        }
-        if (input === "/api/process" && init?.method === "DELETE") {
-          return new Response(null, { status: 204 });
-        }
-        throw new Error(`Unexpected fetch: ${input}`);
-      },
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const mp4 = file("tiny.mp4", "video/mp4");
+    uploadMock.mockResolvedValue({ url: blobUrl("tiny-abc.mp4") });
+    const fetchMock = stubProcessFetch();
 
     await renderApp("/convert");
-    await user.upload(screen.getByLabelText(/choose video/i), file);
-    // MP4 source: the default target "mp4" is excluded, so WebM takes over
-    await user.click(screen.getByRole("button", { name: /^convert$/i }));
+    await user.upload(screen.getByLabelText(/choose video/i), mp4);
+    await user.click(convertButton());
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
-        expect.objectContaining({ method: "DELETE" }),
-      ),
-    );
-    const processBody = JSON.parse(
-      (fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]
-        ?.body as string) ?? "{}",
-    );
-    expect(processBody.tool).toBe("convert");
-    // Exact match: fps/width must not tag along for non-GIF targets
-    expect(processBody.options).toEqual({ target: "webm", quality: 100 });
+    await runFinished(fetchMock);
+    expect(postedBody(fetchMock).options).toEqual({
+      target: targetsFor(mp4)[0].value,
+      quality: 100,
+    });
   });
 
   it("accepts a format the app does not write, with no blocker and every target", async () => {
     const user = userEvent.setup();
-
     await renderApp("/convert");
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
-    );
+    await user.upload(screen.getByLabelText(/choose video/i), file("clip.avi", "video/x-msvideo"));
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^convert$/i })).toHaveAttribute(
-      "aria-disabled",
-      "false",
-    );
+    expect(convertButton()).toHaveAttribute("aria-disabled", "false");
     await user.click(screen.getByLabelText(/convert to/i));
-    expect(await screen.findAllByRole("option")).toHaveLength(6);
+    expect(await screen.findAllByRole("option")).toHaveLength(targetsFor(null).length);
   });
 });

@@ -2,23 +2,24 @@ import { useRef, useState } from "react";
 import { hasFrames } from "../sourceFormat";
 import { openFrameSource } from "../frameSource";
 
+// In tenths (the start field step); undefined while the length is unknown (0).
+export const maxStart = (duration: number): number | undefined =>
+  duration > 0 ? Math.floor(duration * 10) / 10 : undefined;
+
+export const clampStart = (startSecond: number | null, duration: number): number | null =>
+  startSecond === null ? null : Math.min(startSecond, maxStart(duration) ?? Infinity);
+
 export interface Dims {
   w: number;
   h: number;
 }
 
-// The picked source of a single-video tool, plus what the browser can tell
-// about it: the duration and the frame size, read off a frame source
-// (frameSource.ts), which opens a video, an animated image or a still each
-// the way the browser can. A still has no duration, and its size is the one
-// it is shown at, turned by EXIF. `nonSquare`: the browser saw non-square
-// pixels, which no tool takes (useFormatBlocker; the functions refuse them too).
+// A still has no duration, and its size is the EXIF-rotated one. nonSquare:
+// the browser saw non-square pixels, which no tool takes.
 export function useVideoSource() {
   const [file, setFile] = useState<File | null>(null);
-  // Seconds; 0 = not known (yet, or for good: a still, a file the browser
-  // can't decode, a stream without a length).
+  // Seconds; 0 = unknown (a still, undecodable, or no length).
   const [duration, setDuration] = useState<number>(0);
-  // Null until the source opens, or for good if the browser can't decode it.
   const [dims, setDims] = useState<Dims | null>(null);
   const [nonSquare, setNonSquare] = useState(false);
 
@@ -36,10 +37,7 @@ export function useVideoSource() {
     openFrameSource(picked)
       .then(async (frames) => {
         try {
-          const [seconds, frame] = await Promise.all([
-            frames.duration(),
-            frames.frameAt(0),
-          ]);
+          const [seconds, frame] = await Promise.all([frames.duration(), frames.frameAt(0)]);
           const { width, height } = frame;
           frame.close();
           if (latest.current !== picked) return;

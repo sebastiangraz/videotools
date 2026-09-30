@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  byFilename,
   fileFormat,
   formatBlock,
   formatBlocker,
@@ -7,16 +8,26 @@ import {
   isAnimatedImage,
   isAnimatedWebp,
   isStillImage,
+  pickedFormats,
   stillFormat,
+  targetsFor,
 } from "./sourceFormat";
-
-const file = (name: string, type = "") => new File(["00"], name, { type });
+import { file, webpFile } from "./test/media";
 
 describe("fileFormat", () => {
   it("goes by the name, then by the type the browser reports", () => {
     expect(fileFormat(file("clip.mov", "video/quicktime"))?.id).toBe("mov");
     expect(fileFormat(file("download", "image/gif"))?.id).toBe("gif");
     expect(fileFormat(file("clip.avi", "video/x-msvideo"))).toBeNull();
+  });
+
+  it("reads the last extension, whatever its case", () => {
+    expect(fileFormat(file("clip.final.MOV"))?.id).toBe("mov");
+    expect(fileFormat(file("clip.m4v"))?.id).toBe("mp4");
+    expect(fileFormat(file("photo.webp"))?.id).toBe("webp");
+    expect(fileFormat(file("clip.mkv"))).toBeNull();
+    expect(fileFormat(file("noextension"))).toBeNull();
+    expect(fileFormat(file("folder.mp4/clip"))).toBeNull();
   });
 });
 
@@ -34,8 +45,6 @@ describe("formatBlock", () => {
     expect(formatBlocker(file("clip.mkv"))).toMatch(/convert/i);
   });
 
-  // The tools that are asked for a format (convert, sequence): a source in
-  // none of the app's is what they are for, and only a dead end stops them.
   it("lets a foreign source through where there is no format to keep", () => {
     expect(formatBlock(file("clip.mkv"), { foreign: false })).toBeNull();
     expect(formatBlocker(file("clip.mkv"), { foreign: false })).toBeNull();
@@ -43,7 +52,6 @@ describe("formatBlock", () => {
     expect(formatBlock(still, { foreign: false }, true)).toBeNull();
   });
 
-  // Taken for an animation until its header says otherwise (isAnimatedWebp)
   it("takes a WebP for the format, and a still one for a still", () => {
     const webp = file("anim.webp", "image/webp");
     expect(formatBlock(webp)).toBeNull();
@@ -61,6 +69,8 @@ describe("stills", () => {
     expect(stillFormat(file("download", "image/png"))?.id).toBe("png");
     expect(stillFormat(file("anim.gif", "image/gif"))).toBeNull();
     expect(stillFormat(file("clip.mp4", "video/mp4"))).toBeNull();
+    expect(stillFormat(file("photo.JPEG"))?.id).toBe("jpg");
+    expect(stillFormat(file("photo.webp"))?.id).toBe("webp");
   });
 
   it("lets one through only where the tool takes stills", () => {
@@ -68,41 +78,18 @@ describe("stills", () => {
     expect(formatBlock(photo)).toEqual({ state: "foreign", name: "JPG" });
     expect(formatBlock(photo, { stills: true })).toBeNull();
     expect(formatBlocker(photo, { stills: true })).toBeNull();
-    // Taken for a still until its content says otherwise (isAnimatedWebp)
-    expect(
-      formatBlock(file("photo.webp", "image/webp"), { stills: true }),
-    ).toBeNull();
-    // What no tool takes stays out either way
+    expect(formatBlock(file("photo.webp", "image/webp"), { stills: true })).toBeNull();
     expect(formatBlock(file("clip.mkv"), { stills: true })).toMatchObject({
       state: "foreign",
     });
   });
 
-  // "RIFF" size "WEBP", then the first chunk: VP8X carries the flags, a
-  // plain lossy file starts right away with its VP8 data.
-  const webp = (chunk: string, flags: number) =>
-    new File(
-      [
-        new Uint8Array([
-          ...[..."RIFF"].map((c) => c.charCodeAt(0)),
-          ...[0, 0, 0, 0],
-          ...[..."WEBP"].map((c) => c.charCodeAt(0)),
-          ...[...chunk].map((c) => c.charCodeAt(0)),
-          ...[10, 0, 0, 0],
-          flags,
-          ...[0, 0, 0],
-        ]),
-      ],
-      "photo.webp",
-      { type: "image/webp" },
-    );
-
   it("tells an animated WebP from a still by its header", async () => {
     // Animation is bit 1; 0x10 is alpha, which a still may well have
-    expect(await isAnimatedWebp(webp("VP8X", 0x02))).toBe(true);
-    expect(await isAnimatedWebp(webp("VP8X", 0x12))).toBe(true);
-    expect(await isAnimatedWebp(webp("VP8X", 0x10))).toBe(false);
-    expect(await isAnimatedWebp(webp("VP8 ", 0x02))).toBe(false);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02))).toBe(true);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x12))).toBe(true);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x10))).toBe(false);
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02, "VP8 "))).toBe(false);
     expect(await isAnimatedWebp(file("photo.webp", "image/webp"))).toBe(false);
   });
 });
@@ -112,7 +99,6 @@ describe("hasFrames", () => {
     expect(isAnimatedImage(file("anim.gif", "image/gif"))).toBe(true);
     expect(isAnimatedImage(file("anim.avif", "image/avif"))).toBe(true);
     expect(isStillImage(file("photo.jpg", "image/jpeg"))).toBe(true);
-    // A .webp is a still until its content says otherwise
     expect(isStillImage(file("anim.webp", "image/webp"))).toBe(true);
     expect(isAnimatedImage(file("anim.webp", "image/webp"))).toBe(false);
     expect(isAnimatedImage(file("clip.mp4", "video/mp4"))).toBe(false);
@@ -125,5 +111,37 @@ describe("hasFrames", () => {
     expect(hasFrames(file("download", "image/gif"))).toBe(true);
     expect(hasFrames(file("photo.png", "image/png"))).toBe(true);
     expect(hasFrames(file("notes.txt", "text/plain"))).toBe(false);
+  });
+});
+
+describe("targetsFor", () => {
+  it("offers every format but the source's own", () => {
+    const all = targetsFor(null).map((t) => t.value);
+    expect(all).toContain("mov");
+    expect(targetsFor(file("clip.mov", "video/quicktime")).map((t) => t.value)).toEqual(
+      all.filter((id) => id !== "mov"),
+    );
+    expect(targetsFor(file("clip.avi", "video/x-msvideo"))).toHaveLength(all.length);
+  });
+});
+
+describe("pickedFormats", () => {
+  it("names each format once, a still's under its own label", () => {
+    const png = file("a.png", "image/png");
+    expect(pickedFormats([png, file("b.PNG")])).toEqual(["PNG"]);
+    expect(pickedFormats([file("c.jpg"), file("d.jpeg")])).toEqual(["JPEG"]);
+    expect(pickedFormats([png, file("b.jpg"), file("c.xyz")])).toEqual(["PNG", "JPEG", "XYZ"]);
+  });
+});
+
+describe("byFilename", () => {
+  it("sorts in natural order", () => {
+    const names = ["img10.png", "b.png", "img2.png", "a.png"];
+    expect(
+      names
+        .map((name) => file(name))
+        .sort(byFilename)
+        .map((f) => f.name),
+    ).toEqual(["a.png", "b.png", "img2.png", "img10.png"]);
   });
 });

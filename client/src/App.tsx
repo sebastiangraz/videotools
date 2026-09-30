@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { Layout, ToolPage } from "./Layout";
 import { SITE_PAGES, type SitePath } from "./pages/site";
-import { TOOL_IDS, isToolId } from "../../shared/tools";
+import { TOOL_IDS, isToolId } from "../../api/_lib/formats";
 
 const rootRoute = createRootRoute({ component: Layout });
 
@@ -30,8 +30,6 @@ const toolRoute = createRoute({
   component: ToolPage,
 });
 
-// One route per one-off page (pages/site.ts); dev-only pages are left out of
-// builds.
 const siteRoutes = (Object.keys(SITE_PAGES) as SitePath[])
   .filter((path) => import.meta.env.DEV || !SITE_PAGES[path].devOnly)
   .map((path) =>
@@ -44,7 +42,6 @@ const siteRoutes = (Object.keys(SITE_PAGES) as SitePath[])
 
 const routeTree = rootRoute.addChildren([indexRoute, toolRoute, ...siteRoutes]);
 
-// history is injectable so tests can use createMemoryHistory
 export function createAppRouter(history?: RouterHistory) {
   return createRouter({ routeTree, history, defaultViewTransition: true });
 }

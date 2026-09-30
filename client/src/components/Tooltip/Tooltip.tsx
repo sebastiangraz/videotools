@@ -34,11 +34,7 @@ export const Tooltip = ({
   closeOnClick?: boolean;
 }) => (
   <BaseTooltip.Root disabled={disabled}>
-    <BaseTooltip.Trigger
-      delay={delay}
-      closeOnClick={closeOnClick}
-      render={render}
-    >
+    <BaseTooltip.Trigger delay={delay} closeOnClick={closeOnClick} render={render}>
       {children}
     </BaseTooltip.Trigger>
     <BaseTooltip.Portal>

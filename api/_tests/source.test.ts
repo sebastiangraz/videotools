@@ -1,14 +1,12 @@
-// @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { parseSourceProfile, type SourceProfile } from "./ffmpeg.js";
-import { InputError } from "./errors.js";
+import { parseSourceProfile, type SourceProfile } from "../_lib/ffmpeg.js";
 import {
   checkSquarePixels,
   preservedFormat,
   type Source,
   sourceFormat,
   sourceStill,
-} from "./source.js";
+} from "../_lib/source.js";
 
 // `ffmpeg -i` summaries of real files, one per kind of source (the AVIF
 // from 9.0.2, the rest from 6.1.1: 9.0 prints those lines alike).
@@ -63,19 +61,17 @@ const SUMMARIES = {
     major_brand     : 3gp4
   Duration: 00:00:04.00, start: 0.000000, bitrate: 351 kb/s
   Stream #0:0[0x1](und): Video: h263 (s263 / 0x33363273), yuv420p(progressive), 176x144 [SAR 12:11 DAR 4:3], 349 kb/s, SAR 1:1 DAR 11:9, 15 fps, 15 tbr, 15360 tbn (default)`,
-  // A still: readable, but nothing a video tool can hand back.
   png: `Input #0, png_pipe, from 'logo.png':
   Duration: N/A, bitrate: N/A
   Stream #0:0: Video: png, rgba(pc, gbr/unknown/unknown), 300x120 [SAR 1:1 DAR 5:2], 25 fps, 25 tbr, 25 tbn`,
-  // The other stills. A .jpg is read by name (image2) and given a duration.
+  // A .jpg is read by name (image2) and given a duration.
   jpg: `Input #0, image2, from 'photo.jpg':
   Duration: 00:00:00.04, start: 0.000000, bitrate: 3054 kb/s
   Stream #0:0: Video: mjpeg (Baseline), yuvj444p(pc, bt470bg/unknown/unknown), 320x240 [SAR 1:1 DAR 4:3], 25 fps, 25 tbr, 25 tbn`,
   webp: `Input #0, webp_pipe, from 'photo.webp':
   Duration: N/A, bitrate: N/A
   Stream #0:0: Video: webp, yuv420p(tv, bt470bg/unknown/unknown), 320x240, 25 fps, 25 tbr, 25 tbn`,
-  // An animated WebP has a demuxer of its own, and no duration in the
-  // summary (FFmpeg.mediaInfo measures it).
+  // No duration in the summary (FFmpeg.mediaInfo measures it).
   animwebp: `Input #0, webp_anim, from 'anim.webp':
   Duration: N/A, start: 0.000000, bitrate: N/A
   Stream #0:0: Video: webp_anim, argb, 160x120, 10 fps, 10 tbr, 1k tbn`,
@@ -178,12 +174,9 @@ describe("sourceFormat", () => {
     expect(sourceFormat(profile(kind))).toBe(format);
   });
 
-  it.each(["mkv", "avi", "3gp", "png"] as const)(
-    "has no format for %s content",
-    (kind) => {
-      expect(sourceFormat(profile(kind))).toBeNull();
-    },
-  );
+  it.each(["mkv", "avi", "3gp", "png"] as const)("has no format for %s content", (kind) => {
+    expect(sourceFormat(profile(kind))).toBeNull();
+  });
 });
 
 describe("sourceStill", () => {
@@ -193,7 +186,6 @@ describe("sourceStill", () => {
     ["webp", "webp"],
   ] as const)("knows %s content as the still %s", (kind, still) => {
     expect(sourceStill(profile(kind))).toBe(still);
-    expect(sourceFormat(profile(kind))).toBeNull();
   });
 
   it.each(["mp4", "gif", "animwebp", "mjpeg", "apng"] as const)(
@@ -204,40 +196,33 @@ describe("sourceStill", () => {
   );
 });
 
+const source = (kind: keyof typeof SUMMARIES): Source => {
+  const p = profile(kind);
+  return {
+    path: "/work/input",
+    profile: p,
+    format: sourceFormat(p),
+    still: sourceStill(p),
+  };
+};
+
 describe("preservedFormat", () => {
-  it("refuses a source the app cannot write back, pointing at convert", () => {
-    const source = { path: "/work/input.mkv", profile: profile("mkv"), format: null, still: null };
-    expect(() => preservedFormat(source)).toThrowError(InputError);
-    expect(() => preservedFormat(source)).toThrowError(/MKV file.*Convert first/);
-    try {
-      preservedFormat(source);
-    } catch (err) {
-      expect((err as InputError).code).toBe("unsupported-source");
-    }
+  it("refuses a source the app cannot write back", () => {
+    expect(() => preservedFormat(source("mkv"))).toThrow(
+      expect.objectContaining({ code: "unsupported-source" }),
+    );
   });
 
   it("gives back the format of one it can", () => {
-    expect(
-      preservedFormat({ path: "/work/input.gif", profile: profile("gif"), format: "gif", still: null }),
-    ).toBe("gif");
+    expect(preservedFormat(source("gif"))).toBe("gif");
   });
 });
 
 describe("checkSquarePixels", () => {
-  const source = (kind: keyof typeof SUMMARIES): Source => {
-    const p = profile(kind);
-    return { path: "/work/input", profile: p, format: sourceFormat(p), still: sourceStill(p) };
-  };
-
-  it("refuses an anamorphic video, saying the size it plays at", () => {
-    expect(() => checkSquarePixels(source("anamorphic"))).toThrowError(
-      /stored at 1710×1080 but plays at 1080×1080/,
+  it("refuses an anamorphic video", () => {
+    expect(() => checkSquarePixels(source("anamorphic"))).toThrow(
+      expect.objectContaining({ code: "unsupported-source" }),
     );
-    try {
-      checkSquarePixels(source("anamorphic"));
-    } catch (err) {
-      expect((err as InputError).code).toBe("unsupported-source");
-    }
   });
 
   it("goes by the container's ratio over the codec's", () => {

@@ -7,14 +7,14 @@ import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
-import { useVideoSource } from "../../hooks/useVideoSource";
+import { clampStart, maxStart, useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
 
 const TOOL = toolById("loop");
 
-// Looping techniques. Mirrored in api/_lib/tools/loop.ts (VALID_TECHNIQUES)
+// Mirrored in api/_lib/tools/loop.ts (VALID_TECHNIQUES)
 const TECHNIQUES = [
   { value: "crossfade", label: "Crossfade" },
   { value: "reverse", label: "Forward & reverse" },
@@ -25,8 +25,7 @@ export const Loop = () => {
   const source = useVideoSource();
   const formatBlocker = useFormatBlocker(source.file, {}, source.nonSquare);
   const [technique, setTechnique] = useState<string>("crossfade");
-  // NumberField reports null while its input is empty; submit falls back to
-  // each field's default.
+  // NumberField reports null while empty; submit falls back to the default.
   const [fadeDuration, setFadeDuration] = useState<number | null>(0.5);
   const [startSecond, setStartSecond] = useState<number | null>(0);
   const [quality, setQuality] = useState<number>(100);
@@ -52,25 +51,13 @@ export const Loop = () => {
     });
   };
 
-  // The last start the source has room for, in the field's steps; open-ended
-  // while the length isn't known (0: see useVideoSource). The server clamps
-  // to the clip as well.
-  const maxStart =
-    source.duration > 0 ? Math.floor(source.duration * 10) / 10 : undefined;
-  // A start typed for an earlier, longer file
-  const start =
-    startSecond === null ? null : Math.min(startSecond, maxStart ?? Infinity);
+  // The server clamps to the clip as well.
+  const start = clampStart(startSecond, source.duration);
 
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={
-        <DropZone
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-        />
-      }
+      inputs={<DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
@@ -114,15 +101,13 @@ export const Loop = () => {
               value={start}
               onValueChange={setStartSecond}
               min={0}
-              max={maxStart}
+              max={maxStart(source.duration)}
               step={0.1}
               largeStep={0.5}
               disabled={run.busy}
               preview={
                 source.file &&
-                hasFrames(source.file) && (
-                  <FramePreview file={source.file} second={start ?? 0} />
-                )
+                hasFrames(source.file) && <FramePreview file={source.file} second={start ?? 0} />
               }
             />
           </div>
@@ -131,11 +116,7 @@ export const Loop = () => {
 
       <div className={form.formGroup}>
         <Slider
-          label={
-            <>
-              {quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}
-            </>
-          }
+          label={<>{quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}</>}
           value={quality}
           onValueChange={setQuality}
           min={0}

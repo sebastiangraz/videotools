@@ -64,17 +64,10 @@ export const NumberField = ({
       align="center"
       sideOffset={8}
     >
-      <BaseNumberField.Input
-        className={styles.input}
-        placeholder={placeholder}
-      />
+      <BaseNumberField.Input className={styles.input} placeholder={placeholder} />
       <div className={styles.steppers}>
-        <BaseNumberField.Increment className={styles.button}>
-          +
-        </BaseNumberField.Increment>
-        <BaseNumberField.Decrement className={styles.button}>
-          −
-        </BaseNumberField.Decrement>
+        <BaseNumberField.Increment className={styles.button}>+</BaseNumberField.Increment>
+        <BaseNumberField.Decrement className={styles.button}>−</BaseNumberField.Decrement>
       </div>
     </PreviewCard>
   </BaseNumberField.Root>

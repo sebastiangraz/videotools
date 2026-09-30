@@ -1,41 +1,34 @@
 {
   "name": "videotools",
   "version": "1.0.0",
-  "description": "A web application with video tools: seamless loops, image sequences to video, and more",
   "private": true,
-  "type": "module",
+  "description": "A web application with video tools: seamless loops, image sequences to video, and more",
   "workspaces": [
     "client"
   ],
-  "engines": {
-    "node": "22.x"
-  },
+  "type": "module",
   "scripts": {
-    "dev": "npm run vercel",
+    "dev": "bun run vercel",
     "vercel": "vercel dev",
-    "build": "npm run build --workspace client",
-    "test": "npm run test --workspace client",
-    "smoke": "node scripts/smoke.mjs",
-    "postinstall": "node scripts/binaries-install.mjs",
-    "ffmpeg:mirror": "node scripts/ffmpeg-mirror.mjs",
-    "gifski:mirror": "node scripts/gifski-mirror.mjs",
-    "lint": "eslint --flag unstable_native_nodejs_ts_config .",
-    "typecheck": "tsc -p tsconfig.json",
-    "lint:fix": "eslint --flag unstable_native_nodejs_ts_config . --fix"
+    "build": "bun --filter client build",
+    "test": "bun --filter client test",
+    "smoke": "bun scripts/smoke.mjs",
+    "postinstall": "bun scripts/binaries-install.mjs",
+    "typecheck": "tsc -p tsconfig.json && tsc -p client",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
   },
   "dependencies": {
-    "@vercel/blob": "^1.1.1",
-    "nanoid": "^3.3.6"
+    "@vercel/blob": "^2.8.0",
+    "@vercel/functions": "^3.9.9"
   },
   "devDependencies": {
-    "@eslint/css": "^2.0.0",
-    "@eslint/js": "^10.0.0",
-    "@vercel/node": "^5.1.14",
-    "eslint": "^10.10.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.7",
-    "globals": "^16.5.0",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.70.0"
+    "@types/node": "^24.19.0",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
+    "oxlint-tsgolint": "^7.0.2003",
+    "typescript": "~6.0.3"
   }
 }

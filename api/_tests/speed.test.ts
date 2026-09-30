@@ -1,9 +1,8 @@
-// @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { MAX_AVIF_FPS } from "../encode/avif.js";
-import type { SourceProfile } from "../ffmpeg.js";
-import type { Source } from "../source.js";
-import { changeSpeed } from "./speed.js";
+import { MAX_AVIF_FPS } from "../_lib/encode/avif.js";
+import type { SourceProfile } from "../_lib/ffmpeg.js";
+import type { Source } from "../_lib/source.js";
+import { changeSpeed } from "../_lib/tools/speed.js";
 
 const profile = (fps: number): SourceProfile => ({
   duration: 3,

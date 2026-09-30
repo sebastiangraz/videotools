@@ -1,6 +1,5 @@
-// @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { codecFactor, rateCap } from "./rate.js";
+import { codecFactor, rateCap } from "../_lib/encode/rate.js";
 
 describe("rateCap", () => {
   it("spends twice the source's rate at quality 100 and a share of it below", () => {

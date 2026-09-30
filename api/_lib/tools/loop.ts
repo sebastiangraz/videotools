@@ -1,15 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { FormatId } from "../../../shared/formats.js";
+import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
-import type { FFmpeg } from "../ffmpeg.js";
+import { DEFAULT_FPS, isRgb, type FFmpeg } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
-import {
-  frameRate,
-  sourceRender,
-  videoPad,
-  type Render,
-} from "../encode/render.js";
+import { frameRate, sourceRender, videoPad, type Render } from "../encode/render.js";
+import { FASTSTART } from "../encode/video.js";
 import { clamp, pick, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
@@ -17,35 +13,24 @@ import type { Tool } from "./types.js";
 // Mirrored in client/src/pages/Loop/Loop.tsx (TECHNIQUES)
 const VALID_TECHNIQUES = ["reverse", "crossfade"] as const;
 
-// The formats whose streams can be cut and joined without decoding them.
 const STREAM_COPY: FormatId[] = ["mp4", "mov", "webm"];
 
-// Streams can only be cut at keyframes, which sit seconds apart. A start
-// point this close to one is moved onto it and the loop is made without
-// decoding; any further and that would not be the loop that was asked for,
-// so it is encoded instead, to the frame.
+// A start point within this of a keyframe snaps onto it for a lossless copy;
+// further away it is encoded to the frame instead.
 const KEYFRAME_SNAP_SECONDS = 0.5;
 
-// The reverse filter holds every frame of the clip in memory at once (there
-// is no other way to play a stream backwards). This is what that may come
-// to, in the encoder's own pixel format; past it the function would run out
-// of memory mid-encode, so the clip is refused up front instead. Measured: the
-// buffer costs what this estimate says on top of a plain encode (on ffmpeg 6
-// and 7, before the pin), which leaves the encoder its share of a 2GB function. Raise it
-// together with the memory the function gets, not on its own.
+// reverse buffers every decoded frame. Measured to fit a 2GB function next to
+// the encoder; raise only together with the function's memory.
 const MAX_REVERSE_BYTES = 1.2e9;
 
-// Forward, then backward: the clip ends where it began. The output stage
-// does the reversing (encode/render.ts), in whichever way is cheapest for
-// the format.
+// The output stage does the reversing (encode/render.ts), cheapest per format.
 function reverseLoop(source: Source): Render {
   const { duration, fps, width, height, pixFmt } = source.profile;
-  // A GIF's frames are files that gifski reads twice; everything else
-  // buffers decoded frames in the encoder's pixel format: 1.5 bytes a pixel
-  // (yuv420p), or a WebP's 4 (bgra, which keeps its alpha).
+  // GIF frames are files gifski reads twice; others buffer yuv420p (1.5 B/px)
+  // or, for WebP, bgra (4 B/px).
   if (source.format !== "gif") {
     const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
-    const bytes = duration * (fps ?? 30) * width * height * bytesPerPixel;
+    const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
     if (bytes > MAX_REVERSE_BYTES) {
       throw new InputError(
         `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
@@ -62,20 +47,10 @@ function reverseLoop(source: Source): Render {
   });
 }
 
-// The end of the clip fades into its beginning, so the last frame leads into
-// the first. One graph over the source opened twice: every piece is a run of
-// consecutive frames of one input, in the order the output needs them, so
-// ffmpeg streams it all and buffers no more than the fade. (Pieces of a
-// single input would have to wait in memory for their turn: with a custom
-// start that is most of the clip.)
-//
-// Counted in frames at the source's own rate: the pieces then meet exactly,
-// which timestamps cut to the millisecond do not.
-function crossfadeLoop(
-  source: Source,
-  fadeSeconds: number,
-  startSeconds: number,
-): Render {
+// The source is opened twice so each input is read in order and only the fade
+// is buffered (one input split would buffer most of the clip). Cut in frames,
+// not timestamps, so the pieces meet exactly.
+function crossfadeLoop(source: Source, fadeSeconds: number, startSeconds: number): Render {
   const { duration, pixFmt } = source.profile;
   if (fadeSeconds >= duration / 2) {
     throw new InputError(
@@ -84,26 +59,17 @@ function crossfadeLoop(
       "invalid-option",
     );
   }
-  const fps = source.profile.fps ?? 30;
+  const fps = source.profile.fps ?? DEFAULT_FPS;
   const frames = Math.round(duration * fps);
   const fade = Math.round(fadeSeconds * fps);
-  // One round of the loop is the clip from the end of the fade-in frames to
-  // the start of the fade-out frames, then the fade between them. The start
-  // point picks where in that round the file begins, so it lies between
-  // those two; the opening frames themselves only exist blended.
-  const start = Math.max(
-    fade,
-    Math.min(Math.round(startSeconds * fps), frames - fade),
-  );
+  // The opening frames only exist blended, so the start lies within [fade, frames - fade].
+  const start = Math.max(fade, Math.min(Math.round(startSeconds * fps), frames - fade));
   if (fade === 0 && (start === 0 || start >= frames)) {
-    // Starting at either end is starting at the beginning.
     return sourceRender(source, { keepAudio: false });
   }
 
-  // xfade works on planar formats only. RGB sources (GIF, WebP) get the
-  // planar RGB one, alpha included, rather than the YUV it would pick by
-  // itself.
-  const rgb = /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
+  // xfade needs planar formats; give RGB sources gbrap (keeps alpha) rather than YUV.
+  const rgb = isRgb(pixFmt);
   const rate = `fps=${frameRate(fps)}`;
   const open = `${rate}${rgb ? ",format=gbrap" : ""}`;
   const piece = (from: number | null, to: number | null) =>
@@ -113,13 +79,9 @@ function crossfadeLoop(
       .join(":") +
     ",setpts=PTS-STARTPTS";
 
-  // Input 0 runs from the start point to the end of the clip: what plays
-  // before the fade, then the frames that fade out. Input 1 is the opening:
-  // the frames that fade in, then what is left up to the start point.
-  // Without a fade there is nothing to blend and the two runs just swap.
+  // Input 0: start → end (body, then fade-out). Input 1: fade-in, then rest up to start.
   const body = start < frames - fade;
   const rest = start > fade;
-  // The source, as the graph's two inputs.
   const first = videoPad(source, 0);
   const second = videoPad(source, 1);
   const graph: string[] = [];
@@ -159,14 +121,28 @@ function crossfadeLoop(
   });
 }
 
-// No fade and no new start: the clip already is the loop that was asked for.
-// Video still loses its audio, like every loop does; that is a remux.
-async function copyWhole(
-  ff: FFmpeg,
-  source: Source,
-  format: FormatId,
-  outputFile: string,
-): Promise<void> {
+type Copy = { format: FormatId; outputFile: string; startSeconds: number };
+
+// False when the loop has to be encoded instead.
+async function loopByCopy(ff: FFmpeg, source: Source, copy: Copy): Promise<boolean> {
+  if (copy.startSeconds === 0) {
+    console.log("No fade, no reorder: handing the source back");
+    await copyWhole(ff, source, copy);
+    return true;
+  }
+  if (!STREAM_COPY.includes(copy.format)) return false;
+  try {
+    console.log("No fade: reordering the streams without decoding");
+    return await reorderCopy(ff, source, copy);
+  } catch (err) {
+    if (ff.signal?.aborted) throw err;
+    console.log("Stream copy failed, encoding instead...");
+    return false;
+  }
+}
+
+// Video still drops its audio like every loop, hence a remux rather than a copy.
+async function copyWhole(ff: FFmpeg, source: Source, { format, outputFile }: Copy): Promise<void> {
   if (!STREAM_COPY.includes(format)) {
     await fs.copyFile(source.path, outputFile);
     return;
@@ -179,29 +155,22 @@ async function copyWhole(
     `0:v:${source.profile.videoIndex}`,
     "-c",
     "copy",
-    ...(format === "mp4" ? ["-movflags", "+faststart"] : []),
+    ...(format === "mp4" ? FASTSTART : []),
     outputFile,
   ]);
 }
 
-// No fade, new start: the part from the start point on, then the part before
-// it, joined without decoding either, which is truly lossless. Only where
-// a keyframe is close enough to start on, and only if every frame survives:
-// streams with B-frames (most H.264) lose one where they are cut, streams
-// without (most VP9, anything intra-only) come through whole. Returns false
-// (or throws) otherwise; the caller encodes then, to the frame.
+// Lossless reorder at a nearby keyframe. B-frame streams (most H.264) lose a
+// frame at the cut, so the result is verified; false/throw means encode instead.
 async function reorderCopy(
   ff: FFmpeg,
   source: Source,
-  format: FormatId,
-  startSeconds: number,
-  outputFile: string,
+  { format, outputFile, startSeconds }: Copy,
 ): Promise<boolean> {
   const packets = await ff.videoPackets(source.path);
   if (!packets) return false;
   const origin = Math.min(...packets.map((p) => p.time));
-  const away = (i: number) =>
-    Math.abs(packets[i].time - origin - startSeconds);
+  const away = (i: number) => Math.abs(packets[i].time - origin - startSeconds);
   const index = packets
     .map((p, i) => (p.key && i > 0 ? i : -1))
     .filter((i) => i > 0)
@@ -230,19 +199,13 @@ async function reorderCopy(
         path.join(tempDir, name),
       ]);
     const parts = [`after.${format}`, `before.${format}`];
-    // Cut by position, not by time: a copy compares the times packets are
-    // decoded at, which run a frame or two ahead of when they are shown. The
-    // part before is every packet ahead of the keyframe; the part after
-    // comes from seeking the input, which lands on the keyframe at or before
-    // the target (half a frame past it, since times are printed rounded).
-    const halfFrame = 0.5 / (source.profile.fps ?? 30);
+    // Cut "before" by packet count: stream copy compares decode times, which
+    // run ahead of display. Seek half a frame past the keyframe (times print rounded).
+    const halfFrame = 0.5 / (source.profile.fps ?? DEFAULT_FPS);
     await cut([], ["-ss", String(keyframe + halfFrame)], parts[0]);
     await cut(["-frames:v", String(index)], [], parts[1]);
 
-    await fs.writeFile(
-      path.join(tempDir, "list.txt"),
-      parts.map((p) => `file '${p}'`).join("\n"),
-    );
+    await fs.writeFile(path.join(tempDir, "list.txt"), parts.map((p) => `file '${p}'`).join("\n"));
     await ff.runFFmpeg(
       [
         "-y",
@@ -254,14 +217,12 @@ async function reorderCopy(
         "list.txt",
         "-c",
         "copy",
-        ...(format === "mp4" ? ["-movflags", "+faststart"] : []),
+        ...(format === "mp4" ? FASTSTART : []),
         outputFile,
       ],
       { cwd: tempDir },
     );
-    // A frame that goes missing at a cut is no error to ffmpeg, and it is
-    // the one thing this path must not do. So the result is decoded, and
-    // has to show as many frames as the source holds.
+    // ffmpeg silently drops a frame at a bad cut, so count the decoded result.
     const decoded = await ff.decodedFrames(outputFile);
     if (decoded !== packets.length) {
       console.log(`Frames: ${packets.length} in, ${decoded} out`);
@@ -279,16 +240,10 @@ export const loop: Tool = {
     const { ff, workDir, inputs, options } = job;
     const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
     const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
-    const startSecond = clamp(
-      options.startSecond,
-      0,
-      Number.MAX_SAFE_INTEGER,
-      0,
-    );
+    const startSecond = clamp(options.startSecond, 0, Infinity, 0);
     const quality = Math.round(clamp(options.quality, 1, 100, 100));
 
     const source = await openSource(job, inputs[0]);
-    // A loop comes back in the format it came in.
     const format = preservedFormat(source);
     const result = (outputPath: string) => ({
       outputPath,
@@ -297,30 +252,17 @@ export const loop: Tool = {
     });
     console.log(`Looping ${format} (${technique})...`);
 
-    if (technique === "crossfade" && fadeDuration === 0) {
-      const outputFile = path.join(workDir, `output.${format}`);
-      if (startSecond === 0) {
-        console.log("No fade, no reorder: handing the source back");
-        await copyWhole(ff, source, format, outputFile);
-        return result(outputFile);
-      }
-      if (STREAM_COPY.includes(format)) {
-        try {
-          console.log("No fade: reordering the streams without decoding");
-          if (await reorderCopy(ff, source, format, startSecond, outputFile)) {
-            return result(outputFile);
-          }
-        } catch (err) {
-          if (ff.signal?.aborted) throw err;
-          console.log("Stream copy failed, encoding instead...");
-        }
-      }
+    const outputFile = path.join(workDir, `output.${format}`);
+    const copy = { format, outputFile, startSeconds: startSecond };
+    const unfaded = technique === "crossfade" && fadeDuration === 0;
+    if (unfaded && (await loopByCopy(ff, source, copy))) {
+      return result(outputFile);
     }
 
     const render =
       technique === "crossfade"
         ? crossfadeLoop(source, fadeDuration, startSecond)
         : reverseLoop(source);
-    return result(await encodePreserved(ff, render, workDir, format, quality));
+    return result(await encodePreserved(job, render, { format, quality }));
   },
 };

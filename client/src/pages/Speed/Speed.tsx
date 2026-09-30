@@ -39,13 +39,7 @@ export const Speed = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={
-        <DropZone
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-        />
-      }
+      inputs={<DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
@@ -60,9 +54,7 @@ export const Speed = () => {
                 : speed > 0
                   ? `${(1 + speed).toFixed(1)}x faster`
                   : `${(1 - speed).toFixed(1)}x slower`}
-              {source.duration > 0 &&
-                ` ~${(source.duration / speedMultiplier).toFixed(1)}s`}
-              )
+              {source.duration > 0 && ` ~${(source.duration / speedMultiplier).toFixed(1)}s`})
             </>
           }
           value={speed}

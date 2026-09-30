@@ -41,10 +41,9 @@ async function fetchLatestCommit(): Promise<Version | null> {
     if (Date.now() - fetchedAt < CACHE_TTL) return version;
   }
 
-  const res = await fetch(
-    `https://api.github.com/repos/${REPO}/commits?sha=${REF}&per_page=1`,
-    { headers: { Accept: "application/vnd.github+json" } }
-  );
+  const res = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=${REF}&per_page=1`, {
+    headers: { Accept: "application/vnd.github+json" },
+  });
   if (!res.ok) return null;
 
   // With per_page=1 the "last" page number in the Link header equals the
@@ -59,10 +58,7 @@ async function fetchLatestCommit(): Promise<Version | null> {
     date: latest.commit.committer.date,
     sha: latest.sha.slice(0, 7),
   };
-  sessionStorage.setItem(
-    CACHE_KEY,
-    JSON.stringify({ fetchedAt: Date.now(), version })
-  );
+  sessionStorage.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), version }));
   return version;
 }
 

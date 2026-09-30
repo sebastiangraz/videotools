@@ -1,29 +1,23 @@
 # Smoke assets
 
-Inputs for `npm run smoke` (see `scripts/smoke.mjs`). Anything missing here is
-synthesized from ffmpeg test patterns, which is fine for comparing commands and
-file sizes between runs but useless for judging quality by eye. Drop real
-footage here for that:
+Inputs for `npm run smoke` (`scripts/smoke.mjs`), all five required. They are
+committed so every checkout runs on the same footage; `--assets <dir>` points
+at another folder that has them all. Runs record each asset's name and size,
+so a diff across different inputs says so.
 
-| File                    | Used as                                                           |
-| ----------------------- | ----------------------------------------------------------------- |
-| `video.<any extension>` | The clip every video tool works on (Loop, Speed, Convert, Mark)   |
-| `animation.gif`         | GIF source for Loop / Speed / Mark. Made from `video` when absent |
-| `logo.png`              | The Mark tool's watermark (PNG with alpha)                        |
-| `images/*`              | The Sequence tool's stills, in natural filename order (1–100)     |
+| File            | Role                                            | Committed   |
+| --------------- | ----------------------------------------------- | ----------- |
+| `video.<ext>`   | The clip every video tool works on              | `video.mp4` |
+| `animation.gif` | GIF source                                      | yes         |
+| `logo.png`      | Mark watermark (PNG with alpha)                 | yes         |
+| `logo.svg`      | Mark watermark as SVG                           | yes         |
+| `images/*`      | Sequence stills, natural filename order (1–100) | 3 PNGs      |
 
-The preview frame is always taken from `video`, like the browser does. So are
-the sources in the other formats the tools have to hand back (`source.mov`,
-`source.webm`, a small `source.avif`), `reject.mkv`, a container they have
-to refuse, `reject-anamorphic.mp4`, a video with non-square pixels they have
-to refuse too, and the Mark tool's still sources: the first frame as `still.png`,
-`still.jpg`, `still.webp` and `turned.jpg` (the JPEG again, with an EXIF
-orientation that stands it on end).
+Always derived from `video` at runtime: the preview frame; `source.mov` and
+`source.webm`; `source.avif` and a 3-frame `slides.avif`; lossy and lossless
+animated WebPs; `reject.mkv` and `reject-anamorphic.mp4` (a container and
+non-square pixels the tools must refuse); and Mark's stills `still.png`,
+`still.jpg`, `still.webp` and `turned.jpg` (the JPEG with an EXIF rotation).
 
-Keep clips short (about 4–10 s, the loop cases need at least ~4 s): the slow
-encoders (AVIF, lossless WebP) run on them too, GIF stops at 1500 frames and
-AVIF at 60 s. Another folder can be used with `--assets <dir>`.
-
-These files are committed, so a checkout runs `npm run smoke` on the same
-inputs. Runs record each asset's name and size, so comparing runs made from
-different inputs says so.
+Keep clips short (about 4–10 s; the loop cases need at least ~4 s): the slow
+encoders run on them too, GIF stops at 1500 frames and AVIF at 60 s.

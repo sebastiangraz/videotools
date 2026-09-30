@@ -1,56 +1,57 @@
-import {
-  FORMATS,
-  STILLS,
-  extensionOf,
-  formatFromFilename,
-  stillFromFilename,
-  type Format,
-  type Still,
-} from "../../shared/formats";
+import { FORMATS, STILLS, type Format, type Still } from "../../api/_lib/formats";
 
-// The format of a picked file, as far as the browser can tell: by its name,
-// else by the type the browser reports for it. Null = none the app writes.
-// (The functions go by the file's content; this is the view from before any
-// upload, there to say up front what a run would do.)
+// "clip.final.MOV" → "mov"; "" when the name has no extension.
+function extensionOf(filename: string): string {
+  const match = /\.([^./\\]+)$/.exec(filename);
+  return match ? match[1].toLowerCase() : "";
+}
+
+// By name, else by browser MIME type; null = none the app writes. The server
+// goes by content (api/_lib/source.ts); this is only the pre-upload guess.
 export function fileFormat(file: File): Format | null {
+  const ext = extensionOf(file.name);
   return (
-    formatFromFilename(file.name) ??
+    FORMATS.find((f) => f.extensions.includes(ext)) ??
     FORMATS.find((f) => f.mime === file.type) ??
     null
   );
 }
 
-// The still a picked file is, the same way: by its name, else by its type.
-// A .webp counts as one although it may be animated, which only its content
-// tells (isAnimatedWebp).
+// A .webp counts as a still here; only its content says if it's animated
+// (isAnimatedWebp).
 export function stillFormat(file: File): Still | null {
+  const ext = extensionOf(file.name);
   return (
-    stillFromFilename(file.name) ??
+    STILLS.find((s) => s.extensions.includes(ext)) ??
     STILLS.find((s) => s.mime === file.type) ??
     null
   );
 }
 
-// The sources an <img> shows and a <video> doesn't: the stills the mark tool
-// takes (one frame, which is all there is to show) and the animated images.
-// A .webp is a still here, as it is to the picker, until its content says
-// otherwise (isAnimatedWebp).
+const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
+
+// Drops the source's own format: every other tool already hands that back.
+export function targetsFor(source: File | null) {
+  const own = source ? fileFormat(source)?.id : undefined;
+  return CONVERT_TARGETS.filter((t) => t.value !== own);
+}
+
+// Natural order: img2 before img10.
+export const byFilename = (a: File, b: File) =>
+  a.name.localeCompare(b.name, undefined, { numeric: true });
+
+// Image sources (decoded by ImageDecoder, not a <video>). A .webp counts as a
+// still here, whether or not it is animated.
 export const isStillImage = (file: File) => stillFormat(file) !== null;
 export const isAnimatedImage = (file: File) =>
   !isStillImage(file) && fileFormat(file)?.kind === "animation";
 
-// Whether the browser may have frames of a picked file to show. The accept
-// list is broader than what browsers can decode (server-side ffmpeg handles
-// the rest), so opening one can still fail.
+// "May": the accept list is broader than browsers decode, so opening can fail.
 export const hasFrames = (file: File) =>
   file.type.startsWith("video/") || isAnimatedImage(file) || isStillImage(file);
 
-// Whether a WebP is the animated kind rather than a still: the animation
-// bit (0x02) in the flags of the VP8X chunk, which an animated file
-// has to start with ("RIFF" size "WEBP" "VP8X" size flags, so byte 20). A
-// file too short or without the chunk is a plain still. (Through FileReader:
-// jsdom's Blob has no arrayBuffer.) Read once per file: everything that
-// opens a pick asks (the blocker, the frame sources).
+// Animation bit 0x02 of the VP8X flags at byte 20 ("RIFF" size "WEBP" "VP8X"
+// size flags); no VP8X = still. Cached: several consumers ask per file.
 const webpHeaders = new WeakMap<File, Promise<boolean>>();
 export function isAnimatedWebp(file: File): Promise<boolean> {
   let answer = webpHeaders.get(file);
@@ -61,65 +62,40 @@ export function isAnimatedWebp(file: File): Promise<boolean> {
   return answer;
 }
 
-function readWebpHeader(file: File): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const head = new Uint8Array(reader.result as ArrayBuffer);
-      const tag = (at: number) => String.fromCharCode(...head.subarray(at, at + 4));
-      resolve(
-        head.length > 20 &&
-          tag(0) === "RIFF" &&
-          tag(8) === "WEBP" &&
-          tag(12) === "VP8X" &&
-          (head[20] & 0x02) !== 0,
-      );
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file.slice(0, 21));
-  });
+async function readWebpHeader(file: File): Promise<boolean> {
+  const head = await file.slice(0, 21).bytes();
+  const tag = (at: number) => String.fromCharCode(...head.subarray(at, at + 4));
+  return (
+    head.length > 20 &&
+    tag(0) === "RIFF" &&
+    tag(8) === "WEBP" &&
+    tag(12) === "VP8X" &&
+    (head[20] & 0x02) !== 0
+  );
 }
 
-// Whether a picked file is an animated image: a GIF or AVIF by its name or
-// type, a .webp by its header (a still to go by, if that can't be read).
-export const isAnimation = async (file: File) =>
-  isAnimatedImage(file) ||
-  (stillFormat(file)?.id === "webp" &&
-    (await isAnimatedWebp(file).catch(() => false)));
-
-// Why a tool can't take a picked file. Null = it can, which the app says
-// nothing about: a tool that hands its source's format back gives it back as
-// it came, and only a dead end is worth a word.
+// Why a tool can't take a picked file; null = it can.
 export type FormatBlock =
-  // Readable, but nothing the app writes (.avi, .mkv, a still, ...): there
-  // is no format to hand back, and picking another one is the convert tool's
-  // job.
+  // Readable but not a format the app writes, so there is none to hand back.
   | { state: "foreign"; name: string }
-  // A pick of more than one format (sequence), which ffmpeg reads through one
-  // image demuxer: frames come back blank or missing. `labels` are the
-  // formats picked (pickedFormats).
+  // ffmpeg reads a sequence through one image demuxer: mixed formats come
+  // back blank or missing.
   | { state: "mixed"; labels: string[] }
-  // A video with non-square pixels (an anamorphic export), which GIF, WebP
-  // and AVIF can't show in shape. Not the file's format: the browser sees it
-  // once the video opens (useVideoSource).
+  // Anamorphic video: GIF/WebP/AVIF can't show it in shape. Only known once
+  // the video opens (useVideoSource).
   | { state: "nonSquare" };
 
-// `stills`: the tool takes raster images too (mark), so a file that is one
-// goes through. `foreign`: false for a tool that is asked for a format
-// (sequence) rather than handing its source's back — a file in none of the
-// app's formats is its job, not a dead end. `oneFormat`: the tool
-// takes many files but only of one format at a time (sequence); it is the
-// pick's option, not any file's (useFormatBlocker).
+// stills: also takes raster images (mark). foreign: false when the tool
+// picks the output format itself (sequence). oneFormat: many files, one
+// format (sequence).
 export type FormatOptions = {
   stills?: boolean;
   foreign?: boolean;
   oneFormat?: boolean;
 };
 
-// `stillWebp`: the file is a .webp whose header says it is no animation
-// (isAnimatedWebp). Until then a .webp is taken for whichever the tool can
-// use; once it is known to be a still, a tool that takes none has no format
-// for it, as for a PNG.
+// stillWebp: the header proved a .webp is not animated; until then it passes
+// as whichever the tool accepts.
 export function formatBlock(
   file: File,
   { stills = false, foreign = true }: FormatOptions = {},
@@ -132,11 +108,9 @@ export function formatBlock(
   return { state: "foreign", name: ext ? ext.toUpperCase() : "This" };
 }
 
-// A block in words. `short` is the action button's tooltip; `long` is the
-// error over the title, as plain text. A foreign line stops before
-// "converted": the link to the convert tool is affixed there
-// (useFormatBlocker).
-export type BlockerText = {
+// short: button tooltip. long: error text; the foreign line stops before
+// "converted" because useFormatBlocker appends the convert link there.
+type BlockerText = {
   short: string;
   long: string;
 };
@@ -161,20 +135,15 @@ export function blockerText(block: FormatBlock): BlockerText {
   }
 }
 
-// The formats of a pick, by label, one entry each ("PNG", "JPEG", ...): a
-// still's, else a format's, else the extension the file goes by.
 export function pickedFormats(files: readonly File[]): string[] {
   const labels = new Set<string>();
   for (const file of files) {
     const known = stillFormat(file) ?? fileFormat(file);
-    labels.add(
-      known?.label ?? (extensionOf(file.name).toUpperCase() || "Unknown"),
-    );
+    labels.add(known?.label ?? (extensionOf(file.name).toUpperCase() || "Unknown"));
   }
   return [...labels];
 }
 
-// The two in one, for a lone file; null = the run can start.
 export function formatBlocker(
   file: File,
   options?: FormatOptions,

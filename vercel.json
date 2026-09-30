@@ -1,19 +1,27 @@
 {
-  "buildCommand": "npm run build --workspace client",
-  "devCommand": "npm run dev --workspace client -- --port $PORT",
+  "bunVersion": "1.4.x",
+  "buildCommand": "bun run build",
+  "devCommand": "bun --filter client dev --port $PORT",
   "outputDirectory": "client/dist",
   "rewrites": [
-    { "source": "/((?!api/|@)[^.]*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/|@)[^.]*)",
+      "destination": "/index.html"
+    }
   ],
   "functions": {
     "api/process.ts": {
       "maxDuration": 300,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}"
+      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}",
+      "supportsCancellation": true
     },
     "api/preview.ts": {
       "maxDuration": 60,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}"
+      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}",
+      "supportsCancellation": true
     },
-    "api/upload.ts": { "maxDuration": 30 }
+    "api/upload.ts": {
+      "maxDuration": 30
+    }
   }
 }

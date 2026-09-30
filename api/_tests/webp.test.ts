@@ -1,10 +1,9 @@
-// @vitest-environment node
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import type { Source } from "../source.js";
-import { isLosslessSource, isLosslessWebp } from "./webp.js";
+import type { Source } from "../_lib/source.js";
+import { isLosslessSource, isLosslessWebp } from "../_lib/encode/webp.js";
 
 const bytes = (text: string) => Uint8Array.from(text, (c) => c.charCodeAt(0));
 const join = (...parts: Uint8Array[]) => {
@@ -21,8 +20,7 @@ const chunk = (tag: string, size: number, data = new Uint8Array(size)) => {
 };
 
 // An ANMF frame: the 16-byte frame header, then the frame's own chunks.
-const frame = (...chunks: Uint8Array[]) =>
-  chunk("ANMF", 0, join(new Uint8Array(16), ...chunks));
+const frame = (...chunks: Uint8Array[]) => chunk("ANMF", 0, join(new Uint8Array(16), ...chunks));
 
 const picture = (tag: "VP8 " | "VP8L") => chunk(tag, 5);
 
@@ -61,13 +59,8 @@ describe("isLosslessWebp", () => {
   });
 });
 
-// Only what isLosslessSource reads of a source.
-const source = (
-  format: Source["format"],
-  codec: string,
-  pixFmt: string,
-  file = "",
-) => ({ path: file, format, profile: { codec, pixFmt } }) as Source;
+const source = (format: Source["format"], codec: string, pixFmt: string, file = "") =>
+  ({ path: file, format, profile: { codec, pixFmt } }) as Source;
 
 describe("isLosslessSource", () => {
   it("takes pictures with no source for lossless", async () => {
