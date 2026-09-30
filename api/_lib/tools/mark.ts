@@ -24,7 +24,7 @@ import type { Tool } from "./types.js";
  * a glass lens in the logo's shape (see MARK), or the backdrop blurred in
  * it; at `size` (see MARK_SIZES). Audio is kept.
  */
-export async function addWatermark(
+async function addWatermark(
   ff: FFmpeg,
   source: Source,
   logoFile: string,

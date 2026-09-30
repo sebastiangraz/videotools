@@ -119,7 +119,7 @@ export function parseOutputSize(
   return size ? { width: Number(size[1]), height: Number(size[2]) } : null;
 }
 
-export type VideoPacket = {
+type VideoPacket = {
   time: number;
   duration: number;
   size: number;

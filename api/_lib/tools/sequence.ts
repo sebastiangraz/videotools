@@ -11,7 +11,7 @@ const MAX_IMAGES = 100;
 
 // Stills, one after the other, each shown for `frameDuration` seconds. The
 // one tool with a format of its own to pick: stills have none to hand back.
-export async function imageSequence(
+async function imageSequence(
   ff: FFmpeg,
   imagePaths: string[],
   workDir: string,

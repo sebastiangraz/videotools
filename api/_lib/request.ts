@@ -1,7 +1,3 @@
-import { pipeline } from "node:stream/promises";
-import { Readable } from "node:stream";
-import type { ReadableStream } from "node:stream/web";
-import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -51,21 +47,6 @@ export function clamp(
 // `inputs` of the tools that work on one uploaded video.
 export function singleVideo({ blobUrl }: ToolRequest) {
   return isBlobUrl(blobUrl) ? [blobUrl] : { error: "Invalid blob URL" };
-}
-
-export async function downloadBlob(
-  url: string,
-  destPath: string,
-  signal: AbortSignal,
-): Promise<void> {
-  const download = await fetch(url, { signal });
-  if (!download.ok || !download.body) {
-    throw new Error(`Failed to fetch uploaded file (${download.status})`);
-  }
-  await pipeline(
-    Readable.fromWeb(download.body as ReadableStream),
-    fs.createWriteStream(destPath),
-  );
 }
 
 // Answers anything but the given methods with a 405; true when the request

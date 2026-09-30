@@ -6,8 +6,8 @@ import { encodeWithinBudget, graphArgs } from "./render.js";
 // function timeout, so animated AVIF gets two ceilings: seconds, and the
 // pixels there are to encode (what 60s at 30 fps and 800×450 come to, the
 // most a conversion's 800px cap ever asked of it).
-export const MAX_AVIF_SECONDS = 60;
-export const MAX_AVIF_PIXELS = 60 * 30 * 800 * 450;
+const MAX_AVIF_SECONDS = 60;
+const MAX_AVIF_PIXELS = 60 * 30 * 800 * 450;
 
 // The format has no ceiling of its own (a GIF's or WebP's is in its delays),
 // so this is a screen's: past it a speed-up drops frames rather than write
@@ -22,7 +22,7 @@ export const MAX_AVIF_FPS = 60;
 // encoded at its crf alone and held to the rate's bytes the way the formats
 // without rate control are (encodeWithinBudget); a handful of frames can
 // afford the tries.
-export const RATE_CONTROL_MIN_FRAMES = 32;
+const RATE_CONTROL_MIN_FRAMES = 32;
 
 // AV1 crf mapped like the webm encoder: quality 100 → 10, quality 1 → 50.
 const crfFor = (quality: number) => Math.round(50 - (quality / 100) * 40);

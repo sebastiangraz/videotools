@@ -12,7 +12,7 @@ export const MAX_WEBP_FPS = 50;
 // a block grid on solid colors (x264 at the same slider position
 // preserves texture, so the formats would look wildly different at
 // "equal" quality). The same for a still (still.ts).
-export const webpQuality = (quality: number) =>
+const webpQuality = (quality: number) =>
   Math.round(65 + (quality / 100) * 35);
 
 // The libwebp settings the slider stands for, finest first: the one it maps

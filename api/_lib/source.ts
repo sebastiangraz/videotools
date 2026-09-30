@@ -5,7 +5,7 @@ import {
   type StillId,
 } from "../../shared/formats.js";
 import { InputError } from "./errors.js";
-import type { FFmpeg, SourceProfile } from "./ffmpeg.js";
+import type { SourceProfile } from "./ffmpeg.js";
 import { blobExt } from "./request.js";
 import type { ToolJob } from "./tools/types.js";
 
@@ -112,20 +112,4 @@ export function preservedFormat(source: Source): FormatId {
       `Convert first (to ${formatById("mp4").label}, say).`,
     "unsupported-source",
   );
-}
-
-// What the source's video stream spends per second, in kb/s: the summary's
-// figure where there is one, else measured. Null when it cannot be known
-// (a still, a stream without duration).
-export async function sourceVideoKbps(
-  ff: FFmpeg,
-  source: Pick<Source, "path" | "profile">,
-): Promise<number | null> {
-  const { videoKbps, duration } = source.profile;
-  if (videoKbps) return videoKbps;
-  if (!(duration > 0)) return null;
-  const packets = await ff.videoPackets(source.path);
-  if (!packets) return null;
-  const bytes = packets.reduce((sum, p) => sum + p.size, 0);
-  return Math.round((bytes * 8) / 1000 / duration);
 }

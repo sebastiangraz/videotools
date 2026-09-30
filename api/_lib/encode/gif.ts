@@ -14,8 +14,8 @@ import {
 // characters) and their pixels (they land on the function's ~500MB ephemeral
 // disk; this many is what 600 frames at 800×800 come to, which is what the
 // converter has always allowed).
-export const MAX_GIF_FRAMES = 1500;
-export const MAX_GIF_PIXELS = 600 * 800 * 800;
+const MAX_GIF_FRAMES = 1500;
+const MAX_GIF_PIXELS = 600 * 800 * 800;
 
 // GIF delays are whole centiseconds and browsers slow anything under 2cs
 // down, so 50 is the most frames a second it can show.

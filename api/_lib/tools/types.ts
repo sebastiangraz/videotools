@@ -26,7 +26,7 @@ export type ToolJob = {
 // `ext` is the result's format, which also gives the content type. Every
 // tool hands back the format of its source, except the two that are asked
 // for one: convert and sequence. Only mark's can be a still.
-export type ToolResult = {
+type ToolResult = {
   outputPath: string;
   suffix: string;
   ext: FormatId | StillId;

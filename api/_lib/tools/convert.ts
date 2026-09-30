@@ -1,4 +1,5 @@
-import { ENCODE_TARGETS, encodeRender } from "../encode/index.js";
+import { FORMAT_IDS } from "../../../shared/formats.js";
+import { encodeRender } from "../encode/index.js";
 import { sourceRender } from "../encode/render.js";
 import { clamp, pick, singleVideo } from "../request.js";
 import { openSource } from "../source.js";
@@ -10,7 +11,7 @@ export const convert: Tool = {
   inputs: singleVideo,
   async run(job) {
     const { ff, workDir, inputs, options } = job;
-    const target = pick(options.target, ENCODE_TARGETS, "mp4");
+    const target = pick(options.target, FORMAT_IDS, "mp4");
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     // Any source ffmpeg reads will do here: this is the tool that turns the

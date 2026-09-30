@@ -3,7 +3,7 @@
 // The functions answer these with a 400 and the `code`, which the client (and
 // the smoke run) can tell apart without reading the message; anything else
 // that gets thrown is a server fault (500).
-export type InputErrorCode =
+type InputErrorCode =
   | "unsupported-source"
   | "unreadable-source"
   | "too-long"

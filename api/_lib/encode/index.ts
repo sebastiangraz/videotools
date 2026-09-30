@@ -1,7 +1,7 @@
 import path from "node:path";
-import { FORMAT_IDS, type FormatId } from "../../../shared/formats.js";
+import type { FormatId } from "../../../shared/formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
-import { sourceVideoKbps } from "../source.js";
+import type { Source } from "../source.js";
 import { codecFactor, rateCap, type RateCap } from "./rate.js";
 import type { Render } from "./render.js";
 import { encodeMp4, encodeMov } from "./h264.js";
@@ -55,7 +55,7 @@ const CODECS: Partial<Record<FormatId, string>> = {
 // The app's output stage: the one way pictures become each format, whichever
 // tool asks. Video formats can keep audio; animated-image formats drop it.
 // The formats themselves are shared/formats.ts.
-export const ENCODERS: Record<FormatId, Encoder> = {
+const ENCODERS: Record<FormatId, Encoder> = {
   mp4: encodeMp4,
   webm: encodeWebm,
   mov: encodeMov,
@@ -63,8 +63,6 @@ export const ENCODERS: Record<FormatId, Encoder> = {
   webp: encodeWebp,
   avif: encodeAvif,
 };
-
-export const ENCODE_TARGETS = FORMAT_IDS;
 
 // For the tools that hand their source's format back: nothing about the
 // pictures changes that the tool didn't change itself, so no format gets to
@@ -108,4 +106,20 @@ export async function encodeRender(
   const outputFile = path.join(workDir, `output.${target}`);
   await ENCODERS[target](ff, render, outputFile, options, cap);
   return outputFile;
+}
+
+// What the source's video stream spends per second, in kb/s: the summary's
+// figure where there is one, else measured. Null when it cannot be known
+// (a still, a stream without duration).
+async function sourceVideoKbps(
+  ff: FFmpeg,
+  source: Source,
+): Promise<number | null> {
+  const { videoKbps, duration } = source.profile;
+  if (videoKbps) return videoKbps;
+  if (!(duration > 0)) return null;
+  const packets = await ff.videoPackets(source.path);
+  if (!packets) return null;
+  const bytes = packets.reduce((sum, p) => sum + p.size, 0);
+  return Math.round((bytes * 8) / 1000 / duration);
 }
