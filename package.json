@@ -1,15 +1,12 @@
 {
   "name": "videotools",
   "version": "1.0.0",
-  "description": "A web application with video tools: seamless loops, image sequences to video, and more",
   "private": true,
-  "type": "module",
+  "description": "A web application with video tools: seamless loops, image sequences to video, and more",
   "workspaces": [
     "client"
   ],
-  "engines": {
-    "node": "24.x"
-  },
+  "type": "module",
   "scripts": {
     "dev": "npm run vercel",
     "vercel": "vercel dev",
@@ -33,5 +30,8 @@
     "oxlint": "^1.86.0",
     "oxlint-tsgolint": "^7.0.2003",
     "typescript": "~6.0.3"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

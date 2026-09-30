@@ -10,8 +10,15 @@ export const pinnedVersion = () => BINARIES.ffmpeg.version;
 
 const NEEDS = {
   encoders: [
-    "libx264", "aac", "libvpx-vp9", "libopus", "libaom-av1",
-    "libwebp", "libwebp_anim", "mjpeg", "png",
+    "libx264",
+    "aac",
+    "libvpx-vp9",
+    "libopus",
+    "libaom-av1",
+    "libwebp",
+    "libwebp_anim",
+    "mjpeg",
+    "png",
   ],
   muxers: ["mp4", "webm", "avif", "webp", "image2", "framecrc", "null"],
   demuxers: ["concat", "image2", "webp_anim"],
@@ -20,20 +27,50 @@ const NEEDS = {
   // lavfi (smoke-run inputs) is a device.
   devices: ["lavfi"],
   filters: [
-    "fps", "scale", "pad", "setsar", "format", "split", "reverse", "concat",
-    "trim", "setpts", "xfade", "crop", "null", "overlay",
-    "premultiply", "unpremultiply", "alphaextract", "alphamerge", "bbox",
-    "gblur", "lut", "lutrgb", "convolution", "extractplanes", "mergeplanes",
-    "remap", "negate", "colorchannelmixer", "erosion", "blend", "geq",
+    "fps",
+    "scale",
+    "pad",
+    "setsar",
+    "format",
+    "split",
+    "reverse",
+    "concat",
+    "trim",
+    "setpts",
+    "xfade",
+    "crop",
+    "null",
+    "overlay",
+    "premultiply",
+    "unpremultiply",
+    "alphaextract",
+    "alphamerge",
+    "bbox",
+    "gblur",
+    "lut",
+    "lutrgb",
+    "convolution",
+    "extractplanes",
+    "mergeplanes",
+    "remap",
+    "negate",
+    "colorchannelmixer",
+    "erosion",
+    "blend",
+    "geq",
     // smoke-run lavfi sources
-    "testsrc2", "sine",
+    "testsrc2",
+    "sine",
   ],
 };
 
 // `ffmpeg -version`'s first line, e.g. "ffmpeg version n8.1.3-20260922 …".
 function ffmpegVersion(ffmpeg) {
-  const r = spawnSync(ffmpeg, ["-hide_banner", "-version"], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`${ffmpeg} -version: ${r.stderr || r.error}`);
+  const r = spawnSync(ffmpeg, ["-hide_banner", "-version"], {
+    encoding: "utf8",
+  });
+  if (r.status !== 0)
+    throw new Error(`${ffmpeg} -version: ${r.stderr || r.error}`);
   return /^ffmpeg version (\S+)/.exec(r.stdout)?.[1] ?? "unknown";
 }
 
@@ -46,10 +83,14 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
     problems.push(`version ${found}, binaries.mjs pins ${version}`);
   }
   for (const [kind, names] of Object.entries(NEEDS)) {
-    const r = spawnSync(ffmpeg, ["-hide_banner", `-${kind}`], { encoding: "utf8" });
+    const r = spawnSync(ffmpeg, ["-hide_banner", `-${kind}`], {
+      encoding: "utf8",
+    });
     // Each listing row is "<flags> <name>[,<alias>] <description>".
     const listed = new Set(
-      r.stdout.split("\n").flatMap((line) => line.trim().split(/\s+/)[1]?.split(",") ?? []),
+      r.stdout
+        .split("\n")
+        .flatMap((line) => line.trim().split(/\s+/)[1]?.split(",") ?? []),
     );
     const missing = names.filter((n) => !listed.has(n));
     if (missing.length) problems.push(`no ${kind}: ${missing.join(", ")}`);
@@ -57,13 +98,18 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
   return { version: found, problems };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   const ffmpeg = process.argv[2] ?? binaryPath("ffmpeg");
   const { version, problems } = checkFfmpeg(ffmpeg, {
     version: process.argv[2] ? undefined : pinnedVersion(),
   });
   if (problems.length) {
-    console.error(`${ffmpeg} (${version}) won't do:\n  ${problems.join("\n  ")}`);
+    console.error(
+      `${ffmpeg} (${version}) won't do:\n  ${problems.join("\n  ")}`,
+    );
     process.exit(1);
   }
   console.log(`${ffmpeg}: ffmpeg ${version}, has everything the api uses`);

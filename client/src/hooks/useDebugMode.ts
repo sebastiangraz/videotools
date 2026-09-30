@@ -26,10 +26,7 @@ const onKeyDown = (event: KeyboardEvent) => {
     return;
   }
   const target = event.target as HTMLElement | null;
-  if (
-    target?.isContentEditable ||
-    target?.closest("input, textarea, select")
-  ) {
+  if (target?.isContentEditable || target?.closest("input, textarea, select")) {
     return;
   }
   toggle();

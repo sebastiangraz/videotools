@@ -201,7 +201,12 @@ describe("sourceStill", () => {
 
 const source = (kind: keyof typeof SUMMARIES): Source => {
   const p = profile(kind);
-  return { path: "/work/input", profile: p, format: sourceFormat(p), still: sourceStill(p) };
+  return {
+    path: "/work/input",
+    profile: p,
+    format: sourceFormat(p),
+    still: sourceStill(p),
+  };
 };
 
 describe("preservedFormat", () => {

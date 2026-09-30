@@ -30,7 +30,11 @@ type MarkLook = { filter?: MarkFilter; size?: MarkSize; view?: MarkView };
 async function addWatermark(
   ff: FFmpeg,
   source: Source,
-  { logoFile, filter = "glass", size = "large" }: MarkLook & { logoFile: string },
+  {
+    logoFile,
+    filter = "glass",
+    size = "large",
+  }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
   const frame = source.still
@@ -197,10 +201,17 @@ export const mark: Tool = {
       `Adding watermark to ${format} (${size}, ${filter}, quality ${quality})...`,
     );
 
-    const render = await addWatermark(ff, source, { logoFile: logoPath, filter, size });
+    const render = await addWatermark(ff, source, {
+      logoFile: logoPath,
+      filter,
+      size,
+    });
     const outputPath = still
       ? await encodeStill(job, render, { format: still, quality })
-      : await encodePreserved(job, render, { format: format as FormatId, quality });
+      : await encodePreserved(job, render, {
+          format: format as FormatId,
+          quality,
+        });
     return { outputPath, suffix: "marked", ext: format };
   },
 };

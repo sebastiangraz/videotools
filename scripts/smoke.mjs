@@ -51,6 +51,7 @@ const { GENERATION } = await load("api/_lib/encode/rate.js");
 //   frames     "source" = same frame count, "double" = twice (reverse loops)
 //   turned     width/height swapped (EXIF-rotated JPEG)
 //   errorCode  must be refused with this InputError code
+// prettier-ignore
 const CASES = {
   "loop-reverse": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 100 }, expect: { ext: "source", frames: "double", maxRatio: 2.2 * GENERATION } },
   "loop-reverse-q60": { tool: "loop", files: ["video"], options: { technique: "reverse", quality: 60 }, expect: { ext: "source", frames: "double", maxRatio: 1.4 * GENERATION } },
@@ -134,25 +135,40 @@ function violations(expect, result, sourceFile) {
       ? []
       : [
           `has to be refused as "${expect.errorCode}", but ` +
-            (result.error ? `failed with: ${result.error}` : `came back as ${result.output}`),
+            (result.error
+              ? `failed with: ${result.error}`
+              : `came back as ${result.output}`),
         ];
   }
   if (result.error) return [`failed: ${result.error}`];
   const found = [];
   const ext = path.extname(result.output).slice(1);
   const wanted =
-    expect.ext === "source" ? path.extname(sourceFile).slice(1).toLowerCase() : expect.ext;
-  if (wanted && ext !== wanted) found.push(`came back as .${ext}, has to be .${wanted}`);
+    expect.ext === "source"
+      ? path.extname(sourceFile).slice(1).toLowerCase()
+      : expect.ext;
+  if (wanted && ext !== wanted)
+    found.push(`came back as .${ext}, has to be .${wanted}`);
   if (expect.maxRatio != null && result.ratio > expect.maxRatio) {
-    found.push(`${result.ratio}x its source, at most ${expect.maxRatio}x allowed`);
+    found.push(
+      `${result.ratio}x its source, at most ${expect.maxRatio}x allowed`,
+    );
   }
   if (expect.minRatio != null && result.ratio < expect.minRatio) {
-    found.push(`${result.ratio}x its source, at least ${expect.minRatio}x expected`);
+    found.push(
+      `${result.ratio}x its source, at least ${expect.minRatio}x expected`,
+    );
   }
-  if (expect.turned && result.size !== result.sourceSize.split("x").reverse().join("x")) {
-    found.push(`came back ${result.size}, has to be its source's ${result.sourceSize} on end`);
+  if (
+    expect.turned &&
+    result.size !== result.sourceSize.split("x").reverse().join("x")
+  ) {
+    found.push(
+      `came back ${result.size}, has to be its source's ${result.sourceSize} on end`,
+    );
   }
-  const wantedFrames = result.sourceFrames * (expect.frames === "double" ? 2 : 1);
+  const wantedFrames =
+    result.sourceFrames * (expect.frames === "double" ? 2 : 1);
   if (expect.frames && result.frames !== wantedFrames) {
     found.push(
       `${result.frames} frames, has to be ${wantedFrames} (its source has ${result.sourceFrames})`,
@@ -162,7 +178,13 @@ function violations(expect, result, sourceFile) {
 }
 
 function parseArgs(argv) {
-  const args = { label: null, diff: null, only: null, ffmpeg: null, assets: null };
+  const args = {
+    label: null,
+    diff: null,
+    only: null,
+    ffmpeg: null,
+    assets: null,
+  };
   for (let i = 0; i < argv.length; i++) {
     const flag = /^--(diff|only|ffmpeg|assets)$/.exec(argv[i]);
     if (flag) args[flag[1]] = argv[++i];
@@ -186,11 +208,15 @@ function build(outDir) {
     process.execPath,
     [
       require.resolve("typescript/bin/tsc"),
-      "-p", path.join(root, "tsconfig.json"),
-      "--noEmit", "false",
-      "--outDir", outDir,
+      "-p",
+      path.join(root, "tsconfig.json"),
+      "--noEmit",
+      "false",
+      "--outDir",
+      outDir,
       // Not api/: the functions import shared/.
-      "--rootDir", root,
+      "--rootDir",
+      root,
     ],
     { stdio: "inherit" },
   );
@@ -200,7 +226,13 @@ function build(outDir) {
 function resolveAssets(ffmpeg, userDir, madeDir) {
   fs.mkdirSync(madeDir, { recursive: true });
   const ff = (...args) => {
-    const r = spawnSync(ffmpeg, ["-y", "-hide_banner", "-loglevel", "error", ...args]);
+    const r = spawnSync(ffmpeg, [
+      "-y",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      ...args,
+    ]);
     if (r.status !== 0) throw new Error(`could not make an asset: ${r.stderr}`);
   };
   const made = (name) => path.join(madeDir, name);
@@ -225,7 +257,9 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   };
   const missing = Object.keys(assets).filter((role) => !assets[role].length);
   if (missing.length) {
-    throw new Error(`missing smoke assets in ${userDir}: ${missing.join(", ")}`);
+    throw new Error(
+      `missing smoke assets in ${userDir}: ${missing.join(", ")}`,
+    );
   }
   const [video] = assets.video;
 
@@ -237,63 +271,174 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     try {
       ff("-i", video, ...streams, "-c", "copy", made(name));
     } catch {
-      ff("-i", video, ...streams, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", made(name));
+      ff(
+        "-i",
+        video,
+        ...streams,
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        made(name),
+      );
     }
     return [made(name)];
   };
   assets.mov = remux("source.mov");
   assets.mkv = remux("reject.mkv", "-map", "0:v:0");
   ff(
-    "-i", video, "-t", "2", "-vf", "scale=160:-2,setsar=4/3",
-    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-an",
+    "-i",
+    video,
+    "-t",
+    "2",
+    "-vf",
+    "scale=160:-2,setsar=4/3",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "ultrafast",
+    "-pix_fmt",
+    "yuv420p",
+    "-an",
     made("reject-anamorphic.mp4"),
   );
   assets.anamorphic = [made("reject-anamorphic.mp4")];
   ff(
-    "-i", video,
-    "-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-cpu-used", "5", "-row-mt", "1",
-    "-pix_fmt", "yuv420p", "-c:a", "libopus", "-ac", "2", made("source.webm"),
+    "-i",
+    video,
+    "-c:v",
+    "libvpx-vp9",
+    "-crf",
+    "30",
+    "-b:v",
+    "0",
+    "-cpu-used",
+    "5",
+    "-row-mt",
+    "1",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "libopus",
+    "-ac",
+    "2",
+    made("source.webm"),
   );
   assets.webm = [made("source.webm")];
   ff(
-    "-i", video, "-t", "2",
-    "-vf", "fps=15,scale=320:-2",
-    "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "8", "-row-mt", "1",
-    "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("source.avif"),
+    "-i",
+    video,
+    "-t",
+    "2",
+    "-vf",
+    "fps=15,scale=320:-2",
+    "-c:v",
+    "libaom-av1",
+    "-crf",
+    "30",
+    "-b:v",
+    "0",
+    "-cpu-used",
+    "8",
+    "-row-mt",
+    "1",
+    "-pix_fmt",
+    "yuv420p",
+    "-an",
+    "-f",
+    "avif",
+    made("source.avif"),
   );
   assets.avif = [made("source.avif")];
   ff(
-    "-i", video, "-t", "3",
-    "-vf", "fps=1,scale=320:-2",
-    "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "8", "-row-mt", "1",
-    "-pix_fmt", "yuv420p", "-an", "-f", "avif", made("slides.avif"),
+    "-i",
+    video,
+    "-t",
+    "3",
+    "-vf",
+    "fps=1,scale=320:-2",
+    "-c:v",
+    "libaom-av1",
+    "-crf",
+    "30",
+    "-b:v",
+    "0",
+    "-cpu-used",
+    "8",
+    "-row-mt",
+    "1",
+    "-pix_fmt",
+    "yuv420p",
+    "-an",
+    "-f",
+    "avif",
+    made("slides.avif"),
   );
   assets.slides = [made("slides.avif")];
   const animWebp = (name, ...codec) => {
     ff(
-      "-i", video, "-t", "2", "-vf", "fps=10,scale=160:-2",
-      "-c:v", "libwebp_anim", ...codec, "-loop", "0", "-an", made(name),
+      "-i",
+      video,
+      "-t",
+      "2",
+      "-vf",
+      "fps=10,scale=160:-2",
+      "-c:v",
+      "libwebp_anim",
+      ...codec,
+      "-loop",
+      "0",
+      "-an",
+      made(name),
     );
     return [made(name)];
   };
   assets.animwebp = animWebp("anim.webp", "-q:v", "80");
-  assets["animwebp-lossless"] = animWebp("anim-lossless.webp", "-lossless", "1");
+  assets["animwebp-lossless"] = animWebp(
+    "anim-lossless.webp",
+    "-lossless",
+    "1",
+  );
 
   ff("-i", video, "-frames:v", "1", made("still.png"));
   assets.png = [made("still.png")];
   ff("-i", video, "-frames:v", "1", "-q:v", "4", made("still.jpg"));
   assets.jpg = [made("still.jpg")];
-  ff("-i", video, "-frames:v", "1", "-c:v", "libwebp", "-q:v", "85", made("still.webp"));
+  ff(
+    "-i",
+    video,
+    "-frames:v",
+    "1",
+    "-c:v",
+    "libwebp",
+    "-q:v",
+    "85",
+    made("still.webp"),
+  );
   assets.webp = [made("still.webp")];
   // APP1 EXIF after SOI with one tag: Orientation (0x0112) = 6, rotate 90° CW.
   const tiff = Buffer.alloc(26);
   tiff.write("II");
-  [[42, 2], [1, 8], [0x0112, 10], [3, 12], [6, 18]].forEach(([v, at]) => tiff.writeUInt16LE(v, at));
-  [[8, 4], [1, 14]].forEach(([v, at]) => tiff.writeUInt32LE(v, at));
+  [
+    [42, 2],
+    [1, 8],
+    [0x0112, 10],
+    [3, 12],
+    [6, 18],
+  ].forEach(([v, at]) => tiff.writeUInt16LE(v, at));
+  [
+    [8, 4],
+    [1, 14],
+  ].forEach(([v, at]) => tiff.writeUInt32LE(v, at));
   const exif = Buffer.concat([Buffer.from("Exif\0\0", "latin1"), tiff]);
   const app1 = Buffer.from([0xff, 0xe1, 0, exif.length + 2]);
   const jpeg = fs.readFileSync(made("still.jpg"));
-  fs.writeFileSync(made("turned.jpg"), Buffer.concat([jpeg.subarray(0, 2), app1, exif, jpeg.subarray(2)]));
+  fs.writeFileSync(
+    made("turned.jpg"),
+    Buffer.concat([jpeg.subarray(0, 2), app1, exif, jpeg.subarray(2)]),
+  );
   assets.turned = [made("turned.jpg")];
 
   return assets;
@@ -306,14 +451,22 @@ function sameResult(before, after) {
   const keys = Object.keys({ ...before, ...after });
   return keys.every((k) => {
     if (k === "bytes") {
-      return Math.abs(before.bytes - after.bytes) <= SIZE_TOLERANCE * before.bytes;
+      return (
+        Math.abs(before.bytes - after.bytes) <= SIZE_TOLERANCE * before.bytes
+      );
     }
     if (k === "ratio") return Math.abs(before.ratio - after.ratio) <= 0.05;
     return before[k] === after[k];
   });
 }
 
-function diff(name, before, after, format, same = (a, b) => format(a) === format(b)) {
+function diff(
+  name,
+  before,
+  after,
+  format,
+  same = (a, b) => format(a) === format(b),
+) {
   const changed = Object.keys({ ...before, ...after }).filter(
     (k) => k in before && k in after && !same(before[k], after[k]),
   );
@@ -338,7 +491,9 @@ const { renderWatermarkFrame } = await load("api/_lib/tools/mark.js");
 process.chdir(root);
 const binaries = await load("api/_lib/binaries.js");
 const ffmpegPath = args.ffmpeg ?? binaries.ffmpegPath;
-const ffmpegCheck = checkFfmpeg(ffmpegPath, { version: args.ffmpeg ? undefined : pinnedVersion() });
+const ffmpegCheck = checkFfmpeg(ffmpegPath, {
+  version: args.ffmpeg ? undefined : pinnedVersion(),
+});
 if (ffmpegCheck.problems.length) {
   console.error(
     `${ffmpegPath} (${ffmpegCheck.version}) won't do:\n  ${ffmpegCheck.problems.join("\n  ")}`,
@@ -347,9 +502,12 @@ if (ffmpegCheck.problems.length) {
 }
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
-const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
+const userDirShown = userDir.startsWith(root)
+  ? path.relative(root, userDir)
+  : userDir;
 const assets = resolveAssets(ffmpegPath, userDir, path.join(outDir, "assets"));
-const bytesOf = (paths) => paths.reduce((sum, p) => sum + fs.statSync(p).size, 0);
+const bytesOf = (paths) =>
+  paths.reduce((sum, p) => sum + fs.statSync(p).size, 0);
 const describe = (paths) =>
   paths.length === 1
     ? `${path.basename(paths[0])} ${bytesOf(paths)}`
@@ -365,15 +523,21 @@ for (const file of Object.values(assets).flat()) {
 }
 const BLOB = "https://smoke.public.blob.vercel-storage.com/";
 const download = async (url, destPath) =>
-  fs.copyFileSync(byName.get(decodeURIComponent(path.basename(new URL(url).pathname))), destPath);
+  fs.copyFileSync(
+    byName.get(decodeURIComponent(path.basename(new URL(url).pathname))),
+    destPath,
+  );
 
 let workDir = "";
 const recorded = [];
 const normalize = (arg) =>
   arg
-    .split(workDir).join("<work>")
-    .split(ffmpegPath).join("ffmpeg")
-    .split(binaries.gifskiPath).join("gifski")
+    .split(workDir)
+    .join("<work>")
+    .split(ffmpegPath)
+    .join("ffmpeg")
+    .split(binaries.gifskiPath)
+    .join("gifski")
     .replace(/tmp_loop_\d+/g, "tmp_loop_N");
 class Recorder extends FFmpeg {
   run(command, commandArgs, options) {
@@ -398,7 +562,9 @@ const results = {
   ),
 };
 const only = args.only?.split(",").filter(Boolean);
-const names = Object.keys(CASES).filter((n) => !only || only.some((o) => n.includes(o)));
+const names = Object.keys(CASES).filter(
+  (n) => !only || only.some((o) => n.includes(o)),
+);
 for (const name of names) {
   const { tool, preview, files: roles, options, expect } = CASES[name];
   const files = roles.flatMap((role) => assets[role]);
@@ -423,14 +589,22 @@ for (const name of names) {
       );
       downloadName = path.basename(outputPath);
     } else {
-      const urls = files.map((f) => BLOB + encodeURIComponent(path.basename(f)));
+      const urls = files.map(
+        (f) => BLOB + encodeURIComponent(path.basename(f)),
+      );
       const request =
         tool === "sequence"
           ? { blobUrls: urls, options }
           : { blobUrl: urls[0], watermarkUrl: urls[1], options };
       const inputs = TOOLS[tool].inputs(request);
       if (!Array.isArray(inputs)) throw new Error(inputs.error);
-      const result = await TOOLS[tool].run({ ff, workDir, inputs, options, download });
+      const result = await TOOLS[tool].run({
+        ff,
+        workDir,
+        inputs,
+        options,
+        download,
+      });
       outputPath = result.outputPath;
       downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
     }
@@ -448,10 +622,15 @@ for (const name of names) {
       bytes,
       ratio: Number((bytes / bytesOf(source)).toFixed(2)),
       ...(expect?.frames
-        ? { frames: await countFrames(outputPath), sourceFrames: await countFrames(source[0]) }
+        ? {
+            frames: await countFrames(outputPath),
+            sourceFrames: await countFrames(source[0]),
+          }
         : {}),
       ...(expect?.turned
-        ? await prober.mediaInfo(source[0]).then((s) => ({ sourceSize: `${s.width}x${s.height}` }))
+        ? await prober
+            .mediaInfo(source[0])
+            .then((s) => ({ sourceSize: `${s.width}x${s.height}` }))
         : {}),
       ...(info
         ? {
@@ -464,7 +643,10 @@ for (const name of names) {
     };
   } catch (err) {
     results[name] = {
-      error: String(err?.message ?? err).trim().split("\n").pop(),
+      error: String(err?.message ?? err)
+        .trim()
+        .split("\n")
+        .pop(),
       ...(typeof err?.code === "string" ? { code: err.code } : {}),
     };
   }
@@ -482,8 +664,14 @@ for (const name of names) {
   );
 }
 
-fs.writeFileSync(path.join(outDir, "commands.json"), JSON.stringify(commands, null, 1));
-fs.writeFileSync(path.join(outDir, "results.json"), JSON.stringify(results, null, 1));
+fs.writeFileSync(
+  path.join(outDir, "commands.json"),
+  JSON.stringify(commands, null, 1),
+);
+fs.writeFileSync(
+  path.join(outDir, "results.json"),
+  JSON.stringify(results, null, 1),
+);
 fs.rmSync(buildDir, { recursive: true, force: true });
 say(`\nsaved to ${path.relative(root, outDir)}`);
 
@@ -502,12 +690,17 @@ if (args.diff) {
     JSON.parse(fs.readFileSync(path.join(smokeDir, args.diff, file), "utf8"));
   say(`\ncompared with "${args.diff}":`);
   console.log = say;
-  const sameCommands = diff("commands", read("commands.json"), commands, (c) => c.join("\n"));
+  const sameCommands = diff("commands", read("commands.json"), commands, (c) =>
+    c.join("\n"),
+  );
   const sameResults = diff(
     "results",
     read("results.json"),
     results,
-    (r) => Object.entries(r).map(([k, v]) => `${k}: ${v}`).join("\n"),
+    (r) =>
+      Object.entries(r)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join("\n"),
     sameResult,
   );
   process.exit(sameCommands && sameResults && !brokenNames.length ? 0 : 1);

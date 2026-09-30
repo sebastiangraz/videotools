@@ -17,9 +17,11 @@ export function outOfTime(ff: FFmpeg, started: number): boolean {
 export const TOOL_ALLOWANCE = 1.1;
 
 const CONVERSION_FPS = 30;
-export const conversionFps = (render: Render) => Math.min(render.fps, CONVERSION_FPS);
+export const conversionFps = (render: Render) =>
+  Math.min(render.fps, CONVERSION_FPS);
 
-export const fitWidth = (width: number) => `scale='min(${width},iw)':-2:flags=lanczos`;
+export const fitWidth = (width: number) =>
+  `scale='min(${width},iw)':-2:flags=lanczos`;
 
 export function scaledSize(
   render: Render,
@@ -101,7 +103,10 @@ export function frameRate(fps: number): string {
   return ntsc ? `${ntsc}000/1001` : String(fps);
 }
 
-export function sourceRender(source: Source, extra: Partial<Render> = {}): Render {
+export function sourceRender(
+  source: Source,
+  extra: Partial<Render> = {},
+): Render {
   return {
     inputArgs: ["-i", source.path],
     keepAudio: true,
@@ -180,7 +185,12 @@ export async function sourceBytesBudget(
 // bisect `levels` while time allows, keeping the finest fit, else smallest.
 export async function encodeWithinBudget(
   ff: FFmpeg,
-  { outputFile, levels, budget, encode }: {
+  {
+    outputFile,
+    levels,
+    budget,
+    encode,
+  }: {
     outputFile: string;
     levels: number[];
     budget: number | null;

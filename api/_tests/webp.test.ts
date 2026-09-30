@@ -26,7 +26,12 @@ const frame = (...chunks: Uint8Array[]) =>
 const picture = (tag: "VP8 " | "VP8L") => chunk(tag, 5);
 
 const webp = (...chunks: Uint8Array[]) =>
-  join(bytes("RIFF\0\0\0\0WEBP"), chunk("VP8X", 10), chunk("ANIM", 6), ...chunks);
+  join(
+    bytes("RIFF\0\0\0\0WEBP"),
+    chunk("VP8X", 10),
+    chunk("ANIM", 6),
+    ...chunks,
+  );
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "webp-test-"));
 afterAll(() => fs.rm(dir, { recursive: true, force: true }));
@@ -51,8 +56,12 @@ describe("isLosslessWebp", () => {
     // An odd-sized ICC profile (padded), and a lossy frame's alpha
     const icc = chunk("ICCP", 301);
     const alpha = chunk("ALPH", 7);
-    expect(await lossless("icc.webp", webp(icc, frame(picture("VP8L"))))).toBe(true);
-    expect(await lossless("alpha.webp", webp(frame(alpha, picture("VP8 "))))).toBe(false);
+    expect(await lossless("icc.webp", webp(icc, frame(picture("VP8L"))))).toBe(
+      true,
+    );
+    expect(
+      await lossless("alpha.webp", webp(frame(alpha, picture("VP8 ")))),
+    ).toBe(false);
   });
 
   it("takes a file with no picture for lossy", async () => {
@@ -73,9 +82,15 @@ describe("isLosslessSource", () => {
   });
 
   it("refuses the lossy video codecs", async () => {
-    expect(await isLosslessSource(source("avif", "av1", "yuv420p"))).toBe(false);
-    expect(await isLosslessSource(source("mp4", "h264", "yuv420p"))).toBe(false);
-    expect(await isLosslessSource(source("webm", "vp9", "yuv444p"))).toBe(false);
+    expect(await isLosslessSource(source("avif", "av1", "yuv420p"))).toBe(
+      false,
+    );
+    expect(await isLosslessSource(source("mp4", "h264", "yuv420p"))).toBe(
+      false,
+    );
+    expect(await isLosslessSource(source("webm", "vp9", "yuv444p"))).toBe(
+      false,
+    );
   });
 
   it("takes a lossless codec, or a lossy one in its RGB mode", async () => {
@@ -91,7 +106,11 @@ describe("isLosslessSource", () => {
     await fs.writeFile(vp8l, webp(frame(picture("VP8L"))));
     await fs.writeFile(vp8, webp(frame(picture("VP8 "))));
     // ffmpeg decodes both to argb, so the probe can't tell
-    expect(await isLosslessSource(source("webp", "webp", "argb", vp8l))).toBe(true);
-    expect(await isLosslessSource(source("webp", "webp", "argb", vp8))).toBe(false);
+    expect(await isLosslessSource(source("webp", "webp", "argb", vp8l))).toBe(
+      true,
+    );
+    expect(await isLosslessSource(source("webp", "webp", "argb", vp8))).toBe(
+      false,
+    );
   });
 });

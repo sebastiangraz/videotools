@@ -9,7 +9,6 @@ import {
   watermarkLayout,
 } from "../_lib/tools/mark-graph.js";
 
-
 // Expectations derive from MARK, so the tuned constants can change freely.
 const HD = { width: 1920, height: 1080 };
 // Big enough that rounding to even pixels is well under a percent.
@@ -138,20 +137,19 @@ describe("parseBounds", () => {
     `[Parsed_bbox_2 @ 000001526dfafdc0] n:${n} pts:${n} pts_time:${n} x1:${x1} x2:${x2} y1:${y1} y2:${y2} w:${x2 - x1 + 1} h:${y2 - y1 + 1} crop=1:1:0:0 drawbox=0:0:1:1`;
 
   it("reads the visible box", () => {
-    expect(
-      parseBounds(line(0, 50, 349, 160, 239), 400, 400),
-    ).toEqual({ x: 50, y: 160, width: 300, height: 80 });
+    expect(parseBounds(line(0, 50, 349, 160, 239), 400, 400)).toEqual({
+      x: 50,
+      y: 160,
+      width: 300,
+      height: 80,
+    });
   });
 
   it("falls back to the whole image when nothing is reported", () => {
     const full = { x: 0, y: 0, width: 400, height: 300 };
     expect(parseBounds("", 400, 300)).toEqual(full);
     expect(
-      parseBounds(
-        "[Parsed_bbox_2 @ 0] n:0 pts:0 pts_time:0",
-        400,
-        300,
-      ),
+      parseBounds("[Parsed_bbox_2 @ 0] n:0 pts:0 pts_time:0", 400, 300),
     ).toEqual(full);
   });
 });
@@ -259,7 +257,10 @@ describe("watermarkGraph", () => {
     const large = watermarkGraph(video, logo, { filter: "glass" });
     expect(erosions(large)).toBe(2);
     expect(large).not.toContain("all_expr");
-    const small = watermarkGraph(video, logo, { filter: "glass", size: "small" });
+    const small = watermarkGraph(video, logo, {
+      filter: "glass",
+      size: "small",
+    });
     const width = 2 * MARK_SIZES.small.rim;
     const part = width % 1;
     if (part < 0.01) {
@@ -272,17 +273,23 @@ describe("watermarkGraph", () => {
   });
 
   // The bevel's blur, stretched: the lens's shape
-  const heightfield = (graph: string) => /gblur=[^;[]*,lut=[^;[]*/.exec(graph)?.[0];
+  const heightfield = (graph: string) =>
+    /gblur=[^;[]*,lut=[^;[]*/.exec(graph)?.[0];
   // The x slope, scaled by how far the lens refracts
   const lens = (graph: string) =>
     /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];
   const opacities = (graph: string) =>
-    [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) => Number(aa));
+    [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) =>
+      Number(aa),
+    );
 
   it("shows the displacement map over a light-gray frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
     for (const filter of MARK_FILTERS) {
-      const graph = watermarkGraph(video, logo, { filter, view: "displacement" });
+      const graph = watermarkGraph(video, logo, {
+        filter,
+        view: "displacement",
+      });
       // The frame painted over, the maps' red x and green y laid on it
       expect(graph).toMatch(/^\[0:v\][^;]*,drawbox=w=iw:h=ih:[^;]*:t=fill/);
       expect(graph).toContain("mergeplanes=");
@@ -313,9 +320,9 @@ describe("watermarkGraph", () => {
   it("renders the mark by default", () => {
     expect(MARK_VIEWS).toContain("render");
     for (const filter of MARK_FILTERS) {
-      expect(
-        watermarkGraph(video, logo, { filter, view: "render" }),
-      ).toBe(watermarkGraph(video, logo, { filter }));
+      expect(watermarkGraph(video, logo, { filter, view: "render" })).toBe(
+        watermarkGraph(video, logo, { filter }),
+      );
     }
   });
 

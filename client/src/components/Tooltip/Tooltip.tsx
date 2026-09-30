@@ -49,7 +49,9 @@ export const Tooltip = ({
         sideOffset={sideOffset}
         alignOffset={alignOffset}
       >
-        <BaseTooltip.Popup className={styles.popup}>{content}</BaseTooltip.Popup>
+        <BaseTooltip.Popup className={styles.popup}>
+          {content}
+        </BaseTooltip.Popup>
       </BaseTooltip.Positioner>
     </BaseTooltip.Portal>
   </BaseTooltip.Root>

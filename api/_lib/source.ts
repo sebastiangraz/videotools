@@ -52,7 +52,8 @@ export function sourceStill(profile: SourceProfile): StillId | null {
   const { formatNames, codec } = profile;
   if (formatNames.includes("png_pipe") && codec === "png") return "png";
   if (formatNames.includes("webp_pipe") && codec === "webp") return "webp";
-  const jpeg = formatNames.includes("image2") || formatNames.includes("jpeg_pipe");
+  const jpeg =
+    formatNames.includes("image2") || formatNames.includes("jpeg_pipe");
   return jpeg && codec === "mjpeg" ? "jpg" : null;
 }
 

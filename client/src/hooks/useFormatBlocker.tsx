@@ -33,7 +33,9 @@ export const useFormatBlocker = (
       isAnimatedWebp(file).then(
         (is) => {
           if (is || cancelled) return;
-          setStillWebps((seen) => (seen.includes(file) ? seen : [...seen, file]));
+          setStillWebps((seen) =>
+            seen.includes(file) ? seen : [...seen, file],
+          );
         },
         // Unreadable here: the server has the last word anyway.
         () => {},

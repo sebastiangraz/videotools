@@ -14,17 +14,58 @@ export type Format = {
 
 // Convert dropdown order.
 export const FORMATS: readonly Format[] = [
-  { id: "mp4", label: "MP4", extensions: ["mp4", "m4v"], mime: "video/mp4", kind: "video" },
-  { id: "webm", label: "WebM", extensions: ["webm"], mime: "video/webm", kind: "video" },
-  { id: "mov", label: "MOV", extensions: ["mov", "qt"], mime: "video/quicktime", kind: "video" },
-  { id: "gif", label: "GIF", extensions: ["gif"], mime: "image/gif", kind: "animation" },
-  { id: "webp", label: "WebP", extensions: ["webp"], mime: "image/webp", kind: "animation" },
-  { id: "avif", label: "AVIF", extensions: ["avif"], mime: "image/avif", kind: "animation" },
+  {
+    id: "mp4",
+    label: "MP4",
+    extensions: ["mp4", "m4v"],
+    mime: "video/mp4",
+    kind: "video",
+  },
+  {
+    id: "webm",
+    label: "WebM",
+    extensions: ["webm"],
+    mime: "video/webm",
+    kind: "video",
+  },
+  {
+    id: "mov",
+    label: "MOV",
+    extensions: ["mov", "qt"],
+    mime: "video/quicktime",
+    kind: "video",
+  },
+  {
+    id: "gif",
+    label: "GIF",
+    extensions: ["gif"],
+    mime: "image/gif",
+    kind: "animation",
+  },
+  {
+    id: "webp",
+    label: "WebP",
+    extensions: ["webp"],
+    mime: "image/webp",
+    kind: "animation",
+  },
+  {
+    id: "avif",
+    label: "AVIF",
+    extensions: ["avif"],
+    mime: "image/avif",
+    kind: "animation",
+  },
 ];
 
 export const FORMAT_IDS: readonly FormatId[] = FORMATS.map((f) => f.id);
 
-export const SEQUENCE_FORMATS: readonly FormatId[] = ["mp4", "gif", "webp", "avif"];
+export const SEQUENCE_FORMATS: readonly FormatId[] = [
+  "mp4",
+  "gif",
+  "webp",
+  "avif",
+];
 
 export function formatById(id: FormatId): Format {
   return FORMATS.find((f) => f.id === id) as Format;

@@ -51,7 +51,10 @@ export const speed: Tool = {
     console.log(`Changing playback speed of ${format} by ${multiplier}x...`);
 
     const render = changeSpeed(source, multiplier);
-    const outputPath = await encodePreserved(job, render, { format, quality: 100 });
+    const outputPath = await encodePreserved(job, render, {
+      format,
+      quality: 100,
+    });
     return { outputPath, suffix: "speed", ext: format };
   },
 };

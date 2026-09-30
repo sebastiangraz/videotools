@@ -75,10 +75,21 @@ export async function encodeStill(
           jpegPixFmt,
         ]
       : // "icon" for the same reason as in webp.ts.
-        ["-c:v", "libwebp", "-q:v", String(level), "-preset", "icon", "-pix_fmt", "bgra"];
+        [
+          "-c:v",
+          "libwebp",
+          "-q:v",
+          String(level),
+          "-preset",
+          "icon",
+          "-pix_fmt",
+          "bgra",
+        ];
 
   const ceiling = render.source
-    ? (await fs.stat(render.source.path)).size * (quality / 100) * TOOL_ALLOWANCE
+    ? (await fs.stat(render.source.path)).size *
+      (quality / 100) *
+      TOOL_ALLOWANCE
     : Infinity;
   let written = -1;
   const fits = async (index: number) => {
@@ -94,7 +105,12 @@ export async function encodeStill(
     ["-c:v", "png", "-compression_level", "1", "-pix_fmt", "rgba"],
     marked,
   );
-  pictures = { ...render, inputArgs: ["-i", marked], filter: undefined, source: null };
+  pictures = {
+    ...render,
+    inputArgs: ["-i", marked],
+    filter: undefined,
+    source: null,
+  };
 
   const { pick } = await bisect(levels.length, fits);
   console.log(

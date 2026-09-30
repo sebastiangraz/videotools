@@ -137,4 +137,6 @@ const openImage = async (file: File): Promise<FrameSource> => {
 
 // Rejects when the browser can't decode the file (or has no ImageDecoder).
 export const openFrameSource = async (file: File): Promise<FrameSource> =>
-  isStillImage(file) || isAnimatedImage(file) ? openImage(file) : openVideo(file);
+  isStillImage(file) || isAnimatedImage(file)
+    ? openImage(file)
+    : openVideo(file);

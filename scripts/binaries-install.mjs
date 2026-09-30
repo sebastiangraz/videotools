@@ -20,14 +20,19 @@ async function install(tool) {
   if (!pinned) {
     // Not fatal, so the rest of the install goes through; point FFMPEG_BIN
     // at an ffmpeg of the pinned version to run the api here.
-    console.warn(`no ${tool} pinned for ${key} (only ${Object.keys(platforms).join(", ")})`);
+    console.warn(
+      `no ${tool} pinned for ${key} (only ${Object.keys(platforms).join(", ")})`,
+    );
     return;
   }
 
   const binary = binaryPath(tool, key);
   const dir = path.dirname(binary);
   const stamp = path.join(dir, ".sha256");
-  const current = fs.existsSync(binary) && fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8").trim();
+  const current =
+    fs.existsSync(binary) &&
+    fs.existsSync(stamp) &&
+    fs.readFileSync(stamp, "utf8").trim();
   if (current === pinned.sha256) {
     console.log(`${tool} ${version} (${key}) already installed`);
     return;
@@ -55,7 +60,9 @@ async function install(tool) {
   const got = hash.digest("hex");
   if (got !== pinned.sha256) {
     fs.rmSync(partial, { force: true });
-    throw new Error(`${pinned.url}: sha256 of the binary is ${got}, binaries.mjs pins ${pinned.sha256}`);
+    throw new Error(
+      `${pinned.url}: sha256 of the binary is ${got}, binaries.mjs pins ${pinned.sha256}`,
+    );
   }
   fs.renameSync(partial, binary);
   // The bundle keeps this mode, and the function's filesystem is read-only.

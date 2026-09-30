@@ -43,13 +43,15 @@ async function fetchLatestCommit(): Promise<Version | null> {
 
   const res = await fetch(
     `https://api.github.com/repos/${REPO}/commits?sha=${REF}&per_page=1`,
-    { headers: { Accept: "application/vnd.github+json" } }
+    { headers: { Accept: "application/vnd.github+json" } },
   );
   if (!res.ok) return null;
 
   // With per_page=1 the "last" page number in the Link header equals the
   // total commit count; the header is absent when there is only one commit
-  const lastPage = res.headers.get("Link")?.match(/[?&]page=(\d+)>; rel="last"/);
+  const lastPage = res.headers
+    .get("Link")
+    ?.match(/[?&]page=(\d+)>; rel="last"/);
   const count = lastPage ? Number(lastPage[1]) : 1;
 
   const [latest] = await res.json();
@@ -61,7 +63,7 @@ async function fetchLatestCommit(): Promise<Version | null> {
   };
   sessionStorage.setItem(
     CACHE_KEY,
-    JSON.stringify({ fetchedAt: Date.now(), version })
+    JSON.stringify({ fetchedAt: Date.now(), version }),
   );
   return version;
 }

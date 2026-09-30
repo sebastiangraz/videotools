@@ -14,7 +14,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       onBeforeGenerateToken: () =>
         Promise.resolve({
           // octet-stream: browsers can't type .mkv/.avi on some systems.
-          allowedContentTypes: ["video/*", "image/*", "application/octet-stream"],
+          allowedContentTypes: [
+            "video/*",
+            "image/*",
+            "application/octet-stream",
+          ],
           maximumSizeInBytes: MAX_UPLOAD_BYTES,
           addRandomSuffix: true,
         }),
@@ -23,8 +27,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     return res.status(200).json(jsonResponse);
   } catch (err) {
-    return res
-      .status(400)
-      .json({ error: err instanceof Error ? err.message : "Upload token error" });
+    return res.status(400).json({
+      error: err instanceof Error ? err.message : "Upload token error",
+    });
   }
 }

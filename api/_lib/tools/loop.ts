@@ -35,7 +35,8 @@ function reverseLoop(source: Source): Render {
   // or, for WebP, bgra (4 B/px).
   if (source.format !== "gif") {
     const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
-    const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
+    const bytes =
+      duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
     if (bytes > MAX_REVERSE_BYTES) {
       throw new InputError(
         `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
@@ -110,7 +111,11 @@ function crossfadeLoop(
         : `${second}${open},${piece(null, fade)}[begin]`,
       `[end][begin]xfade=transition=fade:duration=${fade / fps}:offset=0[fade]`,
     );
-    order.push(...(body ? ["[body]"] : []), "[fade]", ...(rest ? ["[rest]"] : []));
+    order.push(
+      ...(body ? ["[body]"] : []),
+      "[fade]",
+      ...(rest ? ["[rest]"] : []),
+    );
   } else {
     graph.push(
       `${first}${open},${piece(start, null)}[body]`,
@@ -136,7 +141,11 @@ function crossfadeLoop(
 type Copy = { format: FormatId; outputFile: string; startSeconds: number };
 
 // False when the loop has to be encoded instead.
-async function loopByCopy(ff: FFmpeg, source: Source, copy: Copy): Promise<boolean> {
+async function loopByCopy(
+  ff: FFmpeg,
+  source: Source,
+  copy: Copy,
+): Promise<boolean> {
   if (copy.startSeconds === 0) {
     console.log("No fade, no reorder: handing the source back");
     await copyWhole(ff, source, copy);
@@ -186,8 +195,7 @@ async function reorderCopy(
   const packets = await ff.videoPackets(source.path);
   if (!packets) return false;
   const origin = Math.min(...packets.map((p) => p.time));
-  const away = (i: number) =>
-    Math.abs(packets[i].time - origin - startSeconds);
+  const away = (i: number) => Math.abs(packets[i].time - origin - startSeconds);
   const index = packets
     .map((p, i) => (p.key && i > 0 ? i : -1))
     .filter((i) => i > 0)

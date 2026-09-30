@@ -42,7 +42,8 @@ function mainVideo(summary: string): { line: string; index: number } | null {
   );
 }
 
-export const isRgb = (pixFmt: string) => /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
+export const isRgb = (pixFmt: string) =>
+  /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
 
 function matrixOf(tags: string[], pixFmt: string): MediaInfo["matrix"] {
   if (tags.includes("bt709")) return "bt709";
@@ -181,7 +182,11 @@ export class FFmpeg {
 
   // Saves shipping ffprobe. `ffmpeg -i` with no output exits non-zero by design.
   async summary(inputFile: string): Promise<string> {
-    const { stderr } = await this.run(this.ffmpeg, ["-hide_banner", "-i", inputFile]);
+    const { stderr } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-i",
+      inputFile,
+    ]);
     return stderr;
   }
 
@@ -192,14 +197,20 @@ export class FFmpeg {
     const info = parseSourceProfile(stderr);
     // The client can't validate WebP, so a bad one is the user's error.
     if (!info && /^Input #0, webp_(pipe|anim),/m.test(stderr)) {
-      throw new InputError("This WebP file can't be read.", "unreadable-source");
+      throw new InputError(
+        "This WebP file can't be read.",
+        "unreadable-source",
+      );
     }
     if (!info) throw new Error(`Could not read media info: ${stderr.trim()}`);
     // The animated WebP demuxer prints "Duration: N/A"; sum the packets.
     if (!info.duration && info.formatNames.includes("webp_anim")) {
       const packets = await this.listPackets(inputFile, info.videoIndex);
       if (!packets) {
-        throw new InputError("This WebP file can't be read.", "unreadable-source");
+        throw new InputError(
+          "This WebP file can't be read.",
+          "unreadable-source",
+        );
       }
       let start = Infinity;
       let end = 0;

@@ -96,7 +96,10 @@ export const sequence: Tool = {
       `Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`,
     );
 
-    const render = await imageSequence(job, imagePaths, { frameDuration, format });
+    const render = await imageSequence(job, imagePaths, {
+      frameDuration,
+      format,
+    });
     // Stills are pristine, so they alone get AVIF's lossless and 4:4:4 modes.
     const outputPath = await encodeRender(job, render, {
       format,

@@ -15,7 +15,8 @@ function x264Crf(quality: number): string {
 }
 
 // VP9 and AV1 crf: 0 best – 63 worst; quality 100 → 10, quality 1 → 50.
-export const vpxCrf = (quality: number) => Math.round(50 - (quality / 100) * 40);
+export const vpxCrf = (quality: number) =>
+  Math.round(50 - (quality / 100) * 40);
 
 function x264Cap(cap: RateCap | null): string[] {
   return cap
@@ -46,7 +47,11 @@ const encodeH264 =
 export const encodeMp4 = encodeH264(true);
 export const encodeMov = encodeH264(false);
 
-export const encodeWebm: Encoder = async (ff, render, { outputFile, quality, cap }) => {
+export const encodeWebm: Encoder = async (
+  ff,
+  render,
+  { outputFile, quality, cap },
+) => {
   await ff.runFFmpeg([
     ...graphArgs(render, [EVEN_SCALE], "yuv420p"),
     "-c:v",
