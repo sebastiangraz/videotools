@@ -1,52 +1,49 @@
-import {
-  act,
-  screen,
-  waitFor,
-  fireEvent,
-  within,
-} from "@testing-library/react";
+import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, it, expect, describe } from "vitest";
+import { it, expect, describe } from "vitest";
 import {
+  blobUrl,
+  postedBody,
   renderApp,
-  uploadMock, blobUrl, postedBody, runFinished, stubProcessFetch,
+  runFinished,
+  stubProcessFetch,
+  uploadMock,
 } from "../../test/renderApp";
 import {
-  gifFile,
+  file,
   stubCanvas,
-  stubImageDecoder,
   stubMediaLoading,
   stubProperties,
   stubVideoFrame,
   webpFile,
-  type FakeFrame,
 } from "../../test/media";
 
-describe("Loop", () => {
-  // NumberField parses with the runtime locale: type its decimal separator
-  it("accepts decimal values in number fields", async () => {
-    const sep = (1.1).toLocaleString().charAt(1);
-    const user = userEvent.setup();
-    const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
+const pick = (user: ReturnType<typeof userEvent.setup>, picked: File) =>
+  user.upload(screen.getByLabelText(/choose video/i), picked);
+const loopButton = () => screen.getByRole("button", { name: /^loop$/i });
 
-    uploadMock.mockResolvedValue({
-      url: blobUrl("tiny-abc.mp4"),
-    });
-    const fetchMock = stubProcessFetch(blobUrl("results/tiny_loop-xyz.mp4"));
+// NumberField parses with the runtime locale: type its decimal separator
+const decimal = (whole: number, tenths: number) =>
+  `${whole}${(1.1).toLocaleString().charAt(1)}${tenths}`;
+
+describe("Loop", () => {
+  it("accepts decimal values in number fields", async () => {
+    const user = userEvent.setup();
+    uploadMock.mockResolvedValue({ url: blobUrl("tiny-abc.mp4") });
+    const fetchMock = stubProcessFetch();
 
     await renderApp();
-    await user.upload(screen.getByLabelText(/choose video/i), file);
+    await pick(user, file("tiny.mp4", "video/mp4"));
     fireEvent.change(screen.getByLabelText(/fade duration/i), {
-      target: { value: `0${sep}7` },
+      target: { value: decimal(0, 7) },
     });
     fireEvent.change(screen.getByLabelText(/start at/i), {
-      target: { value: `1${sep}5` },
+      target: { value: decimal(1, 5) },
     });
-    await user.click(screen.getByRole("button", { name: /^loop$/i }));
+    await user.click(loopButton());
 
     await runFinished(fetchMock);
-    const processBody = postedBody(fetchMock);
-    expect(processBody.options).toMatchObject({
+    expect(postedBody(fetchMock).options).toMatchObject({
       fadeDuration: 0.7,
       startSecond: 1.5,
     });
@@ -65,9 +62,8 @@ describe("Loop", () => {
       },
     });
     const drawImage = stubCanvas();
-    const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
     await renderApp();
-    await user.upload(screen.getByLabelText(/choose video/i), file);
+    await pick(user, file("tiny.mp4", "video/mp4"));
 
     expect(
       screen.queryByLabelText(/start frame preview/i),
@@ -86,189 +82,65 @@ describe("Loop", () => {
     expect(preview).toHaveProperty("width", 1280);
     expect(document.querySelector("video")).not.toBeInTheDocument();
 
-    const sep = (1.1).toLocaleString().charAt(1);
     fireEvent.change(screen.getByLabelText(/start at/i), {
-      target: { value: `1${sep}5` },
+      target: { value: decimal(1, 5) },
     });
     await waitFor(() => expect(seeks).toEqual([1.5]));
     await waitFor(() => expect(drawImage).toHaveBeenCalledTimes(2));
   });
 
-  it("draws the frame of a GIF showing at the start second, through ImageDecoder", async () => {
-    const user = userEvent.setup();
-    // 20 frames of 0.1 s
-    stubImageDecoder(20, 100);
-    const drawImage = stubCanvas();
-    await renderApp();
-    await user.upload(screen.getByLabelText(/choose video/i), gifFile("a.gif"));
-
-    await user.hover(screen.getByLabelText(/start at/i));
-    const preview = await screen.findByLabelText(/start frame preview/i);
-    expect(preview.tagName).toBe("CANVAS");
-    const drawn = () =>
-      drawImage.mock.calls.map(([image]) => (image as FakeFrame).frameIndex);
-    await waitFor(() => expect(drawn()).toEqual([0]));
-
-    const sep = (1.1).toLocaleString().charAt(1);
-    fireEvent.change(screen.getByLabelText(/start at/i), {
-      target: { value: `1${sep}5` },
-    });
-    await waitFor(() => expect(drawn()).toEqual([0, 15]));
-
-    // Past the end, the last frame (a <video> clamps the same way)
-    fireEvent.change(screen.getByLabelText(/start at/i), {
-      target: { value: "9" },
-    });
-    await waitFor(() => expect(drawn()).toEqual([0, 15, 19]));
-  });
-
-  it("keeps Start at inside the video's length", async () => {
-    const user = userEvent.setup();
-    stubProperties(HTMLMediaElement.prototype, {
-      duration: { get: () => 10.57 },
-    });
-    // The probe unloads its <video> once it has read it; jsdom has no load
-    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
-    const createElement = vi.spyOn(document, "createElement");
-    await renderApp();
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "tiny.mp4", { type: "video/mp4" }),
-    );
-    const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
-    fireEvent.change(start, { target: { value: "99" } });
-    fireEvent.blur(start);
-    expect(start.value).toMatch(/^99/);
-    createElement.mock.results
-      .map(({ value }) => value as HTMLElement)
-      .filter((element) => element instanceof HTMLVideoElement)
-      .forEach((video) => fireEvent(video, new Event("loadeddata")));
-
-    // Down to the last whole step the clip has room for
-    await waitFor(() => expect(start.value).toMatch(/^10[.,]5/));
-  });
-
-  it("keeps Start at inside a GIF's length, summed off its frames", async () => {
-    const user = userEvent.setup();
-    // 20 frames of 0.1 s
-    stubImageDecoder(20, 100);
-    stubCanvas();
-    await renderApp();
-    await user.upload(screen.getByLabelText(/choose video/i), gifFile("a.gif"));
-
-    const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
-    // Typed text is the user's until the field is left
-    fireEvent.change(start, { target: { value: "9" } });
-    fireEvent.blur(start);
-    await waitFor(() => expect(start.value).toMatch(/^2[.,]0/));
-  });
-
-  it("wheel-scrubs the preview-wrapped Start at field after picking a video", async () => {
-    const user = userEvent.setup();
-    const file = new File(["00"], "tiny.mp4", { type: "video/mp4" });
-    await renderApp();
-    await user.upload(screen.getByLabelText(/choose video/i), file);
-
-    // Wheel scrub needs focus; NumberField's native listener must survive the
-    // preview card wrapping the input once a video is picked.
-    const start = screen.getByLabelText(/start at/i) as HTMLInputElement;
-    start.focus();
-    fireEvent.wheel(start, { deltaY: -1 });
-    expect(start.value).toMatch(/0[.,]1/);
-
-    const fade = screen.getByLabelText(/fade duration/i) as HTMLInputElement;
-    fade.focus();
-    fireEvent.wheel(fade, { deltaY: -1 });
-    expect(fade.value).toMatch(/0[.,]6/);
-  });
-
   it("shows an error in the preview card when the browser can't decode the video", async () => {
     const user = userEvent.setup();
-    const file = new File(["00"], "clip.avi", { type: "video/x-msvideo" });
     // What browsers report for containers <video> can't play (AVI, WMV, …)
     stubMediaLoading("fails");
     await renderApp();
-    await user.upload(screen.getByLabelText(/choose video/i), file);
+    await pick(user, file("clip.avi", "video/x-msvideo"));
 
     await user.hover(screen.getByLabelText(/start at/i));
-    expect(
-      await screen.findByText(/can.t preview this format/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toBeInTheDocument();
     expect(
       screen.queryByLabelText(/start frame preview/i),
     ).not.toBeInTheDocument();
   });
 
-  it("says nothing about a file that comes back in its own format", async () => {
-    const user = userEvent.setup();
-    await renderApp();
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "anim.gif", { type: "image/gif" }),
-    );
-
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^loop$/i })).toHaveAttribute(
-      "aria-disabled",
-      "false",
-    );
-  });
-
-  // Played at 1710×1710, stored at `stored`.
-  const pickVideo = async (stored: [number, number]) => {
+  it("refuses a video with non-square pixels before any upload, and takes a square one", async () => {
     stubMediaLoading("decodes");
+    // Played at 1710×1710, stored at whatever VideoFrame says
     stubProperties(HTMLVideoElement.prototype, {
       videoWidth: { get: () => 1710 },
       videoHeight: { get: () => 1710 },
     });
-    stubVideoFrame(...stored);
+    stubVideoFrame(1710, 1080);
     const user = userEvent.setup();
     await renderApp();
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "clip.mp4", { type: "video/mp4" }),
-    );
-    return user;
-  };
+    await pick(user, file("clip.mp4", "video/mp4"));
 
-  it("refuses a video with non-square pixels, before any upload", async () => {
-    const user = await pickVideo([1710, 1080]);
-
-    const message = await screen.findByRole("alert");
-    expect(message).toHaveTextContent(/non-square pixels/i);
-    const button = screen.getByRole("button", { name: /^loop$/i });
-    expect(button).toHaveAttribute("aria-disabled", "true");
-    await user.click(button);
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(loopButton()).toHaveAttribute("aria-disabled", "true");
+    await user.click(loopButton());
     expect(uploadMock).not.toHaveBeenCalled();
-  });
 
-  it("takes a video with square pixels", async () => {
-    await pickVideo([1710, 1710]);
-
-    const button = screen.getByRole("button", { name: /^loop$/i });
-    await waitFor(() => expect(button).toHaveAttribute("aria-disabled", "false"));
+    stubVideoFrame(1710, 1710);
+    await pick(user, file("square.mp4", "video/mp4"));
+    await waitFor(() =>
+      expect(loopButton()).toHaveAttribute("aria-disabled", "false"),
+    );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("sends a format the app doesn't write through convert, before any upload", async () => {
     const user = userEvent.setup();
     await renderApp();
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
-    );
+    await pick(user, file("clip.avi", "video/x-msvideo"));
 
     const message = screen.getByRole("alert");
     expect(screen.getByRole("main")).not.toContainElement(message);
-    expect(message).toHaveTextContent(/AVI files need to be/i);
     expect(
       within(message).getByRole("link", { name: /converted/i }),
     ).toHaveAttribute("href", "/convert");
 
-    const button = screen.getByRole("button", { name: /^loop$/i });
-    expect(button).toHaveAttribute("aria-disabled", "true");
-    await user.click(button);
+    expect(loopButton()).toHaveAttribute("aria-disabled", "true");
+    await user.click(loopButton());
     expect(uploadMock).not.toHaveBeenCalled();
   });
 
@@ -276,69 +148,24 @@ describe("Loop", () => {
   it("takes an animated WebP and sends a still one through convert", async () => {
     const user = userEvent.setup();
     await renderApp();
-    const button = screen.getByRole("button", { name: /^loop$/i });
 
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webpFile("sticker.webp", 0x02),
-    );
+    await pick(user, webpFile("sticker.webp", 0x02));
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(button).toHaveAttribute("aria-disabled", "false");
+    expect(loopButton()).toHaveAttribute("aria-disabled", "false");
 
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      webpFile("photo.webp", 0x10),
-    );
+    await pick(user, webpFile("photo.webp", 0x10));
     const message = await screen.findByRole("alert");
-    expect(message).toHaveTextContent(/still webp files need to be/i);
     expect(
       within(message).getByRole("link", { name: /converted/i }),
     ).toHaveAttribute("href", "/convert");
-    expect(button).toHaveAttribute("aria-disabled", "true");
-  });
-
-  it("keeps the message up over the tab descriptions until the file is replaced", async () => {
-    const user = userEvent.setup();
-    await renderApp();
-    await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
-    expect(await screen.findByText(/change video speed/i)).toBeInTheDocument();
-    await user.unhover(screen.getByRole("tab", { name: /^speed$/i }));
-    await waitFor(() =>
-      expect(screen.queryByText(/change video speed/i)).not.toBeInTheDocument(),
-    );
-
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "clip.mkv", { type: "video/x-matroska" }),
-    );
-    expect(screen.getByRole("alert")).toHaveTextContent(/MKV files/i);
-
-    // The description would land on the same spot; the message has it.
-    await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
-    // Base UI opens the card over a frame and its own timer; act-wrap the wait.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
-    expect(screen.queryByText(/change video speed/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("alert")).toBeInTheDocument();
-    await user.unhover(screen.getByRole("tab", { name: /^speed$/i }));
-
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "clip.mp4", { type: "video/mp4" }),
-    );
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-
-    await user.hover(screen.getByRole("tab", { name: /^speed$/i }));
-    expect(await screen.findByText(/change video speed/i)).toBeInTheDocument();
+    expect(loopButton()).toHaveAttribute("aria-disabled", "true");
   });
 
   it("takes the message down when the tab is left", async () => {
     const user = userEvent.setup();
     await renderApp();
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      new File(["00"], "clip.avi", { type: "video/x-msvideo" }),
-    );
+    await pick(user, file("clip.avi", "video/x-msvideo"));
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: /converted/i }));

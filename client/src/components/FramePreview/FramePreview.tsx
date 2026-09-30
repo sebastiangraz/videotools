@@ -74,7 +74,7 @@ export const FramePreview = ({
 
   if (failedFile === file) {
     return (
-      <p className={`${className} ${styles.framePreviewError}`}>
+      <p role="status" className={`${className} ${styles.framePreviewError}`}>
         Can&rsquo;t preview this format.
       </p>
     );
