@@ -1,14 +1,13 @@
-// @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { parseSourceProfile, type SourceProfile } from "./ffmpeg.js";
-import { InputError } from "./errors.js";
+import { parseSourceProfile, type SourceProfile } from "../_lib/ffmpeg.js";
+import { InputError } from "../_lib/errors.js";
 import {
   checkSquarePixels,
   preservedFormat,
   type Source,
   sourceFormat,
   sourceStill,
-} from "./source.js";
+} from "../_lib/source.js";
 
 // `ffmpeg -i` summaries of real files, one per kind of source (the AVIF
 // from 9.0.2, the rest from 6.1.1: 9.0 prints those lines alike).

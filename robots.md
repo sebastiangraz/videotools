@@ -51,7 +51,7 @@ npm run smoke -- <label> [--diff <label>] [--only a,b] [--ffmpeg <path>] [--asse
 vercel               # preview deploy (vercel --prod for production)
 ```
 
-Unit tests run through vitest from the client config and never spawn ffmpeg. `scripts/smoke.mjs` is the end-to-end gate: it runs every case through the real tool handlers and the pinned ffmpeg, checks each case's expectations (format, size ratio, frame count, rejections), and saves commands and results under `.smoke/<label>/` for `--diff`. A refactor should diff clean; a deliberate encoding change should show only the commands it meant to change.
+Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests` and `shared/`) and never spawn ffmpeg. `scripts/smoke.mjs` is the end-to-end gate: it runs every case through the real tool handlers and the pinned ffmpeg, checks each case's expectations (format, size ratio, frame count, rejections), and saves commands and results under `.smoke/<label>/` for `--diff`. A refactor should diff clean; a deliberate encoding change should show only the commands it meant to change.
 
 Debug mode (dev only, never in a build): press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size). Dev servers also serve a `/test` scratch page for the shared components.
 

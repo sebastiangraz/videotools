@@ -1,10 +1,9 @@
-// @vitest-environment node
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import type { Source } from "../source.js";
-import { isLosslessSource, isLosslessWebp } from "./webp.js";
+import type { Source } from "../_lib/source.js";
+import { isLosslessSource, isLosslessWebp } from "../_lib/encode/webp.js";
 
 const bytes = (text: string) => Uint8Array.from(text, (c) => c.charCodeAt(0));
 const join = (...parts: Uint8Array[]) => {

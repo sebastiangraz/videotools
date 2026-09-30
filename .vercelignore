@@ -7,5 +7,6 @@ tmp
 .smoke
 api/_bin/ffmpeg
 api/_bin/gifski/*/
+api/_tests
 scripts/smoke-assets/*
 !scripts/smoke-assets/README.md

@@ -11,9 +11,8 @@ vi.mock("../components/VersionLabel/VersionLabel", () => ({
   VersionLabel: () => null,
 }));
 
-// jsdom has no PointerEvent; Base UI's Switch dispatches one on click. The
-// api tests run under node (no window).
-if (typeof window !== "undefined" && !("PointerEvent" in window)) {
+// jsdom has no PointerEvent; Base UI's Switch dispatches one on click.
+if (!("PointerEvent" in window)) {
   vi.stubGlobal("PointerEvent", class PointerEvent extends MouseEvent {});
 }
 
@@ -25,8 +24,6 @@ beforeEach(() => {
   URL.revokeObjectURL = vi.fn();
   // Nor scrolling (the router always scrolls to top) or anchor navigation
   // (the download click); jsdom logs both as stderr errors.
-  if (typeof window !== "undefined") {
-    window.scrollTo = vi.fn();
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-  }
+  window.scrollTo = vi.fn();
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 });

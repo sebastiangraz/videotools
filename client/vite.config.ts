@@ -9,14 +9,26 @@ export default defineConfig({
     __GIT_SHA__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? ""),
   },
   test: {
-    environment: "jsdom",
     globals: true,
-    setupFiles: ["src/test/setup.ts"],
-    // The api's pure helpers are tested from here too.
-    include: [
-      "src/**/*.test.{ts,tsx}",
-      "../api/**/*.test.ts",
-      "../shared/**/*.test.ts",
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "client",
+          environment: "jsdom",
+          setupFiles: ["src/test/setup.ts"],
+          include: ["src/**/*.test.{ts,tsx}"],
+        },
+      },
+      // The api's and shared/'s pure helpers.
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["../api/_tests/**/*.test.ts", "../shared/**/*.test.ts"],
+        },
+      },
     ],
   },
 });

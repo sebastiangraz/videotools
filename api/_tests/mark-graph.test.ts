@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   MARK,
@@ -8,7 +7,7 @@ import {
   parseBounds,
   watermarkGraph,
   watermarkLayout,
-} from "./mark-graph.js";
+} from "../_lib/tools/mark-graph.js";
 
 
 // Expectations derive from MARK, so the tuned constants can change freely.

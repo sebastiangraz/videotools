@@ -1,6 +1,5 @@
-// @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { parseMediaInfo, parseOutputSize } from "./ffmpeg.js";
+import { parseMediaInfo, parseOutputSize } from "../_lib/ffmpeg.js";
 
 describe("parseMediaInfo", () => {
   // Real ffmpeg lines, each file probed as logo.png (the watermark PNG check).
