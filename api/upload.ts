@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { allowMethods } from "./_lib/request.js";
 
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!allowMethods(req, res, "POST")) return;
 
@@ -15,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // video/image type; octet-stream covers formats the browser can't
           // identify (e.g. .mkv or .avi on some systems).
           allowedContentTypes: ["video/*", "image/*", "application/octet-stream"],
-          maximumSizeInBytes: 200 * 1024 * 1024,
+          maximumSizeInBytes: MAX_UPLOAD_BYTES,
           addRandomSuffix: true,
         }),
       // Not invoked on localhost (Blob can't reach a local callback URL) — harmless.

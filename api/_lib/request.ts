@@ -61,8 +61,8 @@ export function allowMethods(
   return false;
 }
 
-// Runs a job's `work` in a fresh temp directory (removed afterwards) and
-// answers its failure. The client abandons a request it no longer wants
+// Runs a job's `work` in a fresh temp directory named after it (removed
+// afterwards) and answers its failure. The client abandons a request it no longer wants
 // (Stop, or a newer preview); when the disconnect reaches the function
 // (best effort: it depends on the platform propagating it), `signal` fires
 // and the job stops instead of finishing work nobody will download. The
@@ -74,7 +74,6 @@ export function allowMethods(
 export async function runJob(
   res: VercelResponse,
   name: string,
-  tmpPrefix: string,
   work: (workDir: string, signal: AbortSignal) => Promise<unknown>,
 ): Promise<void> {
   const abort = new AbortController();
@@ -84,7 +83,8 @@ export async function runJob(
   const { signal } = abort;
   let workDir: string | undefined;
   try {
-    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), tmpPrefix));
+    const prefix = `videotools-${name.toLowerCase()}-`;
+    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), prefix));
     await work(workDir, signal);
   } catch (err) {
     if (signal.aborted) {

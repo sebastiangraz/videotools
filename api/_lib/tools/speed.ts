@@ -1,3 +1,4 @@
+import type { FormatId } from "../../../shared/formats.js";
 import { encodePreserved } from "../encode/index.js";
 import { DEFAULT_FPS } from "../ffmpeg.js";
 import { MAX_AVIF_FPS } from "../encode/avif.js";
@@ -13,6 +14,14 @@ import { clamp, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
 
+// The formats that are a list of frames with delays, and the most frames a
+// second each can show.
+const MAX_FPS: Partial<Record<FormatId, number>> = {
+  gif: MAX_GIF_FPS,
+  webp: MAX_WEBP_FPS,
+  avif: MAX_AVIF_FPS,
+};
+
 // setpts rescales the frame timestamps; the fps filter then settles what is
 // shown at the new pace.
 export function changeSpeed(source: Source, multiplier: number): Render {
@@ -22,16 +31,8 @@ export function changeSpeed(source: Source, multiplier: number): Render {
   // WebP or AVIF is a list of frames with delays (a slideshow's AVIF holds
   // three pictures a second apart), so there the delays change and every
   // frame stays, up to what the format can show.
-  const maxFps =
-    source.format === "gif"
-      ? MAX_GIF_FPS
-      : source.format === "webp"
-        ? MAX_WEBP_FPS
-        : source.format === "avif"
-          ? MAX_AVIF_FPS
-          : null;
-  const fps =
-    maxFps === null ? sourceFps : Math.min(sourceFps * multiplier, maxFps);
+  const maxFps = source.format && MAX_FPS[source.format];
+  const fps = maxFps ? Math.min(sourceFps * multiplier, maxFps) : sourceFps;
   return sourceRender(source, {
     filter: `${videoPad(source)}setpts=PTS/${multiplier},fps=${frameRate(fps)}[out]`,
     // Like the other tools that change a clip's timing, without its audio.

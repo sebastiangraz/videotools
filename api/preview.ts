@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // A stale preview (the user toggled again) is abandoned client-side; a
   // logo that is no PNG or SVG is the caller's to fix (a 400).
-  await runJob(res, "Preview", "videotools-preview-", async (workDir, signal) => {
+  await runJob(res, "Preview", async (workDir, signal) => {
     // (The names only make ffmpeg's logs readable; it sniffs the content.)
     const framePath = path.join(workDir, "frame.jpg");
     const logoPath = path.join(workDir, "logo.png");

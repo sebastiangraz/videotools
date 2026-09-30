@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .replace(/\.[^.]+$/, "")
     .replace(/[^\w.-]/g, "_");
 
-  await runJob(res, "Processing", "videotools-", async (workDir, signal) => {
+  await runJob(res, "Processing", async (workDir, signal) => {
     const { outputPath, suffix, ext } = await run({
       ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
       workDir,

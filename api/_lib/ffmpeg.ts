@@ -38,6 +38,7 @@ export type MediaInfo = {
 // cover art as an "attached pic" stream.
 // The animation is the one with a bitrate of its own; failing that, the
 // higher frame rate; failing that, the first.
+const OWN_BITRATE_SCORE = 1e6;
 function mainVideo(summary: string): { line: string; index: number } | null {
   const streams = summary
     .split("\n")
@@ -45,7 +46,7 @@ function mainVideo(summary: string): { line: string; index: number } | null {
     .map((line, index) => ({ line, index }));
   const real = streams.filter((s) => !s.line.includes("(attached pic)"));
   const score = ({ line }: { line: string }) =>
-    (/, \d+x\d+\b.*\b\d+ kb\/s/.test(line) ? 1e6 : 0) +
+    (/, \d+x\d+\b.*\b\d+ kb\/s/.test(line) ? OWN_BITRATE_SCORE : 0) +
     Number(/, ([\d.]+) fps\b/.exec(line)?.[1] ?? 0);
   return (
     (real.length ? real : streams).reduce<(typeof streams)[number] | null>(
@@ -53,6 +54,19 @@ function mainVideo(summary: string): { line: string; index: number } | null {
       null,
     ) ?? null
   );
+}
+
+// Pixel formats that are RGB (or a palette of it), by ffmpeg's naming.
+export const isRgb = (pixFmt: string) => /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
+
+// The YUV↔RGB matrix of a stream (MediaInfo.matrix), from the colour tags of
+// its pixel format field and the format itself.
+function matrixOf(tags: string[], pixFmt: string): MediaInfo["matrix"] {
+  if (tags.includes("bt709")) return "bt709";
+  if (tags.some((t) => t === "bt470bg" || t === "smpte170m")) return "bt601";
+  if (isRgb(pixFmt) || /^(gray|ya|mono)/.test(pixFmt)) return "bt601";
+  if (tags.some((t) => t.startsWith("bt2020"))) return "bt2020";
+  return null;
 }
 
 // Parses the `-i` summary, e.g.
@@ -75,15 +89,10 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
   // when matrix, primaries and transfer agree, else matrix/primaries/trc.
   const [, pixFmt = "", tags = ""] =
     /, ([a-z]\w*)(?:\(([^)]*)\))?, \d+x\d+/.exec(video) ?? [];
-  const tagged = tags.split(", ").map((t) => t.split("/")[0]);
-  const matrix = tagged.includes("bt709")
-    ? "bt709"
-    : tagged.some((t) => t === "bt470bg" || t === "smpte170m") ||
-        /^(rgb|bgr|gbr|argb|abgr|pal8|gray|ya|mono)/.test(pixFmt)
-      ? "bt601"
-      : tagged.some((t) => t.startsWith("bt2020"))
-        ? "bt2020"
-        : null;
+  const matrix = matrixOf(
+    tags.split(", ").map((t) => t.split("/")[0]),
+    pixFmt,
+  );
 
   const rate =
     fields.map((f) => /^([\d.]+) fps\b/.exec(f)).find(Boolean) ??

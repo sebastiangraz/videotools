@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../../../shared/formats.js";
 import { InputError } from "../errors.js";
-import { DEFAULT_FPS, type FFmpeg } from "../ffmpeg.js";
+import { DEFAULT_FPS, isRgb, type FFmpeg } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import {
   frameRate,
@@ -104,7 +104,7 @@ function crossfadeLoop(
   // xfade works on planar formats only. RGB sources (GIF, WebP) get the
   // planar RGB one, alpha included, rather than the YUV it would pick by
   // itself.
-  const rgb = /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
+  const rgb = isRgb(pixFmt);
   const rate = `fps=${frameRate(fps)}`;
   const open = `${rate}${rgb ? ",format=gbrap" : ""}`;
   const piece = (from: number | null, to: number | null) =>
@@ -160,13 +160,36 @@ function crossfadeLoop(
   });
 }
 
+// A loop made without decoding: the format it keeps, the file it goes to
+// and where it starts.
+type Copy = { format: FormatId; outputFile: string; startSeconds: number };
+
+// Loops that need no decoding: no fade and no new start is the clip as it
+// is; no fade and a new start, its streams reordered (reorderCopy). False
+// where the loop has to be encoded instead.
+async function loopByCopy(ff: FFmpeg, source: Source, copy: Copy): Promise<boolean> {
+  if (copy.startSeconds === 0) {
+    console.log("No fade, no reorder: handing the source back");
+    await copyWhole(ff, source, copy);
+    return true;
+  }
+  if (!STREAM_COPY.includes(copy.format)) return false;
+  try {
+    console.log("No fade: reordering the streams without decoding");
+    return await reorderCopy(ff, source, copy);
+  } catch (err) {
+    if (ff.signal?.aborted) throw err;
+    console.log("Stream copy failed, encoding instead...");
+    return false;
+  }
+}
+
 // No fade and no new start: the clip already is the loop that was asked for.
 // Video still loses its audio, like every loop does; that is a remux.
 async function copyWhole(
   ff: FFmpeg,
   source: Source,
-  format: FormatId,
-  outputFile: string,
+  { format, outputFile }: Copy,
 ): Promise<void> {
   if (!STREAM_COPY.includes(format)) {
     await fs.copyFile(source.path, outputFile);
@@ -194,9 +217,7 @@ async function copyWhole(
 async function reorderCopy(
   ff: FFmpeg,
   source: Source,
-  format: FormatId,
-  startSeconds: number,
-  outputFile: string,
+  { format, outputFile, startSeconds }: Copy,
 ): Promise<boolean> {
   const packets = await ff.videoPackets(source.path);
   if (!packets) return false;
@@ -280,12 +301,7 @@ export const loop: Tool = {
     const { ff, workDir, inputs, options } = job;
     const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
     const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
-    const startSecond = clamp(
-      options.startSecond,
-      0,
-      Number.MAX_SAFE_INTEGER,
-      0,
-    );
+    const startSecond = clamp(options.startSecond, 0, Infinity, 0);
     const quality = Math.round(clamp(options.quality, 1, 100, 100));
 
     const source = await openSource(job, inputs[0]);
@@ -298,24 +314,11 @@ export const loop: Tool = {
     });
     console.log(`Looping ${format} (${technique})...`);
 
-    if (technique === "crossfade" && fadeDuration === 0) {
-      const outputFile = path.join(workDir, `output.${format}`);
-      if (startSecond === 0) {
-        console.log("No fade, no reorder: handing the source back");
-        await copyWhole(ff, source, format, outputFile);
-        return result(outputFile);
-      }
-      if (STREAM_COPY.includes(format)) {
-        try {
-          console.log("No fade: reordering the streams without decoding");
-          if (await reorderCopy(ff, source, format, startSecond, outputFile)) {
-            return result(outputFile);
-          }
-        } catch (err) {
-          if (ff.signal?.aborted) throw err;
-          console.log("Stream copy failed, encoding instead...");
-        }
-      }
+    const outputFile = path.join(workDir, `output.${format}`);
+    const copy = { format, outputFile, startSeconds: startSecond };
+    const unfaded = technique === "crossfade" && fadeDuration === 0;
+    if (unfaded && (await loopByCopy(ff, source, copy))) {
+      return result(outputFile);
     }
 
     const render =
