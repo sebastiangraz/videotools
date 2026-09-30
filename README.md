@@ -5,6 +5,7 @@ Browser video tools: seamless loops, image sequences to video, speed changes, fo
 Bun 1.4: package manager, script runner and the functions' runtime (`bunVersion` in `vercel.json`; keep `engines.node` out of `package.json`, it overrides that). The static linux ffmpeg (~164 MB) is over the Bun runtime's 150 MB function limit, so the project sets `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` (Production and Preview). Setup: `bun install`, `vercel link`, connect a Blob store in the Vercel dashboard (`BLOB_READ_WRITE_TOKEN` is the only env var), `vercel env pull .env.local`.
 
 ```bash
+git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 bun install                  # deps + pinned ffmpeg/gifski (postinstall)
 bun add -g vercel            # Vercel CLI
 vercel link                  # link to the Vercel project (with a Blob store connected)

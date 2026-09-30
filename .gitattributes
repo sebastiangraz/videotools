@@ -1,2 +1,0 @@
-# LF in the working copy too (oxfmt writes LF and has no "auto").
-* text=auto eol=lf
