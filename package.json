@@ -21,7 +21,7 @@
     "gifski:mirror": "node scripts/gifski-mirror.mjs",
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "typecheck": "tsc -p tsconfig.json",
-    "lint:fix": "eslint --flag unstable_native_nodejs_ts_config . --fix"
+    "lint:fix": "npm run lint -- --fix"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0"

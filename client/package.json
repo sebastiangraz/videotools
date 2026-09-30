@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "lint": "eslint --flag unstable_native_nodejs_ts_config ."
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
