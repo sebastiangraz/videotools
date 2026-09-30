@@ -11,21 +11,13 @@ import {
 // By name, else by browser MIME type; null = none the app writes. The server
 // goes by content; this is only the pre-upload guess.
 export function fileFormat(file: File): Format | null {
-  return (
-    formatFromFilename(file.name) ??
-    FORMATS.find((f) => f.mime === file.type) ??
-    null
-  );
+  return formatFromFilename(file.name) ?? FORMATS.find((f) => f.mime === file.type) ?? null;
 }
 
 // A .webp counts as a still here; only its content says if it's animated
 // (isAnimatedWebp).
 export function stillFormat(file: File): Still | null {
-  return (
-    stillFromFilename(file.name) ??
-    STILLS.find((s) => s.mime === file.type) ??
-    null
-  );
+  return stillFromFilename(file.name) ?? STILLS.find((s) => s.mime === file.type) ?? null;
 }
 
 const CONVERT_TARGETS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
@@ -139,9 +131,7 @@ export function pickedFormats(files: readonly File[]): string[] {
   const labels = new Set<string>();
   for (const file of files) {
     const known = stillFormat(file) ?? fileFormat(file);
-    labels.add(
-      known?.label ?? (extensionOf(file.name).toUpperCase() || "Unknown"),
-    );
+    labels.add(known?.label ?? (extensionOf(file.name).toUpperCase() || "Unknown"));
   }
   return [...labels];
 }

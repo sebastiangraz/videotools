@@ -17,11 +17,9 @@ export function outOfTime(ff: FFmpeg, started: number): boolean {
 export const TOOL_ALLOWANCE = 1.1;
 
 const CONVERSION_FPS = 30;
-export const conversionFps = (render: Render) =>
-  Math.min(render.fps, CONVERSION_FPS);
+export const conversionFps = (render: Render) => Math.min(render.fps, CONVERSION_FPS);
 
-export const fitWidth = (width: number) =>
-  `scale='min(${width},iw)':-2:flags=lanczos`;
+export const fitWidth = (width: number) => `scale='min(${width},iw)':-2:flags=lanczos`;
 
 export function scaledSize(
   render: Render,
@@ -34,10 +32,7 @@ export function scaledSize(
 // Finest first; `coarsest` is as far as a size ceiling may push.
 export function levelRange(finest: number, coarsest: number): number[] {
   const step = finest < coarsest ? 1 : -1;
-  return Array.from(
-    { length: Math.abs(coarsest - finest) + 1 },
-    (_, i) => finest + i * step,
-  );
+  return Array.from({ length: Math.abs(coarsest - finest) + 1 }, (_, i) => finest + i * step);
 }
 
 // Index 0 is known not to fit. `over`: coarsest found too big; `pick`: finest
@@ -97,16 +92,11 @@ export function videoPad(source: Source | null, input = 0): string {
 // half hour against the real 30000/1001.
 const NTSC_TOLERANCE = 0.006;
 export function frameRate(fps: number): string {
-  const ntsc = [24, 30, 60, 120].find(
-    (n) => Math.abs(fps - n / 1.001) < NTSC_TOLERANCE,
-  );
+  const ntsc = [24, 30, 60, 120].find((n) => Math.abs(fps - n / 1.001) < NTSC_TOLERANCE);
   return ntsc ? `${ntsc}000/1001` : String(fps);
 }
 
-export function sourceRender(
-  source: Source,
-  extra: Partial<Render> = {},
-): Render {
+export function sourceRender(source: Source, extra: Partial<Render> = {}): Render {
   return {
     inputArgs: ["-i", source.path],
     keepAudio: true,
@@ -121,11 +111,7 @@ export function sourceRender(
 
 // A palindrome converts to `pixFmt` before `reverse` buffers frames, so the
 // buffer holds 1.5 bytes/px (yuv420p) rather than RGBA's 4.
-export function graphArgs(
-  render: Render,
-  chain: string[],
-  pixFmt: string,
-): string[] {
+export function graphArgs(render: Render, chain: string[], pixFmt: string): string[] {
   const { inputArgs, filter, palindrome, source } = render;
   if (!filter && !palindrome) {
     // Unmapped, ffmpeg picks the stream it likes best, maybe a cover image.
@@ -149,15 +135,10 @@ export function graphArgs(
 
 // Audio is copied when the container takes its codec (`fits`): no tool
 // changes sound, so re-encoding gains nothing.
-export function audioArgs(
-  render: Render,
-  fits: string[],
-  encode: string[],
-): string[] {
+export function audioArgs(render: Render, fits: string[], encode: string[]): string[] {
   if (!render.keepAudio) return ["-an"];
   // Once the video is mapped by hand (graphArgs), so is everything else.
-  const byHand =
-    render.filter || render.palindrome || render.source?.profile.videoIndex;
+  const byHand = render.filter || render.palindrome || render.source?.profile.videoIndex;
   const mapped = byHand ? ["-map", "0:a?"] : [];
   const codec = render.source?.profile.audio?.codec;
   const copy = codec !== undefined && fits.includes(codec);
@@ -199,8 +180,7 @@ export async function encodeWithinBudget(
 ): Promise<void> {
   let started = Date.now();
   await encode(levels[0], outputFile);
-  const fits = async (file: string) =>
-    (await fs.stat(file)).size <= (budget ?? Infinity);
+  const fits = async (file: string) => (await fs.stat(file)).size <= (budget ?? Infinity);
   if (await fits(outputFile)) return;
 
   const tryFile = `${outputFile}.try${path.extname(outputFile)}`;

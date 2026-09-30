@@ -30,11 +30,7 @@ type MarkLook = { filter?: MarkFilter; size?: MarkSize; view?: MarkView };
 async function addWatermark(
   ff: FFmpeg,
   source: Source,
-  {
-    logoFile,
-    filter = "glass",
-    size = "large",
-  }: MarkLook & { logoFile: string },
+  { logoFile, filter = "glass", size = "large" }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
   const frame = source.still
@@ -45,10 +41,7 @@ async function addWatermark(
     filter,
     bounds: await logoBounds(ff, logoPng, logo),
     // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
-    base:
-      source.format === "gif" || source.format === "webp" || source.still
-        ? "rgba"
-        : "yuv420p",
+    base: source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p",
     pad: videoPad(source),
     size,
   });
@@ -133,9 +126,7 @@ async function rasterizeSvg(
   frame: { width: number; height: number },
 ): Promise<string> {
   const { min, max, fallback } = SVG_SIDE;
-  const side = String(
-    Math.round(clamp(Math.max(frame.width, frame.height), min, max, fallback)),
-  );
+  const side = String(Math.round(clamp(Math.max(frame.width, frame.height), min, max, fallback)));
   const pngFile = path.join(path.dirname(svgFile), "logo-svg.png");
   await ff.runFFmpeg([
     "-y",
@@ -160,11 +151,7 @@ async function rasterizeSvg(
 
 // Logos often carry empty margins that would size and place them wrong.
 // Opaque images report their whole frame; a failed pass means no trimming.
-async function logoBounds(
-  ff: FFmpeg,
-  logoFile: string,
-  logo: MediaInfo,
-): Promise<Bounds> {
+async function logoBounds(ff: FFmpeg, logoFile: string, logo: MediaInfo): Promise<Bounds> {
   const { stderr } = await ff.run(ff.ffmpeg, [
     "-hide_banner",
     "-i",
@@ -197,9 +184,7 @@ export const mark: Tool = {
     const format = still ?? preservedFormat(source);
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
-    console.log(
-      `Adding watermark to ${format} (${size}, ${filter}, quality ${quality})...`,
-    );
+    console.log(`Adding watermark to ${format} (${size}, ${filter}, quality ${quality})...`);
 
     const render = await addWatermark(ff, source, {
       logoFile: logoPath,

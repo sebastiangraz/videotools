@@ -6,13 +6,7 @@ import styles from "./Page.module.css";
 // content in the same bordered column the tool pages use, with the footer at
 // the bottom. Children land as direct children of the container so they
 // animate in on navigation like a tool's options do.
-export const Page = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) => (
+export const Page = ({ title, children }: { title: string; children: ReactNode }) => (
   <div className={styles.container}>
     <h2 className={styles.title}>{title}</h2>
     {children}

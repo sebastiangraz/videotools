@@ -8,12 +8,7 @@ import styles from "./PreviewCard.module.css";
 
 type PositionerProps = Pick<
   PreviewCardPositionerProps,
-  | "anchor"
-  | "side"
-  | "align"
-  | "sideOffset"
-  | "alignOffset"
-  | "collisionAvoidance"
+  "anchor" | "side" | "align" | "sideOffset" | "alignOffset" | "collisionAvoidance"
 >;
 
 // The card itself: portal, positioner and the popup with its enter/exit
@@ -31,9 +26,7 @@ export const PreviewCardPopup = ({
   <BasePreviewCard.Portal>
     <BasePreviewCard.Positioner className={styles.positioner} {...positioner}>
       <BasePreviewCard.Popup
-        className={
-          popupClassName ? `${styles.popup} ${popupClassName}` : styles.popup
-        }
+        className={popupClassName ? `${styles.popup} ${popupClassName}` : styles.popup}
       >
         {children}
       </BasePreviewCard.Popup>

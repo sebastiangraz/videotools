@@ -42,8 +42,7 @@ function mainVideo(summary: string): { line: string; index: number } | null {
   );
 }
 
-export const isRgb = (pixFmt: string) =>
-  /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
+export const isRgb = (pixFmt: string) => /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
 
 function matrixOf(tags: string[], pixFmt: string): MediaInfo["matrix"] {
   if (tags.includes("bt709")) return "bt709";
@@ -64,8 +63,7 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
   const codec = /: Video: (\w+)/.exec(video)?.[1] ?? "";
   // e.g. "yuv420p(tv, bt709, progressive)" or "yuvj444p(pc, bt470bg/unknown/
   // unknown)": one name when all agree, else matrix/primaries/trc.
-  const [, pixFmt = "", tags = ""] =
-    /, ([a-z]\w*)(?:\(([^)]*)\))?, \d+x\d+/.exec(video) ?? [];
+  const [, pixFmt = "", tags = ""] = /, ([a-z]\w*)(?:\(([^)]*)\))?, \d+x\d+/.exec(video) ?? [];
   const matrix = matrixOf(
     tags.split(", ").map((t) => t.split("/")[0]),
     pixFmt,
@@ -81,9 +79,7 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
   const [, num = 0, den = 0] = ratios.at(-1)?.map(Number) ?? [];
 
   const dur = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(summary);
-  const duration = dur
-    ? Number(dur[1]) * 3600 + Number(dur[2]) * 60 + Number(dur[3])
-    : 0;
+  const duration = dur ? Number(dur[1]) * 3600 + Number(dur[2]) * 60 + Number(dur[3]) : 0;
 
   return {
     duration,
@@ -96,11 +92,8 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
   };
 }
 
-export function parseOutputSize(
-  log: string,
-): { width: number; height: number } | null {
-  const size =
-    /^Output #0,[^]*?^\s*Stream #0:0.*: Video: .*?, (\d+)x(\d+)\b/m.exec(log);
+export function parseOutputSize(log: string): { width: number; height: number } | null {
+  const size = /^Output #0,[^]*?^\s*Stream #0:0.*: Video: .*?, (\d+)x(\d+)\b/m.exec(log);
   return size ? { width: Number(size[1]), height: Number(size[2]) } : null;
 }
 
@@ -131,8 +124,7 @@ export function parseSourceProfile(output: string): SourceProfile | null {
   const info = parseMediaInfo(summary);
   if (!info) return null;
   const lines = summary.split("\n");
-  const formatNames =
-    /^Input #0, (.+?), from /m.exec(summary)?.[1].split(",") ?? [];
+  const formatNames = /^Input #0, (.+?), from /m.exec(summary)?.[1].split(",") ?? [];
   const brand = formatNames.includes("mov")
     ? /^\s*major_brand\s*:\s*(\S+)/m.exec(summary)?.[1]
     : undefined;
@@ -170,11 +162,7 @@ export class FFmpeg {
   startedAt = Date.now();
   private infoCache = new Map<string, SourceProfile>();
 
-  constructor(
-    ffmpegPath: string,
-    gifskiPath: string,
-    signal: AbortSignal | null = null,
-  ) {
+  constructor(ffmpegPath: string, gifskiPath: string, signal: AbortSignal | null = null) {
     this.ffmpeg = ffmpegPath;
     this.gifski = gifskiPath;
     this.signal = signal;
@@ -182,11 +170,7 @@ export class FFmpeg {
 
   // Saves shipping ffprobe. `ffmpeg -i` with no output exits non-zero by design.
   async summary(inputFile: string): Promise<string> {
-    const { stderr } = await this.run(this.ffmpeg, [
-      "-hide_banner",
-      "-i",
-      inputFile,
-    ]);
+    const { stderr } = await this.run(this.ffmpeg, ["-hide_banner", "-i", inputFile]);
     return stderr;
   }
 
@@ -197,20 +181,14 @@ export class FFmpeg {
     const info = parseSourceProfile(stderr);
     // The client can't validate WebP, so a bad one is the user's error.
     if (!info && /^Input #0, webp_(pipe|anim),/m.test(stderr)) {
-      throw new InputError(
-        "This WebP file can't be read.",
-        "unreadable-source",
-      );
+      throw new InputError("This WebP file can't be read.", "unreadable-source");
     }
     if (!info) throw new Error(`Could not read media info: ${stderr.trim()}`);
     // The animated WebP demuxer prints "Duration: N/A"; sum the packets.
     if (!info.duration && info.formatNames.includes("webp_anim")) {
       const packets = await this.listPackets(inputFile, info.videoIndex);
       if (!packets) {
-        throw new InputError(
-          "This WebP file can't be read.",
-          "unreadable-source",
-        );
+        throw new InputError("This WebP file can't be read.", "unreadable-source");
       }
       let start = Infinity;
       let end = 0;
@@ -226,9 +204,7 @@ export class FFmpeg {
 
   // ffmpeg applies a JPEG's EXIF rotation on decode but the summary gives the
   // stored size, so decode one frame to learn the shown one.
-  async shownSize(
-    inputFile: string,
-  ): Promise<{ width: number; height: number } | null> {
+  async shownSize(inputFile: string): Promise<{ width: number; height: number } | null> {
     const { stderr } = await this.run(this.ffmpeg, [
       "-hide_banner",
       "-i",
@@ -250,10 +226,7 @@ export class FFmpeg {
     return this.listPackets(inputFile, videoIndex);
   }
 
-  private async listPackets(
-    inputFile: string,
-    videoIndex: number,
-  ): Promise<VideoPacket[] | null> {
+  private async listPackets(inputFile: string, videoIndex: number): Promise<VideoPacket[] | null> {
     const { code, stdout } = await this.run(this.ffmpeg, [
       "-hide_banner",
       "-loglevel",
@@ -284,10 +257,7 @@ export class FFmpeg {
         };
       });
     const readable = packets.every(
-      (p) =>
-        Number.isFinite(p.time) &&
-        Number.isFinite(p.duration) &&
-        Number.isFinite(p.size),
+      (p) => Number.isFinite(p.time) && Number.isFinite(p.duration) && Number.isFinite(p.size),
     );
     return packets.length && readable ? packets : null;
   }
@@ -319,11 +289,7 @@ export class FFmpeg {
     return this.runCommand(this.gifski, args, options);
   }
 
-  private async runCommand(
-    command: string,
-    args: string[],
-    options: RunOptions,
-  ): Promise<string> {
+  private async runCommand(command: string, args: string[], options: RunOptions): Promise<string> {
     const { code, stdout, stderr } = await this.run(command, args, options);
     if (code === 0) return stdout;
     console.error(`Command failed with code ${code}`);
@@ -337,11 +303,7 @@ export class FFmpeg {
 
   // Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
   // only when not started or cancelled.
-  async run(
-    command: string,
-    args: string[],
-    options: RunOptions = {},
-  ): Promise<RunResult> {
+  async run(command: string, args: string[], options: RunOptions = {}): Promise<RunResult> {
     console.log(`Running: ${command} ${args.join(" ")}`);
     if (options.cwd) {
       console.log(`Working directory: ${options.cwd}`);

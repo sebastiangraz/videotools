@@ -3,11 +3,7 @@ import path from "node:path";
 
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { renderWatermarkFrame } from "./_lib/tools/mark.js";
-import {
-  isMarkFilter,
-  isMarkSize,
-  isMarkView,
-} from "./_lib/tools/mark-graph.js";
+import { isMarkFilter, isMarkSize, isMarkView } from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
 
@@ -33,21 +29,14 @@ export default {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== "POST") return methodNotAllowed();
 
-    const { frame, logo, filter, size, view }: PreviewBody =
-      await jsonBody(request);
+    const { frame, logo, filter, size, view }: PreviewBody = await jsonBody(request);
     const frameImage = decodeDataUrl(frame);
     const logoImage = decodeDataUrl(logo);
     if (!frameImage || !logoImage) {
-      return Response.json(
-        { error: "Expected frame and logo images" },
-        { status: 400 },
-      );
+      return Response.json({ error: "Expected frame and logo images" }, { status: 400 });
     }
     if (frameImage.length + logoImage.length > MAX_BYTES) {
-      return Response.json(
-        { error: "Preview images too large" },
-        { status: 413 },
-      );
+      return Response.json({ error: "Preview images too large" }, { status: 413 });
     }
 
     return runJob(request, "Preview", async (workDir, signal) => {

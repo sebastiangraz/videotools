@@ -10,12 +10,7 @@ import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import {
-  useMarkPreview,
-  type MarkFilter,
-  type MarkSize,
-  type MarkView,
-} from "./useMarkPreview";
+import { useMarkPreview, type MarkFilter, type MarkSize, type MarkView } from "./useMarkPreview";
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
@@ -51,16 +46,11 @@ const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
-  const formatBlocker = useFormatBlocker(
-    source.file,
-    { stills: true },
-    source.nonSquare,
-  );
+  const formatBlocker = useFormatBlocker(source.file, { stills: true }, source.nonSquare);
   const [watermark, setWatermark] = useState<File | null>(null);
   const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
-  const [pickedSize, setPickedSize] =
-    useState<Exclude<MarkSize, "dev">>("large");
+  const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("large");
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
@@ -90,9 +80,7 @@ export const Mark = () => {
   const sourceFile = source.file;
   // A PNG is lossless whatever is asked of it, so it isn't asked.
   const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
-  const aspectRatio = source.dims
-    ? `${source.dims.w} / ${source.dims.h}`
-    : "16 / 9";
+  const aspectRatio = source.dims ? `${source.dims.w} / ${source.dims.h}` : "16 / 9";
   const { shownRender } = preview;
 
   const pick = (picked: File[]) => {
@@ -125,11 +113,7 @@ export const Mark = () => {
       tool={TOOL}
       inputs={
         <div className={styles.markInputs}>
-          <DropZone
-            {...TOOL.input}
-            files={source.file ? [source.file] : []}
-            onFiles={pick}
-          />
+          <DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />
           <DropZone
             accept={WATERMARK_ACCEPT}
             multiple={false}
@@ -193,10 +177,7 @@ export const Mark = () => {
               label="first frame"
               className={styles.markPreviewFrame}
             />{" "}
-            <div
-              className={styles.markPreviewLoading}
-              hidden={!preview.loading}
-            >
+            <div className={styles.markPreviewLoading} hidden={!preview.loading}>
               <Spinner />
             </div>
           </figure>
@@ -209,9 +190,7 @@ export const Mark = () => {
             </div>
           )}
           {preview.previewError && (
-            <figcaption className={styles.markPreviewNote}>
-              Preview unavailable
-            </figcaption>
+            <figcaption className={styles.markPreviewNote}>Preview unavailable</figcaption>
           )}
         </Tooltip>
       )}
@@ -285,13 +264,7 @@ export const Mark = () => {
       {!lossless && (
         <div className={form.formGroup}>
           <Slider
-            label={
-              <>
-                {quality === 100
-                  ? `Lossless ${quality}%`
-                  : `Quality ${quality}%`}
-              </>
-            }
+            label={<>{quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}</>}
             value={quality}
             onValueChange={setQuality}
             min={0}

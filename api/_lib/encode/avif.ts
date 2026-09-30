@@ -1,12 +1,6 @@
 import { InputError } from "../errors.js";
 import type { Encoder } from "./index.js";
-import {
-  conversionFps,
-  encodeWithinBudget,
-  graphArgs,
-  levelRange,
-  scaledSize,
-} from "./render.js";
+import { conversionFps, encodeWithinBudget, graphArgs, levelRange, scaledSize } from "./render.js";
 import { vpxCrf } from "./video.js";
 
 // libaom is slow: keeps within the 300s function limit. Pixels = 60s at

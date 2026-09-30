@@ -103,8 +103,7 @@ const SOBEL = {
   y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
 };
 
-const MERGE_GBR =
-  "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp";
+const MERGE_GBR = "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp";
 
 // `margin` is the glass padding around the logo; `gap` its distance from the
 // right and bottom edges.
@@ -140,8 +139,7 @@ export function watermarkLayout(
   const LW = even(Math.round(w * clamp));
   const LH = even(Math.round(h * clamp));
   // Only bites on absurdly long frames: the cell must fit the frame.
-  const fit = (n: number) =>
-    Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
+  const fit = (n: number) => Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
   const margin = fit(Math.round(unit * MARK.paddingRatio));
   // At least the margin (cell stays inside) and of its parity (corner even).
   let gap = fit(Math.round(largeUnit * MARK.paddingRatio * gapScale));
@@ -157,9 +155,7 @@ const LUMA: Record<string, number> = { r: 0.299, g: 0.587, b: 0.114 };
 const saturation = (s: number) =>
   ["r", "g", "b"]
     .flatMap((o) =>
-      ["r", "g", "b"].map(
-        (i) => `${o}${i}=${((1 - s) * LUMA[i] + (o === i ? s : 0)).toFixed(4)}`,
-      ),
+      ["r", "g", "b"].map((i) => `${o}${i}=${((1 - s) * LUMA[i] + (o === i ? s : 0)).toFixed(4)}`),
     )
     .join(":");
 // colorchannelmixer caps coefficients at ±2 (a matrix hits that near s≈2.1),
@@ -194,16 +190,10 @@ export function watermarkGraph(
   },
 ): string {
   const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
-  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(
-    video,
-    bounds,
-    size,
-  );
+  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(video, bounds, size);
   const shorter = Math.min(VW, VH) * MARK_SIZES[size].scale;
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
-  const trim = trimmed
-    ? `,crop=${bounds.width}:${bounds.height}:${bounds.x}:${bounds.y}`
-    : "";
+  const trim = trimmed ? `,crop=${bounds.width}:${bounds.height}:${bounds.x}:${bounds.y}` : "";
 
   // Scaled premultiplied, else the (usually black) transparent pixels bleed
   // into the antialiased edge and rim a light logo in dark.
@@ -215,9 +205,7 @@ export function watermarkGraph(
   const rgb = base === "rgba";
   const open = rgb ? "format=rgba" : `format=yuv420p,crop=${VW}:${VH}:0:0`;
   const onto = (x: number, y: number) =>
-    rgb
-      ? `overlay=x=${x}:y=${y}:format=auto,format=rgba`
-      : `overlay=x=${x}:y=${y},format=yuv420p`;
+    rgb ? `overlay=x=${x}:y=${y}:format=auto,format=rgba` : `overlay=x=${x}:y=${y},format=yuv420p`;
   if (filter === "plain" && view === "render") {
     return [
       `${pad}${open}[base]`,
@@ -237,9 +225,7 @@ export function watermarkGraph(
   // tag too, or overlay converts the whole frame (a JPEG grab is always bt601).
   const matrix = video.matrix ?? (VH >= HD_HEIGHT ? "bt709" : "bt601");
   const toRgb = rgb ? "" : `scale=in_color_matrix=${matrix}:in_range=tv,`;
-  const fromRgb = rgb
-    ? ""
-    : `,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p`;
+  const fromRgb = rgb ? "" : `,scale=out_color_matrix=${matrix}:out_range=tv,format=yuva420p`;
 
   // Frost only. A faint inverted backdrop (difference with white) keeps the
   // mark legible on white and black alike, whatever colour the logo is.
@@ -265,13 +251,10 @@ export function watermarkGraph(
   const shadowDy = Math.max(1, Math.round(shorter * M.shadowOffsetRatio));
   // One erosion pass per px, sized off the frame so a hairline stays one. A
   // fractional part blends in one more pass: an antialiased sub-pixel line.
-  const rimWidth =
-    Math.max(1, Math.round(Math.min(VW, VH) / HD_HEIGHT)) *
-    MARK_SIZES[size].rim;
+  const rimWidth = Math.max(1, Math.round(Math.min(VW, VH) / HD_HEIGHT)) * MARK_SIZES[size].rim;
   const rimPx = Math.floor(rimWidth + 1e-6);
   const rimPart = rimWidth - rimPx;
-  const erode = (passes: number) =>
-    Array<string>(passes).fill("erosion").join(",");
+  const erode = (passes: number) => Array<string>(passes).fill("erosion").join(",");
   const rimErode =
     rimPart < 0.01
       ? [`[m2]${erode(rimPx)}[eroded]`]
@@ -361,10 +344,7 @@ export function watermarkGraph(
       .join(":");
   const tint = whiten(M.tint);
   // Lifted towards white so the rim still reads as light on dark/grey video.
-  const rimPaint = [
-    saturate(M.rimSaturation),
-    `lutrgb=${whiten(M.rimWhite, M.rimGain)}`,
-  ].join(",");
+  const rimPaint = [saturate(M.rimSaturation), `lutrgb=${whiten(M.rimWhite, M.rimGain)}`].join(",");
 
   return [
     `${pad}${open},split[base][src]`,
@@ -429,11 +409,7 @@ export function watermarkGraph(
 
 // bbox logs e.g. "... x1:50 x2:349 y1:160 y2:239 ..."; a fully transparent
 // logo logs none, giving the whole image.
-export function parseBounds(
-  log: string,
-  width: number,
-  height: number,
-): Bounds {
+export function parseBounds(log: string, width: number, height: number): Bounds {
   const m = / x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/.exec(log);
   const [x1, x2, y1, y2] = (m ?? []).slice(1).map(Number);
   if (!m || x2 < x1 || y2 < y1 || x2 >= width || y2 >= height) {

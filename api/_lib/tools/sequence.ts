@@ -27,10 +27,7 @@ async function imageSequence(
   await fs.mkdir(framesDir, { recursive: true });
   const frames: string[] = [];
   for (let i = 0; i < imagePaths.length; i++) {
-    const framePath = path.join(
-      framesDir,
-      `norm_${String(i + 1).padStart(4, "0")}.png`,
-    );
+    const framePath = path.join(framesDir, `norm_${String(i + 1).padStart(4, "0")}.png`);
     await ff.runFFmpeg([
       "-y",
       "-i",
@@ -92,9 +89,7 @@ export const sequence: Tool = {
       await download(inputs[i], imagePath);
       imagePaths.push(imagePath);
     }
-    console.log(
-      `Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`,
-    );
+    console.log(`Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`);
 
     const render = await imageSequence(job, imagePaths, {
       frameDuration,

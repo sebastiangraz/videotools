@@ -65,20 +65,12 @@ describe("Loop", () => {
     await renderApp();
     await pick(user, file("tiny.mp4", "video/mp4"));
 
-    expect(
-      screen.queryByLabelText(/start frame preview/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/start frame preview/i)).not.toBeInTheDocument();
 
     await user.hover(screen.getByLabelText(/start at/i));
     const preview = await screen.findByLabelText(/start frame preview/i);
     expect(preview.tagName).toBe("CANVAS");
-    await waitFor(() =>
-      expect(drawImage).toHaveBeenCalledWith(
-        expect.any(HTMLVideoElement),
-        0,
-        0,
-      ),
-    );
+    await waitFor(() => expect(drawImage).toHaveBeenCalledWith(expect.any(HTMLVideoElement), 0, 0));
     expect(preview).toHaveProperty("width", 1280);
     expect(document.querySelector("video")).not.toBeInTheDocument();
 
@@ -98,9 +90,7 @@ describe("Loop", () => {
 
     await user.hover(screen.getByLabelText(/start at/i));
     expect(await screen.findByRole("status")).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/start frame preview/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/start frame preview/i)).not.toBeInTheDocument();
   });
 
   it("refuses a video with non-square pixels before any upload, and takes a square one", async () => {
@@ -122,9 +112,7 @@ describe("Loop", () => {
 
     stubVideoFrame(1710, 1710);
     await pick(user, file("square.mp4", "video/mp4"));
-    await waitFor(() =>
-      expect(loopButton()).toHaveAttribute("aria-disabled", "false"),
-    );
+    await waitFor(() => expect(loopButton()).toHaveAttribute("aria-disabled", "false"));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -135,9 +123,10 @@ describe("Loop", () => {
 
     const message = screen.getByRole("alert");
     expect(screen.getByRole("main")).not.toContainElement(message);
-    expect(
-      within(message).getByRole("link", { name: /converted/i }),
-    ).toHaveAttribute("href", "/convert");
+    expect(within(message).getByRole("link", { name: /converted/i })).toHaveAttribute(
+      "href",
+      "/convert",
+    );
 
     expect(loopButton()).toHaveAttribute("aria-disabled", "true");
     await user.click(loopButton());
@@ -156,9 +145,10 @@ describe("Loop", () => {
 
     await pick(user, webpFile("photo.webp", 0x10));
     const message = await screen.findByRole("alert");
-    expect(
-      within(message).getByRole("link", { name: /converted/i }),
-    ).toHaveAttribute("href", "/convert");
+    expect(within(message).getByRole("link", { name: /converted/i })).toHaveAttribute(
+      "href",
+      "/convert",
+    );
     expect(loopButton()).toHaveAttribute("aria-disabled", "true");
   });
 

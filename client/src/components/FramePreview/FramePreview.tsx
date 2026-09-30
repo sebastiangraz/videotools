@@ -81,12 +81,5 @@ export const FramePreview = ({
     );
   }
 
-  return (
-    <canvas
-      ref={canvasRef}
-      role="img"
-      aria-label={label}
-      className={className}
-    />
-  );
+  return <canvas ref={canvasRef} role="img" aria-label={label} className={className} />;
 };

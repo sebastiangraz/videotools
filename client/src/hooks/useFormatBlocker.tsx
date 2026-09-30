@@ -33,9 +33,7 @@ export const useFormatBlocker = (
       isAnimatedWebp(file).then(
         (is) => {
           if (is || cancelled) return;
-          setStillWebps((seen) =>
-            seen.includes(file) ? seen : [...seen, file],
-          );
+          setStillWebps((seen) => (seen.includes(file) ? seen : [...seen, file]));
         },
         // Unreadable here: the server has the last word anyway.
         () => {},
@@ -54,9 +52,7 @@ export const useFormatBlocker = (
   const block: FormatBlock | null = nonSquare
     ? { state: "nonSquare" }
     : (files
-        .map((file) =>
-          formatBlock(file, { stills, foreign }, stillWebps.includes(file)),
-        )
+        .map((file) => formatBlock(file, { stills, foreign }, stillWebps.includes(file)))
         .find(Boolean) ?? mixed());
 
   const text = block && blockerText(block);

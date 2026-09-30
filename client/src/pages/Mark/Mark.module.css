@@ -151,11 +151,7 @@
     right: 0;
     width: 28rem;
     height: 12rem;
-    background-image: radial-gradient(
-      farthest-corner at 0% 0%,
-      transparent 70%,
-      var(--bg) 100%
-    );
+    background-image: radial-gradient(farthest-corner at 0% 0%, transparent 70%, var(--bg) 100%);
     z-index: -1;
   }
 }

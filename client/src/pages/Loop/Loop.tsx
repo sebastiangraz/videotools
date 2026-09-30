@@ -7,11 +7,7 @@ import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
-import {
-  clampStart,
-  maxStart,
-  useVideoSource,
-} from "../../hooks/useVideoSource";
+import { clampStart, maxStart, useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import form from "../form.module.css";
@@ -61,13 +57,7 @@ export const Loop = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={
-        <DropZone
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-        />
-      }
+      inputs={<DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
@@ -117,9 +107,7 @@ export const Loop = () => {
               disabled={run.busy}
               preview={
                 source.file &&
-                hasFrames(source.file) && (
-                  <FramePreview file={source.file} second={start ?? 0} />
-                )
+                hasFrames(source.file) && <FramePreview file={source.file} second={start ?? 0} />
               }
             />
           </div>
@@ -128,11 +116,7 @@ export const Loop = () => {
 
       <div className={form.formGroup}>
         <Slider
-          label={
-            <>
-              {quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}
-            </>
-          }
+          label={<>{quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}</>}
           value={quality}
           onValueChange={setQuality}
           min={0}

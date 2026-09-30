@@ -89,10 +89,7 @@ export async function encodeRender(
 }
 
 // The summary only has it for the mov family; else sum the packets.
-async function sourceVideoKbps(
-  ff: FFmpeg,
-  source: Source,
-): Promise<number | null> {
+async function sourceVideoKbps(ff: FFmpeg, source: Source): Promise<number | null> {
   const { videoKbps, duration } = source.profile;
   if (videoKbps) return videoKbps;
   if (!(duration > 0)) return null;

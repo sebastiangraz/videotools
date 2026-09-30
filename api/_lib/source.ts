@@ -1,9 +1,5 @@
 import path from "node:path";
-import {
-  formatById,
-  type FormatId,
-  type StillId,
-} from "../../shared/formats.js";
+import { formatById, type FormatId, type StillId } from "../../shared/formats.js";
 import { InputError } from "./errors.js";
 import type { SourceProfile } from "./ffmpeg.js";
 import { blobExt } from "./request.js";
@@ -38,9 +34,7 @@ export function sourceFormat(profile: SourceProfile): FormatId | null {
     return FOREIGN_BRANDS.test(majorBrand) ? null : "mp4";
   }
   if (formatNames.includes("webm")) {
-    const fits =
-      WEBM_VIDEO.includes(codec) &&
-      (audio === null || WEBM_AUDIO.includes(audio.codec));
+    const fits = WEBM_VIDEO.includes(codec) && (audio === null || WEBM_AUDIO.includes(audio.codec));
     return fits ? "webm" : null;
   }
   return null;
@@ -52,8 +46,7 @@ export function sourceStill(profile: SourceProfile): StillId | null {
   const { formatNames, codec } = profile;
   if (formatNames.includes("png_pipe") && codec === "png") return "png";
   if (formatNames.includes("webp_pipe") && codec === "webp") return "webp";
-  const jpeg =
-    formatNames.includes("image2") || formatNames.includes("jpeg_pipe");
+  const jpeg = formatNames.includes("image2") || formatNames.includes("jpeg_pipe");
   return jpeg && codec === "mjpeg" ? "jpg" : null;
 }
 

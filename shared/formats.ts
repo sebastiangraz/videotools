@@ -60,12 +60,7 @@ export const FORMATS: readonly Format[] = [
 
 export const FORMAT_IDS: readonly FormatId[] = FORMATS.map((f) => f.id);
 
-export const SEQUENCE_FORMATS: readonly FormatId[] = [
-  "mp4",
-  "gif",
-  "webp",
-  "avif",
-];
+export const SEQUENCE_FORMATS: readonly FormatId[] = ["mp4", "gif", "webp", "avif"];
 
 export function formatById(id: FormatId): Format {
   return FORMATS.find((f) => f.id === id) as Format;

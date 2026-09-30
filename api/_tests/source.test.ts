@@ -174,12 +174,9 @@ describe("sourceFormat", () => {
     expect(sourceFormat(profile(kind))).toBe(format);
   });
 
-  it.each(["mkv", "avi", "3gp", "png"] as const)(
-    "has no format for %s content",
-    (kind) => {
-      expect(sourceFormat(profile(kind))).toBeNull();
-    },
-  );
+  it.each(["mkv", "avi", "3gp", "png"] as const)("has no format for %s content", (kind) => {
+    expect(sourceFormat(profile(kind))).toBeNull();
+  });
 });
 
 describe("sourceStill", () => {

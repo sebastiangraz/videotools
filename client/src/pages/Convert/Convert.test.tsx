@@ -23,10 +23,7 @@ describe("Convert", () => {
     await renderApp("/convert");
     expect(screen.queryByLabelText(/convert to/i)).not.toBeInTheDocument();
 
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      file("clip.mov", "video/quicktime"),
-    );
+    await user.upload(screen.getByLabelText(/choose video/i), file("clip.mov", "video/quicktime"));
     await user.click(screen.getByLabelText(/convert to/i));
     await user.click(await screen.findByRole("option", { name: /gif/i }));
     expect(screen.getByLabelText(/fps/i)).toBeInTheDocument();
@@ -64,16 +61,11 @@ describe("Convert", () => {
   it("accepts a format the app does not write, with no blocker and every target", async () => {
     const user = userEvent.setup();
     await renderApp("/convert");
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      file("clip.avi", "video/x-msvideo"),
-    );
+    await user.upload(screen.getByLabelText(/choose video/i), file("clip.avi", "video/x-msvideo"));
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(convertButton()).toHaveAttribute("aria-disabled", "false");
     await user.click(screen.getByLabelText(/convert to/i));
-    expect(await screen.findAllByRole("option")).toHaveLength(
-      targetsFor(null).length,
-    );
+    expect(await screen.findAllByRole("option")).toHaveLength(targetsFor(null).length);
   });
 });

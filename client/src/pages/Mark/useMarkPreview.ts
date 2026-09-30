@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  openFrameSource,
-  type Frame,
-  type FrameSource,
-} from "../../frameSource";
+import { openFrameSource, type Frame, type FrameSource } from "../../frameSource";
 
 // Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_VIEWS.
 export type MarkSize = "small" | "large" | "dev";
@@ -155,9 +151,7 @@ export function useMarkPreview(
   };
 
   // -1 = no set yet (the bare frame shows).
-  const shownRender = previewUrls[scrubIndex]
-    ? scrubIndex
-    : previewUrls.findIndex(Boolean);
+  const shownRender = previewUrls[scrubIndex] ? scrubIndex : previewUrls.findIndex(Boolean);
 
   const loading =
     source !== null &&

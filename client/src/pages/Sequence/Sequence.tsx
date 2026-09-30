@@ -139,13 +139,7 @@ export const Sequence = () => {
                 : files.length > 0 &&
                   imageDims &&
                   ` ~${formatBytes(
-                    estimateOutputBytes(
-                      imageDims.w,
-                      imageDims.h,
-                      files.length,
-                      format,
-                      quality,
-                    ),
+                    estimateOutputBytes(imageDims.w, imageDims.h, files.length, format, quality),
                   )}`}
             </>
           }

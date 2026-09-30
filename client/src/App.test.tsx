@@ -22,22 +22,17 @@ describe("App", () => {
     expect(loopButton()).toHaveAttribute("aria-disabled", "true");
 
     await user.hover(loopButton());
-    await waitFor(() =>
-      expect(loopButton()).toHaveAttribute("data-popup-open"),
-    );
+    await waitFor(() => expect(loopButton()).toHaveAttribute("data-popup-open"));
 
     await user.unhover(loopButton());
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
     expect(loopButton()).toHaveAttribute("aria-disabled", "false");
 
     await user.hover(loopButton());
-    await waitFor(() =>
-      expect(loopButton()).not.toHaveAttribute("data-popup-open"),
-    );
+    await waitFor(() => expect(loopButton()).not.toHaveAttribute("data-popup-open"));
   });
 
-  const getDropZone = (pickerLabel: RegExp) =>
-    screen.getByLabelText(pickerLabel).closest("label")!;
+  const getDropZone = (pickerLabel: RegExp) => screen.getByLabelText(pickerLabel).closest("label")!;
 
   it("accepts a dropped file and enables the button", async () => {
     await renderApp();
@@ -82,9 +77,10 @@ describe("App", () => {
     });
 
     expect(screen.getByText(/2 files/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /create video/i }),
-    ).toHaveAttribute("aria-disabled", "false");
+    expect(screen.getByRole("button", { name: /create video/i })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
   });
 
   it("switches tool and clears the picked file when a tab is clicked", async () => {
@@ -95,9 +91,10 @@ describe("App", () => {
     expect(loopButton()).toHaveAttribute("aria-disabled", "false");
 
     await user.click(screen.getByRole("tab", { name: /sequence/i }));
-    expect(
-      await screen.findByRole("button", { name: /create video/i }),
-    ).toHaveAttribute("aria-disabled", "true");
+    expect(await screen.findByRole("button", { name: /create video/i })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(router.state.location.pathname).toBe("/sequence");
   });
 
@@ -144,10 +141,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await renderApp("/sequence");
-    await user.upload(
-      screen.getByLabelText(/choose images/i),
-      file("anim.gif", "image/gif"),
-    );
+    await user.upload(screen.getByLabelText(/choose images/i), file("anim.gif", "image/gif"));
     await user.click(screen.getByRole("button", { name: /create video/i }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -161,9 +155,7 @@ describe("App", () => {
 
     stubProcessFetch();
     await user.click(screen.getByRole("button", { name: /create video/i }));
-    await waitFor(() =>
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
   // Rejects only once its signal is aborted.
@@ -178,24 +170,20 @@ describe("App", () => {
     const user = userEvent.setup();
     const uploadedUrl = blobUrl("tiny-abc.mp4");
     uploadMock.mockResolvedValue({ url: uploadedUrl });
-    const fetchMock = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (input === "/api/process" && init?.method === "POST") {
-          return hangUntilAborted<Response>(init.signal);
-        }
-        if (input === "/api/process" && init?.method === "DELETE") {
-          return new Response(null, { status: 204 });
-        }
-        throw new Error(`Unexpected fetch: ${input}`);
-      },
-    );
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/process" && init?.method === "POST") {
+        return hangUntilAborted<Response>(init.signal);
+      }
+      if (input === "/api/process" && init?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected fetch: ${input}`);
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
-    expect(
-      screen.queryByRole("button", { name: /^stop$/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^stop$/i })).not.toBeInTheDocument();
 
     await user.click(loopButton());
     const stop = await screen.findByRole("button", { name: /^stop$/i });
@@ -207,16 +195,10 @@ describe("App", () => {
 
     await user.click(stop);
 
-    await waitFor(() =>
-      expect(loopButton()).toHaveAttribute("aria-disabled", "false"),
-    );
-    expect(
-      screen.queryByRole("button", { name: /^stop$/i }),
-    ).not.toBeInTheDocument();
+    await waitFor(() => expect(loopButton()).toHaveAttribute("aria-disabled", "false"));
+    expect(screen.queryByRole("button", { name: /^stop$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    const postInit = fetchMock.mock.calls.find(
-      ([, init]) => init?.method === "POST",
-    )?.[1];
+    const postInit = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1];
     expect(postInit?.signal?.aborted).toBe(true);
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(

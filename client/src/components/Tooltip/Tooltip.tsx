@@ -34,11 +34,7 @@ export const Tooltip = ({
   closeOnClick?: boolean;
 }) => (
   <BaseTooltip.Root disabled={disabled}>
-    <BaseTooltip.Trigger
-      delay={delay}
-      closeOnClick={closeOnClick}
-      render={render}
-    >
+    <BaseTooltip.Trigger delay={delay} closeOnClick={closeOnClick} render={render}>
       {children}
     </BaseTooltip.Trigger>
     <BaseTooltip.Portal>
@@ -49,9 +45,7 @@ export const Tooltip = ({
         sideOffset={sideOffset}
         alignOffset={alignOffset}
       >
-        <BaseTooltip.Popup className={styles.popup}>
-          {content}
-        </BaseTooltip.Popup>
+        <BaseTooltip.Popup className={styles.popup}>{content}</BaseTooltip.Popup>
       </BaseTooltip.Positioner>
     </BaseTooltip.Portal>
   </BaseTooltip.Root>

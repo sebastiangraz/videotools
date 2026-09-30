@@ -2,23 +2,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { StillId } from "../../../shared/formats.js";
 import type { ToolJob } from "../tools/types.js";
-import {
-  bisect,
-  graphArgs,
-  hasAlpha,
-  levelRange,
-  TOOL_ALLOWANCE,
-  type Render,
-} from "./render.js";
+import { bisect, graphArgs, hasAlpha, levelRange, TOOL_ALLOWANCE, type Render } from "./render.js";
 import { WEBP_LOSSLESS, webpLevels } from "./webp.js";
 
 const JPEG_COARSEST = 31;
 
 const jpegLevels = (quality: number) =>
-  levelRange(
-    Math.round(1 + ((100 - quality) / 99) * (JPEG_COARSEST - 1)),
-    JPEG_COARSEST,
-  );
+  levelRange(Math.round(1 + ((100 - quality) / 99) * (JPEG_COARSEST - 1)), JPEG_COARSEST);
 
 // PNG is always lossless; WebP only at 100 from a lossless source. Lossy
 // stills are capped at quality% of the source's bytes (+TOOL_ALLOWANCE):
@@ -33,22 +23,10 @@ export async function encodeStill(
   const outputFile = path.join(workDir, `output.${still}`);
   let pictures = render;
   const encode = (codecArgs: string[], to = outputFile) =>
-    ff.runFFmpeg([
-      ...graphArgs(pictures, [], "rgba"),
-      "-frames:v",
-      "1",
-      ...codecArgs,
-      "-an",
-      to,
-    ]);
+    ff.runFFmpeg([...graphArgs(pictures, [], "rgba"), "-frames:v", "1", ...codecArgs, "-an", to]);
 
   if (still === "png") {
-    await encode([
-      "-c:v",
-      "png",
-      "-pix_fmt",
-      hasAlpha(pixFmt) ? "rgba" : "rgb24",
-    ]);
+    await encode(["-c:v", "png", "-pix_fmt", hasAlpha(pixFmt) ? "rgba" : "rgb24"]);
     return outputFile;
   }
   // ffmpeg's WebP decoder gives lossless pictures as argb, lossy ones as
@@ -75,21 +53,10 @@ export async function encodeStill(
           jpegPixFmt,
         ]
       : // "icon" for the same reason as in webp.ts.
-        [
-          "-c:v",
-          "libwebp",
-          "-q:v",
-          String(level),
-          "-preset",
-          "icon",
-          "-pix_fmt",
-          "bgra",
-        ];
+        ["-c:v", "libwebp", "-q:v", String(level), "-preset", "icon", "-pix_fmt", "bgra"];
 
   const ceiling = render.source
-    ? (await fs.stat(render.source.path)).size *
-      (quality / 100) *
-      TOOL_ALLOWANCE
+    ? (await fs.stat(render.source.path)).size * (quality / 100) * TOOL_ALLOWANCE
     : Infinity;
   let written = -1;
   const fits = async (index: number) => {
@@ -101,10 +68,7 @@ export async function encodeStill(
 
   // Render the graph once to a fast lossless PNG so retries only re-encode.
   const marked = path.join(workDir, "marked.png");
-  await encode(
-    ["-c:v", "png", "-compression_level", "1", "-pix_fmt", "rgba"],
-    marked,
-  );
+  await encode(["-c:v", "png", "-compression_level", "1", "-pix_fmt", "rgba"], marked);
   pictures = {
     ...render,
     inputArgs: ["-i", marked],

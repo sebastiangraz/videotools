@@ -8,8 +8,7 @@ import styles from "./Slider.module.css";
 // Indicator itself, and user style wins the per-property merge.
 const CENTERED_INDICATOR: CSSProperties = {
   insetInlineStart: "min(50%, var(--start-position))",
-  width:
-    "max(calc(var(--start-position) - 50%), calc(50% - var(--start-position)))",
+  width: "max(calc(var(--start-position) - 50%), calc(50% - var(--start-position)))",
 };
 
 const MINOR_TICKS = 61;
@@ -76,9 +75,7 @@ export const Slider = ({
       <BaseSlider.Label className={styles.label}>{label}</BaseSlider.Label>
       {ticks ? (
         <div
-          className={
-            centered ? `${styles.ticks} ${styles.centeredTicks}` : styles.ticks
-          }
+          className={centered ? `${styles.ticks} ${styles.centeredTicks}` : styles.ticks}
           style={
             {
               "--fill-ratio": fillRatio,

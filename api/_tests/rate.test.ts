@@ -20,9 +20,7 @@ describe("rateCap", () => {
   });
 
   it("gives a source in a leaner codec more to spend", () => {
-    expect(rateCap(1000, 50, 6, codecFactor("hevc", "h264"))?.maxrate).toBe(
-      1500,
-    );
+    expect(rateCap(1000, 50, 6, codecFactor("hevc", "h264"))?.maxrate).toBe(1500);
   });
 });
 

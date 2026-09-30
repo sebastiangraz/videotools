@@ -14,11 +14,7 @@ export default {
         onBeforeGenerateToken: () =>
           Promise.resolve({
             // octet-stream: browsers can't type .mkv/.avi on some systems.
-            allowedContentTypes: [
-              "video/*",
-              "image/*",
-              "application/octet-stream",
-            ],
+            allowedContentTypes: ["video/*", "image/*", "application/octet-stream"],
             maximumSizeInBytes: MAX_UPLOAD_BYTES,
             addRandomSuffix: true,
           }),

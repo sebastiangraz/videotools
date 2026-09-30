@@ -4,12 +4,7 @@ import { DEFAULT_FPS } from "../ffmpeg.js";
 import { MAX_AVIF_FPS } from "../encode/avif.js";
 import { MAX_GIF_FPS } from "../encode/gif.js";
 import { MAX_WEBP_FPS } from "../encode/webp.js";
-import {
-  frameRate,
-  sourceRender,
-  videoPad,
-  type Render,
-} from "../encode/render.js";
+import { frameRate, sourceRender, videoPad, type Render } from "../encode/render.js";
 import { clamp, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";

@@ -31,12 +31,7 @@ export default defineConfig({
       env: { browser: true, vitest: true },
     },
     {
-      files: [
-        "api/**",
-        "scripts/**",
-        "client/vite.config.ts",
-        "oxlint.config.ts",
-      ],
+      files: ["api/**", "scripts/**", "client/vite.config.ts", "oxlint.config.ts"],
       env: { node: true },
     },
     // typeAware is all-or-nothing; these type-aware rules are for api/ only.

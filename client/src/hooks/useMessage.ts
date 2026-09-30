@@ -3,10 +3,7 @@ import { messages, type MessageKind } from "../components/Message/messageStore";
 
 // Shows `content` in the message area until it is empty or the caller
 // unmounts. The hook form of <Message>.
-export const useMessage = (
-  content: ReactNode,
-  kind: MessageKind = "default",
-) => {
+export const useMessage = (content: ReactNode, kind: MessageKind = "default") => {
   const id = useId();
   const silent = content == null || content === false;
   // Every render, so content follows props; the area is no ancestor of the

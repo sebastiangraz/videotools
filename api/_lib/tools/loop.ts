@@ -4,12 +4,7 @@ import type { FormatId } from "../../../shared/formats.js";
 import { InputError } from "../errors.js";
 import { DEFAULT_FPS, isRgb, type FFmpeg } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
-import {
-  frameRate,
-  sourceRender,
-  videoPad,
-  type Render,
-} from "../encode/render.js";
+import { frameRate, sourceRender, videoPad, type Render } from "../encode/render.js";
 import { FASTSTART } from "../encode/video.js";
 import { clamp, pick, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
@@ -35,8 +30,7 @@ function reverseLoop(source: Source): Render {
   // or, for WebP, bgra (4 B/px).
   if (source.format !== "gif") {
     const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
-    const bytes =
-      duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
+    const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
     if (bytes > MAX_REVERSE_BYTES) {
       throw new InputError(
         `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
@@ -56,11 +50,7 @@ function reverseLoop(source: Source): Render {
 // The source is opened twice so each input is read in order and only the fade
 // is buffered (one input split would buffer most of the clip). Cut in frames,
 // not timestamps, so the pieces meet exactly.
-function crossfadeLoop(
-  source: Source,
-  fadeSeconds: number,
-  startSeconds: number,
-): Render {
+function crossfadeLoop(source: Source, fadeSeconds: number, startSeconds: number): Render {
   const { duration, pixFmt } = source.profile;
   if (fadeSeconds >= duration / 2) {
     throw new InputError(
@@ -73,10 +63,7 @@ function crossfadeLoop(
   const frames = Math.round(duration * fps);
   const fade = Math.round(fadeSeconds * fps);
   // The opening frames only exist blended, so the start lies within [fade, frames - fade].
-  const start = Math.max(
-    fade,
-    Math.min(Math.round(startSeconds * fps), frames - fade),
-  );
+  const start = Math.max(fade, Math.min(Math.round(startSeconds * fps), frames - fade));
   if (fade === 0 && (start === 0 || start >= frames)) {
     return sourceRender(source, { keepAudio: false });
   }
@@ -111,11 +98,7 @@ function crossfadeLoop(
         : `${second}${open},${piece(null, fade)}[begin]`,
       `[end][begin]xfade=transition=fade:duration=${fade / fps}:offset=0[fade]`,
     );
-    order.push(
-      ...(body ? ["[body]"] : []),
-      "[fade]",
-      ...(rest ? ["[rest]"] : []),
-    );
+    order.push(...(body ? ["[body]"] : []), "[fade]", ...(rest ? ["[rest]"] : []));
   } else {
     graph.push(
       `${first}${open},${piece(start, null)}[body]`,
@@ -141,11 +124,7 @@ function crossfadeLoop(
 type Copy = { format: FormatId; outputFile: string; startSeconds: number };
 
 // False when the loop has to be encoded instead.
-async function loopByCopy(
-  ff: FFmpeg,
-  source: Source,
-  copy: Copy,
-): Promise<boolean> {
+async function loopByCopy(ff: FFmpeg, source: Source, copy: Copy): Promise<boolean> {
   if (copy.startSeconds === 0) {
     console.log("No fade, no reorder: handing the source back");
     await copyWhole(ff, source, copy);
@@ -163,11 +142,7 @@ async function loopByCopy(
 }
 
 // Video still drops its audio like every loop, hence a remux rather than a copy.
-async function copyWhole(
-  ff: FFmpeg,
-  source: Source,
-  { format, outputFile }: Copy,
-): Promise<void> {
+async function copyWhole(ff: FFmpeg, source: Source, { format, outputFile }: Copy): Promise<void> {
   if (!STREAM_COPY.includes(format)) {
     await fs.copyFile(source.path, outputFile);
     return;
@@ -230,10 +205,7 @@ async function reorderCopy(
     await cut([], ["-ss", String(keyframe + halfFrame)], parts[0]);
     await cut(["-frames:v", String(index)], [], parts[1]);
 
-    await fs.writeFile(
-      path.join(tempDir, "list.txt"),
-      parts.map((p) => `file '${p}'`).join("\n"),
-    );
+    await fs.writeFile(path.join(tempDir, "list.txt"), parts.map((p) => `file '${p}'`).join("\n"));
     await ff.runFFmpeg(
       [
         "-y",

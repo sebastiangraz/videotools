@@ -18,10 +18,7 @@ describe("Speed", () => {
     const fetchMock = stubProcessFetch();
 
     await renderApp("/speed");
-    await user.upload(
-      screen.getByLabelText(/choose video/i),
-      file("clip.mp4", "video/mp4"),
-    );
+    await user.upload(screen.getByLabelText(/choose video/i), file("clip.mp4", "video/mp4"));
     // No userEvent slider support; jsdom has no layout, so Base UI keeps the
     // thumb visibility:hidden.
     fireEvent.change(screen.getByRole("slider", { hidden: true }), {

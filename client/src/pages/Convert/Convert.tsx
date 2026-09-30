@@ -17,11 +17,7 @@ export const Convert = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
   // Foreign sources (.avi, .mkv, ...) are this tool's whole point.
-  const formatBlocker = useFormatBlocker(
-    source.file,
-    { foreign: false },
-    source.nonSquare,
-  );
+  const formatBlocker = useFormatBlocker(source.file, { foreign: false }, source.nonSquare);
   const [target, setTarget] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the server probes it, capped at 30)
@@ -65,13 +61,7 @@ export const Convert = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={
-        <DropZone
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-        />
-      }
+      inputs={<DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
@@ -136,9 +126,7 @@ export const Convert = () => {
                 <>
                   {/* WebP at 100 is lossless only from a lossless source
                       (encode/webp.ts); of those only a GIF shows by name. */}
-                  {effectiveTarget === "webp" &&
-                  quality === 100 &&
-                  sourceFormat?.id === "gif"
+                  {effectiveTarget === "webp" && quality === 100 && sourceFormat?.id === "gif"
                     ? `Lossless ${quality}%`
                     : `Quality ${quality}%`}
                 </>

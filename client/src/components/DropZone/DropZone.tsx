@@ -6,10 +6,8 @@ import styles from "./DropZone.module.css";
 function matchesAccept(file: File, accept: string): boolean {
   return accept.split(",").some((entry) => {
     const pattern = entry.trim().toLowerCase();
-    if (pattern.startsWith("."))
-      return file.name.toLowerCase().endsWith(pattern);
-    if (pattern.endsWith("/*"))
-      return file.type.startsWith(pattern.slice(0, -1));
+    if (pattern.startsWith(".")) return file.name.toLowerCase().endsWith(pattern);
+    if (pattern.endsWith("/*")) return file.type.startsWith(pattern.slice(0, -1));
     return file.type === pattern;
   });
 }
@@ -65,9 +63,7 @@ export const DropZone = ({
     e.preventDefault();
     dragDepth.current = 0;
     setDragging(false);
-    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
-      matchesAccept(f, accept),
-    );
+    const dropped = Array.from(e.dataTransfer.files).filter((f) => matchesAccept(f, accept));
     if (!dropped.length) return;
     onFiles(multiple ? dropped : dropped.slice(0, 1));
   };
@@ -90,9 +86,7 @@ export const DropZone = ({
       />
       {files.length > 0 ? (
         <span className={styles.dropZoneFile}>
-          {thumbnail && (
-            <img src={thumbnail} alt="" className={styles.dropZoneThumb} />
-          )}
+          {thumbnail && <img src={thumbnail} alt="" className={styles.dropZoneThumb} />}
           {files.length === 1 ? files[0].name : `${files.length} files`}
         </span>
       ) : (

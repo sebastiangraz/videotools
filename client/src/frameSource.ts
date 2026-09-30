@@ -1,9 +1,4 @@
-import {
-  fileFormat,
-  isAnimatedImage,
-  isStillImage,
-  stillFormat,
-} from "./sourceFormat";
+import { fileFormat, isAnimatedImage, isStillImage, stillFormat } from "./sourceFormat";
 
 export interface Frame {
   image: CanvasImageSource;
@@ -50,15 +45,12 @@ const openVideo = async (file: File): Promise<FrameSource> => {
     throw err;
   }
   return {
-    duration: async () =>
-      Number.isFinite(video.duration) ? video.duration : 0,
+    duration: async () => (Number.isFinite(video.duration) ? video.duration : 0),
     frameAt: async (second) => {
       if (video.currentTime !== second) video.currentTime = second;
       // May be an earlier call's seek; nothing to draw until it lands.
       if (video.seeking) {
-        await new Promise((resolve) =>
-          video.addEventListener("seeked", resolve, { once: true }),
-        );
+        await new Promise((resolve) => video.addEventListener("seeked", resolve, { once: true }));
       }
       return {
         image: video,
@@ -72,10 +64,7 @@ const openVideo = async (file: File): Promise<FrameSource> => {
         const frame = new VideoFrame(video);
         const stored = frame.visibleRect;
         frame.close();
-        return (
-          !!stored &&
-          stored.width * video.videoHeight !== video.videoWidth * stored.height
-        );
+        return !!stored && stored.width * video.videoHeight !== video.videoWidth * stored.height;
       } catch {
         return false;
       }
@@ -115,8 +104,7 @@ const openImage = async (file: File): Promise<FrameSource> => {
     })());
 
   return {
-    duration: async () =>
-      track?.animated ? (await frameEnds())[count - 1] : 0,
+    duration: async () => (track?.animated ? (await frameEnds())[count - 1] : 0),
     frameAt: async (second) => {
       let frameIndex = 0;
       if (second > 0 && count > 1) {
@@ -137,6 +125,4 @@ const openImage = async (file: File): Promise<FrameSource> => {
 
 // Rejects when the browser can't decode the file (or has no ImageDecoder).
 export const openFrameSource = async (file: File): Promise<FrameSource> =>
-  isStillImage(file) || isAnimatedImage(file)
-    ? openImage(file)
-    : openVideo(file);
+  isStillImage(file) || isAnimatedImage(file) ? openImage(file) : openVideo(file);

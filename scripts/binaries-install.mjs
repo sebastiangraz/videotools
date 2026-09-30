@@ -20,9 +20,7 @@ async function install(tool) {
   if (!pinned) {
     // Not fatal, so the rest of the install goes through; point FFMPEG_BIN
     // at an ffmpeg of the pinned version to run the api here.
-    console.warn(
-      `no ${tool} pinned for ${key} (only ${Object.keys(platforms).join(", ")})`,
-    );
+    console.warn(`no ${tool} pinned for ${key} (only ${Object.keys(platforms).join(", ")})`);
     return;
   }
 
@@ -30,9 +28,7 @@ async function install(tool) {
   const dir = path.dirname(binary);
   const stamp = path.join(dir, ".sha256");
   const current =
-    fs.existsSync(binary) &&
-    fs.existsSync(stamp) &&
-    fs.readFileSync(stamp, "utf8").trim();
+    fs.existsSync(binary) && fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8").trim();
   if (current === pinned.sha256) {
     console.log(`${tool} ${version} (${key}) already installed`);
     return;

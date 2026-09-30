@@ -10,12 +10,7 @@ import { isToolId } from "../shared/tools.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
-import {
-  isBlobUrl,
-  jsonBody,
-  methodNotAllowed,
-  runJob,
-} from "./_lib/request.js";
+import { isBlobUrl, jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 type ProcessBody = Partial<ToolRequest> & {
@@ -70,37 +65,29 @@ export default {
       .replace(/\.[^.]+$/, "")
       .replace(/[^\w.-]/g, "_");
 
-    const response = await runJob(
-      request,
-      "Processing",
-      async (workDir, signal) => {
-        const { outputPath, suffix, ext } = await run({
-          ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
-          workDir,
-          inputs: inputBlobUrls,
-          options,
-          download: (url, destPath) => downloadBlob(url, destPath, signal),
-        });
-        const outputName = `${base}_${suffix}.${ext}`;
+    const response = await runJob(request, "Processing", async (workDir, signal) => {
+      const { outputPath, suffix, ext } = await run({
+        ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
+        workDir,
+        inputs: inputBlobUrls,
+        options,
+        download: (url, destPath) => downloadBlob(url, destPath, signal),
+      });
+      const outputName = `${base}_${suffix}.${ext}`;
 
-        const result = await put(
-          `results/${outputName}`,
-          fs.createReadStream(outputPath),
-          {
-            access: "public",
-            contentType: mimeOf(ext),
-            addRandomSuffix: true,
-            abortSignal: signal,
-          },
-        );
+      const result = await put(`results/${outputName}`, fs.createReadStream(outputPath), {
+        access: "public",
+        contentType: mimeOf(ext),
+        addRandomSuffix: true,
+        abortSignal: signal,
+      });
 
-        return Response.json({
-          url: result.url,
-          downloadUrl: result.downloadUrl,
-          filename: outputName,
-        });
-      },
-    );
+      return Response.json({
+        url: result.url,
+        downloadUrl: result.downloadUrl,
+        filename: outputName,
+      });
+    });
     // After the response is sent, so the client never waits on it.
     waitUntil(
       del(inputBlobUrls)
@@ -126,9 +113,7 @@ async function sweepStaleBlobs(exclude: string[]): Promise<void> {
       const page = await list({ limit: 1000, cursor });
       for (const blob of page.blobs) {
         if (exclude.includes(blob.url)) continue;
-        const maxAge = blob.pathname.startsWith("results/")
-          ? RESULT_MAX_AGE_MS
-          : UPLOAD_MAX_AGE_MS;
+        const maxAge = blob.pathname.startsWith("results/") ? RESULT_MAX_AGE_MS : UPLOAD_MAX_AGE_MS;
         if (now - new Date(blob.uploadedAt).getTime() > maxAge) {
           stale.push(blob.url);
         }
@@ -146,17 +131,10 @@ async function sweepStaleBlobs(exclude: string[]): Promise<void> {
   if (stale.length) console.log(`Swept ${stale.length} stale blob(s)`);
 }
 
-async function downloadBlob(
-  url: string,
-  destPath: string,
-  signal: AbortSignal,
-): Promise<void> {
+async function downloadBlob(url: string, destPath: string, signal: AbortSignal): Promise<void> {
   const download = await fetch(url, { signal });
   if (!download.ok || !download.body) {
     throw new Error(`Failed to fetch uploaded file (${download.status})`);
   }
-  await pipeline(
-    Readable.fromWeb(download.body as ReadableStream),
-    fs.createWriteStream(destPath),
-  );
+  await pipeline(Readable.fromWeb(download.body as ReadableStream), fs.createWriteStream(destPath));
 }

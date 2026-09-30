@@ -16,10 +16,7 @@ function deleteBlobs(urls: string[]) {
 interface RunRequest {
   files: File[];
   extras?: { file: File; status: string }[];
-  payload: (urls: {
-    blobUrls: string[];
-    extraUrls: string[];
-  }) => Record<string, unknown>;
+  payload: (urls: { blobUrls: string[]; extraUrls: string[] }) => Record<string, unknown>;
 }
 
 export function useToolRun(tool: ToolId) {
@@ -55,9 +52,7 @@ export function useToolRun(tool: ToolId) {
         });
 
       for (let i = 0; i < files.length; i++) {
-        setMsg(
-          files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading",
-        );
+        setMsg(files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading");
         blobUrls.push((await send(files[i])).url);
       }
 
@@ -79,9 +74,7 @@ export function useToolRun(tool: ToolId) {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
-        throw new Error(
-          errorData?.error || `Server error (${res.status}): Unable to process`,
-        );
+        throw new Error(errorData?.error || `Server error (${res.status}): Unable to process`);
       }
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
@@ -91,8 +84,7 @@ export function useToolRun(tool: ToolId) {
       setMsg(`Downloading ${downloadName.slice(0, 28)}`);
       // Blob storage is cross-origin, where `download` is ignored.
       const fileRes = await fetch(url, { signal });
-      if (!fileRes.ok)
-        throw new Error(`Failed to download result (${fileRes.status})`);
+      if (!fileRes.ok) throw new Error(`Failed to download result (${fileRes.status})`);
       const objectUrl = URL.createObjectURL(await fileRes.blob());
       const a = Object.assign(document.createElement("a"), {
         href: objectUrl,

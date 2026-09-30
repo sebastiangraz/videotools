@@ -69,8 +69,7 @@ function ffmpegVersion(ffmpeg) {
   const r = spawnSync(ffmpeg, ["-hide_banner", "-version"], {
     encoding: "utf8",
   });
-  if (r.status !== 0)
-    throw new Error(`${ffmpeg} -version: ${r.stderr || r.error}`);
+  if (r.status !== 0) throw new Error(`${ffmpeg} -version: ${r.stderr || r.error}`);
   return /^ffmpeg version (\S+)/.exec(r.stdout)?.[1] ?? "unknown";
 }
 
@@ -88,9 +87,7 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
     });
     // Each listing row is "<flags> <name>[,<alias>] <description>".
     const listed = new Set(
-      r.stdout
-        .split("\n")
-        .flatMap((line) => line.trim().split(/\s+/)[1]?.split(",") ?? []),
+      r.stdout.split("\n").flatMap((line) => line.trim().split(/\s+/)[1]?.split(",") ?? []),
     );
     const missing = names.filter((n) => !listed.has(n));
     if (missing.length) problems.push(`no ${kind}: ${missing.join(", ")}`);
@@ -98,18 +95,13 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
   return { version: found, problems };
 }
 
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const ffmpeg = process.argv[2] ?? binaryPath("ffmpeg");
   const { version, problems } = checkFfmpeg(ffmpeg, {
     version: process.argv[2] ? undefined : pinnedVersion(),
   });
   if (problems.length) {
-    console.error(
-      `${ffmpeg} (${version}) won't do:\n  ${problems.join("\n  ")}`,
-    );
+    console.error(`${ffmpeg} (${version}) won't do:\n  ${problems.join("\n  ")}`);
     process.exit(1);
   }
   console.log(`${ffmpeg}: ffmpeg ${version}, has everything the api uses`);

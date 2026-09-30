@@ -23,10 +23,7 @@ export const convert: Tool = {
         ? {
             // null = source fps. GIF delays are centiseconds (30fps alternates
             // 3/4cs) and browsers clamp ≥50fps, so 30 is the practical cap.
-            fps:
-              options.fps == null
-                ? null
-                : Math.round(clamp(options.fps, 1, 30, 15)),
+            fps: options.fps == null ? null : Math.round(clamp(options.fps, 1, 30, 15)),
             width: Math.round(clamp(options.width, 100, 800, 640)),
           }
         : {}),

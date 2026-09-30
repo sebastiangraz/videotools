@@ -3,19 +3,12 @@ import { TOOL_IDS, type ToolId } from "../../shared/tools";
 
 export type { ToolId };
 
-const acceptOf = (
-  formats: readonly { mime: string; extensions: readonly string[] }[],
-) =>
-  formats
-    .flatMap((f) => [f.mime, ...f.extensions.map((ext) => `.${ext}`)])
-    .join(",");
+const acceptOf = (formats: readonly { mime: string; extensions: readonly string[] }[]) =>
+  formats.flatMap((f) => [f.mime, ...f.extensions.map((ext) => `.${ext}`)]).join(",");
 
 // Animated GIF/WebP/AVIF are videos to ffmpeg. Deliberately wider than what
 // the tools write, so an .avi/.mkv can be picked and told to convert first.
-const VIDEO_ACCEPT = [
-  "video/*,.avi,.mkv,.wmv,.mpg,.mpeg,.3gp,.ts",
-  acceptOf(FORMATS),
-].join(",");
+const VIDEO_ACCEPT = ["video/*,.avi,.mkv,.wmv,.mpg,.mpeg,.3gp,.ts", acceptOf(FORMATS)].join(",");
 
 // .webp is in both lists; only its content says which kind it is.
 const STILL_ACCEPT = acceptOf(STILLS);

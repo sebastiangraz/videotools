@@ -67,9 +67,7 @@ describe("stills", () => {
     expect(formatBlock(photo)).toEqual({ state: "foreign", name: "JPG" });
     expect(formatBlock(photo, { stills: true })).toBeNull();
     expect(formatBlocker(photo, { stills: true })).toBeNull();
-    expect(
-      formatBlock(file("photo.webp", "image/webp"), { stills: true }),
-    ).toBeNull();
+    expect(formatBlock(file("photo.webp", "image/webp"), { stills: true })).toBeNull();
     expect(formatBlock(file("clip.mkv"), { stills: true })).toMatchObject({
       state: "foreign",
     });
@@ -80,9 +78,7 @@ describe("stills", () => {
     expect(await isAnimatedWebp(webpFile("photo.webp", 0x02))).toBe(true);
     expect(await isAnimatedWebp(webpFile("photo.webp", 0x12))).toBe(true);
     expect(await isAnimatedWebp(webpFile("photo.webp", 0x10))).toBe(false);
-    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02, "VP8 "))).toBe(
-      false,
-    );
+    expect(await isAnimatedWebp(webpFile("photo.webp", 0x02, "VP8 "))).toBe(false);
     expect(await isAnimatedWebp(file("photo.webp", "image/webp"))).toBe(false);
   });
 });
@@ -111,12 +107,10 @@ describe("targetsFor", () => {
   it("offers every format but the source's own", () => {
     const all = targetsFor(null).map((t) => t.value);
     expect(all).toContain("mov");
-    expect(
-      targetsFor(file("clip.mov", "video/quicktime")).map((t) => t.value),
-    ).toEqual(all.filter((id) => id !== "mov"));
-    expect(targetsFor(file("clip.avi", "video/x-msvideo"))).toHaveLength(
-      all.length,
+    expect(targetsFor(file("clip.mov", "video/quicktime")).map((t) => t.value)).toEqual(
+      all.filter((id) => id !== "mov"),
     );
+    expect(targetsFor(file("clip.avi", "video/x-msvideo"))).toHaveLength(all.length);
   });
 });
 
@@ -125,11 +119,7 @@ describe("pickedFormats", () => {
     const png = file("a.png", "image/png");
     expect(pickedFormats([png, file("b.PNG")])).toEqual(["PNG"]);
     expect(pickedFormats([file("c.jpg"), file("d.jpeg")])).toEqual(["JPEG"]);
-    expect(pickedFormats([png, file("b.jpg"), file("c.xyz")])).toEqual([
-      "PNG",
-      "JPEG",
-      "XYZ",
-    ]);
+    expect(pickedFormats([png, file("b.jpg"), file("c.xyz")])).toEqual(["PNG", "JPEG", "XYZ"]);
   });
 });
 

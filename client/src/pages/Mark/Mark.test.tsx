@@ -59,18 +59,14 @@ describe("Mark", () => {
     await pickSource(user, file("clip.mp4", "video/mp4"));
     expect(markButton()).toHaveAttribute("aria-disabled", "true");
     await user.hover(markButton());
-    await waitFor(() =>
-      expect(markButton()).toHaveAttribute("data-popup-open"),
-    );
+    await waitFor(() => expect(markButton()).toHaveAttribute("data-popup-open"));
     await user.unhover(markButton());
 
     // Outside the picker's accept list
     await pickLogo(user, file("logo.gif", "image/gif"));
     expect(markButton()).toHaveAttribute("aria-disabled", "true");
     expect(screen.queryByText("logo.gif")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /glass/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /glass/i })).not.toBeInTheDocument();
 
     await pickLogo(user, file("logo.svg", "image/svg+xml"));
     expect(markButton()).toHaveAttribute("aria-disabled", "false");
@@ -79,10 +75,7 @@ describe("Mark", () => {
     await pickLogo(user);
     expect(markButton()).toHaveAttribute("aria-disabled", "false");
     expect(screen.getByText("logo.png")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /glass/i })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: /glass/i })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /plain/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /blur/i })).toBeInTheDocument();
   });
@@ -102,21 +95,14 @@ describe("Mark", () => {
     expect(markButton()).toHaveAttribute("aria-disabled", "false");
 
     await waitFor(() =>
-      expect(screen.getByAltText(/watermarked frame/i)).toHaveAttribute(
-        "src",
-        "blob:mock",
-      ),
+      expect(screen.getByAltText(/watermarked frame/i)).toHaveAttribute("src", "blob:mock"),
     );
     expect(screen.getByLabelText(/watermark preview/i)).toHaveStyle({
       aspectRatio: "1080 / 1920",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(postedBody(fetchMock).frame).toMatch(/^data:image\/jpeg;base64,/);
-    expect(drawImage).toHaveBeenCalledWith(
-      expect.objectContaining({ frameIndex: 0 }),
-      0,
-      0,
-    );
+    expect(drawImage).toHaveBeenCalledWith(expect.objectContaining({ frameIndex: 0 }), 0, 0);
     expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
   });
 
@@ -130,9 +116,7 @@ describe("Mark", () => {
     await renderApp("/mark");
     expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
     await pickSource(user, file("shot.png", "image/png"));
-    expect(
-      screen.queryByRole("slider", { hidden: true }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider", { hidden: true })).not.toBeInTheDocument();
 
     await pickLogo(user);
     await user.click(markButton());
@@ -152,9 +136,7 @@ describe("Mark", () => {
 
     await renderApp("/mark");
     await pickSource(user, file("clip.mp4", "video/mp4"));
-    expect(
-      screen.queryByLabelText(/watermark preview/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/watermark preview/i)).not.toBeInTheDocument();
 
     await pickLogo(user);
     const preview = screen.getByLabelText(/watermark preview/i);
@@ -170,9 +152,10 @@ describe("Mark", () => {
     expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
-      expect(
-        within(preview).getByAltText(/watermarked frame/i),
-      ).toHaveAttribute("src", "blob:mock"),
+      expect(within(preview).getByAltText(/watermarked frame/i)).toHaveAttribute(
+        "src",
+        "blob:mock",
+      ),
     );
 
     await user.click(screen.getByRole("button", { name: /blur/i }));
@@ -246,9 +229,7 @@ describe("Mark", () => {
     // A URL per render, to tell the slots apart
     let renders = 0;
     URL.createObjectURL = vi.fn((blob: Blob | MediaSource) =>
-      blob instanceof Blob && blob.type === "image/jpeg"
-        ? `blob:render-${renders++}`
-        : "blob:mock",
+      blob instanceof Blob && blob.type === "image/jpeg" ? `blob:render-${renders++}` : "blob:mock",
     );
     stubPreviewFetch();
 
@@ -257,9 +238,7 @@ describe("Mark", () => {
     await pickLogo(user);
 
     const preview = screen.getByLabelText(/watermark preview/i);
-    await waitFor(() =>
-      expect(preview.querySelectorAll("img")).toHaveLength(5),
-    );
+    await waitFor(() => expect(preview.querySelectorAll("img")).toHaveLength(5));
     const first = within(preview).getByAltText(/watermarked frame/i);
 
     const strips = preview.parentElement!.lastElementChild!.children;
@@ -281,17 +260,13 @@ describe("Mark", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
-        if (input !== "/api/preview")
-          throw new Error(`Unexpected fetch: ${input}`);
+        if (input !== "/api/preview") throw new Error(`Unexpected fetch: ${input}`);
         return new Promise<Response>((resolve) =>
-          answers.push(() =>
-            resolve(new Response(new Blob(["jpg"], { type: "image/jpeg" }))),
-          ),
+          answers.push(() => resolve(new Response(new Blob(["jpg"], { type: "image/jpeg" })))),
         );
       }),
     );
-    const answer = (count: number) =>
-      answers.splice(0, count).forEach((respond) => respond());
+    const answer = (count: number) => answers.splice(0, count).forEach((respond) => respond());
     const sources = (preview: HTMLElement) =>
       [...preview.querySelectorAll("img")].map((img) => img.src);
 
@@ -346,18 +321,8 @@ describe("Mark", () => {
     await user.click(markButton());
 
     await runFinished(fetchMock);
-    expect(uploadMock).toHaveBeenNthCalledWith(
-      1,
-      "clip.mp4",
-      video,
-      expect.anything(),
-    );
-    expect(uploadMock).toHaveBeenNthCalledWith(
-      2,
-      "logo.png",
-      logo,
-      expect.anything(),
-    );
+    expect(uploadMock).toHaveBeenNthCalledWith(1, "clip.mp4", video, expect.anything());
+    expect(uploadMock).toHaveBeenNthCalledWith(2, "logo.png", logo, expect.anything());
     expect(postedBody(fetchMock)).toEqual({
       tool: "mark",
       filename: "clip.mp4",

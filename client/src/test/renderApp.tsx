@@ -7,13 +7,10 @@ import { createAppRouter } from "../App";
 // Loosely typed: tests resolve it with just the fields the app reads ({ url }).
 export const uploadMock = upload as unknown as Mock;
 
-export const blobUrl = (name: string) =>
-  `https://store.public.blob.vercel-storage.com/${name}`;
+export const blobUrl = (name: string) => `https://store.public.blob.vercel-storage.com/${name}`;
 
 export const renderApp = async (initialPath = "/loop") => {
-  const router = createAppRouter(
-    createMemoryHistory({ initialEntries: [initialPath] }),
-  );
+  const router = createAppRouter(createMemoryHistory({ initialEntries: [initialPath] }));
   render(<RouterProvider router={router} />);
   await screen.findAllByRole("button");
   return router;
@@ -49,8 +46,6 @@ export const runFinished = (fetchMock: FetchMock) =>
 
 // The JSON body of the nth POST.
 export const postedBody = (fetchMock: FetchMock, nth = 0) => {
-  const posts = fetchMock.mock.calls.filter(
-    ([, init]) => init?.method === "POST",
-  );
+  const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
   return JSON.parse(posts[nth][1]!.body as string);
 };

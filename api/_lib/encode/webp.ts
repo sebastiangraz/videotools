@@ -17,19 +17,11 @@ export const MAX_WEBP_FPS = 50;
 // colours, while x264 at the same slider keeps it.
 const webpQuality = (quality: number) => Math.round(65 + (quality / 100) * 35);
 
-export const webpLevels = (quality: number) =>
-  levelRange(webpQuality(quality), webpQuality(1));
+export const webpLevels = (quality: number) => levelRange(webpQuality(quality), webpQuality(1));
 
 // In lossless mode -q:v is compression effort, not fidelity. libwebp drops an
 // opaque alpha.
-export const WEBP_LOSSLESS = [
-  "-lossless",
-  "1",
-  "-q:v",
-  "75",
-  "-pix_fmt",
-  "bgra",
-];
+export const WEBP_LOSSLESS = ["-lossless", "1", "-q:v", "75", "-pix_fmt", "bgra"];
 
 // ffmpeg decodes every WebP to argb, so walk the RIFF chunks: lossless means
 // only VP8L, no "VP8 " (mixed files have both). ANMF data starts with a
@@ -74,9 +66,7 @@ const LOSSLESS_CODECS = [
 
 // A lossy source written lossless is many times its size for nothing: its
 // artifacts get stored as detail (AVIF at 100 came to 31× its source).
-export async function isLosslessSource(
-  source: Source | null,
-): Promise<boolean> {
+export async function isLosslessSource(source: Source | null): Promise<boolean> {
   if (!source) return true;
   if (source.format === "webp") return isLosslessWebp(source.path);
   const { codec, pixFmt } = source.profile;
@@ -93,10 +83,7 @@ export const encodeWebp: Encoder = async (
   const rate = Math.min(fps ?? conversionFps(render), MAX_WEBP_FPS);
   const input = graphArgs(
     render,
-    [
-      ...(everyFrame ? [] : [`fps=${rate}`]),
-      ...(width == null ? [] : [fitWidth(width)]),
-    ],
+    [...(everyFrame ? [] : [`fps=${rate}`]), ...(width == null ? [] : [fitWidth(width)])],
     "bgra",
   );
   const lossless = quality >= 100 && (await isLosslessSource(render.source));
@@ -135,12 +122,7 @@ export const encodeWebp: Encoder = async (
   await encodeWithinBudget(ff, {
     outputFile,
     levels: webpLevels(quality),
-    budget: await sourceBytesBudget(
-      render,
-      "webp",
-      render.duration * render.fps,
-      quality / 100,
-    ),
+    budget: await sourceBytesBudget(render, "webp", render.duration * render.fps, quality / 100),
     encode,
   });
 };

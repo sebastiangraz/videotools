@@ -25,10 +25,7 @@ export const stubMediaLoading = (outcome: "decodes" | "fails") => {
   answerSrc(HTMLMediaElement.prototype, ok ? "loadeddata" : "error");
 };
 
-export const stubProperties = (
-  proto: object,
-  stubs: Record<string, PropertyDescriptor>,
-) => {
+export const stubProperties = (proto: object, stubs: Record<string, PropertyDescriptor>) => {
   for (const [name, descriptor] of Object.entries(stubs)) {
     const original = Object.getOwnPropertyDescriptor(proto, name);
     Object.defineProperty(proto, name, { configurable: true, ...descriptor });
@@ -45,11 +42,9 @@ export const stubCanvas = () => {
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
     drawImage,
   } as unknown as CanvasRenderingContext2D);
-  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
-    function (callback) {
-      callback(new Blob(["jpg"], { type: "image/jpeg" }));
-    },
-  );
+  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (callback) {
+    callback(new Blob(["jpg"], { type: "image/jpeg" }));
+  });
   return drawImage;
 };
 
@@ -111,8 +106,7 @@ export const stubVideoFrame = (width: number, height: number) => {
 };
 
 // Content is never read, bar a WebP's header.
-export const file = (name: string, type = "") =>
-  new File(["00"], name, { type });
+export const file = (name: string, type = "") => new File(["00"], name, { type });
 
 // Just the header up to the VP8X flags, all that is read (animation is bit
 // 0x02). A plain lossy file has "VP8 " where VP8X would be.

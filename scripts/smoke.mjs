@@ -133,40 +133,25 @@ function violations(expect, result, sourceFile) {
       ? []
       : [
           `has to be refused as "${expect.errorCode}", but ` +
-            (result.error
-              ? `failed with: ${result.error}`
-              : `came back as ${result.output}`),
+            (result.error ? `failed with: ${result.error}` : `came back as ${result.output}`),
         ];
   }
   if (result.error) return [`failed: ${result.error}`];
   const found = [];
   const ext = path.extname(result.output).slice(1);
   const wanted =
-    expect.ext === "source"
-      ? path.extname(sourceFile).slice(1).toLowerCase()
-      : expect.ext;
-  if (wanted && ext !== wanted)
-    found.push(`came back as .${ext}, has to be .${wanted}`);
+    expect.ext === "source" ? path.extname(sourceFile).slice(1).toLowerCase() : expect.ext;
+  if (wanted && ext !== wanted) found.push(`came back as .${ext}, has to be .${wanted}`);
   if (expect.maxRatio != null && result.ratio > expect.maxRatio) {
-    found.push(
-      `${result.ratio}x its source, at most ${expect.maxRatio}x allowed`,
-    );
+    found.push(`${result.ratio}x its source, at most ${expect.maxRatio}x allowed`);
   }
   if (expect.minRatio != null && result.ratio < expect.minRatio) {
-    found.push(
-      `${result.ratio}x its source, at least ${expect.minRatio}x expected`,
-    );
+    found.push(`${result.ratio}x its source, at least ${expect.minRatio}x expected`);
   }
-  if (
-    expect.turned &&
-    result.size !== result.sourceSize.split("x").reverse().join("x")
-  ) {
-    found.push(
-      `came back ${result.size}, has to be its source's ${result.sourceSize} on end`,
-    );
+  if (expect.turned && result.size !== result.sourceSize.split("x").reverse().join("x")) {
+    found.push(`came back ${result.size}, has to be its source's ${result.sourceSize} on end`);
   }
-  const wantedFrames =
-    result.sourceFrames * (expect.frames === "double" ? 2 : 1);
+  const wantedFrames = result.sourceFrames * (expect.frames === "double" ? 2 : 1);
   if (expect.frames && result.frames !== wantedFrames) {
     found.push(
       `${result.frames} frames, has to be ${wantedFrames} (its source has ${result.sourceFrames})`,
@@ -201,13 +186,7 @@ function parseArgs(argv) {
 function resolveAssets(ffmpeg, userDir, madeDir) {
   fs.mkdirSync(madeDir, { recursive: true });
   const ff = (...args) => {
-    const r = spawnSync(ffmpeg, [
-      "-y",
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      ...args,
-    ]);
+    const r = spawnSync(ffmpeg, ["-y", "-hide_banner", "-loglevel", "error", ...args]);
     if (r.status !== 0) throw new Error(`could not make an asset: ${r.stderr}`);
   };
   const made = (name) => path.join(madeDir, name);
@@ -232,9 +211,7 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
   };
   const missing = Object.keys(assets).filter((role) => !assets[role].length);
   if (missing.length) {
-    throw new Error(
-      `missing smoke assets in ${userDir}: ${missing.join(", ")}`,
-    );
+    throw new Error(`missing smoke assets in ${userDir}: ${missing.join(", ")}`);
   }
   const [video] = assets.video;
 
@@ -371,27 +348,13 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     return [made(name)];
   };
   assets.animwebp = animWebp("anim.webp", "-q:v", "80");
-  assets["animwebp-lossless"] = animWebp(
-    "anim-lossless.webp",
-    "-lossless",
-    "1",
-  );
+  assets["animwebp-lossless"] = animWebp("anim-lossless.webp", "-lossless", "1");
 
   ff("-i", video, "-frames:v", "1", made("still.png"));
   assets.png = [made("still.png")];
   ff("-i", video, "-frames:v", "1", "-q:v", "4", made("still.jpg"));
   assets.jpg = [made("still.jpg")];
-  ff(
-    "-i",
-    video,
-    "-frames:v",
-    "1",
-    "-c:v",
-    "libwebp",
-    "-q:v",
-    "85",
-    made("still.webp"),
-  );
+  ff("-i", video, "-frames:v", "1", "-c:v", "libwebp", "-q:v", "85", made("still.webp"));
   assets.webp = [made("still.webp")];
   // APP1 EXIF after SOI with one tag: Orientation (0x0112) = 6, rotate 90° CW.
   const tiff = Buffer.alloc(26);
@@ -426,22 +389,14 @@ function sameResult(before, after) {
   const keys = Object.keys({ ...before, ...after });
   return keys.every((k) => {
     if (k === "bytes") {
-      return (
-        Math.abs(before.bytes - after.bytes) <= SIZE_TOLERANCE * before.bytes
-      );
+      return Math.abs(before.bytes - after.bytes) <= SIZE_TOLERANCE * before.bytes;
     }
     if (k === "ratio") return Math.abs(before.ratio - after.ratio) <= 0.05;
     return before[k] === after[k];
   });
 }
 
-function diff(
-  name,
-  before,
-  after,
-  format,
-  same = (a, b) => format(a) === format(b),
-) {
+function diff(name, before, after, format, same = (a, b) => format(a) === format(b)) {
   const changed = Object.keys({ ...before, ...after }).filter(
     (k) => k in before && k in after && !same(before[k], after[k]),
   );
@@ -477,12 +432,9 @@ if (ffmpegCheck.problems.length) {
 }
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
-const userDirShown = userDir.startsWith(root)
-  ? path.relative(root, userDir)
-  : userDir;
+const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
 const assets = resolveAssets(ffmpegPath, userDir, path.join(outDir, "assets"));
-const bytesOf = (paths) =>
-  paths.reduce((sum, p) => sum + fs.statSync(p).size, 0);
+const bytesOf = (paths) => paths.reduce((sum, p) => sum + fs.statSync(p).size, 0);
 const describe = (paths) =>
   paths.length === 1
     ? `${path.basename(paths[0])} ${bytesOf(paths)}`
@@ -498,10 +450,7 @@ for (const file of Object.values(assets).flat()) {
 }
 const BLOB = "https://smoke.public.blob.vercel-storage.com/";
 const download = async (url, destPath) =>
-  fs.copyFileSync(
-    byName.get(decodeURIComponent(path.basename(new URL(url).pathname))),
-    destPath,
-  );
+  fs.copyFileSync(byName.get(decodeURIComponent(path.basename(new URL(url).pathname))), destPath);
 
 let workDir = "";
 const recorded = [];
@@ -537,9 +486,7 @@ const results = {
   ),
 };
 const only = args.only?.split(",").filter(Boolean);
-const names = Object.keys(CASES).filter(
-  (n) => !only || only.some((o) => n.includes(o)),
-);
+const names = Object.keys(CASES).filter((n) => !only || only.some((o) => n.includes(o)));
 for (const name of names) {
   const { tool, preview, files: roles, options, expect } = CASES[name];
   const files = roles.flatMap((role) => assets[role]);
@@ -564,9 +511,7 @@ for (const name of names) {
       );
       downloadName = path.basename(outputPath);
     } else {
-      const urls = files.map(
-        (f) => BLOB + encodeURIComponent(path.basename(f)),
-      );
+      const urls = files.map((f) => BLOB + encodeURIComponent(path.basename(f)));
       const request =
         tool === "sequence"
           ? { blobUrls: urls, options }
@@ -584,9 +529,7 @@ for (const name of names) {
       downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
     }
     // Fresh instance so probes aren't recorded.
-    const info = await new FFmpeg(ffmpegPath, "")
-      .mediaInfo(outputPath)
-      .catch(() => null);
+    const info = await new FFmpeg(ffmpegPath, "").mediaInfo(outputPath).catch(() => null);
     const bytes = fs.statSync(outputPath).size;
     // Decoded, not duration*fps: a frame lost at a cut shows in neither.
     const prober = new FFmpeg(ffmpegPath, "");
@@ -603,9 +546,7 @@ for (const name of names) {
           }
         : {}),
       ...(expect?.turned
-        ? await prober
-            .mediaInfo(source[0])
-            .then((s) => ({ sourceSize: `${s.width}x${s.height}` }))
+        ? await prober.mediaInfo(source[0]).then((s) => ({ sourceSize: `${s.width}x${s.height}` }))
         : {}),
       ...(info
         ? {
@@ -639,14 +580,8 @@ for (const name of names) {
   );
 }
 
-fs.writeFileSync(
-  path.join(outDir, "commands.json"),
-  JSON.stringify(commands, null, 1),
-);
-fs.writeFileSync(
-  path.join(outDir, "results.json"),
-  JSON.stringify(results, null, 1),
-);
+fs.writeFileSync(path.join(outDir, "commands.json"), JSON.stringify(commands, null, 1));
+fs.writeFileSync(path.join(outDir, "results.json"), JSON.stringify(results, null, 1));
 say(`\nsaved to ${path.relative(root, outDir)}`);
 
 const brokenNames = Object.keys(broken);
@@ -660,13 +595,10 @@ if (brokenNames.length) {
 }
 
 if (args.diff) {
-  const read = (file) =>
-    JSON.parse(fs.readFileSync(path.join(smokeDir, args.diff, file), "utf8"));
+  const read = (file) => JSON.parse(fs.readFileSync(path.join(smokeDir, args.diff, file), "utf8"));
   say(`\ncompared with "${args.diff}":`);
   console.log = say;
-  const sameCommands = diff("commands", read("commands.json"), commands, (c) =>
-    c.join("\n"),
-  );
+  const sameCommands = diff("commands", read("commands.json"), commands, (c) => c.join("\n"));
   const sameResults = diff(
     "results",
     read("results.json"),

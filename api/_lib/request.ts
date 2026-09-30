@@ -21,22 +21,11 @@ export function isBlobUrl(url: unknown): url is string {
   }
 }
 
-export function pick<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  fallback: T,
-): T {
-  return typeof value === "string" && allowed.includes(value as T)
-    ? (value as T)
-    : fallback;
+export function pick<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
 }
 
-export function clamp(
-  value: unknown,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
+export function clamp(value: unknown, min: number, max: number, fallback: number): number {
   const n = typeof value === "number" ? value : parseFloat(String(value));
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));

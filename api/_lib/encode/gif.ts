@@ -52,10 +52,7 @@ export const encodeGif: Encoder = async (
   const total = Math.ceil(render.duration * fps);
   const rendered = render.palindrome ? Math.ceil(total / 2) : total;
   const size = scaledSize(render, width);
-  if (
-    total > MAX_GIF_FRAMES ||
-    rendered * size.width * size.height > MAX_GIF_PIXELS
-  ) {
+  if (total > MAX_GIF_FRAMES || rendered * size.width * size.height > MAX_GIF_PIXELS) {
     const seconds = Math.round(render.duration);
     throw new InputError(
       `Video too long for GIF: ${seconds}s at ${fps} fps comes to ${total} ` +
@@ -93,9 +90,7 @@ export const encodeGif: Encoder = async (
     if (!forward.length) {
       throw new Error("No frames extracted from video");
     }
-    const frames = render.palindrome
-      ? [...forward, ...[...forward].reverse()]
-      : forward;
+    const frames = render.palindrome ? [...forward, ...[...forward].reverse()] : forward;
 
     // Without an explicit size gifski downscales past ~800×600.
     const [w, h] = await pngSize(path.join(framesDir, forward[0]));
@@ -103,9 +98,7 @@ export const encodeGif: Encoder = async (
     // gifski quality moves size in steps (100→90 and →50; little between
     // 90 and 70), so over-budget retries use those.
     const budget = await sourceBytesBudget(render, "gif", frames.length);
-    const ladder = [
-      ...new Set([quality, Math.min(quality, 90), Math.min(quality, 50)]),
-    ];
+    const ladder = [...new Set([quality, Math.min(quality, 90), Math.min(quality, 50)])];
     for (const [i, step] of ladder.entries()) {
       const started = Date.now();
       // No shell globbing: bare names from cwd keep under Windows' 32k limit.

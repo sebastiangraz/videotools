@@ -33,10 +33,7 @@ export function rateCap(
   factor = 1,
 ): RateCap | null {
   if (!sourceKbps) return null;
-  const maxrate = Math.max(
-    8,
-    Math.round((sourceKbps * factor * GENERATION * quality) / 100),
-  );
+  const maxrate = Math.max(8, Math.round((sourceKbps * factor * GENERATION * quality) / 100));
   // ~1/6 of the clip keeps the file within ~15% of rate × duration (x264);
   // ≥0.5s so short clips open on a full keyframe, ≤2s to stay streamable.
   const window = Math.min(2, Math.max(0.5, seconds / 6));

@@ -1,9 +1,5 @@
 import type { ReactNode, Ref } from "react";
-import {
-  Tabs as BaseTabs,
-  type TabsRootProps,
-  type TabsTabProps,
-} from "@base-ui/react/tabs";
+import { Tabs as BaseTabs, type TabsRootProps, type TabsTabProps } from "@base-ui/react/tabs";
 import styles from "./Tabs.module.css";
 
 // Tab strip on Base UI's Tabs. Only the list is composed here; the caller owns
@@ -26,21 +22,11 @@ export const Tabs = ({
   indicatorClassName?: string;
   children: ReactNode;
 }) => (
-  <BaseTabs.Root
-    value={value}
-    onValueChange={onValueChange}
-    className={className}
-  >
-    <BaseTabs.List
-      className={
-        listClassName ? `${styles.list} ${listClassName}` : styles.list
-      }
-    >
+  <BaseTabs.Root value={value} onValueChange={onValueChange} className={className}>
+    <BaseTabs.List className={listClassName ? `${styles.list} ${listClassName}` : styles.list}>
       {children}
       {indicatorClassName ? (
-        <BaseTabs.Indicator
-          className={`${styles.indicator} ${indicatorClassName}`}
-        />
+        <BaseTabs.Indicator className={`${styles.indicator} ${indicatorClassName}`} />
       ) : null}
     </BaseTabs.List>
   </BaseTabs.Root>

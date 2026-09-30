@@ -22,10 +22,7 @@ const required = (tool: string, file: string): string => {
 };
 
 // FFMPEG_BIN overrides, e.g. to compare another version.
-export const ffmpegPath: string = required(
-  "ffmpeg",
-  process.env.FFMPEG_BIN || pinned("ffmpeg"),
-);
+export const ffmpegPath: string = required("ffmpeg", process.env.FFMPEG_BIN || pinned("ffmpeg"));
 
 // The linux build is static-pie, so it runs on the function runtime as-is.
 export const gifskiPath: string = required("gifski", pinned("gifski"));

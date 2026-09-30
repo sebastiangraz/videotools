@@ -11,8 +11,7 @@ import {
 } from "../../test/renderApp";
 import { file } from "../../test/media";
 
-const createButton = () =>
-  screen.getByRole("button", { name: /create video/i });
+const createButton = () => screen.getByRole("button", { name: /create video/i });
 
 describe("Sequence", () => {
   it("uploads the images and requests an image sequence", async () => {

@@ -38,34 +38,19 @@ export const Test = () => {
     <Page title="Components">
       <div className={form.horizontal}>
         <div className={form.switchRow}>
-          <Switch
-            id="disabled"
-            checked={disabled}
-            onCheckedChange={setDisabled}
-            disabled={false}
-          />
+          <Switch id="disabled" checked={disabled} onCheckedChange={setDisabled} disabled={false} />
           <label htmlFor="disabled" className={form.label}>
             Disabled
           </label>
         </div>
         <div className={form.switchRow}>
-          <Switch
-            id="message"
-            checked={message}
-            onCheckedChange={setMessage}
-            disabled={disabled}
-          />
+          <Switch id="message" checked={message} onCheckedChange={setMessage} disabled={disabled} />
           <label htmlFor="message" className={form.label}>
             Message
           </label>
         </div>
         <div className={form.switchRow}>
-          <Switch
-            id="error"
-            checked={error}
-            onCheckedChange={setError}
-            disabled={disabled}
-          />
+          <Switch id="error" checked={error} onCheckedChange={setError} disabled={disabled} />
           <label htmlFor="error" className={form.label}>
             Error message
           </label>
@@ -74,13 +59,7 @@ export const Test = () => {
       {message && <Message>A message over the title</Message>}
       {error && <Message kind="error">An error over the title</Message>}
 
-      <DropZone
-        accept="*"
-        multiple
-        pickerLabel="choose files"
-        files={files}
-        onFiles={setFiles}
-      />
+      <DropZone accept="*" multiple pickerLabel="choose files" files={files} onFiles={setFiles} />
 
       <div className={form.horizontal}>
         <div className={form.formGroup}>

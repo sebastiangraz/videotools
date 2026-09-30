@@ -14,11 +14,7 @@ const HD = { width: 1920, height: 1080 };
 // Big enough that rounding to even pixels is well under a percent.
 const UHD = { width: 3840, height: 2160 };
 const UNIT = Math.sqrt(UHD.width * UHD.height);
-const layout = (
-  video: { width: number; height: number },
-  aspect: number,
-  base = 1000,
-) =>
+const layout = (video: { width: number; height: number }, aspect: number, base = 1000) =>
   watermarkLayout(video, {
     width: Math.round(base * Math.sqrt(aspect)),
     height: Math.round(base / Math.sqrt(aspect)),
@@ -27,10 +23,7 @@ const layout = (
 // Two alternative tunings prove the model holds as the constants move.
 const TUNINGS: [string, Partial<typeof MARK>][] = [
   ["as tuned", {}],
-  [
-    "small, equal-area",
-    { sizeRatio: 0.05, elongationGain: 0, maxSpan: 0.25, paddingRatio: 0.03 },
-  ],
+  ["small, equal-area", { sizeRatio: 0.05, elongationGain: 0, maxSpan: 0.25, paddingRatio: 0.03 }],
   [
     "large, near equal-height",
     { sizeRatio: 0.11, elongationGain: 0.8, maxSpan: 0.4, paddingRatio: 0.07 },
@@ -47,10 +40,7 @@ describe.each(TUNINGS)("watermarkLayout (%s)", (_name, tuning) => {
     expect(l.LW).toBe(l.LH);
     expect(Math.abs(l.LW - UNIT * MARK.sizeRatio)).toBeLessThanOrEqual(2);
     expect(l.margin).toBe(Math.round(UNIT * MARK.paddingRatio));
-    expect([l.LX, l.LY]).toEqual([
-      UHD.width - l.margin - l.LW,
-      UHD.height - l.margin - l.LH,
-    ]);
+    expect([l.LX, l.LY]).toEqual([UHD.width - l.margin - l.LW, UHD.height - l.margin - l.LH]);
   });
 
   it("sizes by the logo's shape, not its resolution", () => {
@@ -83,11 +73,7 @@ describe.each(TUNINGS)("watermarkLayout (%s)", (_name, tuning) => {
     const [wide, tall] = [layout(HD, 2), layout(HD, 1 / 2)];
     expect([tall.LW, tall.LH]).toEqual([wide.LH, wide.LW]);
     const portrait = layout({ width: 1080, height: 1920 }, 2);
-    expect([portrait.LW, portrait.LH, portrait.margin]).toEqual([
-      wide.LW,
-      wide.LH,
-      wide.margin,
-    ]);
+    expect([portrait.LW, portrait.LH, portrait.margin]).toEqual([wide.LW, wide.LH, wide.margin]);
   });
 
   it("scales with the frame, so the downscaled preview matches the export", () => {
@@ -148,18 +134,14 @@ describe("parseBounds", () => {
   it("falls back to the whole image when nothing is reported", () => {
     const full = { x: 0, y: 0, width: 400, height: 300 };
     expect(parseBounds("", 400, 300)).toEqual(full);
-    expect(
-      parseBounds("[Parsed_bbox_2 @ 0] n:0 pts:0 pts_time:0", 400, 300),
-    ).toEqual(full);
+    expect(parseBounds("[Parsed_bbox_2 @ 0] n:0 pts:0 pts_time:0", 400, 300)).toEqual(full);
   });
 });
 
 describe("watermarkLayout sizes", () => {
   it("is the large size by default", () => {
     const bounds = { width: 300, height: 80 };
-    expect(watermarkLayout(UHD, bounds)).toEqual(
-      watermarkLayout(UHD, bounds, "large"),
-    );
+    expect(watermarkLayout(UHD, bounds)).toEqual(watermarkLayout(UHD, bounds, "large"));
   });
 
   it.each([1, 16 / 9, 6, 1 / 3])(
@@ -174,9 +156,7 @@ describe("watermarkLayout sizes", () => {
       const { scale, gap } = MARK_SIZES.small;
       expect(Math.abs(small.LW - large.LW * scale)).toBeLessThanOrEqual(2);
       expect(Math.abs(small.LH - large.LH * scale)).toBeLessThanOrEqual(2);
-      expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(
-        1,
-      );
+      expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(1);
       // The large gap is its padding; the small one is a share of that, the
       // same on both edges whatever the logo's shape
       expect(large.gap).toBe(large.margin);
@@ -273,15 +253,12 @@ describe("watermarkGraph", () => {
   });
 
   // The bevel's blur, stretched: the lens's shape
-  const heightfield = (graph: string) =>
-    /gblur=[^;[]*,lut=[^;[]*/.exec(graph)?.[0];
+  const heightfield = (graph: string) => /gblur=[^;[]*,lut=[^;[]*/.exec(graph)?.[0];
   // The x slope, scaled by how far the lens refracts
   const lens = (graph: string) =>
     /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];
   const opacities = (graph: string) =>
-    [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) =>
-      Number(aa),
-    );
+    [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) => Number(aa));
 
   it("shows the displacement map over a light-gray frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
