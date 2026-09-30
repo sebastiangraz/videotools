@@ -12,7 +12,8 @@ vercel env pull .env.local   # BLOB_READ_WRITE_TOKEN
 npm run dev                  # vercel dev: client + api on one origin
 
 npm test                     # unit tests
-npm run lint                 # eslint
+npm run lint                 # oxlint (type-aware on api/)
+npm run format               # oxfmt
 npm run typecheck            # api/shared + client
 npm test                     # vitest (client tests + api/shared unit tests)
                              # e2e tests against the real ffmpeg

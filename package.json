@@ -17,23 +17,21 @@
     "test": "npm run test --workspace client",
     "smoke": "node scripts/smoke.mjs",
     "postinstall": "node scripts/binaries-install.mjs",
-    "lint": "eslint --flag unstable_native_nodejs_ts_config .",
+    "lint": "oxlint",
     "typecheck": "tsc -p tsconfig.json && tsc -p client",
-    "lint:fix": "npm run lint -- --fix"
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0"
   },
   "devDependencies": {
-    "@eslint/css": "^2.0.0",
-    "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.0",
     "@vercel/node": "^16.0.2",
-    "eslint": "^10.11.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.7",
-    "globals": "^17.12.0",
-    "typescript": "~6.0.3",
-    "typescript-eslint": "^8.71.0"
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
+    "oxlint-tsgolint": "^7.0.2003",
+    "typescript": "~6.0.3"
   }
 }
