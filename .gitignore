@@ -1,7 +1,5 @@
 node_modules/
 dist/
-.vercel
-.env*.local
 tmp/
 .smoke/
 # Fetched by the postinstall from ffmpeg.json and gifski.json

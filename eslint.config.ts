@@ -43,7 +43,6 @@ export default defineConfig([
   {
     files: [
       "client/vite.config.ts",
-      "client/postcss.config.js",
       "eslint.config.ts",
       "scripts/**/*.mjs",
     ],
