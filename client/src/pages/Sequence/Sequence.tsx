@@ -93,9 +93,7 @@ export const Sequence = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={
-        <Upload {...TOOL.input} files={files} onFiles={pick} dims={imageDims} />
-      }
+      inputs={<Upload {...TOOL.input} files={files} onFiles={pick} dims={imageDims} />}
       blocker={files.length > 0 ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
@@ -137,13 +135,7 @@ export const Sequence = () => {
                 : files.length > 0 &&
                   imageDims &&
                   ` ~${formatBytes(
-                    estimateOutputBytes(
-                      imageDims.w,
-                      imageDims.h,
-                      files.length,
-                      format,
-                      quality,
-                    ),
+                    estimateOutputBytes(imageDims.w, imageDims.h, files.length, format, quality),
                   )}`}
             </>
           }
