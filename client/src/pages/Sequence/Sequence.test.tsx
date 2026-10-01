@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import {
@@ -9,9 +9,13 @@ import {
   stubProcessFetch,
   uploadMock,
 } from "../../test/renderApp";
-import { file } from "../../test/media";
+import { file, imageFile, stubCanvas, stubImageDecoder } from "../../test/media";
 
 const createButton = () => screen.getByRole("button", { name: /create video/i });
+
+// NumberField parses with the runtime locale: type its decimal separator
+const decimal = (whole: number, tenths: number) =>
+  `${whole}${(1.1).toLocaleString().charAt(1)}${tenths}`;
 
 describe("Sequence", () => {
   it("uploads the images and requests an image sequence", async () => {
@@ -38,6 +42,28 @@ describe("Sequence", () => {
       blobUrls: [blobUrl("a.png"), blobUrl("b.png")],
       options: { frameDuration: 1, format: "gif", quality: 100 },
     });
+  });
+
+  it("plays the pick at the time per frame in a preview card", async () => {
+    const user = userEvent.setup();
+    stubImageDecoder(1, 0);
+    const drawImage = stubCanvas();
+    await renderApp("/sequence");
+    await user.upload(screen.getByLabelText(/choose images/i), [
+      imageFile("a.png", "image/png"),
+      imageFile("b.png", "image/png"),
+    ]);
+    expect(screen.queryByLabelText(/sequence preview/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/time per frame/i), {
+      target: { value: decimal(0, 1) },
+    });
+    await user.hover(screen.getByLabelText(/time per frame/i));
+    const preview = await screen.findByLabelText(/sequence preview/i);
+    expect(preview.tagName).toBe("CANVAS");
+    // One frame per still, round and round at 0.1 s each
+    await waitFor(() => expect(drawImage.mock.calls.length).toBeGreaterThanOrEqual(3));
+    expect(preview).toHaveProperty("width", 480);
   });
 
   it("turns a pick of mixed formats away", async () => {
