@@ -8,38 +8,33 @@ import {
   isAnimatedImage,
   isAnimatedWebp,
   isStillImage,
-  mp4Fps,
+  mp4FrameCount,
   pickedFormats,
   stillFormat,
   targetsFor,
 } from "./sourceFormat";
-import { box, file, largeBox, u32, u64, webpFile } from "./test/media";
+import { box, file, u32, webpFile } from "./test/media";
 
-// 30 frames over 30030/30000 s: NTSC 29.97. moov trails the media data and
-// lists an audio track first. v1: 64-bit mdhd times and a 64-bit mdat size.
-const mp4File = (name: string, v1 = false) => {
+// 30 video frames, with the moov after the media data and an audio track (its
+// own, larger sample table) listed first.
+const mp4File = () => {
   const zero = (n: number) => new Uint8Array(n);
-  const mdhd = v1
-    ? box("mdhd", new Uint8Array([1, 0, 0, 0]), zero(16), u32(30000), u64(30030))
-    : box("mdhd", zero(4), zero(8), u32(30000), u32(30030));
-  const stbl = box("stbl", box("stsz", zero(4), u32(0), u32(30)));
-  const video = box("trak", box("mdia", mdhd, box("minf", box("vmhd"), stbl)));
-  const audio = box("trak", box("mdia", box("minf", box("smhd"))));
-  const mdat = (v1 ? largeBox : box)("mdat", zero(64));
-  return new File([box("ftyp"), mdat, box("moov", audio, video)], name);
+  const stbl = (samples: number) => box("stbl", box("stsz", zero(4), u32(0), u32(samples)));
+  const video = box("trak", box("mdia", box("minf", box("vmhd"), stbl(30))));
+  const audio = box("trak", box("mdia", box("minf", box("smhd"), stbl(47))));
+  return new File([box("ftyp"), box("mdat", zero(64)), box("moov", audio, video)], "clip.mp4");
 };
 
-describe("mp4Fps", () => {
-  it("reads the video track's average rate from a trailing moov", async () => {
-    expect(await mp4Fps(mp4File("clip.mp4"))).toBeCloseTo(29.97, 2);
-    expect(await mp4Fps(mp4File("clip.mov", true))).toBeCloseTo(29.97, 2);
+describe("mp4FrameCount", () => {
+  it("counts the video track's samples, from a trailing moov", async () => {
+    expect(await mp4FrameCount(mp4File())).toBe(30);
   });
 
   it("is unknown without a moov or for other containers", async () => {
-    expect(await mp4Fps(new File([box("ftyp"), box("mdat")], "clip.mp4"))).toBeNull();
+    expect(await mp4FrameCount(new File([box("ftyp"), box("mdat")], "clip.mp4"))).toBeNull();
     // A WebM's EBML magic reads as a box larger than the file.
     const ebml = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]);
-    expect(await mp4Fps(new File([ebml, box("moov")], "clip.webm"))).toBeNull();
+    expect(await mp4FrameCount(new File([ebml, box("moov")], "clip.webm"))).toBeNull();
   });
 });
 

@@ -9,8 +9,8 @@ export const maxStart = (duration: number): number | undefined =>
 export const clampStart = (startSecond: number | null, duration: number): number | null =>
   startSecond === null ? null : Math.min(startSecond, maxStart(duration) ?? Infinity);
 
-// What the probe learned about a source. fps: MP4/MOV and animated images;
-// null = unknown.
+// What the probe learned about a source. fps: the average, frames over length;
+// null = unknown (a still, or a container the frame source can't count).
 export interface SourceMeta {
   w: number;
   h: number;
@@ -40,15 +40,16 @@ export function useVideoSource() {
     openFrameSource(picked)
       .then(async (frames) => {
         try {
-          const [seconds, frame, fps] = await Promise.all([
+          const [seconds, frame, count] = await Promise.all([
             frames.duration(),
             frames.frameAt(0),
-            frames.fps?.().catch(() => null),
+            frames.frameCount?.().catch(() => null),
           ]);
           const { width, height } = frame;
           frame.close();
           if (latest.current !== picked) return;
           setDuration(seconds);
+          const fps = count && seconds ? count / seconds : null;
           if (width > 0 && height > 0) setMeta({ w: width, h: height, fps });
           setNonSquare(frames.nonSquare?.() ?? false);
         } finally {

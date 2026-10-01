@@ -129,23 +129,10 @@ export const u32 = (n: number) => {
   new DataView(out.buffer).setUint32(0, n);
   return out;
 };
-export const u64 = (n: number) => {
-  const out = new Uint8Array(8);
-  new DataView(out.buffer).setBigUint64(0, BigInt(n));
-  return out;
-};
 
-// An MP4 box: size, type, body. `large`: size 1 and a 64-bit size after the
-// type, as a >4 GB mdat is written.
+// An MP4 box: size, type, body.
 export const box = (type: string, ...body: Uint8Array[]) =>
   bytes([u32(8 + body.reduce((n, p) => n + p.length, 0)), new TextEncoder().encode(type), ...body]);
-export const largeBox = (type: string, ...body: Uint8Array[]) =>
-  bytes([
-    u32(1),
-    new TextEncoder().encode(type),
-    u64(16 + body.reduce((n, p) => n + p.length, 0)),
-    ...body,
-  ]);
 
 // jsdom's File has no stream().
 export const imageFile = (name: string, type = "image/gif") => {
