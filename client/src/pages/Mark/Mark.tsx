@@ -113,7 +113,12 @@ export const Mark = () => {
       tool={TOOL}
       inputs={
         <div className={styles.markInputs}>
-          <Upload {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />
+          <Upload
+            {...TOOL.input}
+            files={source.file ? [source.file] : []}
+            onFiles={pick}
+            dims={source.dims}
+          />
           <Upload
             accept={WATERMARK_ACCEPT}
             multiple={false}

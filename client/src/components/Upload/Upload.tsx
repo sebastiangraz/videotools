@@ -1,5 +1,7 @@
 import { useRef, useState, ChangeEvent, DragEvent } from "react";
+import type { Dims } from "../../hooks/useVideoSource";
 import styles from "./Upload.module.css";
+import { formatBytes, shortenFilename } from "../../helpers";
 
 // Dropped files skip the native picker's accept filtering, so mirror it:
 // entries are either MIME patterns ("video/*") or bare extensions (".mkv").
@@ -22,6 +24,7 @@ export const Upload = ({
   files,
   onFiles,
   thumbnail,
+  dims,
 }: {
   accept: string;
   multiple: boolean;
@@ -29,6 +32,7 @@ export const Upload = ({
   files: File[];
   onFiles: (files: File[]) => void;
   thumbnail?: string;
+  dims?: Dims | null;
 }) => {
   // Drag enter/leave also fire on the upload's children, so a plain
   // boolean would flicker off mid-drag; the depth counter only clears once
@@ -66,6 +70,8 @@ export const Upload = ({
     onFiles(multiple ? dropped : dropped.slice(0, 1));
   };
 
+  const fileUploaded = files.length > 0;
+
   return (
     <label
       className={`${styles.upload}${dragging ? ` ${styles.uploadActive}` : ""}`}
@@ -73,6 +79,7 @@ export const Upload = ({
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={dragLeave}
       onDrop={drop}
+      data-file-uploaded={fileUploaded ? "" : undefined}
     >
       <input
         aria-label={pickerLabel}
@@ -82,12 +89,22 @@ export const Upload = ({
         onChange={pick}
         className={styles.uploadInput}
       />
-      {files.length > 0 ? (
+      {fileUploaded ? (
         <span className={styles.uploadFile}>
           {thumbnail && (
             <img src={thumbnail} alt="" className={styles.uploadThumb} />
           )}
-          {files.length === 1 ? files[0].name : `${files.length} files`}
+          <span className={styles.uploadMeta}>
+            <span>
+              {files.length === 1
+                ? shortenFilename(files[0])
+                : `${files.length} files`}
+            </span>
+            <span className={styles.uploadSizes}>
+              {formatBytes(files.reduce((sum, f) => sum + f.size, 0))}
+              {dims && ` · ${dims.w}×${dims.h}px`}
+            </span>
+          </span>
         </span>
       ) : (
         <span className={styles.uploadLabel}>
@@ -102,7 +119,7 @@ export const Upload = ({
         </span>
       )}
       <span className={styles.uploadHint}>
-        {files.length > 0 ? "click/drop to replace" : "or drop it here"}
+        {fileUploaded ? "click/drop to replace" : "or drop it here"}
       </span>
     </label>
   );

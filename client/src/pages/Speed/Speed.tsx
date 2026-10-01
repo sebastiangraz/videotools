@@ -39,7 +39,14 @@ export const Speed = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={<Upload {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
+      inputs={
+        <Upload
+          {...TOOL.input}
+          files={source.file ? [source.file] : []}
+          onFiles={pick}
+          dims={source.dims}
+        />
+      }
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}

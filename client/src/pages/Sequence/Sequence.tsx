@@ -11,6 +11,7 @@ import { byFilename } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { SEQUENCE_FORMATS, formatById } from "../../../../api/_lib/formats";
 import form from "../form.module.css";
+import { formatBytes } from "../../helpers";
 
 const TOOL = toolById("sequence");
 
@@ -42,11 +43,6 @@ function estimateOutputBytes(
   const pixels = Math.round(w * scale) * Math.round(h * scale);
   // Quality affects size superlinearly
   return pixels * frames * (bpp.min + (bpp.max - bpp.min) * t * t);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 export const Sequence = () => {
@@ -97,7 +93,9 @@ export const Sequence = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={<Upload {...TOOL.input} files={files} onFiles={pick} />}
+      inputs={
+        <Upload {...TOOL.input} files={files} onFiles={pick} dims={imageDims} />
+      }
       blocker={files.length > 0 ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
@@ -139,7 +137,13 @@ export const Sequence = () => {
                 : files.length > 0 &&
                   imageDims &&
                   ` ~${formatBytes(
-                    estimateOutputBytes(imageDims.w, imageDims.h, files.length, format, quality),
+                    estimateOutputBytes(
+                      imageDims.w,
+                      imageDims.h,
+                      files.length,
+                      format,
+                      quality,
+                    ),
                   )}`}
             </>
           }

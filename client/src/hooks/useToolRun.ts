@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ToolId } from "../tools";
+import { shortenFilename } from "../helpers";
 
 // Best effort: the server sweeps leftovers anyway.
 function deleteBlobs(urls: string[]) {
@@ -81,7 +82,7 @@ export function useToolRun(tool: ToolId) {
       const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
       const downloadName = resultName || `${base}_${tool}${ext}`;
 
-      setMsg(`Downloading ${downloadName.slice(0, 28)}`);
+      setMsg(`Downloading ${shortenFilename(files[0])}`);
       // Blob storage is cross-origin, where `download` is ignored.
       const fileRes = await fetch(url, { signal });
       if (!fileRes.ok) throw new Error(`Failed to download result (${fileRes.status})`);

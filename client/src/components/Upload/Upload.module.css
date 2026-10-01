@@ -5,7 +5,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.75em;
-  padding: 0 1em;
+  padding: 1em;
   min-height: 2.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -25,10 +25,25 @@
   &:has(:focus-visible) {
     outline: 1px solid var(--border);
   }
+
+}
+
+.uploadMeta {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+  justify-content: center;  
+  text-align: center;
+}
+
+.uploadSizes {
+  color: var(--fg-secondary);
+  flex-direction: column;
+  align-items: start;
+  
 }
 
 .uploadActive {
-  /* border-color: var(--fg); */
   color: var(--fg);
   background-color: var(--border-subtle);
   outline: 1px solid var(--border);
@@ -49,16 +64,16 @@
 }
 
 .uploadFile {
-  display: inline-flex;
+  display: inline-flex;  
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75em;
   color: var(--fg);
   text-transform: none;
   overflow-wrap: anywhere;
+  justify-content: center;
 }
 
-/* Watermark thumbnail. The faint backing keeps a white logo visible on the
-   light theme. */
 .uploadThumb {
   height: 1.5rem;
   max-width: 3rem;
@@ -80,4 +95,5 @@
 
 .uploadHint {
   color: var(--fg-tertiary);
+  text-align: center;
 }
