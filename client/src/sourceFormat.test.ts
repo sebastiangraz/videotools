@@ -8,11 +8,35 @@ import {
   isAnimatedImage,
   isAnimatedWebp,
   isStillImage,
+  mp4FrameCount,
   pickedFormats,
   stillFormat,
   targetsFor,
 } from "./sourceFormat";
-import { file, webpFile } from "./test/media";
+import { box, file, u32, webpFile } from "./test/media";
+
+// 30 video frames, with the moov after the media data and an audio track (its
+// own, larger sample table) listed first.
+const mp4File = () => {
+  const zero = (n: number) => new Uint8Array(n);
+  const stbl = (samples: number) => box("stbl", box("stsz", zero(4), u32(0), u32(samples)));
+  const video = box("trak", box("mdia", box("minf", box("vmhd"), stbl(30))));
+  const audio = box("trak", box("mdia", box("minf", box("smhd"), stbl(47))));
+  return new File([box("ftyp"), box("mdat", zero(64)), box("moov", audio, video)], "clip.mp4");
+};
+
+describe("mp4FrameCount", () => {
+  it("counts the video track's samples, from a trailing moov", async () => {
+    expect(await mp4FrameCount(mp4File())).toBe(30);
+  });
+
+  it("is unknown without a moov or for other containers", async () => {
+    expect(await mp4FrameCount(new File([box("ftyp"), box("mdat")], "clip.mp4"))).toBeNull();
+    // A WebM's EBML magic reads as a box larger than the file.
+    const ebml = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]);
+    expect(await mp4FrameCount(new File([ebml, box("moov")], "clip.webm"))).toBeNull();
+  });
+});
 
 describe("fileFormat", () => {
   it("goes by the name, then by the type the browser reports", () => {

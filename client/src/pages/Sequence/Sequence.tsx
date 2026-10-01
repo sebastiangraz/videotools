@@ -6,7 +6,7 @@ import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
-import type { Dims } from "../../hooks/useVideoSource";
+import type { SourceMeta } from "../../hooks/useVideoSource";
 import { byFilename } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { SEQUENCE_FORMATS, formatById } from "../../../../api/_lib/formats";
@@ -53,7 +53,7 @@ export const Sequence = () => {
     foreign: false,
     oneFormat: true,
   });
-  const [imageDims, setImageDims] = useState<Dims | null>(null);
+  const [imageMeta, setImageMeta] = useState<SourceMeta | null>(null);
   // NumberField reports null while empty; submit falls back to the default.
   const [frameDuration, setFrameDuration] = useState<number | null>(1);
   const [format, setFormat] = useState<string>("mp4");
@@ -63,14 +63,14 @@ export const Sequence = () => {
     run.clearError();
     const sorted = [...picked].sort(byFilename);
     setFiles(sorted);
-    setImageDims(null);
+    setImageMeta(null);
 
     const first = sorted[0];
     if (first.type.startsWith("image/")) {
       // The first image sets the output frame size.
       const img = new Image();
       img.onload = () => {
-        setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
+        setImageMeta({ w: img.naturalWidth, h: img.naturalHeight });
         URL.revokeObjectURL(img.src);
       };
       img.src = URL.createObjectURL(first);
@@ -93,7 +93,7 @@ export const Sequence = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={<Upload {...TOOL.input} files={files} onFiles={pick} dims={imageDims} />}
+      inputs={<Upload {...TOOL.input} files={files} onFiles={pick} meta={imageMeta} />}
       blocker={files.length > 0 ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
@@ -133,9 +133,9 @@ export const Sequence = () => {
               {(format === "avif" || format === "webp") && quality === 100
                 ? " (lossless)"
                 : files.length > 0 &&
-                  imageDims &&
+                  imageMeta &&
                   ` ~${formatBytes(
-                    estimateOutputBytes(imageDims.w, imageDims.h, files.length, format, quality),
+                    estimateOutputBytes(imageMeta.w, imageMeta.h, files.length, format, quality),
                   )}`}
             </>
           }

@@ -74,6 +74,43 @@ async function readWebpHeader(file: File): Promise<boolean> {
   );
 }
 
+// A box's body as [start, end) offsets into the file.
+type Span = [number, number];
+
+const read = async (file: File, at: number, length: number) =>
+  new DataView(await file.slice(at, at + length).arrayBuffer());
+
+// The box at `path` under `[at, end)`: the first `type` box, then the rest of the path inside it. Reads only headers: a 32-bit size and the type; size 0 = runs to the end. The 64-bit size of a >4 GB box reads as unknown; uploads are capped far below.
+async function find(file: File, [at, end]: Span, ...path: string[]): Promise<Span | null> {
+  const [type, ...rest] = path;
+  while (at + 8 <= end) {
+    const head = await read(file, at, 8);
+    const size = head.getUint32(0) || end - at;
+    if (size < 8 || at + size > end) return null;
+    if (String.fromCharCode(...new Uint8Array(head.buffer, 4, 4)) === type) {
+      return rest.length ? find(file, [at + 8, at + size], ...rest) : [at + 8, at + size];
+    }
+    at += size;
+  }
+  return null;
+}
+
+// Frames in an MP4/MOV's video track, per its sample table. null = unknown (other containers, which have no moov; fragmented files, which keep their samples outside it).
+export async function mp4FrameCount(file: File): Promise<number | null> {
+  const moov = await find(file, [0, file.size], "moov");
+  if (!moov) return null;
+  for (let at = moov[0]; ;) {
+    const trak = await find(file, [at, moov[1]], "trak");
+    if (!trak) return null;
+    at = trak[1];
+    // Only a video track has a video media header.
+    if (!(await find(file, trak, "mdia", "minf", "vmhd"))) continue;
+    const stsz = await find(file, trak, "mdia", "minf", "stbl", "stsz");
+    // stsz: version+flags, sample size, sample count.
+    return stsz && (await read(file, stsz[0] + 8, 4)).getUint32(0);
+  }
+}
+
 // Why a tool can't take a picked file; null = it can.
 export type FormatBlock =
   // Readable but not a format the app writes, so there is none to hand back.

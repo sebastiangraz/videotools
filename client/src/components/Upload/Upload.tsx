@@ -1,5 +1,5 @@
 import { useRef, useState, ChangeEvent, DragEvent } from "react";
-import type { Dims } from "../../hooks/useVideoSource";
+import type { SourceMeta } from "../../hooks/useVideoSource";
 import styles from "./Upload.module.css";
 import { formatBytes, shortenFilename } from "../../helpers";
 
@@ -22,7 +22,7 @@ export const Upload = ({
   files,
   onFiles,
   thumbnail,
-  dims,
+  meta,
 }: {
   accept: string;
   multiple: boolean;
@@ -30,7 +30,7 @@ export const Upload = ({
   files: File[];
   onFiles: (files: File[]) => void;
   thumbnail?: string;
-  dims?: Dims | null;
+  meta?: SourceMeta | null;
 }) => {
   // Drag enter/leave also fire on the upload's children, so a plain
   // boolean would flicker off mid-drag; the depth counter only clears once
@@ -105,7 +105,8 @@ export const Upload = ({
         {fileUploaded ? (
           <>
             {formatBytes(files.reduce((sum, f) => sum + f.size, 0))}
-            {dims && ` · ${dims.w}×${dims.h}px`}
+            {meta && ` · ${meta.w}×${meta.h}`}
+            {meta?.fps && ` · ${Number(meta.fps.toFixed(2))} fps`}
           </>
         ) : (
           "or drop it here"

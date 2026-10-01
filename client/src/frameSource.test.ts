@@ -13,6 +13,7 @@ describe("openFrameSource", () => {
       ((await frames.frameAt(second)).image as unknown as FakeFrame).frameIndex;
 
     expect(await frames.duration()).toBe(2);
+    expect(await frames.frameCount!()).toBe(20);
     expect(await shown(0)).toBe(0);
     expect(await shown(1.5)).toBe(15);
     // Past the end, the last frame (a <video> clamps the same way)
@@ -24,6 +25,7 @@ describe("openFrameSource", () => {
     const frames = await openFrameSource(imageFile("a.jpg", "image/jpeg"));
 
     expect(await frames.duration()).toBe(0);
+    expect(await frames.frameCount!()).toBe(1);
     const frame = await frames.frameAt(3);
     expect((frame.image as unknown as FakeFrame).frameIndex).toBe(0);
   });

@@ -117,6 +117,23 @@ export const webpFile = (name: string, flags: number, chunk = "VP8X") =>
     { type: "image/webp" },
   );
 
+const bytes = (parts: Uint8Array[]) => {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  parts.reduce((at, p) => (out.set(p, at), at + p.length), 0);
+  return out;
+};
+
+// Big-endian, as MP4 boxes are.
+export const u32 = (n: number) => {
+  const out = new Uint8Array(4);
+  new DataView(out.buffer).setUint32(0, n);
+  return out;
+};
+
+// An MP4 box: size, type, body.
+export const box = (type: string, ...body: Uint8Array[]) =>
+  bytes([u32(8 + body.reduce((n, p) => n + p.length, 0)), new TextEncoder().encode(type), ...body]);
+
 // jsdom's File has no stream().
 export const imageFile = (name: string, type = "image/gif") => {
   const file = new File(["00"], name, { type });
