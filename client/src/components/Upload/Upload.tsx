@@ -8,10 +8,8 @@ import { formatBytes, shortenFilename } from "../../helpers";
 function matchesAccept(file: File, accept: string): boolean {
   return accept.split(",").some((entry) => {
     const pattern = entry.trim().toLowerCase();
-    if (pattern.startsWith("."))
-      return file.name.toLowerCase().endsWith(pattern);
-    if (pattern.endsWith("/*"))
-      return file.type.startsWith(pattern.slice(0, -1));
+    if (pattern.startsWith(".")) return file.name.toLowerCase().endsWith(pattern);
+    if (pattern.endsWith("/*")) return file.type.startsWith(pattern.slice(0, -1));
     return file.type === pattern;
   });
 }
@@ -63,9 +61,7 @@ export const Upload = ({
     e.preventDefault();
     dragDepth.current = 0;
     setDragging(false);
-    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
-      matchesAccept(f, accept),
-    );
+    const dropped = Array.from(e.dataTransfer.files).filter((f) => matchesAccept(f, accept));
     if (!dropped.length) return;
     onFiles(multiple ? dropped : dropped.slice(0, 1));
   };
@@ -90,14 +86,8 @@ export const Upload = ({
       />
       {fileUploaded ? (
         <span className={styles.uploadFile}>
-          {thumbnail && (
-            <img src={thumbnail} alt="" className={styles.uploadThumb} />
-          )}
-          <span>
-            {files.length === 1
-              ? shortenFilename(files[0])
-              : `${files.length} files`}
-          </span>
+          {thumbnail && <img src={thumbnail} alt="" className={styles.uploadThumb} />}
+          <span>{files.length === 1 ? shortenFilename(files[0]) : `${files.length} files`}</span>
         </span>
       ) : (
         <span className={styles.uploadLabel}>
