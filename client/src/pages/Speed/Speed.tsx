@@ -44,7 +44,7 @@ export const Speed = () => {
           {...TOOL.input}
           files={source.file ? [source.file] : []}
           onFiles={pick}
-          dims={source.dims}
+          meta={source.meta}
         />
       }
       blocker={source.file ? formatBlocker : "Upload a file"}

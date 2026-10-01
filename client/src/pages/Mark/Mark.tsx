@@ -80,7 +80,7 @@ export const Mark = () => {
   const sourceFile = source.file;
   // A PNG is lossless whatever is asked of it, so it isn't asked.
   const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
-  const aspectRatio = source.dims ? `${source.dims.w} / ${source.dims.h}` : "16 / 9";
+  const aspectRatio = source.meta ? `${source.meta.w} / ${source.meta.h}` : "16 / 9";
   const { shownRender } = preview;
 
   const pick = (picked: File[]) => {
@@ -117,7 +117,7 @@ export const Mark = () => {
             {...TOOL.input}
             files={source.file ? [source.file] : []}
             onFiles={pick}
-            dims={source.dims}
+            meta={source.meta}
           />
           <Upload
             accept={WATERMARK_ACCEPT}

@@ -74,6 +74,56 @@ async function readWebpHeader(file: File): Promise<boolean> {
   );
 }
 
+// A box's body as [start, end) offsets into the file.
+type Span = [number, number];
+
+const read = async (file: File, at: number, length: number) =>
+  new DataView(await file.slice(at, at + length).arrayBuffer());
+
+// The box at `path` under `[at, end)`: the first `type` box, then the rest of the path inside it. Reads only headers: a 32-bit size and the type; size 1 = a 64-bit size follows (a >4 GB mdat), 0 = runs to the end.
+async function find(file: File, [at, end]: Span, ...path: string[]): Promise<Span | null> {
+  const [type, ...rest] = path;
+  while (at + 8 <= end) {
+    const head = await read(file, at, 16);
+    let size = head.getUint32(0);
+    let body = at + 8;
+    if (size === 1) {
+      size = Number(head.getBigUint64(8));
+      body += 8;
+    } else if (size === 0) size = end - at;
+    if (size < body - at || at + size > end) return null;
+    if (String.fromCharCode(...new Uint8Array(head.buffer, 4, 4)) === type) {
+      return rest.length ? find(file, [body, at + size], ...rest) : [body, at + size];
+    }
+    at += size;
+  }
+  return null;
+}
+
+// Sample count over its duration.
+export async function mp4Fps(file: File): Promise<number | null> {
+  const moov = await find(file, [0, file.size], "moov");
+  if (!moov) return null;
+  for (let at = moov[0]; ;) {
+    const trak = await find(file, [at, moov[1]], "trak");
+    if (!trak) return null;
+    at = trak[1];
+    // Only a video track has a video media header.
+    if (!(await find(file, trak, "mdia", "minf", "vmhd"))) continue;
+    const mdhd = await find(file, trak, "mdia", "mdhd");
+    const stsz = await find(file, trak, "mdia", "minf", "stbl", "stsz");
+    if (!mdhd || !stsz) return null;
+    // mdhd: version+flags, two times, timescale, duration; version 1 widens the times and the duration to 64 bits. stsz: version+flags, sample size, sample count.
+    const head = await read(file, mdhd[0], 32);
+    const v1 = head.getUint8(0) === 1;
+    const scaleAt = 4 + 2 * (v1 ? 8 : 4);
+    const timescale = head.getUint32(scaleAt);
+    const duration = v1 ? Number(head.getBigUint64(scaleAt + 4)) : head.getUint32(scaleAt + 4);
+    const samples = (await read(file, stsz[0] + 8, 4)).getUint32(0);
+    return duration ? (samples * timescale) / duration || null : null;
+  }
+}
+
 // Why a tool can't take a picked file; null = it can.
 export type FormatBlock =
   // Readable but not a format the app writes, so there is none to hand back.

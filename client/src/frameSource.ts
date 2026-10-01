@@ -1,4 +1,4 @@
-import { fileFormat, isAnimatedImage, isStillImage, stillFormat } from "./sourceFormat";
+import { fileFormat, isAnimatedImage, isStillImage, mp4Fps, stillFormat } from "./sourceFormat";
 
 export interface Frame {
   image: CanvasImageSource;
@@ -14,6 +14,8 @@ export interface FrameSource {
   frameAt(second: number): Promise<Frame>;
   // Videos only (VideoFrame can tell).
   nonSquare?(): boolean;
+  // Average; null = unknown (a still, or a container other than MP4/MOV).
+  fps?(): Promise<number | null>;
   close(): void;
 }
 
@@ -69,6 +71,7 @@ const openVideo = async (file: File): Promise<FrameSource> => {
         return false;
       }
     },
+    fps: () => mp4Fps(file),
     close,
   };
 };
@@ -103,8 +106,14 @@ const openImage = async (file: File): Promise<FrameSource> => {
       return times;
     })());
 
+  const duration = async () => (track?.animated ? (await frameEnds())[count - 1] : 0);
+
   return {
-    duration: async () => (track?.animated ? (await frameEnds())[count - 1] : 0),
+    duration,
+    fps: async () => {
+      const seconds = await duration();
+      return seconds ? count / seconds : null;
+    },
     frameAt: async (second) => {
       let frameIndex = 0;
       if (second > 0 && count > 1) {

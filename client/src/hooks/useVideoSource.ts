@@ -9,9 +9,12 @@ export const maxStart = (duration: number): number | undefined =>
 export const clampStart = (startSecond: number | null, duration: number): number | null =>
   startSecond === null ? null : Math.min(startSecond, maxStart(duration) ?? Infinity);
 
-export interface Dims {
+// What the probe learned about a source. fps: MP4/MOV and animated images;
+// null = unknown.
+export interface SourceMeta {
   w: number;
   h: number;
+  fps?: number | null;
 }
 
 // A still has no duration, and its size is the EXIF-rotated one. nonSquare:
@@ -20,7 +23,7 @@ export function useVideoSource() {
   const [file, setFile] = useState<File | null>(null);
   // Seconds; 0 = unknown (a still, undecodable, or no length).
   const [duration, setDuration] = useState<number>(0);
-  const [dims, setDims] = useState<Dims | null>(null);
+  const [meta, setMeta] = useState<SourceMeta | null>(null);
   const [nonSquare, setNonSquare] = useState(false);
 
   // A probe answers late, and must not answer for a file since replaced.
@@ -30,19 +33,23 @@ export function useVideoSource() {
     latest.current = picked;
     setFile(picked);
     setDuration(0);
-    setDims(null);
+    setMeta(null);
     setNonSquare(false);
 
     if (!hasFrames(picked)) return;
     openFrameSource(picked)
       .then(async (frames) => {
         try {
-          const [seconds, frame] = await Promise.all([frames.duration(), frames.frameAt(0)]);
+          const [seconds, frame, fps] = await Promise.all([
+            frames.duration(),
+            frames.frameAt(0),
+            frames.fps?.().catch(() => null),
+          ]);
           const { width, height } = frame;
           frame.close();
           if (latest.current !== picked) return;
           setDuration(seconds);
-          if (width > 0 && height > 0) setDims({ w: width, h: height });
+          if (width > 0 && height > 0) setMeta({ w: width, h: height, fps });
           setNonSquare(frames.nonSquare?.() ?? false);
         } finally {
           frames.close();
@@ -52,5 +59,5 @@ export function useVideoSource() {
       .catch(() => {});
   };
 
-  return { file, duration, dims, nonSquare, pick };
+  return { file, duration, meta, nonSquare, pick };
 }
