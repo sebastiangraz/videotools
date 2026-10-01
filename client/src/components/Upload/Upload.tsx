@@ -79,7 +79,6 @@ export const Upload = ({
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={dragLeave}
       onDrop={drop}
-      data-file-uploaded={fileUploaded ? "" : undefined}
     >
       <input
         aria-label={pickerLabel}
@@ -94,16 +93,10 @@ export const Upload = ({
           {thumbnail && (
             <img src={thumbnail} alt="" className={styles.uploadThumb} />
           )}
-          <span className={styles.uploadMeta}>
-            <span>
-              {files.length === 1
-                ? shortenFilename(files[0])
-                : `${files.length} files`}
-            </span>
-            <span className={styles.uploadSizes}>
-              {formatBytes(files.reduce((sum, f) => sum + f.size, 0))}
-              {dims && ` · ${dims.w}×${dims.h}px`}
-            </span>
+          <span>
+            {files.length === 1
+              ? shortenFilename(files[0])
+              : `${files.length} files`}
           </span>
         </span>
       ) : (
@@ -119,7 +112,14 @@ export const Upload = ({
         </span>
       )}
       <span className={styles.uploadHint}>
-        {fileUploaded ? "click/drop to replace" : "or drop it here"}
+        {fileUploaded ? (
+          <>
+            {formatBytes(files.reduce((sum, f) => sum + f.size, 0))}
+            {dims && ` · ${dims.w}×${dims.h}px`}
+          </>
+        ) : (
+          "or drop it here"
+        )}
       </span>
     </label>
   );
