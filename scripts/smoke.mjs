@@ -398,6 +398,7 @@ function sameResult(before, after) {
     if (k === "bytes") {
       return Math.abs(before.bytes - after.bytes) <= SIZE_TOLERANCE * before.bytes;
     }
+    if (k === "bytesReadable") return true;
     if (k === "ratio") return Math.abs(before.ratio - after.ratio) <= 0.05;
     return before[k] === after[k];
   });
@@ -441,6 +442,10 @@ if (ffmpegCheck.problems.length) {
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
 const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
 const assets = resolveAssets(ffmpegPath, userDir, path.join(outDir, "assets"));
+const readable = (bytes) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 const bytesOf = (paths) => paths.reduce((sum, p) => sum + fs.statSync(p).size, 0);
 const describe = (paths) =>
   paths.length === 1
@@ -545,6 +550,7 @@ for (const name of names) {
       source: describe(source),
       output: downloadName,
       bytes,
+      bytesReadable: readable(bytes),
       ratio: Number((bytes / bytesOf(source)).toFixed(2)),
       ...(expect?.frames
         ? {
@@ -582,7 +588,7 @@ for (const name of names) {
       (found.length ? "✗ " : "  ") +
       (r.error
         ? `${expect?.errorCode && !found.length ? "refused:" : "ERROR"} ${r.error.slice(0, 90)}`
-        : `${r.output.padEnd(24)} ${String(r.bytes).padStart(9)} B  ${String(r.ratio).padStart(6)}x source  ` +
+        : `${r.output.padEnd(24)} ${r.bytesReadable.padStart(8)}  ${String(r.ratio).padStart(6)}x source  ` +
           (r.size ? `${r.codec} ${r.size} ${r.duration}s` : r.codec)),
   );
 }
