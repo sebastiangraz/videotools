@@ -101,7 +101,7 @@ export const Upload = ({
           <span>{pickerLabel}</span>
         </span>
       )}
-      <span className={styles.uploadHint}>
+      <span className={styles.uploadMeta}>
         {fileUploaded ? (
           <>
             {formatBytes(files.reduce((sum, f) => sum + f.size, 0))}

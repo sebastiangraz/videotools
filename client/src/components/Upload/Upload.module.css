@@ -78,7 +78,7 @@
   }
 }
 
-.uploadHint {
+.uploadMeta {
   color: var(--fg-tertiary);
   text-align: center;
 }
