@@ -1,4 +1,4 @@
-.dropZone {
+.upload {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -27,7 +27,7 @@
   }
 }
 
-.dropZoneActive {
+.uploadActive {
   /* border-color: var(--fg); */
   color: var(--fg);
   background-color: var(--border-subtle);
@@ -37,7 +37,7 @@
 
 /* Kept in the tree (and focusable) for the label click-through, screen
    readers, and tests, but never seen. */
-.dropZoneInput {
+.uploadInput {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -48,7 +48,7 @@
   pointer-events: none;
 }
 
-.dropZoneFile {
+.uploadFile {
   display: inline-flex;
   align-items: center;
   gap: 0.75em;
@@ -59,7 +59,7 @@
 
 /* Watermark thumbnail. The faint backing keeps a white logo visible on the
    light theme. */
-.dropZoneThumb {
+.uploadThumb {
   height: 1.5rem;
   max-width: 3rem;
   padding: 2px;
@@ -68,7 +68,7 @@
   background-color: var(--border-subtle);
 }
 
-.dropZoneLabel {
+.uploadLabel {
   display: flex;
   align-items: center;
   gap: 0.3em;
@@ -78,6 +78,6 @@
   }
 }
 
-.dropZoneHint {
+.uploadHint {
   color: var(--fg-tertiary);
 }

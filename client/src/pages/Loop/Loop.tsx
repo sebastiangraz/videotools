@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { DropZone } from "../../components/DropZone/DropZone";
+import { Upload } from "../../components/Upload/Upload";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
@@ -57,7 +57,7 @@ export const Loop = () => {
   return (
     <ToolPanel
       tool={TOOL}
-      inputs={<DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
+      inputs={<Upload {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />}
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}

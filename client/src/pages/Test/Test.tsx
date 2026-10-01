@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Page } from "../../components/Page/Page";
-import { DropZone } from "../../components/DropZone/DropZone";
+import { Upload } from "../../components/Upload/Upload";
 import { Message } from "../../components/Message/Message";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Select } from "../../components/Select/Select";
@@ -59,7 +59,7 @@ export const Test = () => {
       {message && <Message>A message over the title</Message>}
       {error && <Message kind="error">An error over the title</Message>}
 
-      <DropZone accept="*" multiple pickerLabel="choose files" files={files} onFiles={setFiles} />
+      <Upload accept="*" multiple pickerLabel="choose files" files={files} onFiles={setFiles} />
 
       <div className={form.horizontal}>
         <div className={form.formGroup}>

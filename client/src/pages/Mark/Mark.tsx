@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { DropZone } from "../../components/DropZone/DropZone";
+import { Upload } from "../../components/Upload/Upload";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { Slider } from "../../components/Slider/Slider";
 import { Spinner } from "../../components/Spinner/Spinner";
@@ -113,8 +113,8 @@ export const Mark = () => {
       tool={TOOL}
       inputs={
         <div className={styles.markInputs}>
-          <DropZone {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />
-          <DropZone
+          <Upload {...TOOL.input} files={source.file ? [source.file] : []} onFiles={pick} />
+          <Upload
             accept={WATERMARK_ACCEPT}
             multiple={false}
             pickerLabel="choose watermark"

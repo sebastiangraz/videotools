@@ -33,12 +33,12 @@ describe("App", () => {
     await waitFor(() => expect(loopButton()).not.toHaveAttribute("data-popup-open"));
   });
 
-  const getDropZone = (pickerLabel: RegExp) => screen.getByLabelText(pickerLabel).closest("label")!;
+  const getUpload = (pickerLabel: RegExp) => screen.getByLabelText(pickerLabel).closest("label")!;
 
   it("accepts a dropped file and enables the button", async () => {
     await renderApp();
 
-    fireEvent.drop(getDropZone(/choose video/i), {
+    fireEvent.drop(getUpload(/choose video/i), {
       dataTransfer: { files: [mp4("dropped.mp4")] },
     });
 
@@ -49,7 +49,7 @@ describe("App", () => {
   it("ignores dropped files that don't match the tool's accept list", async () => {
     await renderApp();
 
-    fireEvent.drop(getDropZone(/choose video/i), {
+    fireEvent.drop(getUpload(/choose video/i), {
       dataTransfer: { files: [file("photo.png", "image/png")] },
     });
 
@@ -60,7 +60,7 @@ describe("App", () => {
   it("keeps only the first dropped file on single-file tools", async () => {
     await renderApp();
 
-    fireEvent.drop(getDropZone(/choose video/i), {
+    fireEvent.drop(getUpload(/choose video/i), {
       dataTransfer: { files: [mp4("first.mp4"), mp4("second.mp4")] },
     });
 
@@ -71,7 +71,7 @@ describe("App", () => {
   it("accepts multiple dropped images on the sequence tool", async () => {
     await renderApp("/sequence");
 
-    fireEvent.drop(getDropZone(/choose images/i), {
+    fireEvent.drop(getUpload(/choose images/i), {
       dataTransfer: {
         files: [file("a.png", "image/png"), file("b.png", "image/png")],
       },
