@@ -9,8 +9,6 @@ export const maxStart = (duration: number): number | undefined =>
 export const clampStart = (startSecond: number | null, duration: number): number | null =>
   startSecond === null ? null : Math.min(startSecond, maxStart(duration) ?? Infinity);
 
-// What the probe learned about a source. fps: the average, frames over length;
-// null = unknown (a still, or a container the frame source can't count).
 export interface SourceMeta {
   w: number;
   h: number;
