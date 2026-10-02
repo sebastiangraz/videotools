@@ -71,6 +71,22 @@ export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
   typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
 
+// Where along the frame's width and height the logo sits, 0 to 1, inside the gap.
+export const MARK_POSITIONS = {
+  "top-left": [0, 0],
+  top: [0.5, 0],
+  "top-right": [1, 0],
+  left: [0, 0.5],
+  center: [0.5, 0.5],
+  right: [1, 0.5],
+  "bottom-left": [0, 1],
+  bottom: [0.5, 1],
+  "bottom-right": [1, 1],
+};
+export type MarkPosition = keyof typeof MARK_POSITIONS;
+export const isMarkPosition = (value: unknown): value is MarkPosition =>
+  typeof value === "string" && Object.hasOwn(MARK_POSITIONS, value);
+
 export const MARK_FILTERS = ["plain", "glass", "blur"] as const;
 export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>
@@ -106,11 +122,12 @@ const SOBEL = {
 const MERGE_GBR = "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp";
 
 // `margin` is the glass padding around the logo; `gap` its distance from the
-// right and bottom edges.
+// frame's edges.
 export function watermarkLayout(
   video: { width: number; height: number },
   bounds: { width: number; height: number },
   size: MarkSize = "large",
+  position: MarkPosition = "bottom-right",
 ): {
   VW: number;
   VH: number;
@@ -145,8 +162,14 @@ export function watermarkLayout(
   let gap = fit(Math.round(largeUnit * MARK.paddingRatio * gapScale));
   if ((gap - margin) % 2) gap -= 1;
   gap = Math.max(gap, margin);
-  const LX = VW - gap - LW;
-  const LY = VH - gap - LH;
+  const [fx, fy] = MARK_POSITIONS[position];
+  // Centred, the corner can land odd: a 1px nudge keeps it even.
+  const along = (span: number, f: number) => {
+    const at = gap + (span - 2 * gap) * f;
+    return at - ((at - margin) % 2);
+  };
+  const LX = along(VW - LW, fx);
+  const LY = along(VH - LH, fy);
   return { VW, VH, LW, LH, margin, gap, LX, LY };
 }
 
@@ -179,6 +202,7 @@ export function watermarkGraph(
     base = "yuv420p",
     pad = "[0:v]",
     size = "large",
+    position = "bottom-right",
     view = "render",
   }: {
     filter: MarkFilter;
@@ -186,11 +210,12 @@ export function watermarkGraph(
     base?: "yuv420p" | "rgba";
     pad?: string;
     size?: MarkSize;
+    position?: MarkPosition;
     view?: MarkView;
   },
 ): string {
   const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
-  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(video, bounds, size);
+  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(video, bounds, size, position);
   const shorter = Math.min(VW, VH) * MARK_SIZES[size].scale;
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
   const trim = trimmed ? `,crop=${bounds.width}:${bounds.height}:${bounds.x}:${bounds.y}` : "";

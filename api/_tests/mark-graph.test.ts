@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   MARK,
   MARK_FILTERS,
+  MARK_POSITIONS,
   MARK_SIZES,
   MARK_VIEWS,
   parseBounds,
@@ -172,6 +173,43 @@ describe("watermarkLayout sizes", () => {
   );
 });
 
+describe("watermarkLayout positions", () => {
+  const bounds = { width: 300, height: 80 };
+  const positions = Object.keys(MARK_POSITIONS) as (keyof typeof MARK_POSITIONS)[];
+
+  it("sits bottom-right by default", () => {
+    expect(watermarkLayout(UHD, bounds)).toEqual(
+      watermarkLayout(UHD, bounds, "large", "bottom-right"),
+    );
+  });
+
+  it.each(positions)(
+    "keeps the gap from the edges, within a pixel of centre, at %s",
+    (position) => {
+      const [fx, fy] = MARK_POSITIONS[position];
+      // At the edges exactly the gap in; centred to the pixel, nudged for parity
+      const along = (f: number, at: number, length: number, span: number, gap: number) => {
+        if (f === 0.5) expect(Math.abs(at - (span - length) / 2)).toBeLessThanOrEqual(1);
+        else expect(at).toBe(f ? span - gap - length : gap);
+      };
+      for (const [width, height] of [
+        [1920, 1080],
+        [1080, 1920],
+        [853, 481],
+      ]) {
+        for (const size of ["small", "large"] as const) {
+          const l = watermarkLayout({ width, height }, bounds, size, position);
+          along(fx, l.LX, l.LW, l.VW, l.gap);
+          along(fy, l.LY, l.LH, l.VH, l.gap);
+          // The cell's corner stays even for the yuv420p crop
+          expect((l.LX - l.margin) % 2).toBe(0);
+          expect((l.LY - l.margin) % 2).toBe(0);
+        }
+      }
+    },
+  );
+});
+
 describe("watermarkGraph", () => {
   const info = (width: number, height: number, codec: string) => ({
     duration: 0,
@@ -227,6 +265,16 @@ describe("watermarkGraph", () => {
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, size: "small" });
       expect(graph).toContain(`scale=${l.LW}:${l.LH}:`);
+    }
+  });
+
+  it("lays the logo out where it is told", () => {
+    const l = watermarkLayout(video, logo, "large", "top-left");
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, { filter, position: "top-left" });
+      // plain overlays the logo itself; the glass filters their padded cell
+      const p = filter === "plain" ? 0 : l.margin;
+      expect(graph).toContain(`overlay=x=${l.LX - p}:y=${l.LY - p}`);
     }
   });
 
