@@ -47,34 +47,37 @@ function estimateOutputBytes(
   return pixels * frames * (bpp.min + (bpp.max - bpp.min) * t * t);
 }
 
-// The pick played at the field's pace: every still as a FramePreview in one
-// card, the next one shown every `frameDuration` seconds. Lives in the card,
-// so it ticks only while that is open and starts over on the first image
-// (the thumbnail) each time.
-const SequencePreview = ({ files, frameDuration }: { files: File[]; frameDuration: number }) => {
+// The pick played at the field's pace: a FramePreview handed the next still
+// every `frameDuration` seconds, in a box shaped like the first image (as the
+// output is), so the card holds still between frames. Lives in the card, so it
+// ticks only while that is open and starts over on the first image (the
+// thumbnail) each time.
+const SequencePreview = ({
+  files,
+  frameDuration,
+  meta,
+}: {
+  files: File[];
+  frameDuration: number;
+  meta: SourceMeta | null;
+}) => {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     // A cleared field reads as 0; never spin.
     const timer = setInterval(() => setTick((n) => n + 1), Math.max(0.1, frameDuration) * 1000);
     return () => clearInterval(timer);
   }, [frameDuration]);
-  const shown = tick % files.length;
   return (
-    <div className={preview.framePreview}>
-      {files.map((file, i) => (
-        <FramePreview
-          key={i}
-          file={file}
-          second={0}
-          maxSide={480}
-          label={`sequence preview ${i + 1}`}
-          className={
-            i === shown
-              ? preview.framePreviewFrame
-              : `${preview.framePreviewFrame} ${preview.framePreviewHidden}`
-          }
-        />
-      ))}
+    <div
+      className={preview.framePreview}
+      style={{ aspectRatio: meta ? `${meta.w} / ${meta.h}` : "16 / 9" }}
+    >
+      <FramePreview
+        file={files[tick % files.length]}
+        second={0}
+        label="sequence preview"
+        className={preview.framePreviewFrame}
+      />
     </div>
   );
 };
@@ -144,7 +147,9 @@ export const Sequence = () => {
           step={0.1}
           disabled={run.busy}
           preview={
-            files.length > 0 && <SequencePreview files={files} frameDuration={frameDuration ?? 1} />
+            files.length > 0 && (
+              <SequencePreview files={files} frameDuration={frameDuration ?? 1} meta={imageMeta} />
+            )
           }
         />
       </div>

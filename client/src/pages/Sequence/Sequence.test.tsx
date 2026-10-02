@@ -59,15 +59,12 @@ describe("Sequence", () => {
       target: { value: decimal(0, 1) },
     });
     await user.hover(screen.getByLabelText(/time per frame/i));
-    // Every still at once, drawn once; the shown one moves on at 0.1 s each
-    const frames = await screen.findAllByLabelText(/sequence preview/i);
-    expect(frames.map((frame) => frame.tagName)).toEqual(["CANVAS", "CANVAS"]);
-    await waitFor(() => expect(drawImage).toHaveBeenCalledTimes(2));
-    expect(frames[0]).toHaveProperty("width", 480);
-    expect(frames[0].className).not.toMatch(/Hidden/);
-    await waitFor(() => expect(frames[0].className).toMatch(/Hidden/));
-    expect(frames[1].className).not.toMatch(/Hidden/);
-    expect(drawImage).toHaveBeenCalledTimes(2);
+    const preview = await screen.findByLabelText(/sequence preview/i);
+    expect(preview.tagName).toBe("CANVAS");
+    // The card is shaped like the first image; one still after another in it
+    expect(preview.parentElement).toHaveStyle({ aspectRatio: "16 / 9" });
+    await waitFor(() => expect(drawImage.mock.calls.length).toBeGreaterThanOrEqual(3));
+    expect(preview).toHaveProperty("width", 480);
   });
 
   it("turns a pick of mixed formats away", async () => {

@@ -1,6 +1,5 @@
-/* The card: a canvas on its own, or a box of stacked frames (the sequence
-   preview). Sized by the frame drawn on it, or by the first frame in the
-   stack, as the server's first image sets the output's size. */
+/* The card: the canvas itself, sized by the frame drawn on it, or a box with
+   an aspect ratio of its own holding one (the sequence preview). */
 .framePreview {
   display: grid;
   position: relative;
@@ -14,20 +13,13 @@
   background-color: var(--bg-1);
 }
 
+/* A frame fitted inside the box, whatever its own size. */
 .framePreviewFrame {
-  grid-area: 1 / 1;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
-  &:not(:first-child) {
-    position: absolute;
-    inset: 0;
-    height: 100%;
-    object-fit: contain;
-  }
-}
-
-.framePreviewHidden {
-  visibility: hidden;
+  height: 100%;
+  object-fit: contain;
 }
 
 .framePreviewError {
