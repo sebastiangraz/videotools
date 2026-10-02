@@ -1,6 +1,7 @@
 .root {
   composes: root from "../ToggleGroup/ToggleGroup.module.css";
-  /* border-radius: calc(var(--radius) / 2); */
+  position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: repeat(3, auto);
   gap: 0;
@@ -8,9 +9,16 @@
   padding: 0.25em;
   aspect-ratio: 1;
   align-self: start;
+
+  &:hover {
+    .active::after {
+      opacity: 1;
+    }
+  }
 }
 
 .item {
+  border-radius: 99em;
   appearance: none;
   margin: 0;
   padding: 0;
@@ -18,7 +26,6 @@
   background: none;
   cursor: pointer;
 
-  /* The dot */
   &::before {
     content: "";
     display: block;
@@ -27,30 +34,54 @@
     margin: auto;
     border-radius: 50%;
     background-color: var(--fg-tertiary);
-    transition:
-      background-color 150ms ease,
-      scale 150ms ease;
+    transition: background-color 150ms ease;
   }
 
-  &:hover::before {
+  &:hover:not([data-disabled])::before {
     background-color: var(--fg);
-  }
-
-  &[data-pressed]::before {
-    background-color: var(--fg-secondary);
-    scale: 3;
   }
 
   &[data-disabled] {
     cursor: not-allowed;
   }
 
-  &[data-disabled]:hover:not([data-pressed])::before {
-    background-color: var(--fg-secondary);
-  }
-
   &:focus-visible {
     outline: 1px solid var(--border);
     outline-offset: -1px;
+  }
+}
+
+.active {
+  position: absolute;
+  grid-area: 1 / 1 / 2 / 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  translate: calc(mod(var(--at), 3) * 100%) calc(round(down, var(--at) / 3) * 100%);
+  transition: translate 200ms ease;
+
+  &::before,
+  &::after {
+    content: "";
+    grid-area: 1 / 1;
+  }
+
+  &::before {
+    width: 8px;
+    height: 8px;
+    border-radius: 3px;
+    background-image: linear-gradient(var(--fg-secondary) 0 0), linear-gradient(var(--bg) 0 0);
+  }
+
+  &::after {
+    transition: opacity 300ms ease;
+    opacity: 0;
+    z-index: -1;
+    width: 600%;
+    height: 600%;
+    background:
+      linear-gradient(var(--border-subtle) 0 0) center / 100% 1px no-repeat,
+      linear-gradient(var(--border-subtle) 0 0) center / 1px 100% no-repeat;
   }
 }

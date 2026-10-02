@@ -172,6 +172,11 @@
   background-color: color-mix(in srgb, var(--bg) 75%, transparent);
   backdrop-filter: blur(4px);
 }
+
+.markPosition {
+  flex: none;
+}
+
 .markPreviewDebug {
   text-box: cap alphabetic;
   font-size: 10px;

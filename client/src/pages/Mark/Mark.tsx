@@ -273,7 +273,7 @@ export const Mark = () => {
         )}
 
         {watermark && (
-          <div className={form.formGroup}>
+          <div className={`${form.formGroup} ${styles.markPosition}`}>
             <span id="markPosition" className={form.label}>
               Place
             </span>
