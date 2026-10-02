@@ -5,7 +5,7 @@ import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { Slider } from "../../components/Slider/Slider";
 import { Spinner } from "../../components/Spinner/Spinner";
 import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
-import { Select } from "../../components/Select/Select";
+import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
@@ -43,8 +43,8 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "blur", label: "Blur" },
 ];
 
-// Temporary: a picker for every position until the real control lands.
-const POSITION_OPTIONS = Object.keys(MARK_POSITIONS).map((value) => ({ value, label: value }));
+// Declared in reading order, which is the grid's order.
+const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
 // The preview shows one at a time, so switching one on switches the others off.
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
@@ -274,14 +274,14 @@ export const Mark = () => {
 
         {watermark && (
           <div className={form.formGroup}>
-            <label htmlFor="markPosition" className={form.label}>
-              Position
-            </label>
-            <Select
-              id="markPosition"
+            <span id="markPosition" className={form.label}>
+              Place
+            </span>
+            <ToggleGrid
+              labelledBy="markPosition"
               options={POSITION_OPTIONS}
               value={position}
-              onValueChange={(picked) => setPosition(picked as MarkPosition)}
+              onValueChange={setPosition}
               disabled={run.busy}
             />
           </div>

@@ -1,0 +1,56 @@
+.root {
+  composes: root from "../ToggleGroup/ToggleGroup.module.css";
+  /* border-radius: calc(var(--radius) / 2); */
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 0;
+  height: 2.5rem;
+  padding: 0.25em;
+  aspect-ratio: 1;
+  align-self: start;
+}
+
+.item {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+
+  /* The dot */
+  &::before {
+    content: "";
+    display: block;
+    width: 2px;
+    height: 2px;
+    margin: auto;
+    border-radius: 50%;
+    background-color: var(--fg-tertiary);
+    transition:
+      background-color 150ms ease,
+      scale 150ms ease;
+  }
+
+  &:hover::before {
+    background-color: var(--fg);
+  }
+
+  &[data-pressed]::before {
+    background-color: var(--fg-secondary);
+    scale: 3;
+  }
+
+  &[data-disabled] {
+    cursor: not-allowed;
+  }
+
+  &[data-disabled]:hover:not([data-pressed])::before {
+    background-color: var(--fg-secondary);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--border);
+    outline-offset: -1px;
+  }
+}
