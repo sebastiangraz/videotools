@@ -4,8 +4,6 @@
   gap: 0.5em;
 }
 
-/* Room for the detent marks drawn below the track */
-
 .label {
   font-size: 8.5px;
   padding-inline: 0.175em;
@@ -16,7 +14,7 @@
 }
 
 .control {
-  --thumb-size: 11px;
+  --thumb-size: 10px;
   display: grid;
   align-items: center;
   width: 100%;
@@ -45,24 +43,29 @@
 
 .thumb {
   position: relative;
+  background-color: #f005;
   width: var(--thumb-size);
   height: var(--thumb-size);
-  border-radius: 999em;
-  background-color: var(--fg);
   cursor: pointer;
-  box-shadow: 0 0 0 3px var(--bg);
+  border-radius: 999em;
+  &:before {
+    content: "";
+    position: absolute;
+    width: calc(var(--thumb-size) * 2);
+    height: calc(var(--thumb-size) * 2);
+    inset: calc(var(--thumb-size) * -0.5);
+    border-radius: 999em;
+    background-color: var(--bg);
+  }
   &:after {
     content: "";
     position: absolute;
-    padding: 0.75rem;
-    inset: -0.75rem;
-    width: 100%;
-    height: 100%;
+    width: var(--thumb-size);
+    height: var(--thumb-size);
     border-radius: 999em;
-    background-color: transparent;
-    z-index: -1;
+    background-color: var(--fg);
   }
-  /* Focus lands on the visually hidden range input inside the thumb. */
+
   &:has(:focus-visible) {
     outline: 1px solid var(--fg-tertiary);
     outline-offset: 3px;
@@ -80,10 +83,8 @@
   }
 }
 
-.thumb[data-disabled] {
-  background-image:
-    linear-gradient(to bottom, var(--border), var(--border)),
-    linear-gradient(to bottom, var(--bg), var(--bg));
+.thumb[data-disabled]::after {
+  background-color: var(--border);
 }
 
 .indicator[data-disabled] {
@@ -101,12 +102,9 @@
   --major-h: 6;
   --major-h-active: 10;
   --minor-h: 4;
-  /* Peak just under an active major so the hill reads against them */
   --minor-peak: 8;
-  /* Half-width of the hill, as a fraction of the track */
   --hill: 0.1;
-  /* half the thumb (--thumb-size on .control) */
-  --tick-inset: calc((11px / 2));
+  --tick-inset: calc((9px / 2));
 }
 
 .slider[data-disabled] {
