@@ -1,7 +1,45 @@
-import { useRef, useState, ChangeEvent, DragEvent } from "react";
+import { useCallback, useRef, useState, ChangeEvent, DragEvent } from "react";
 import type { SourceMeta } from "../../hooks/useVideoSource";
+import { FramePreview } from "../FramePreview/FramePreview";
+import { hasFrames } from "../../sourceFormat";
 import styles from "./Upload.module.css";
 import { formatBytes, shortenFilename } from "../../helpers";
+
+// Longest side the thumbnail is drawn at (px): a few times its on-screen size.
+const THUMB_SIDE = 128;
+
+// The first picked file, small, next to its name: its first frame wherever the
+// browser decodes one (video, animations, stills), else the file itself for
+// what <img> shows and ImageDecoder doesn't (an SVG watermark). Nothing where
+// neither can (a format only the server reads).
+const UploadThumb = ({ file }: { file: File }) => {
+  // The object URL lives exactly as long as the element showing it.
+  const show = useCallback(
+    (img: HTMLImageElement | null) => {
+      if (!img) return;
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      return () => URL.revokeObjectURL(url);
+    },
+    [file],
+  );
+
+  if (hasFrames(file)) {
+    return (
+      <FramePreview
+        file={file}
+        second={0}
+        label="thumbnail"
+        className={styles.uploadThumb}
+        maxSide={THUMB_SIDE}
+        fallback={null}
+      />
+    );
+  }
+  if (file.type.startsWith("image/"))
+    return <img ref={show} alt="" className={styles.uploadThumb} />;
+  return null;
+};
 
 // Dropped files skip the native picker's accept filtering, so mirror it:
 // entries are either MIME patterns ("video/*") or bare extensions (".mkv").
@@ -21,7 +59,6 @@ export const Upload = ({
   pickerLabel,
   files,
   onFiles,
-  thumbnail,
   meta,
 }: {
   accept: string;
@@ -29,7 +66,6 @@ export const Upload = ({
   pickerLabel: string;
   files: File[];
   onFiles: (files: File[]) => void;
-  thumbnail?: string;
   meta?: SourceMeta | null;
 }) => {
   // Drag enter/leave also fire on the upload's children, so a plain
@@ -86,7 +122,7 @@ export const Upload = ({
       />
       {fileUploaded ? (
         <span className={styles.uploadFile}>
-          {thumbnail && <img src={thumbnail} alt="" className={styles.uploadThumb} />}
+          <UploadThumb file={files[0]} />
           <span>{files.length === 1 ? shortenFilename(files[0]) : `${files.length} files`}</span>
         </span>
       ) : (

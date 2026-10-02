@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { Upload } from "../../components/Upload/Upload";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
@@ -48,7 +48,6 @@ export const Mark = () => {
   const source = useVideoSource();
   const formatBlocker = useFormatBlocker(source.file, { stills: true }, source.nonSquare);
   const [watermark, setWatermark] = useState<File | null>(null);
-  const [watermarkUrl, setWatermarkUrl] = useState<string>("");
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("large");
   const [quality, setQuality] = useState<number>(100);
@@ -72,11 +71,6 @@ export const Mark = () => {
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!watermarkUrl) return;
-    return () => URL.revokeObjectURL(watermarkUrl);
-  }, [watermarkUrl]);
-
   const sourceFile = source.file;
   // A PNG is lossless whatever is asked of it, so it isn't asked.
   const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
@@ -92,7 +86,6 @@ export const Mark = () => {
   const pickWatermark = ([picked]: File[]) => {
     run.clearError();
     setWatermark(picked);
-    setWatermarkUrl(URL.createObjectURL(picked));
   };
 
   const submit = () => {
@@ -125,7 +118,6 @@ export const Mark = () => {
             pickerLabel="choose watermark"
             files={watermark ? [watermark] : []}
             onFiles={pickWatermark}
-            thumbnail={watermarkUrl}
           />
         </div>
       }
@@ -137,7 +129,7 @@ export const Mark = () => {
       run={run}
       onSubmit={submit}
     >
-      {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
+      {sourceFile && hasFrames(sourceFile) && watermark && (
         <Tooltip
           content={"Toggle zoom"}
           delay={100}
@@ -199,7 +191,7 @@ export const Mark = () => {
           )}
         </Tooltip>
       )}
-      {sourceFile && hasFrames(sourceFile) && watermarkUrl && (
+      {sourceFile && hasFrames(sourceFile) && watermark && (
         <Popover
           open={debug}
           className={styles.markPreviewDebug}

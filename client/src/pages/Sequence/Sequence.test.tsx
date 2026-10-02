@@ -54,6 +54,16 @@ describe("Sequence", () => {
       imageFile("b.png", "image/png"),
     ]);
     expect(screen.queryByLabelText(/sequence preview/i)).not.toBeInTheDocument();
+    // The first image, small, is the upload's thumbnail
+    await waitFor(() =>
+      expect(drawImage).toHaveBeenCalledWith(
+        expect.objectContaining({ frameIndex: 0 }),
+        0,
+        0,
+        128,
+        72,
+      ),
+    );
 
     fireEvent.change(screen.getByLabelText(/time per frame/i), {
       target: { value: decimal(0, 1) },

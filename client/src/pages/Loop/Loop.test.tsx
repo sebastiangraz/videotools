@@ -70,7 +70,9 @@ describe("Loop", () => {
     await user.hover(screen.getByLabelText(/start at/i));
     const preview = await screen.findByLabelText(/start frame preview/i);
     expect(preview.tagName).toBe("CANVAS");
-    await waitFor(() => expect(drawImage).toHaveBeenCalledWith(expect.any(HTMLVideoElement), 0, 0));
+    await waitFor(() =>
+      expect(drawImage).toHaveBeenCalledWith(expect.any(HTMLVideoElement), 0, 0, 1280, 720),
+    );
     expect(preview).toHaveProperty("width", 1280);
     expect(document.querySelector("video")).not.toBeInTheDocument();
 
@@ -78,7 +80,28 @@ describe("Loop", () => {
       target: { value: decimal(1, 5) },
     });
     await waitFor(() => expect(seeks).toEqual([1.5]));
-    await waitFor(() => expect(drawImage).toHaveBeenCalledTimes(2));
+    // The card drew twice; the other draw is the upload's thumbnail
+    await waitFor(() =>
+      expect(drawImage.mock.calls.filter(([, , , w]) => w === 1280)).toHaveLength(2),
+    );
+  });
+
+  it("draws a small first frame next to the file name", async () => {
+    const user = userEvent.setup();
+    stubMediaLoading("decodes");
+    stubProperties(HTMLVideoElement.prototype, {
+      videoWidth: { get: () => 1280 },
+      videoHeight: { get: () => 720 },
+    });
+    const drawImage = stubCanvas();
+    await renderApp();
+    const upload = screen.getByLabelText(/choose video/i).closest("label")!;
+    await pick(user, file("tiny.mp4", "video/mp4"));
+
+    await waitFor(() =>
+      expect(drawImage).toHaveBeenCalledWith(expect.any(HTMLVideoElement), 0, 0, 128, 72),
+    );
+    expect(within(upload).getByLabelText("thumbnail").tagName).toBe("CANVAS");
   });
 
   it("shows an error in the preview card when the browser can't decode the video", async () => {
