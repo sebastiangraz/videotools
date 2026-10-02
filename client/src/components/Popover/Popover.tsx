@@ -8,7 +8,7 @@ import styles from "./Popover.module.css";
 
 type PositionerProps = Pick<
   PopoverPositionerProps,
-  "anchor" | "side" | "align" | "sideOffset" | "alignOffset"
+  "anchor" | "side" | "align" | "sideOffset" | "alignOffset" | "collisionAvoidance"
 >;
 
 // Controlled popover on Base UI's Popover, with no trigger of its own: the
