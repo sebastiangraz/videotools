@@ -66,9 +66,25 @@ export const NumberField = ({
     >
       <BaseNumberField.Input className={styles.input} placeholder={placeholder} />
       <div className={styles.steppers}>
-        <BaseNumberField.Increment className={styles.button}>+</BaseNumberField.Increment>
-        <BaseNumberField.Decrement className={styles.button}>−</BaseNumberField.Decrement>
+        <BaseNumberField.Increment className={styles.button}>
+          <PlusIcon />
+        </BaseNumberField.Increment>
+        <BaseNumberField.Decrement className={styles.button}>
+          <MinusIcon />
+        </BaseNumberField.Decrement>
       </div>
     </PreviewCard>
   </BaseNumberField.Root>
+);
+
+const PlusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 7 7">
+    <path stroke="currentColor" stroke-width="1" d="M3.5 0v7M0 3.5h7" />
+  </svg>
+);
+
+const MinusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 7 7">
+    <path stroke="currentColor" stroke-width="1" d="M0 3.5h7" />
+  </svg>
 );

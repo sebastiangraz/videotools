@@ -65,3 +65,9 @@
     border-bottom: 1px solid var(--border-subtle);
   }
 }
+
+.button svg {
+  transition: color 200ms ease;
+  width: 7px;
+  height: 7px;
+}
