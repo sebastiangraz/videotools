@@ -3,7 +3,7 @@
   flex-direction: row;
   gap: 1.5rem;
   & > * {
-    flex: 1 0 auto;
+    flex: 1 0 0%;
   }
   @media (max-width: 480px) {
     gap: 1.5rem;
