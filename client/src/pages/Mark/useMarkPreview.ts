@@ -1,9 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "../../frameSource";
 
-// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_VIEWS.
+// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
 export type MarkSize = "small" | "large" | "dev";
 export type MarkFilter = "plain" | "glass" | "blur";
+// Where along the frame's width and height the logo sits, 0 to 1.
+export const MARK_POSITIONS = {
+  "top-left": [0, 0],
+  top: [0.5, 0],
+  "top-right": [1, 0],
+  left: [0, 0.5],
+  center: [0.5, 0.5],
+  right: [1, 0.5],
+  "bottom-left": [0, 1],
+  bottom: [0.5, 1],
+  "bottom-right": [1, 1],
+};
+export type MarkPosition = keyof typeof MARK_POSITIONS;
 export type MarkView = "render" | "displacement" | "clear";
 
 // The server renders the preview with the real ffmpeg graph. Mark geometry is
@@ -44,6 +57,7 @@ export function useMarkPreview(
   watermark: File | null,
   filterMode: MarkFilter,
   size: MarkSize,
+  position: MarkPosition,
   view: MarkView = "render",
 ) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
@@ -56,6 +70,7 @@ export function useMarkPreview(
     watermark: File;
     filterMode: MarkFilter;
     size: MarkSize;
+    position: MarkPosition;
     view: MarkView;
   } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
@@ -92,6 +107,7 @@ export function useMarkPreview(
               logo,
               filter: filterMode,
               size,
+              position,
               view,
             }),
             signal: controller.signal,
@@ -110,10 +126,10 @@ export function useMarkPreview(
       })
       .finally(() => {
         if (controller.signal.aborted) return;
-        setSettled({ frameBlobs, watermark, filterMode, size, view });
+        setSettled({ frameBlobs, watermark, filterMode, size, position, view });
       });
     return () => controller.abort();
-  }, [frameBlobs, watermark, filterMode, size, view]);
+  }, [frameBlobs, watermark, filterMode, size, position, view]);
 
   // Its own frame source, so its seeking never shows in the bare frame.
   useEffect(() => {
@@ -162,6 +178,7 @@ export function useMarkPreview(
       settled.watermark === watermark &&
       settled.filterMode === filterMode &&
       settled.size === size &&
+      settled.position === position &&
       settled.view === view
     );
 

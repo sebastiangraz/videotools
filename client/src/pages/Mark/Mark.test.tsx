@@ -156,7 +156,7 @@ describe("Mark", () => {
       expect.objectContaining({ method: "POST" }),
     );
     const body = postedBody(fetchMock);
-    expect(body).toMatchObject({ filter: "glass", size: "large" });
+    expect(body).toMatchObject({ filter: "glass", size: "large", position: "bottom-right" });
     expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
@@ -336,7 +336,7 @@ describe("Mark", () => {
       filename: "clip.mp4",
       blobUrl: blobUrl("clip.mp4"),
       watermarkUrl: blobUrl("logo.png"),
-      options: { filter: "blur", size: "small", quality: 100 },
+      options: { filter: "blur", size: "small", position: "bottom-right", quality: 100 },
     });
   });
 });

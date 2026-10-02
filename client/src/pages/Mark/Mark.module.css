@@ -28,8 +28,10 @@
   container-name: mark-preview-container;
 }
 
+/* Scales about the mark (--mark-x/--mark-y, 0 to 1), pulled 1rem in from its edges. */
 .markPreviewZoomed figure {
-  transform: scale(2) translate(-1rem, -1rem);
+  transform: scale(2)
+    translate(calc((0.5 - var(--mark-x)) * 2rem), calc((0.5 - var(--mark-y)) * 2rem));
   --mask-solid: 0%;
 }
 
@@ -44,9 +46,10 @@
   overflow: hidden;
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
-  transform-origin: bottom right;
+  --mark-at: calc(var(--mark-x) * 100%) calc(var(--mark-y) * 100%);
+  transform-origin: var(--mark-at);
   --mask-image: radial-gradient(
-    ellipse at bottom right,
+    ellipse at var(--mark-at),
     #fff 0%,
     #fff calc(var(--mask-solid) + 10%),
     #fff0 calc(var(--mask-solid) + 60%)

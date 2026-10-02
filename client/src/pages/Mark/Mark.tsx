@@ -1,16 +1,24 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { Upload } from "../../components/Upload/Upload";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { Slider } from "../../components/Slider/Slider";
 import { Spinner } from "../../components/Spinner/Spinner";
 import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
+import { Select } from "../../components/Select/Select";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import { useMarkPreview, type MarkFilter, type MarkSize, type MarkView } from "./useMarkPreview";
+import {
+  MARK_POSITIONS,
+  useMarkPreview,
+  type MarkFilter,
+  type MarkPosition,
+  type MarkSize,
+  type MarkView,
+} from "./useMarkPreview";
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
@@ -35,6 +43,9 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "blur", label: "Blur" },
 ];
 
+// Temporary: a picker for every position until the real control lands.
+const POSITION_OPTIONS = Object.keys(MARK_POSITIONS).map((value) => ({ value, label: value }));
+
 // The preview shows one at a time, so switching one on switches the others off.
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // Displacement map alone (red x, green y, olive no shift) over a light-gray frame.
@@ -50,6 +61,7 @@ export const Mark = () => {
   const [watermark, setWatermark] = useState<File | null>(null);
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("large");
+  const [position, setPosition] = useState<MarkPosition>("bottom-right");
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
@@ -67,9 +79,12 @@ export const Mark = () => {
     watermark,
     filterMode,
     size,
+    position,
     debug ? debugView : "render",
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
+  // The zoom and its mask home in on the mark.
+  const [markX, markY] = MARK_POSITIONS[position];
 
   const sourceFile = source.file;
   // A PNG is lossless whatever is asked of it, so it isn't asked.
@@ -96,7 +111,7 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, quality },
+        options: { filter: filterMode, size, position, quality },
       }),
     });
   };
@@ -140,7 +155,7 @@ export const Mark = () => {
               ref={previewRef}
               className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
               onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
-              style={{ aspectRatio }}
+              style={{ aspectRatio, "--mark-x": markX, "--mark-y": markY } as CSSProperties}
             />
           }
         >
@@ -253,6 +268,21 @@ export const Mark = () => {
               options={FILTER_OPTIONS}
               value={filterMode}
               onValueChange={setFilterMode}
+              disabled={run.busy}
+            />
+          </div>
+        )}
+
+        {watermark && (
+          <div className={form.formGroup}>
+            <label htmlFor="markPosition" className={form.label}>
+              Position
+            </label>
+            <Select
+              id="markPosition"
+              options={POSITION_OPTIONS}
+              value={position}
+              onValueChange={(picked) => setPosition(picked as MarkPosition)}
               disabled={run.busy}
             />
           </div>
