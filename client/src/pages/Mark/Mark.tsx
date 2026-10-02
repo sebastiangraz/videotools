@@ -188,11 +188,12 @@ export const Mark = () => {
               second={0}
               label="first frame"
               className={styles.markPreviewFrame}
-            />{" "}
-            <div className={styles.markPreviewLoading} hidden={!preview.loading}>
-              <Spinner />
-            </div>
+            />
           </figure>
+          {/* Beside the figure, not in it, so the zoom leaves it in the corner. */}
+          <div className={styles.markPreviewLoading} hidden={!preview.loading}>
+            <Spinner />
+          </div>
           {/* Invisible hover strips, one per frame, that pick the frame. */}
           {preview.frameCount > 1 && (
             <div className={styles.markPreviewScrub} aria-hidden="true">
