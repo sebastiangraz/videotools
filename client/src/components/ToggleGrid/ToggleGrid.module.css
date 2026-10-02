@@ -1,15 +1,16 @@
 .root {
+  --gap: 1px;
+  --corner: calc(var(--radius) / 2 + 2px);
   composes: root from "../ToggleGroup/ToggleGroup.module.css";
   position: relative;
   overflow: hidden;
   display: grid;
   grid-template-columns: repeat(3, auto);
-  gap: 0;
-  height: 2.5rem;
-  padding: 0.25em;
+  gap: var(--gap);
+  padding: calc(var(--gap) * 2);
   aspect-ratio: 1;
   align-self: start;
-
+  will-change: transform;
   &:hover {
     .active::after {
       opacity: 1;
@@ -18,15 +19,34 @@
 }
 
 .item {
-  border-radius: 99em;
+  border-radius: 0;
   appearance: none;
   margin: 0;
   padding: 0;
   border: 0;
-  background: none;
+  background: var(--border-subtle);
   cursor: pointer;
+  corner-shape: superellipse(1.1);
+  transition: background-color 150ms ease;
 
-  &::before {
+  /* top-left corner */
+  &:nth-child(1) {
+    border-top-left-radius: var(--corner);
+  }
+  /* top-right corner */
+  &:nth-child(3) {
+    border-top-right-radius: var(--corner);
+  }
+  /* bottom-left corner */
+  &:nth-child(7) {
+    border-bottom-left-radius: var(--corner);
+  }
+  /* bottom-right corner */
+  &:nth-child(9) {
+    border-bottom-right-radius: var(--corner);
+  }
+
+  /* &::before {
     content: "";
     display: block;
     width: 2px;
@@ -39,6 +59,10 @@
 
   &:hover:not([data-disabled])::before {
     background-color: var(--fg);
+  } */
+
+  &:hover {
+    background-color: var(--border);
   }
 
   &[data-disabled] {
@@ -58,7 +82,8 @@
   display: grid;
   place-items: center;
   pointer-events: none;
-  translate: calc(mod(var(--at), 3) * 100%) calc(round(down, var(--at) / 3) * 100%);
+  translate: calc(mod(var(--at), 3) * (100% + var(--gap)))
+    calc(round(down, var(--at) / 3) * (100% + var(--gap)));
   transition: translate 200ms ease;
 
   &::before,
@@ -68,13 +93,26 @@
   }
 
   &::before {
-    width: 8px;
-    height: 8px;
-    border-radius: 3px;
+    width: calc(100%);
+    height: calc(100%);
     background-image: linear-gradient(var(--fg-secondary) 0 0), linear-gradient(var(--bg) 0 0);
+    transition: border-radius 200ms ease;
+    border-radius: 2px;
+    @container style(--at: 0) {
+      border-top-left-radius: calc(var(--corner));
+    }
+    @container style(--at: 2) {
+      border-top-right-radius: calc(var(--corner));
+    }
+    @container style(--at: 6) {
+      border-bottom-left-radius: calc(var(--corner));
+    }
+    @container style(--at: 8) {
+      border-bottom-right-radius: calc(var(--corner));
+    }
   }
 
-  &::after {
+  /* &::after {
     transition: opacity 300ms ease;
     opacity: 0;
     z-index: -1;
@@ -83,5 +121,5 @@
     background:
       linear-gradient(var(--border-subtle) 0 0) center / 100% 1px no-repeat,
       linear-gradient(var(--border-subtle) 0 0) center / 1px 100% no-repeat;
-  }
+  } */
 }

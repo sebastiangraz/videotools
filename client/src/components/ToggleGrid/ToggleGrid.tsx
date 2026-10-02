@@ -24,15 +24,12 @@ export const ToggleGrid = <T extends string>({
     disabled={disabled}
     aria-labelledby={labelledBy}
     className={styles.root}
+    style={{ "--at": options.indexOf(value) } as CSSProperties}
   >
     {options.map((option) => (
       <Toggle key={option} value={option} aria-label={option} className={styles.item} />
     ))}
     {/* The pressed mark, one element that slides to the pressed dot. */}
-    <span
-      aria-hidden="true"
-      className={styles.active}
-      style={{ "--at": options.indexOf(value) } as CSSProperties}
-    />
+    <span aria-hidden="true" className={styles.active} />
   </BaseToggleGroup>
 );
