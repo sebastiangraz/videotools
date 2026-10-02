@@ -31,5 +31,9 @@ export const ToggleGrid = <T extends string>({
     ))}
     {/* The pressed mark, one element that slides to the pressed dot. */}
     <span aria-hidden="true" className={styles.active} />
+    {/* The lattice slides with the tile; its fade is fixed, so the mask sits on this wrapper. */}
+    <span aria-hidden="true" className={styles.field}>
+      <span className={styles.lattice} />
+    </span>
   </BaseToggleGroup>
 );

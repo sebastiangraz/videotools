@@ -5,16 +5,14 @@
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template: repeat(3, auto) / repeat(3, auto);
   gap: var(--gap);
   padding: calc(var(--gap) * 2);
   aspect-ratio: 1;
   align-self: start;
   will-change: transform;
-  &:hover {
-    .active::after {
-      opacity: 1;
-    }
+  &:hover .lattice::after {
+    opacity: 0.06;
   }
 }
 
@@ -24,11 +22,11 @@
   margin: 0;
   padding: 0;
   border: 0;
-  background: var(--border-subtle);
+  background: transparent;
   cursor: pointer;
   corner-shape: superellipse(1.1);
   transition: background-color 150ms ease;
-
+  border-radius: 2px;
   /* top-left corner */
   &:nth-child(1) {
     border-top-left-radius: var(--corner);
@@ -46,21 +44,6 @@
     border-bottom-right-radius: var(--corner);
   }
 
-  /* &::before {
-    content: "";
-    display: block;
-    width: 2px;
-    height: 2px;
-    margin: auto;
-    border-radius: 50%;
-    background-color: var(--fg-tertiary);
-    transition: background-color 150ms ease;
-  }
-
-  &:hover:not([data-disabled])::before {
-    background-color: var(--fg);
-  } */
-
   &:hover {
     background-color: var(--border);
   }
@@ -75,51 +58,71 @@
   }
 }
 
-.active {
+/* The pressed tile and the lattice's anchor: absolutely placed in the first
+   cell (an abspos grid child needs both end lines, or it spans to the
+   container's edge), then translated by whole cells to the pressed one (--at,
+   in reading order). A step is a cell plus a gap. */
+.active,
+.lattice {
   position: absolute;
   grid-area: 1 / 1 / 2 / 2;
   inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
   translate: calc(mod(var(--at), 3) * (100% + var(--gap)))
     calc(round(down, var(--at) / 3) * (100% + var(--gap)));
-  transition: translate 200ms ease;
+  transition:
+    translate 200ms ease,
+    border-radius 200ms ease;
+}
 
-  &::before,
+.active {
+  pointer-events: none;
+  background-image: linear-gradient(var(--fg-secondary) 0 0), linear-gradient(var(--bg) 0 0);
+  border-radius: 2px;
+  @container style(--at: 0) {
+    border-top-left-radius: var(--corner);
+  }
+  @container style(--at: 2) {
+    border-top-right-radius: var(--corner);
+  }
+  @container style(--at: 6) {
+    border-bottom-left-radius: var(--corner);
+  }
+  @container style(--at: 8) {
+    border-bottom-right-radius: var(--corner);
+  }
+}
+
+/* Over the grid, cloning its cells, so the lattice inside can slide with the
+   tile while the fade, masked here, stays put. */
+.field {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template: inherit;
+  gap: inherit;
+  padding: inherit;
+  pointer-events: none;
+  mask-image: radial-gradient(closest-side, #000, transparent);
+}
+
+.lattice {
+  display: grid;
+  place-items: center;
+
+  /* The grid lines: a lattice with the layout's period (a cell plus a gap),
+     centred on the tile so its lines fall in the gaps, running past the root
+     (which clips it). */
   &::after {
     content: "";
-    grid-area: 1 / 1;
-  }
-
-  &::before {
-    width: calc(100%);
-    height: calc(100%);
-    background-image: linear-gradient(var(--fg-secondary) 0 0), linear-gradient(var(--bg) 0 0);
-    transition: border-radius 200ms ease;
-    border-radius: 2px;
-    @container style(--at: 0) {
-      border-top-left-radius: calc(var(--corner));
-    }
-    @container style(--at: 2) {
-      border-top-right-radius: calc(var(--corner));
-    }
-    @container style(--at: 6) {
-      border-bottom-left-radius: calc(var(--corner));
-    }
-    @container style(--at: 8) {
-      border-bottom-right-radius: calc(var(--corner));
-    }
-  }
-
-  /* &::after {
-    transition: opacity 300ms ease;
-    opacity: 0;
-    z-index: -1;
+    --period: calc(100% / 6 + var(--gap));
     width: 600%;
     height: 600%;
     background:
-      linear-gradient(var(--border-subtle) 0 0) center / 100% 1px no-repeat,
-      linear-gradient(var(--border-subtle) 0 0) center / 1px 100% no-repeat;
-  } */
+      linear-gradient(to right, var(--fg) var(--gap), transparent 0) calc(50% - var(--gap) / 2) 0 /
+        var(--period) 100%,
+      linear-gradient(var(--fg) var(--gap), transparent 0) 0 calc(50% - var(--gap) / 2) / 100%
+        var(--period);
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
 }
