@@ -13,17 +13,20 @@ import styles from "./FramePreview.module.css";
 // resets the error when a new file is picked. `className` swaps the default
 // card look for the caller's own (the mark preview lays it out as a frame
 // under its renders) and `label` names the frame. Stills come through the same
-// source (a one-frame image).
+// source (a one-frame image). `maxSide` draws big frames smaller, for callers
+// keeping many canvases at once (the sequence preview's stack of stills).
 export const FramePreview = ({
   file,
   second,
   label = "start frame preview",
   className = styles.framePreview,
+  maxSide = Infinity,
 }: {
   file: File;
   second: number;
   label?: string;
   className?: string;
+  maxSide?: number;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [failedFile, setFailedFile] = useState<File | null>(null);
@@ -59,9 +62,10 @@ export const FramePreview = ({
       .then((frame) => {
         const canvas = canvasRef.current;
         if (canvas && !cancelled) {
-          canvas.width = frame.width;
-          canvas.height = frame.height;
-          canvas.getContext("2d")?.drawImage(frame.image, 0, 0);
+          const scale = Math.min(1, maxSide / Math.max(frame.width, frame.height));
+          canvas.width = Math.round(frame.width * scale);
+          canvas.height = Math.round(frame.height * scale);
+          canvas.getContext("2d")?.drawImage(frame.image, 0, 0, canvas.width, canvas.height);
         }
         frame.close();
       })
@@ -71,7 +75,7 @@ export const FramePreview = ({
     return () => {
       cancelled = true;
     };
-  }, [opened, file, second]);
+  }, [opened, file, second, maxSide]);
 
   if (failedFile === file) {
     return (

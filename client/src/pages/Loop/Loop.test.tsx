@@ -70,7 +70,9 @@ describe("Loop", () => {
     await user.hover(screen.getByLabelText(/start at/i));
     const preview = await screen.findByLabelText(/start frame preview/i);
     expect(preview.tagName).toBe("CANVAS");
-    await waitFor(() => expect(drawImage).toHaveBeenCalledWith(expect.any(HTMLVideoElement), 0, 0));
+    await waitFor(() =>
+      expect(drawImage).toHaveBeenCalledWith(expect.any(HTMLVideoElement), 0, 0, 1280, 720),
+    );
     expect(preview).toHaveProperty("width", 1280);
     expect(document.querySelector("video")).not.toBeInTheDocument();
 

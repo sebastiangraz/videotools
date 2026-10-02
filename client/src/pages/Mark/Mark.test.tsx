@@ -104,7 +104,13 @@ describe("Mark", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(postedBody(fetchMock).frame).toMatch(/^data:image\/jpeg;base64,/);
-    expect(drawImage).toHaveBeenCalledWith(expect.objectContaining({ frameIndex: 0 }), 0, 0);
+    expect(drawImage).toHaveBeenCalledWith(
+      expect.objectContaining({ frameIndex: 0 }),
+      0,
+      0,
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
   });
 

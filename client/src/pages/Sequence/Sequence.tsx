@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { Upload } from "../../components/Upload/Upload";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
+import preview from "../../components/FramePreview/FramePreview.module.css";
 import { Select } from "../../components/Select/Select";
 import { NumberField } from "../../components/NumberField/NumberField";
 import { Slider } from "../../components/Slider/Slider";
@@ -46,9 +47,10 @@ function estimateOutputBytes(
   return pixels * frames * (bpp.min + (bpp.max - bpp.min) * t * t);
 }
 
-// The pick played at the field's pace: a FramePreview handed the next still
-// every `frameDuration` seconds. Lives in the card, so it ticks only while
-// that is open and starts over on the first image (the thumbnail) each time.
+// The pick played at the field's pace: every still as a FramePreview in one
+// card, the next one shown every `frameDuration` seconds. Lives in the card,
+// so it ticks only while that is open and starts over on the first image
+// (the thumbnail) each time.
 const SequencePreview = ({ files, frameDuration }: { files: File[]; frameDuration: number }) => {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -56,7 +58,25 @@ const SequencePreview = ({ files, frameDuration }: { files: File[]; frameDuratio
     const timer = setInterval(() => setTick((n) => n + 1), Math.max(0.1, frameDuration) * 1000);
     return () => clearInterval(timer);
   }, [frameDuration]);
-  return <FramePreview file={files[tick % files.length]} second={0} label="sequence preview" />;
+  const shown = tick % files.length;
+  return (
+    <div className={preview.framePreview}>
+      {files.map((file, i) => (
+        <FramePreview
+          key={i}
+          file={file}
+          second={0}
+          maxSide={480}
+          label={`sequence preview ${i + 1}`}
+          className={
+            i === shown
+              ? preview.framePreviewFrame
+              : `${preview.framePreviewFrame} ${preview.framePreviewHidden}`
+          }
+        />
+      ))}
+    </div>
+  );
 };
 
 export const Sequence = () => {

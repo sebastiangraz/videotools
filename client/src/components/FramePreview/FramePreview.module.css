@@ -1,14 +1,33 @@
+/* The card: a canvas on its own, or a box of stacked frames (the sequence
+   preview). Sized by the frame drawn on it, or by the first frame in the
+   stack, as the server's first image sets the output's size. */
 .framePreview {
-  display: flex;
+  display: grid;
+  position: relative;
   width: 14rem;
   max-width: 100%;
-  /* The canvas is sized by the frame drawn on it. */
   height: auto;
   box-shadow: var(--raised);
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   overflow: hidden;
   background-color: var(--bg-1);
+}
+
+.framePreviewFrame {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: auto;
+  &:not(:first-child) {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+.framePreviewHidden {
+  visibility: hidden;
 }
 
 .framePreviewError {
