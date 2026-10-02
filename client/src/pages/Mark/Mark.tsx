@@ -190,11 +190,9 @@ export const Mark = () => {
               className={styles.markPreviewFrame}
             />
           </figure>
-          {/* Beside the figure, not in it, so the zoom leaves it in the corner. */}
           <div className={styles.markPreviewLoading} hidden={!preview.loading}>
             <Spinner />
           </div>
-          {/* Invisible hover strips, one per frame, that pick the frame. */}
           {preview.frameCount > 1 && (
             <div className={styles.markPreviewScrub} aria-hidden="true">
               {Array.from({ length: preview.frameCount }, (_, i) => (

@@ -121,9 +121,6 @@
   }
 }
 
-/* The spinner while a set of renders is on its way: a frosted chip in the
-   middle of the box, above the scrub strips but out of the pointer's way.
-   Fades both ways (see .stopButton for the pattern). */
 .markPreviewLoading {
   --fade: 0.25s;
   position: relative;

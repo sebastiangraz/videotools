@@ -71,7 +71,6 @@ export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
   typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
 
-// Where along the frame's width and height the logo sits, 0 to 1, inside the gap.
 export const MARK_POSITIONS = {
   "top-left": [0, 0],
   top: [0.5, 0],
