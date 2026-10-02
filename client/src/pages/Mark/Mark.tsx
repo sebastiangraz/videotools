@@ -255,7 +255,20 @@ export const Mark = () => {
             />
           </div>
         )}
-
+        {watermark && (
+          <div className={`${form.formGroup} ${styles.markPosition}`}>
+            <span id="markPosition" className={form.label}>
+              Place
+            </span>
+            <ToggleGrid
+              labelledBy="markPosition"
+              options={POSITION_OPTIONS}
+              value={position}
+              onValueChange={setPosition}
+              disabled={run.busy}
+            />
+          </div>
+        )}
         {/* Glass and blur take their shape from the logo. */}
         {watermark && (
           <div className={form.formGroup}>
@@ -267,21 +280,6 @@ export const Mark = () => {
               options={FILTER_OPTIONS}
               value={filterMode}
               onValueChange={setFilterMode}
-              disabled={run.busy}
-            />
-          </div>
-        )}
-
-        {watermark && (
-          <div className={`${form.formGroup} ${styles.markPosition}`}>
-            <span id="markPosition" className={form.label}>
-              Place
-            </span>
-            <ToggleGrid
-              labelledBy="markPosition"
-              options={POSITION_OPTIONS}
-              value={position}
-              onValueChange={setPosition}
               disabled={run.busy}
             />
           </div>
