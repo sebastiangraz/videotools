@@ -171,6 +171,20 @@ describe("watermarkLayout sizes", () => {
       expect((small.LY - small.margin) % 2).toBe(0);
     },
   );
+
+  it.each(Object.keys(MARK_SIZES) as (keyof typeof MARK_SIZES)[])(
+    "keeps the %s gap its own, the padding giving way within it",
+    (size) => {
+      const bounds = { width: 300, height: 80 };
+      const base = watermarkLayout(UHD, bounds, "medium");
+      const l = watermarkLayout(UHD, bounds, size);
+      const { scale, gap } = MARK_SIZES[size];
+      expect(Math.abs(l.gap - base.gap * gap)).toBeLessThanOrEqual(1);
+      expect(l.margin).toBeLessThanOrEqual(l.gap);
+      expect(l.margin).toBeLessThanOrEqual(base.margin * scale + 1);
+      expect((l.gap - l.margin) % 2).toBe(0);
+    },
+  );
 });
 
 describe("watermarkLayout positions", () => {

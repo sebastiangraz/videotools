@@ -122,7 +122,7 @@ const SOBEL = {
 const MERGE_GBR = "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp";
 
 // `margin` is the glass padding around the logo; `gap` its distance from the
-// frame's edges.
+// frame's edges, which the padding never overrides.
 export function watermarkLayout(
   video: { width: number; height: number },
   bounds: { width: number; height: number },
@@ -157,11 +157,11 @@ export function watermarkLayout(
   const LH = even(Math.round(h * clamp));
   // Only bites on absurdly long frames: the cell must fit the frame.
   const fit = (n: number) => Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
-  const margin = fit(Math.round(unit * MARK.paddingRatio));
-  // At least the margin (cell stays inside) and of its parity (corner even).
-  let gap = fit(Math.round(mediumUnit * MARK.paddingRatio * gapScale));
-  if ((gap - margin) % 2) gap -= 1;
-  gap = Math.max(gap, margin);
+  const gap = fit(Math.round(mediumUnit * MARK.paddingRatio * gapScale));
+  // The padding gives way to the gap (cell stays inside) and takes its parity
+  // (corner even); bumping up stays within the gap, as it was below it.
+  let margin = Math.min(fit(Math.round(unit * MARK.paddingRatio)), gap);
+  if ((gap - margin) % 2) margin += 1;
   const [fx, fy] = MARK_POSITIONS[position];
   // Centred, the corner can land odd: a 1px nudge keeps it even.
   const along = (span: number, f: number) => {
