@@ -60,6 +60,11 @@ export const MARK = {
   blurSaturation: 1.8,
   // Blur filter difference layer opacity, a white fill in the logo's shape.
   blurDifference: 0.12,
+
+  // Rotation seconds at each position, fades included.
+  rotateSeconds: 2,
+  // Rotation fade in and fade out seconds, each.
+  fadeSeconds: 0.25,
 };
 
 export const MARK_SIZES = {
@@ -204,6 +209,7 @@ export function watermarkGraph(
     size = "medium",
     position = "bottom-right",
     view = "render",
+    rotatePosition = false,
   }: {
     filter: MarkFilter;
     bounds?: Bounds;
@@ -212,10 +218,38 @@ export function watermarkGraph(
     size?: MarkSize;
     position?: MarkPosition;
     view?: MarkView;
+    rotatePosition?: boolean;
   },
 ): string {
   const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
-  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(video, bounds, size, position);
+  const layout = watermarkLayout(video, bounds, size, position);
+  const { VW, VH, LW, LH, margin } = layout;
+  // Rotating, the mark stops at every position in turn from `position` on, 4
+  // along each time so it jumps across the frame. Clips too short for two
+  // stops run faster (unknown lengths don't).
+  const names = Object.keys(MARK_POSITIONS) as MarkPosition[];
+  const stops = names.map((_, i) =>
+    watermarkLayout(video, bounds, size, names[(names.indexOf(position) + 4 * i) % names.length]),
+  );
+  const pace = Math.min(1, video.duration / (2 * M.rotateSeconds)) || 1;
+  const [period, fade] = [M.rotateSeconds * pace, M.fadeSeconds * pace];
+  // The clock runs a fade ahead, so the first frame shows the mark whole.
+  const stop = `mod(floor((t+${fade})/${period}),${stops.length})`;
+  // The logo box's corner less `inset`, for crop and overlay.
+  const corner = (inset = 0) =>
+    (["LX", "LY"] as const).map((axis) =>
+      rotatePosition
+        ? `'st(0,${stop});${stops.map((at, i) => `${at[axis] - inset}*eq(ld(0),${i})`).join("+")}'`
+        : layout[axis] - inset,
+    );
+  // Ends a w×h rgba chain: clear at each move, fading in after it and out
+  // before the next. A 2px white clock off the video holds the fade as its
+  // alpha (geq on the mark itself costs frames) and multiplies into the mark.
+  const lap = `mod(T+${fade},${period})`;
+  const fading = (w: number, h: number) =>
+    rotatePosition
+      ? `,format=gbrap[whole];${pad}crop=2:2,format=gbrap,geq=r=255:g=255:b=255:a='255*clip(min(${lap},${period}-${lap})/${fade},0,1)',scale=${w}:${h}:flags=neighbor[clock];[clock][whole]blend=all_mode=multiply`
+      : "";
   const shorter = Math.min(VW, VH) * MARK_SIZES[size].scale;
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
   const trim = trimmed ? `,crop=${bounds.width}:${bounds.height}:${bounds.x}:${bounds.y}` : "";
@@ -229,13 +263,13 @@ export function watermarkGraph(
   // and leave a faint box. RGBA overlays need format=auto (default is yuv420).
   const rgb = base === "rgba";
   const open = rgb ? "format=rgba" : `format=yuv420p,crop=${VW}:${VH}:0:0`;
-  const onto = (x: number, y: number) =>
+  const onto = ([x, y]: (number | string)[]) =>
     rgb ? `overlay=x=${x}:y=${y}:format=auto,format=rgba` : `overlay=x=${x}:y=${y},format=yuv420p`;
   if (filter === "plain" && view === "render") {
     return [
       `${pad}${open}[base]`,
-      `[1:v]format=rgba${trim},${scaleLogo}[logo]`,
-      `[base][logo]${onto(LX, LY)}[out]`,
+      `[1:v]format=rgba${trim},${scaleLogo}${fading(LW, LH)}[logo]`,
+      `[base][logo]${onto(corner())}[out]`,
     ].join(";");
   }
 
@@ -243,8 +277,7 @@ export function watermarkGraph(
   const P = margin;
   const CW = LW + 2 * P;
   const CH = LH + 2 * P;
-  const CX = LX - P;
-  const CY = LY - P;
+  const [CX, CY] = corner(P);
 
   // Same matrix both ways keeps the cell's colours; it must match the source's
   // tag too, or overlay converts the whole frame (a JPEG grab is always bt601).
@@ -265,8 +298,8 @@ export function watermarkGraph(
       `[frost][difference]overlay=format=auto[lifted]`,
       `[lifted][mask]alphamerge[fill]`,
       `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
-      `[fill][faint]overlay=format=auto${fromRgb}[cell]`,
-      `[base][cell]${onto(CX, CY)}[out]`,
+      `[fill][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
+      `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
   }
 
@@ -339,7 +372,7 @@ export function watermarkGraph(
       `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
       `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
-      `[base][cell]${onto(CX, CY)}[out]`,
+      `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
   }
   const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
@@ -427,8 +460,8 @@ export function watermarkGraph(
     `[c1][glass]overlay=format=auto[c2a]`,
     `[c2a][ambient]overlay=format=auto[c2]`,
     `[c2][rim]overlay=format=auto[c3]`,
-    `[c3][faint]overlay=format=auto${fromRgb}[cell]`,
-    `[base][cell]${onto(CX, CY)}[out]`,
+    `[c3][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
+    `[base][cell]${onto([CX, CY])}[out]`,
   ].join(";");
 }
 

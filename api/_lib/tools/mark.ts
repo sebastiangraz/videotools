@@ -32,6 +32,7 @@ type MarkLook = {
   size?: MarkSize;
   position?: MarkPosition;
   view?: MarkView;
+  rotatePosition?: boolean;
 };
 
 async function addWatermark(
@@ -42,6 +43,7 @@ async function addWatermark(
     filter = "glass",
     size = "medium",
     position = "bottom-right",
+    rotatePosition,
   }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
@@ -57,6 +59,7 @@ async function addWatermark(
     pad: videoPad(source),
     size,
     position,
+    rotatePosition,
   });
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
@@ -192,6 +195,7 @@ export const mark: Tool = {
     const filter = isMarkFilter(options.filter) ? options.filter : "glass";
     const size = isMarkSize(options.size) ? options.size : "medium";
     const position = isMarkPosition(options.position) ? options.position : "bottom-right";
+    const rotatePosition = options.rotatePosition === true;
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     const source = await openSource(job, inputs[0]);
@@ -201,7 +205,7 @@ export const mark: Tool = {
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
     console.log(
-      `Adding watermark to ${format} (${size}, ${filter}, ${position}, quality ${quality})...`,
+      `Adding watermark to ${format} (${size}, ${filter}, ${position}${rotatePosition ? " rotating" : ""}, quality ${quality})...`,
     );
 
     const render = await addWatermark(ff, source, {
@@ -209,6 +213,7 @@ export const mark: Tool = {
       filter,
       size,
       position,
+      rotatePosition,
     });
     const outputPath = still
       ? await encodeStill(job, render, { format: still, quality })

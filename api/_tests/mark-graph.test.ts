@@ -292,6 +292,37 @@ describe("watermarkGraph", () => {
     }
   });
 
+  it("rotates through every position from the one it is given, clear at each move", () => {
+    const clip = { ...video, duration: 60 };
+    const positions = Object.keys(MARK_POSITIONS) as (keyof typeof MARK_POSITIONS)[];
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(clip, logo, { filter, position: "left", rotatePosition: true });
+      // Each stop's corner in turn, as overlay picks them
+      const [, xs, ys] = /overlay=x='[^;]+;([^']+)':y='[^;]+;([^']+)'/.exec(graph)!;
+      const stops = xs.split("+").map((x, i) => `${parseInt(x)},${parseInt(ys.split("+")[i])}`);
+      const p = filter === "plain" ? 0 : watermarkLayout(clip, logo).margin;
+      const corner = (position: (typeof positions)[number]) => {
+        const l = watermarkLayout(clip, logo, "medium", position);
+        return `${l.LX - p},${l.LY - p}`;
+      };
+      expect(stops[0]).toBe(corner("left"));
+      expect([...stops].sort()).toEqual(positions.map(corner).sort());
+      expect(graph).toContain(`(t+${MARK.fadeSeconds})/${MARK.rotateSeconds})`);
+      expect(graph).toContain("[clock]");
+      expect(watermarkGraph(clip, logo, { filter })).not.toContain("[clock]");
+    }
+  });
+
+  it("rotates faster through a clip too short for two stops", () => {
+    const graph = watermarkGraph({ ...video, duration: 2 }, logo, {
+      filter: "plain",
+      rotatePosition: true,
+    });
+    const [fade, period] = /\(t\+([\d.]+)\)\/([\d.]+)\)/.exec(graph)!.slice(1).map(Number);
+    expect(period).toBeCloseTo(1);
+    expect(fade / period).toBeCloseTo(MARK.fadeSeconds / MARK.rotateSeconds);
+  });
+
   it("draws the small glass's rim at a share of the medium one's width", () => {
     // 1080p: a 2px rim at medium, one erosion per px; at small, whole
     // erosions and a mixed-in share of one more for any fraction left

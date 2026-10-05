@@ -312,7 +312,7 @@ describe("Mark", () => {
     expect(secondSet.filter((src) => firstSet.includes(src))).toEqual([]);
   });
 
-  it("uploads the video then the watermark and requests a blurred watermark", async () => {
+  it("uploads the video then the watermark and requests a blurred, rotating watermark", async () => {
     const user = userEvent.setup();
     const video = file("clip.mp4", "video/mp4");
     const logo = file("logo.png", "image/png");
@@ -326,6 +326,7 @@ describe("Mark", () => {
     await pickLogo(user, logo);
     await user.click(screen.getByRole("button", { name: /blur/i }));
     await user.click(screen.getByRole("button", { name: /small/i }));
+    await user.click(screen.getByRole("switch", { name: /rotate/i }));
     await user.click(markButton());
 
     await runFinished(fetchMock);
@@ -336,7 +337,13 @@ describe("Mark", () => {
       filename: "clip.mp4",
       blobUrl: blobUrl("clip.mp4"),
       watermarkUrl: blobUrl("logo.png"),
-      options: { filter: "blur", size: "small", position: "bottom-right", quality: 100 },
+      options: {
+        filter: "blur",
+        size: "small",
+        position: "bottom-right",
+        rotatePosition: true,
+        quality: 100,
+      },
     });
   });
 });

@@ -63,6 +63,7 @@ export const Mark = () => {
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("medium");
   const [position, setPosition] = useState<MarkPosition>("bottom-right");
+  const [rotatePosition, setRotatePosition] = useState(false);
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
@@ -112,7 +113,7 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, position, quality },
+        options: { filter: filterMode, size, position, rotatePosition, quality },
       }),
     });
   };
@@ -286,6 +287,20 @@ export const Mark = () => {
           </div>
         )}
       </div>
+      {/* The mark moves on from the picked place every few seconds. */}
+      {watermark && (
+        <div className={form.switchRow}>
+          <Switch
+            id="markRotatePosition"
+            checked={rotatePosition}
+            onCheckedChange={setRotatePosition}
+            disabled={run.busy}
+          />
+          <label htmlFor="markRotatePosition" className={form.label}>
+            Rotate
+          </label>
+        </div>
+      )}
       {!lossless && (
         <div className={form.formGroup}>
           <Slider
