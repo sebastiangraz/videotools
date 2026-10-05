@@ -58,14 +58,48 @@
   overflow-wrap: anywhere;
   justify-content: center;
 }
+.uploadThumbContainer {
+  background-color: var(--border-subtle);
+  position: relative;
+  display: grid;
+  border-radius: 4px;
+  contain: paint;
+  &:after {
+    content: "";
+    z-index: 1;
+    mix-blend-mode: plus-lighter;
+    border-radius: 4px;
+    grid-area: 1 / 1;
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+    box-shadow: 0 0 0 1px
+      light-dark(
+        color-mix(in srgb, var(--fg) 16%, transparent),
+        color-mix(in srgb, var(--fg) 16%, transparent)
+      )
+      inset;
+  }
+}
+
+.uploadThumbImage {
+  .uploadThumb {
+    object-view-box: inset(-10%);
+  }
+}
+
+:root[data-theme-invert] .uploadThumbContainer {
+  &:after {
+    mix-blend-mode: normal;
+  }
+}
 
 .uploadThumb {
+  grid-area: 1 / 1;
   height: 1.5rem;
   max-width: 3rem;
-  padding: 2px;
   object-fit: contain;
-  border-radius: 4px;
-  background-color: var(--border-subtle);
+  position: relative;
 }
 
 .uploadLabel {

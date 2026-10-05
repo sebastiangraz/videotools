@@ -26,18 +26,24 @@ const UploadThumb = ({ file }: { file: File }) => {
 
   if (hasFrames(file)) {
     return (
-      <FramePreview
-        file={file}
-        second={0}
-        label="thumbnail"
-        className={styles.uploadThumb}
-        maxSide={THUMB_SIDE}
-        fallback={null}
-      />
+      <div className={styles.uploadThumbContainer}>
+        <FramePreview
+          file={file}
+          second={0}
+          label="thumbnail"
+          className={styles.uploadThumb}
+          maxSide={THUMB_SIDE}
+          fallback={null}
+        />
+      </div>
     );
   }
   if (file.type.startsWith("image/"))
-    return <img ref={show} alt="" className={styles.uploadThumb} />;
+    return (
+      <div className={`${styles.uploadThumbContainer} ${styles.uploadThumbImage}`}>
+        <img ref={show} alt="" className={styles.uploadThumb} />
+      </div>
+    );
   return null;
 };
 
