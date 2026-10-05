@@ -65,7 +65,7 @@ export const MARK = {
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   medium: { scale: 1, gap: 1, rim: 1 },
-  large: { scale: 2, gap: 0.5, rim: 1 },
+  large: { scale: 2, gap: 1, rim: 1 },
   dev: { scale: 3, gap: 1, rim: 1 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
