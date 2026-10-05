@@ -156,7 +156,7 @@ describe("Mark", () => {
       expect.objectContaining({ method: "POST" }),
     );
     const body = postedBody(fetchMock);
-    expect(body).toMatchObject({ filter: "glass", size: "large" });
+    expect(body).toMatchObject({ filter: "glass", size: "medium", position: "bottom-right" });
     expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
@@ -170,7 +170,7 @@ describe("Mark", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(postedBody(fetchMock, 1)).toMatchObject({
       filter: "blur",
-      size: "large",
+      size: "medium",
     });
 
     await user.click(screen.getByRole("button", { name: /small/i }));
@@ -239,7 +239,7 @@ describe("Mark", () => {
     URL.createObjectURL = vi.fn((blob: Blob | MediaSource) =>
       blob instanceof Blob && blob.type === "image/jpeg" ? `blob:render-${renders++}` : "blob:mock",
     );
-    stubPreviewFetch();
+    const fetchMock = stubPreviewFetch();
 
     await renderApp("/mark");
     await pickSource(user, file("clip.mp4", "video/mp4"));
@@ -256,6 +256,18 @@ describe("Mark", () => {
 
     fireEvent.pointerEnter(strips[0]);
     expect(within(preview).getByAltText(/watermarked frame/i)).toBe(first);
+
+    // Rotating, each frame shows the mark where its stay puts it: 10s at the
+    // cadence of 2 is five stays, each 4 positions on from the last
+    await user.click(screen.getByRole("switch", { name: /rotate/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2 * SCRUB_FRAMES));
+    const positions = Array.from(
+      { length: SCRUB_FRAMES },
+      (_, n) => postedBody(fetchMock, SCRUB_FRAMES + n).position,
+    );
+    expect(positions).toEqual(
+      expect.arrayContaining(["bottom-right", "left", "bottom", "top-right", "bottom-left"]),
+    );
   });
 
   it("says it is loading until every render of a set has landed, and keeps the last set up meanwhile", async () => {
@@ -312,7 +324,7 @@ describe("Mark", () => {
     expect(secondSet.filter((src) => firstSet.includes(src))).toEqual([]);
   });
 
-  it("uploads the video then the watermark and requests a blurred watermark", async () => {
+  it("uploads the video then the watermark and requests a blurred, rotating watermark", async () => {
     const user = userEvent.setup();
     const video = file("clip.mp4", "video/mp4");
     const logo = file("logo.png", "image/png");
@@ -326,6 +338,7 @@ describe("Mark", () => {
     await pickLogo(user, logo);
     await user.click(screen.getByRole("button", { name: /blur/i }));
     await user.click(screen.getByRole("button", { name: /small/i }));
+    await user.click(screen.getByRole("switch", { name: /rotate/i }));
     await user.click(markButton());
 
     await runFinished(fetchMock);
@@ -336,7 +349,13 @@ describe("Mark", () => {
       filename: "clip.mp4",
       blobUrl: blobUrl("clip.mp4"),
       watermarkUrl: blobUrl("logo.png"),
-      options: { filter: "blur", size: "small", quality: 100 },
+      options: {
+        filter: "blur",
+        size: "small",
+        position: "bottom-right",
+        rotatePosition: true,
+        quality: 100,
+      },
     });
   });
 });

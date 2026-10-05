@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { renderWatermarkFrame } from "./_lib/tools/mark.js";
-import { isMarkFilter, isMarkSize, isMarkView } from "./_lib/tools/mark-graph.js";
+import { isMarkFilter, isMarkPosition, isMarkSize, isMarkView } from "./_lib/tools/mark-graph.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
 
@@ -15,6 +15,7 @@ type PreviewBody = {
   logo?: unknown;
   filter?: unknown;
   size?: unknown;
+  position?: unknown;
   view?: unknown;
 };
 
@@ -29,7 +30,7 @@ export default {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== "POST") return methodNotAllowed();
 
-    const { frame, logo, filter, size, view }: PreviewBody = await jsonBody(request);
+    const { frame, logo, filter, size, position, view }: PreviewBody = await jsonBody(request);
     const frameImage = decodeDataUrl(frame);
     const logoImage = decodeDataUrl(logo);
     if (!frameImage || !logoImage) {
@@ -52,7 +53,8 @@ export default {
           frameFile: framePath,
           logoFile: logoPath,
           filter: isMarkFilter(filter) ? filter : "glass",
-          size: isMarkSize(size) ? size : "large",
+          size: isMarkSize(size) ? size : "medium",
+          position: isMarkPosition(position) ? position : "bottom-right",
           view: isMarkView(view) ? view : "render",
         },
       );

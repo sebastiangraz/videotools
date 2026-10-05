@@ -162,7 +162,6 @@
   opacity: 0;
 }
 
-/* The action button's Spinner: half size, up against the status text. */
 .spinner {
   transform-origin: center right;
   transform: scale(0.5);

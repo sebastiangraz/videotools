@@ -60,16 +60,38 @@ export const MARK = {
   blurSaturation: 1.8,
   // Blur filter difference layer opacity, a white fill in the logo's shape.
   blurDifference: 0.12,
+
+  // Rotation seconds at each position, fades included, at least: the clip
+  // divides into equal stays.
+  rotateCadence: 2,
+  // Rotation fade in and fade out seconds, each.
+  fadeSeconds: 0.25,
 };
 
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
-  large: { scale: 1, gap: 1, rim: 1 },
-  dev: { scale: 2, gap: 1, rim: 1 },
+  medium: { scale: 1, gap: 1, rim: 1 },
+  large: { scale: 2, gap: 1, rim: 1 },
+  dev: { scale: 3, gap: 1, rim: 1 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
   typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
+
+export const MARK_POSITIONS = {
+  "top-left": [0, 0],
+  top: [0.5, 0],
+  "top-right": [1, 0],
+  left: [0, 0.5],
+  center: [0.5, 0.5],
+  right: [1, 0.5],
+  "bottom-left": [0, 1],
+  bottom: [0.5, 1],
+  "bottom-right": [1, 1],
+};
+export type MarkPosition = keyof typeof MARK_POSITIONS;
+export const isMarkPosition = (value: unknown): value is MarkPosition =>
+  typeof value === "string" && Object.hasOwn(MARK_POSITIONS, value);
 
 export const MARK_FILTERS = ["plain", "glass", "blur"] as const;
 export type MarkFilter = (typeof MARK_FILTERS)[number];
@@ -106,11 +128,12 @@ const SOBEL = {
 const MERGE_GBR = "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:format=gbrp";
 
 // `margin` is the glass padding around the logo; `gap` its distance from the
-// right and bottom edges.
+// frame's edges, which the padding never overrides.
 export function watermarkLayout(
   video: { width: number; height: number },
   bounds: { width: number; height: number },
-  size: MarkSize = "large",
+  size: MarkSize = "medium",
+  position: MarkPosition = "bottom-right",
 ): {
   VW: number;
   VH: number;
@@ -127,8 +150,8 @@ export function watermarkLayout(
   const VW = even(video.width);
   const VH = even(video.height);
   const { scale, gap: gapScale } = MARK_SIZES[size];
-  const largeUnit = Math.sqrt(VW * VH);
-  const unit = largeUnit * scale;
+  const mediumUnit = Math.sqrt(VW * VH);
+  const unit = mediumUnit * scale;
 
   const aspect = bounds.width / bounds.height;
   const elongation = Math.max(aspect, 1 / aspect);
@@ -140,13 +163,19 @@ export function watermarkLayout(
   const LH = even(Math.round(h * clamp));
   // Only bites on absurdly long frames: the cell must fit the frame.
   const fit = (n: number) => Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
-  const margin = fit(Math.round(unit * MARK.paddingRatio));
-  // At least the margin (cell stays inside) and of its parity (corner even).
-  let gap = fit(Math.round(largeUnit * MARK.paddingRatio * gapScale));
-  if ((gap - margin) % 2) gap -= 1;
-  gap = Math.max(gap, margin);
-  const LX = VW - gap - LW;
-  const LY = VH - gap - LH;
+  const gap = fit(Math.round(mediumUnit * MARK.paddingRatio * gapScale));
+  // The padding gives way to the gap (cell stays inside) and takes its parity
+  // (corner even); bumping up stays within the gap, as it was below it.
+  let margin = Math.min(fit(Math.round(unit * MARK.paddingRatio)), gap);
+  if ((gap - margin) % 2) margin += 1;
+  const [fx, fy] = MARK_POSITIONS[position];
+  // Centred, the corner can land odd: a 1px nudge keeps it even.
+  const along = (span: number, f: number) => {
+    const at = gap + (span - 2 * gap) * f;
+    return at - ((at - margin) % 2);
+  };
+  const LX = along(VW - LW, fx);
+  const LY = along(VH - LH, fy);
   return { VW, VH, LW, LH, margin, gap, LX, LY };
 }
 
@@ -178,19 +207,55 @@ export function watermarkGraph(
     bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
     base = "yuv420p",
     pad = "[0:v]",
-    size = "large",
+    size = "medium",
+    position = "bottom-right",
     view = "render",
+    rotatePosition = false,
   }: {
     filter: MarkFilter;
     bounds?: Bounds;
     base?: "yuv420p" | "rgba";
     pad?: string;
     size?: MarkSize;
+    position?: MarkPosition;
     view?: MarkView;
+    rotatePosition?: boolean;
   },
 ): string {
   const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
-  const { VW, VH, LW, LH, margin, LX, LY } = watermarkLayout(video, bounds, size);
+  const layout = watermarkLayout(video, bounds, size, position);
+  const { VW, VH, LW, LH, margin } = layout;
+  // Rotating, the mark stops at every position in turn from `position` on, 4
+  // along each time so it jumps across the frame. The clip divides into equal
+  // stays, as many as rotateCadence fits but two at least, so it opens and
+  // closes on a whole mark. A clip of unknown length stays put.
+  const rotating = rotatePosition && video.duration > 0;
+  const names = Object.keys(MARK_POSITIONS) as MarkPosition[];
+  const stops = names.map((_, i) =>
+    watermarkLayout(video, bounds, size, names[(names.indexOf(position) + 4 * i) % names.length]),
+  );
+  const stays = Math.max(2, Math.floor(video.duration / M.rotateCadence));
+  const period = video.duration / stays;
+  // Short stays keep half their time whole.
+  const fade = Math.min(M.fadeSeconds, period / 4);
+  // Frames past the probed length hold the last stay.
+  const stop = `mod(min(floor(t/${period}),${stays - 1}),${stops.length})`;
+  // The logo box's corner less `inset`, for crop and overlay.
+  const corner = (inset = 0) =>
+    (["LX", "LY"] as const).map((axis) =>
+      rotating
+        ? `'st(0,${stop});${stops.map((at, i) => `${at[axis] - inset}*eq(ld(0),${i})`).join("+")}'`
+        : layout[axis] - inset,
+    );
+  // Ends a w×h rgba chain: clear at each move, fading out before it and in
+  // after, whole at both ends of the clip. A 2px white clock off the video
+  // holds the fade as its alpha (geq on the mark itself costs frames) and
+  // multiplies into the mark.
+  const lap = `mod(T,${period})`;
+  const fading = (w: number, h: number) =>
+    rotating
+      ? `,format=gbrap[whole];${pad}crop=2:2,format=gbrap,geq=r=255:g=255:b=255:a='255*if(between(T,${fade},${video.duration - fade}),clip(min(${lap},${period}-${lap})/${fade},0,1),1)',scale=${w}:${h}:flags=neighbor[clock];[clock][whole]blend=all_mode=multiply`
+      : "";
   const shorter = Math.min(VW, VH) * MARK_SIZES[size].scale;
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
   const trim = trimmed ? `,crop=${bounds.width}:${bounds.height}:${bounds.x}:${bounds.y}` : "";
@@ -204,13 +269,13 @@ export function watermarkGraph(
   // and leave a faint box. RGBA overlays need format=auto (default is yuv420).
   const rgb = base === "rgba";
   const open = rgb ? "format=rgba" : `format=yuv420p,crop=${VW}:${VH}:0:0`;
-  const onto = (x: number, y: number) =>
+  const onto = ([x, y]: (number | string)[]) =>
     rgb ? `overlay=x=${x}:y=${y}:format=auto,format=rgba` : `overlay=x=${x}:y=${y},format=yuv420p`;
   if (filter === "plain" && view === "render") {
     return [
       `${pad}${open}[base]`,
-      `[1:v]format=rgba${trim},${scaleLogo}[logo]`,
-      `[base][logo]${onto(LX, LY)}[out]`,
+      `[1:v]format=rgba${trim},${scaleLogo}${fading(LW, LH)}[logo]`,
+      `[base][logo]${onto(corner())}[out]`,
     ].join(";");
   }
 
@@ -218,8 +283,7 @@ export function watermarkGraph(
   const P = margin;
   const CW = LW + 2 * P;
   const CH = LH + 2 * P;
-  const CX = LX - P;
-  const CY = LY - P;
+  const [CX, CY] = corner(P);
 
   // Same matrix both ways keeps the cell's colours; it must match the source's
   // tag too, or overlay converts the whole frame (a JPEG grab is always bt601).
@@ -240,8 +304,8 @@ export function watermarkGraph(
       `[frost][difference]overlay=format=auto[lifted]`,
       `[lifted][mask]alphamerge[fill]`,
       `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
-      `[fill][faint]overlay=format=auto${fromRgb}[cell]`,
-      `[base][cell]${onto(CX, CY)}[out]`,
+      `[fill][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
+      `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
   }
 
@@ -314,7 +378,7 @@ export function watermarkGraph(
       `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
       `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
-      `[base][cell]${onto(CX, CY)}[out]`,
+      `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
   }
   const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
@@ -402,8 +466,8 @@ export function watermarkGraph(
     `[c1][glass]overlay=format=auto[c2a]`,
     `[c2a][ambient]overlay=format=auto[c2]`,
     `[c2][rim]overlay=format=auto[c3]`,
-    `[c3][faint]overlay=format=auto${fromRgb}[cell]`,
-    `[base][cell]${onto(CX, CY)}[out]`,
+    `[c3][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
+    `[base][cell]${onto([CX, CY])}[out]`,
   ].join(";");
 }
 

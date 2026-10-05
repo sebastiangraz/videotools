@@ -1,16 +1,24 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
 import { Upload } from "../../components/Upload/Upload";
 import { FramePreview } from "../../components/FramePreview/FramePreview";
 import { Slider } from "../../components/Slider/Slider";
 import { Spinner } from "../../components/Spinner/Spinner";
 import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
+import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
-import { useMarkPreview, type MarkFilter, type MarkSize, type MarkView } from "./useMarkPreview";
+import {
+  MARK_POSITIONS,
+  useMarkPreview,
+  type MarkFilter,
+  type MarkPosition,
+  type MarkSize,
+  type MarkView,
+} from "./useMarkPreview";
 import form from "../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
@@ -26,6 +34,7 @@ const WATERMARK_ACCEPT = "image/png,image/svg+xml,.svg";
 
 const SIZE_OPTIONS: { value: MarkSize; label: string }[] = [
   { value: "small", label: "Small" },
+  { value: "medium", label: "Medium" },
   { value: "large", label: "Large" },
 ];
 
@@ -34,6 +43,9 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "glass", label: "Glass" },
   { value: "blur", label: "Blur" },
 ];
+
+// Declared in reading order, which is the grid's order.
+const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
 // The preview shows one at a time, so switching one on switches the others off.
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
@@ -49,7 +61,9 @@ export const Mark = () => {
   const formatBlocker = useFormatBlocker(source.file, { stills: true }, source.nonSquare);
   const [watermark, setWatermark] = useState<File | null>(null);
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
-  const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("large");
+  const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("medium");
+  const [position, setPosition] = useState<MarkPosition>("bottom-right");
+  const [rotatePosition, setRotatePosition] = useState(false);
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
@@ -67,9 +81,13 @@ export const Mark = () => {
     watermark,
     filterMode,
     size,
+    position,
+    rotatePosition,
     debug ? debugView : "render",
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
+  // The zoom and its mask home in on the mark.
+  const [markX, markY] = MARK_POSITIONS[preview.shownPosition];
 
   const sourceFile = source.file;
   // A PNG is lossless whatever is asked of it, so it isn't asked.
@@ -96,7 +114,7 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, quality },
+        options: { filter: filterMode, size, position, rotatePosition, quality },
       }),
     });
   };
@@ -140,7 +158,7 @@ export const Mark = () => {
               ref={previewRef}
               className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
               onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
-              style={{ aspectRatio }}
+              style={{ aspectRatio, "--mark-x": markX, "--mark-y": markY } as CSSProperties}
             />
           }
         >
@@ -173,12 +191,11 @@ export const Mark = () => {
               second={0}
               label="first frame"
               className={styles.markPreviewFrame}
-            />{" "}
-            <div className={styles.markPreviewLoading} hidden={!preview.loading}>
-              <Spinner />
-            </div>
+            />
           </figure>
-          {/* Invisible hover strips, one per frame, that pick the frame. */}
+          <div className={styles.markPreviewLoading} hidden={!preview.loading}>
+            <Spinner />
+          </div>
           {preview.frameCount > 1 && (
             <div className={styles.markPreviewScrub} aria-hidden="true">
               {Array.from({ length: preview.frameCount }, (_, i) => (
@@ -241,7 +258,20 @@ export const Mark = () => {
             />
           </div>
         )}
-
+        {watermark && (
+          <div className={`${form.formGroup} ${styles.markPosition}`}>
+            <span id="markPosition" className={form.label}>
+              Place
+            </span>
+            <ToggleGrid
+              labelledBy="markPosition"
+              options={POSITION_OPTIONS}
+              value={position}
+              onValueChange={setPosition}
+              disabled={run.busy}
+            />
+          </div>
+        )}
         {/* Glass and blur take their shape from the logo. */}
         {watermark && (
           <div className={form.formGroup}>
@@ -258,6 +288,20 @@ export const Mark = () => {
           </div>
         )}
       </div>
+      {/* The mark moves on from the picked place every few seconds. */}
+      {watermark && (
+        <div className={form.switchRow}>
+          <Switch
+            id="markRotatePosition"
+            checked={rotatePosition}
+            onCheckedChange={setRotatePosition}
+            disabled={run.busy}
+          />
+          <label htmlFor="markRotatePosition" className={form.label}>
+            Rotate
+          </label>
+        </div>
+      )}
       {!lossless && (
         <div className={form.formGroup}>
           <Slider

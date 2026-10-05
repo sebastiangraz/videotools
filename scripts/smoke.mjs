@@ -121,6 +121,8 @@ const CASES = {
   "mark-blur": { tool: "mark", files: ["video", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
   "mark-blur-png-source": { tool: "mark", files: ["png", "logo"], options: { filter: "blur", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-glass-svg-logo": { tool: "mark", files: ["video", "svglogo"], options: { filter: "glass", quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
+  "mark-glass-rotate": { tool: "mark", files: ["video", "logo"], options: { filter: "glass", rotatePosition: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
+  "mark-plain-rotate-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: "plain", rotatePosition: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-plain-svg-logo-png-source": { tool: "mark", files: ["png", "svglogo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: "glass" } },
   "preview-blur": { preview: true, files: ["frame", "logo"], options: { filter: "blur" } },

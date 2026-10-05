@@ -1,0 +1,128 @@
+.root {
+  --gap: 1px;
+  --corner: calc(var(--radius) / 2 + 2px);
+  composes: root from "../ToggleGroup/ToggleGroup.module.css";
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template: repeat(3, auto) / repeat(3, auto);
+  gap: var(--gap);
+  padding: calc(var(--gap) * 2);
+  aspect-ratio: 1;
+  align-self: start;
+  will-change: transform;
+  &:hover .lattice::after {
+    opacity: 0.1;
+  }
+}
+
+.item {
+  border-radius: 0;
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  corner-shape: superellipse(1.1);
+  transition: background-color 150ms ease;
+  border-radius: 2px;
+  /* top-left corner */
+  &:nth-child(1) {
+    border-top-left-radius: var(--corner);
+  }
+  /* top-right corner */
+  &:nth-child(3) {
+    border-top-right-radius: var(--corner);
+  }
+  /* bottom-left corner */
+  &:nth-child(7) {
+    border-bottom-left-radius: var(--corner);
+  }
+  /* bottom-right corner */
+  &:nth-child(9) {
+    border-bottom-right-radius: var(--corner);
+  }
+
+  &:hover {
+    background-color: var(--border);
+  }
+
+  &[data-disabled] {
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--border);
+    outline-offset: -1px;
+  }
+}
+
+/* The pressed tile and the lattice's anchor: absolutely placed in the first
+   cell (an abspos grid child needs both end lines, or it spans to the
+   container's edge), then translated by whole cells to the pressed one (--at,
+   in reading order). A step is a cell plus a gap. */
+.active,
+.lattice {
+  position: absolute;
+  grid-area: 1 / 1 / 2 / 2;
+  inset: 0;
+  translate: calc(mod(var(--at), 3) * (100% + var(--gap)))
+    calc(round(down, var(--at) / 3) * (100% + var(--gap)));
+  transition:
+    translate 200ms ease,
+    border-radius 200ms ease;
+}
+
+.active {
+  pointer-events: none;
+  background-image: linear-gradient(var(--fg-secondary) 0 0), linear-gradient(var(--bg) 0 0);
+  border-radius: 2px;
+  @container style(--at: 0) {
+    border-top-left-radius: var(--corner);
+  }
+  @container style(--at: 2) {
+    border-top-right-radius: var(--corner);
+  }
+  @container style(--at: 6) {
+    border-bottom-left-radius: var(--corner);
+  }
+  @container style(--at: 8) {
+    border-bottom-right-radius: var(--corner);
+  }
+}
+
+/* Over the grid, cloning its cells, so the lattice inside can slide with the
+   tile while the fade, masked here, stays put. */
+.field {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template: inherit;
+  gap: inherit;
+  padding: inherit;
+  pointer-events: none;
+  mask-image: radial-gradient(closest-side, #000, transparent);
+}
+
+.lattice {
+  display: grid;
+  place-items: center;
+
+  /* The grid lines: a lattice with the layout's period (a cell plus a gap),
+     centred on the tile so its lines fall in the gaps, running past the root
+     (which clips it). */
+  &::after {
+    content: "";
+    --period: calc(100% / 6 + var(--gap));
+    width: 600%;
+    height: 600%;
+    background:
+      linear-gradient(to right, var(--fg) var(--gap), transparent 0) calc(50% - var(--gap) / 2) 0 /
+        var(--period) 100%,
+      linear-gradient(var(--fg) var(--gap), transparent 0) 0 calc(50% - var(--gap) / 2) / 100%
+        var(--period);
+    opacity: 0.04;
+    transition: opacity 500ms ease;
+  }
+}

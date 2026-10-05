@@ -9,11 +9,13 @@ import { clamp, isBlobUrl } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import {
   isMarkFilter,
+  isMarkPosition,
   isMarkSize,
   parseBounds,
   watermarkGraph,
   type Bounds,
   type MarkFilter,
+  type MarkPosition,
   type MarkSize,
   type MarkView,
 } from "./mark-graph.js";
@@ -25,12 +27,24 @@ const PREVIEW_JPEG_Q = "3";
 // SVG raster square side: the frame's long side, clamped.
 const SVG_SIDE = { min: 512, max: 4096, fallback: 1920 };
 
-type MarkLook = { filter?: MarkFilter; size?: MarkSize; view?: MarkView };
+type MarkLook = {
+  filter?: MarkFilter;
+  size?: MarkSize;
+  position?: MarkPosition;
+  view?: MarkView;
+  rotatePosition?: boolean;
+};
 
 async function addWatermark(
   ff: FFmpeg,
   source: Source,
-  { logoFile, filter = "glass", size = "large" }: MarkLook & { logoFile: string },
+  {
+    logoFile,
+    filter = "glass",
+    size = "medium",
+    position = "bottom-right",
+    rotatePosition,
+  }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
   const frame = source.still
@@ -44,6 +58,8 @@ async function addWatermark(
     base: source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p",
     pad: videoPad(source),
     size,
+    position,
+    rotatePosition,
   });
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
@@ -62,7 +78,8 @@ export async function renderWatermarkFrame(
     frameFile,
     logoFile,
     filter = "glass",
-    size = "large",
+    size = "medium",
+    position = "bottom-right",
     view = "render",
   }: MarkLook & { frameFile: string; logoFile: string },
 ): Promise<string> {
@@ -72,6 +89,7 @@ export async function renderWatermarkFrame(
     filter,
     bounds: await logoBounds(ff, logoPng, logo),
     size,
+    position,
     view,
   });
 
@@ -175,7 +193,9 @@ export const mark: Tool = {
   async run(job) {
     const { ff, workDir, inputs, options, download } = job;
     const filter = isMarkFilter(options.filter) ? options.filter : "glass";
-    const size = isMarkSize(options.size) ? options.size : "large";
+    const size = isMarkSize(options.size) ? options.size : "medium";
+    const position = isMarkPosition(options.position) ? options.position : "bottom-right";
+    const rotatePosition = options.rotatePosition === true;
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     const source = await openSource(job, inputs[0]);
@@ -184,12 +204,16 @@ export const mark: Tool = {
     const format = still ?? preservedFormat(source);
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
-    console.log(`Adding watermark to ${format} (${size}, ${filter}, quality ${quality})...`);
+    console.log(
+      `Adding watermark to ${format} (${size}, ${filter}, ${position}${rotatePosition ? " rotating" : ""}, quality ${quality})...`,
+    );
 
     const render = await addWatermark(ff, source, {
       logoFile: logoPath,
       filter,
       size,
+      position,
+      rotatePosition,
     });
     const outputPath = still
       ? await encodeStill(job, render, { format: still, quality })

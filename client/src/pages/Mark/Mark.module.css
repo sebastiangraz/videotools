@@ -28,8 +28,10 @@
   container-name: mark-preview-container;
 }
 
+/* Scales about the mark (--mark-x/--mark-y, 0 to 1), pulled 1rem in from its edges. */
 .markPreviewZoomed figure {
-  transform: scale(2) translate(-1rem, -1rem);
+  transform: scale(2)
+    translate(calc((0.5 - var(--mark-x)) * 2rem), calc((0.5 - var(--mark-y)) * 2rem));
   --mask-solid: 0%;
 }
 
@@ -44,12 +46,13 @@
   overflow: hidden;
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
-  transform-origin: bottom right;
+  --mark-at: calc(var(--mark-x) * 100%) calc(var(--mark-y) * 100%);
+  transform-origin: var(--mark-at);
   --mask-image: radial-gradient(
-    ellipse at bottom right,
+    circle at var(--mark-at),
     #fff 0%,
-    #fff calc(var(--mask-solid) + 10%),
-    #fff0 calc(var(--mask-solid) + 60%)
+    #fff calc(var(--mask-solid) + 16%),
+    #fff7 calc(var(--mask-solid) + 60%)
   );
   /* eslint-disable-next-line css/no-invalid-properties */
   mask-image: var(--mask-image);
@@ -118,9 +121,6 @@
   }
 }
 
-/* The spinner while a set of renders is on its way: a frosted chip in the
-   middle of the box, above the scrub strips but out of the pointer's way.
-   Fades both ways (see .stopButton for the pattern). */
 .markPreviewLoading {
   --fade: 0.25s;
   position: relative;
@@ -172,6 +172,13 @@
   background-color: color-mix(in srgb, var(--bg) 75%, transparent);
   backdrop-filter: blur(4px);
 }
+
+.markPosition {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
 .markPreviewDebug {
   text-box: cap alphabetic;
   font-size: 10px;

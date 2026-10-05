@@ -1,10 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "../../frameSource";
 
-// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_VIEWS.
-export type MarkSize = "small" | "large" | "dev";
+// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
+export type MarkSize = "small" | "medium" | "large" | "dev";
 export type MarkFilter = "plain" | "glass" | "blur";
+// Where along the frame's width and height the logo sits, 0 to 1.
+export const MARK_POSITIONS = {
+  "top-left": [0, 0],
+  top: [0.5, 0],
+  "top-right": [1, 0],
+  left: [0, 0.5],
+  center: [0.5, 0.5],
+  right: [1, 0.5],
+  "bottom-left": [0, 1],
+  bottom: [0.5, 1],
+  "bottom-right": [1, 1],
+};
+export type MarkPosition = keyof typeof MARK_POSITIONS;
 export type MarkView = "render" | "displacement" | "clear";
+const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
+// Mirrors the API's MARK.rotateCadence and watermarkGraph's rotation: the clip
+// in equal stays (as many as the cadence fits, two at least), each stay's stop
+// 4 positions on from the last.
+const ROTATE_CADENCE = 2;
+// Where the mark is `progress` (0 to 1) through a clip of `stays`.
+const stopAt = (position: MarkPosition, stays: number, progress: number) =>
+  POSITIONS[(POSITIONS.indexOf(position) + 4 * Math.floor(progress * stays)) % POSITIONS.length];
 
 // The server renders the preview with the real ffmpeg graph. Mark geometry is
 // relative to the frame, so a downscaled frame previews the same.
@@ -44,9 +65,12 @@ export function useMarkPreview(
   watermark: File | null,
   filterMode: MarkFilter,
   size: MarkSize,
+  position: MarkPosition,
+  rotatePosition: boolean,
   view: MarkView = "render",
 ) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
+  const [duration, setDuration] = useState(0);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
   const [previewError, setPreviewError] = useState(false);
@@ -56,9 +80,13 @@ export function useMarkPreview(
     watermark: File;
     filterMode: MarkFilter;
     size: MarkSize;
+    position: MarkPosition;
+    stays: number;
     view: MarkView;
   } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
+
+  const stays = rotatePosition ? Math.max(2, Math.floor(duration / ROTATE_CADENCE)) : 1;
 
   const liveUrls = useRef<string[]>([]);
   useEffect(() => {
@@ -83,7 +111,7 @@ export function useMarkPreview(
       setPreviewError(false);
       const logo = await toDataUrl(watermark);
       const renders = await Promise.all(
-        frameBlobs.map(async (blob) => {
+        frameBlobs.map(async (blob, n) => {
           const res = await fetch("/api/preview", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -92,6 +120,7 @@ export function useMarkPreview(
               logo,
               filter: filterMode,
               size,
+              position: stopAt(position, stays, n / frameBlobs.length),
               view,
             }),
             signal: controller.signal,
@@ -110,10 +139,10 @@ export function useMarkPreview(
       })
       .finally(() => {
         if (controller.signal.aborted) return;
-        setSettled({ frameBlobs, watermark, filterMode, size, view });
+        setSettled({ frameBlobs, watermark, filterMode, size, position, stays, view });
       });
     return () => controller.abort();
-  }, [frameBlobs, watermark, filterMode, size, view]);
+  }, [frameBlobs, watermark, filterMode, size, position, stays, view]);
 
   // Its own frame source, so its seeking never shows in the bare frame.
   useEffect(() => {
@@ -134,6 +163,7 @@ export function useMarkPreview(
       }
       if (blobs.length === 0) throw new Error("No frame to grab");
       setFrameBlobs(blobs);
+      setDuration(duration);
     })()
       .catch(() => {
         if (!cancelled) setFailedSource(source);
@@ -162,6 +192,8 @@ export function useMarkPreview(
       settled.watermark === watermark &&
       settled.filterMode === filterMode &&
       settled.size === size &&
+      settled.position === position &&
+      settled.stays === stays &&
       settled.view === view
     );
 
@@ -169,6 +201,8 @@ export function useMarkPreview(
     frameCount: frameBlobs.length,
     previewUrls,
     shownRender,
+    shownPosition:
+      shownRender < 0 ? position : stopAt(position, stays, shownRender / frameBlobs.length),
     loading,
     previewError,
     setScrubIndex,

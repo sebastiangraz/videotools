@@ -7,19 +7,26 @@ import { Select } from "../../components/Select/Select";
 import { Slider } from "../../components/Slider/Slider";
 import { Switch } from "../../components/Switch/Switch";
 import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
+import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import form from "../form.module.css";
-
-const OPTIONS = [
-  { value: "one", label: "One" },
-  { value: "two", label: "Two" },
-  { value: "three", label: "Three" },
-];
 
 const TOGGLE_OPTIONS = [
   { value: "on", label: "On" },
   { value: "off", label: "Off" },
   { value: "auto", label: "Auto" },
+];
+
+const OPTIONS = [
+  { value: "one", label: "One" },
+  { value: "two", label: "Two" },
+  { value: "three", label: "Three" },
+  { value: "four", label: "Four" },
+  { value: "five", label: "Five" },
+  { value: "six", label: "Six" },
+  { value: "seven", label: "Seven" },
+  { value: "eight", label: "Eight" },
+  { value: "nine", label: "Nine" },
 ];
 
 // Dev-only scratch page for the shared components (pages/site.ts).
@@ -29,6 +36,7 @@ export const Test = () => {
   const [error, setError] = useState(false);
   const [option, setOption] = useState("one");
   const [toggle, setToggle] = useState("on");
+  const [toggleGrid, setToggleGrid] = useState("one");
   const [number, setNumber] = useState<number | null>(1.5);
   const [slider, setSlider] = useState(50);
   const [centered, setCentered] = useState(0);
@@ -68,10 +76,25 @@ export const Test = () => {
           </label>
           <Select
             id="select"
-            options={OPTIONS}
+            options={OPTIONS.slice(0, 3).map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
             value={option}
             onValueChange={setOption}
             disabled={disabled}
+          />
+        </div>
+        <div className={form.formGroup} style={{ flex: "none" }}>
+          <label htmlFor="number" className={form.label}>
+            Grid
+          </label>
+          <ToggleGrid
+            labelledBy="toggle-grid"
+            value={toggleGrid}
+            onValueChange={setToggleGrid}
+            disabled={disabled}
+            options={OPTIONS.map((option) => option.value)}
           />
         </div>
         <div className={form.formGroup}>
