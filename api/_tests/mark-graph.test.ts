@@ -307,20 +307,32 @@ describe("watermarkGraph", () => {
       };
       expect(stops[0]).toBe(corner("left"));
       expect([...stops].sort()).toEqual(positions.map(corner).sort());
-      expect(graph).toContain(`(t+${MARK.fadeSeconds})/${MARK.rotateSeconds})`);
       expect(graph).toContain("[clock]");
       expect(watermarkGraph(clip, logo, { filter })).not.toContain("[clock]");
     }
   });
 
-  it("rotates faster through a clip too short for two stops", () => {
-    const graph = watermarkGraph({ ...video, duration: 2 }, logo, {
-      filter: "plain",
-      rotatePosition: true,
-    });
-    const [fade, period] = /\(t\+([\d.]+)\)\/([\d.]+)\)/.exec(graph)!.slice(1).map(Number);
-    expect(period).toBeCloseTo(1);
-    expect(fade / period).toBeCloseTo(MARK.fadeSeconds / MARK.rotateSeconds);
+  it("divides a rotating clip into equal stays, as many as the cadence fits but two at least", () => {
+    const stays = (cadences: number) => {
+      const duration = cadences * MARK.rotateCadence;
+      const graph = watermarkGraph({ ...video, duration }, logo, {
+        filter: "plain",
+        rotatePosition: true,
+      });
+      // The stay's length and the last stay's index, as the stop is picked
+      const [period, last] = /floor\(t\/([\d.]+)\),(\d+)\)/.exec(graph)!.slice(1).map(Number);
+      expect(period * (last + 1)).toBeCloseTo(duration);
+      return last + 1;
+    };
+    expect(stays(3.1)).toBe(3);
+    expect(stays(2.5)).toBe(2);
+    expect(stays(0.1)).toBe(2);
+  });
+
+  it("stays put while rotating a clip of unknown length", () => {
+    expect(watermarkGraph(video, logo, { filter: "glass", rotatePosition: true })).toBe(
+      watermarkGraph(video, logo, { filter: "glass" }),
+    );
   });
 
   it("draws the small glass's rim at a share of the medium one's width", () => {

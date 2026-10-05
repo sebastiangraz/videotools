@@ -61,8 +61,9 @@ export const MARK = {
   // Blur filter difference layer opacity, a white fill in the logo's shape.
   blurDifference: 0.12,
 
-  // Rotation seconds at each position, fades included.
-  rotateSeconds: 2,
+  // Rotation seconds at each position, fades included, at least: the clip
+  // divides into equal stays.
+  rotateCadence: 2,
   // Rotation fade in and fade out seconds, each.
   fadeSeconds: 0.25,
 };
@@ -225,30 +226,35 @@ export function watermarkGraph(
   const layout = watermarkLayout(video, bounds, size, position);
   const { VW, VH, LW, LH, margin } = layout;
   // Rotating, the mark stops at every position in turn from `position` on, 4
-  // along each time so it jumps across the frame. Clips too short for two
-  // stops run faster (unknown lengths don't).
+  // along each time so it jumps across the frame. The clip divides into equal
+  // stays, as many as rotateCadence fits but two at least, so it opens and
+  // closes on a whole mark. A clip of unknown length stays put.
+  const rotating = rotatePosition && video.duration > 0;
   const names = Object.keys(MARK_POSITIONS) as MarkPosition[];
   const stops = names.map((_, i) =>
     watermarkLayout(video, bounds, size, names[(names.indexOf(position) + 4 * i) % names.length]),
   );
-  const pace = Math.min(1, video.duration / (2 * M.rotateSeconds)) || 1;
-  const [period, fade] = [M.rotateSeconds * pace, M.fadeSeconds * pace];
-  // The clock runs a fade ahead, so the first frame shows the mark whole.
-  const stop = `mod(floor((t+${fade})/${period}),${stops.length})`;
+  const stays = Math.max(2, Math.floor(video.duration / M.rotateCadence));
+  const period = video.duration / stays;
+  // Short stays keep half their time whole.
+  const fade = Math.min(M.fadeSeconds, period / 4);
+  // Frames past the probed length hold the last stay.
+  const stop = `mod(min(floor(t/${period}),${stays - 1}),${stops.length})`;
   // The logo box's corner less `inset`, for crop and overlay.
   const corner = (inset = 0) =>
     (["LX", "LY"] as const).map((axis) =>
-      rotatePosition
+      rotating
         ? `'st(0,${stop});${stops.map((at, i) => `${at[axis] - inset}*eq(ld(0),${i})`).join("+")}'`
         : layout[axis] - inset,
     );
-  // Ends a w×h rgba chain: clear at each move, fading in after it and out
-  // before the next. A 2px white clock off the video holds the fade as its
-  // alpha (geq on the mark itself costs frames) and multiplies into the mark.
-  const lap = `mod(T+${fade},${period})`;
+  // Ends a w×h rgba chain: clear at each move, fading out before it and in
+  // after, whole at both ends of the clip. A 2px white clock off the video
+  // holds the fade as its alpha (geq on the mark itself costs frames) and
+  // multiplies into the mark.
+  const lap = `mod(T,${period})`;
   const fading = (w: number, h: number) =>
-    rotatePosition
-      ? `,format=gbrap[whole];${pad}crop=2:2,format=gbrap,geq=r=255:g=255:b=255:a='255*clip(min(${lap},${period}-${lap})/${fade},0,1)',scale=${w}:${h}:flags=neighbor[clock];[clock][whole]blend=all_mode=multiply`
+    rotating
+      ? `,format=gbrap[whole];${pad}crop=2:2,format=gbrap,geq=r=255:g=255:b=255:a='255*if(between(T,${fade},${video.duration - fade}),clip(min(${lap},${period}-${lap})/${fade},0,1),1)',scale=${w}:${h}:flags=neighbor[clock];[clock][whole]blend=all_mode=multiply`
       : "";
   const shorter = Math.min(VW, VH) * MARK_SIZES[size].scale;
   const trimmed = bounds.width < logo.width || bounds.height < logo.height;
