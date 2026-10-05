@@ -123,6 +123,6 @@
       linear-gradient(var(--fg) var(--gap), transparent 0) 0 calc(50% - var(--gap) / 2) / 100%
         var(--period);
     opacity: 0;
-    transition: opacity 300ms ease;
+    transition: opacity 500ms ease;
   }
 }
