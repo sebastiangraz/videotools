@@ -239,7 +239,7 @@ describe("Mark", () => {
     URL.createObjectURL = vi.fn((blob: Blob | MediaSource) =>
       blob instanceof Blob && blob.type === "image/jpeg" ? `blob:render-${renders++}` : "blob:mock",
     );
-    stubPreviewFetch();
+    const fetchMock = stubPreviewFetch();
 
     await renderApp("/mark");
     await pickSource(user, file("clip.mp4", "video/mp4"));
@@ -256,6 +256,18 @@ describe("Mark", () => {
 
     fireEvent.pointerEnter(strips[0]);
     expect(within(preview).getByAltText(/watermarked frame/i)).toBe(first);
+
+    // Rotating, each frame shows the mark where its stay puts it: 10s at the
+    // cadence of 2 is five stays, each 4 positions on from the last
+    await user.click(screen.getByRole("switch", { name: /rotate/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2 * SCRUB_FRAMES));
+    const positions = Array.from(
+      { length: SCRUB_FRAMES },
+      (_, n) => postedBody(fetchMock, SCRUB_FRAMES + n).position,
+    );
+    expect(positions).toEqual(
+      expect.arrayContaining(["bottom-right", "left", "bottom", "top-right", "bottom-left"]),
+    );
   });
 
   it("says it is loading until every render of a set has landed, and keeps the last set up meanwhile", async () => {

@@ -82,11 +82,12 @@ export const Mark = () => {
     filterMode,
     size,
     position,
+    rotatePosition,
     debug ? debugView : "render",
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
   // The zoom and its mask home in on the mark.
-  const [markX, markY] = MARK_POSITIONS[position];
+  const [markX, markY] = MARK_POSITIONS[preview.shownPosition];
 
   const sourceFile = source.file;
   // A PNG is lossless whatever is asked of it, so it isn't asked.
