@@ -49,10 +49,10 @@
   --mark-at: calc(var(--mark-x) * 100%) calc(var(--mark-y) * 100%);
   transform-origin: var(--mark-at);
   --mask-image: radial-gradient(
-    ellipse at var(--mark-at),
+    circle at var(--mark-at),
     #fff 0%,
-    #fff calc(var(--mask-solid) + 10%),
-    #fff0 calc(var(--mask-solid) + 60%)
+    #fff calc(var(--mask-solid) + 16%),
+    #fff7 calc(var(--mask-solid) + 60%)
   );
   /* eslint-disable-next-line css/no-invalid-properties */
   mask-image: var(--mask-image);
