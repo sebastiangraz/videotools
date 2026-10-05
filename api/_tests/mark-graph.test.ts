@@ -140,9 +140,9 @@ describe("parseBounds", () => {
 });
 
 describe("watermarkLayout sizes", () => {
-  it("is the large size by default", () => {
+  it("is the medium size by default", () => {
     const bounds = { width: 300, height: 80 };
-    expect(watermarkLayout(UHD, bounds)).toEqual(watermarkLayout(UHD, bounds, "large"));
+    expect(watermarkLayout(UHD, bounds)).toEqual(watermarkLayout(UHD, bounds, "medium"));
   });
 
   it.each([1, 16 / 9, 6, 1 / 3])(
@@ -152,16 +152,16 @@ describe("watermarkLayout sizes", () => {
         width: Math.round(1000 * Math.sqrt(aspect)),
         height: Math.round(1000 / Math.sqrt(aspect)),
       };
-      const large = watermarkLayout(UHD, bounds, "large");
+      const base = watermarkLayout(UHD, bounds, "medium");
       const small = watermarkLayout(UHD, bounds, "small");
       const { scale, gap } = MARK_SIZES.small;
-      expect(Math.abs(small.LW - large.LW * scale)).toBeLessThanOrEqual(2);
-      expect(Math.abs(small.LH - large.LH * scale)).toBeLessThanOrEqual(2);
-      expect(Math.abs(small.margin - large.margin * scale)).toBeLessThanOrEqual(1);
-      // The large gap is its padding; the small one is a share of that, the
+      expect(Math.abs(small.LW - base.LW * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.LH - base.LH * scale)).toBeLessThanOrEqual(2);
+      expect(Math.abs(small.margin - base.margin * scale)).toBeLessThanOrEqual(1);
+      // The medium gap is its padding; the small one is a share of that, the
       // same on both edges whatever the logo's shape
-      expect(large.gap).toBe(large.margin);
-      expect(Math.abs(small.gap - large.gap * gap)).toBeLessThanOrEqual(1);
+      expect(base.gap).toBe(base.margin);
+      expect(Math.abs(small.gap - base.gap * gap)).toBeLessThanOrEqual(1);
       expect([small.LX, small.LY]).toEqual([
         UHD.width - small.gap - small.LW,
         UHD.height - small.gap - small.LH,
@@ -179,7 +179,7 @@ describe("watermarkLayout positions", () => {
 
   it("sits bottom-right by default", () => {
     expect(watermarkLayout(UHD, bounds)).toEqual(
-      watermarkLayout(UHD, bounds, "large", "bottom-right"),
+      watermarkLayout(UHD, bounds, "medium", "bottom-right"),
     );
   });
 
@@ -197,7 +197,7 @@ describe("watermarkLayout positions", () => {
         [1080, 1920],
         [853, 481],
       ]) {
-        for (const size of ["small", "large"] as const) {
+        for (const size of ["small", "medium", "large"] as const) {
           const l = watermarkLayout({ width, height }, bounds, size, position);
           along(fx, l.LX, l.LW, l.VW, l.gap);
           along(fy, l.LY, l.LH, l.VH, l.gap);
@@ -269,7 +269,7 @@ describe("watermarkGraph", () => {
   });
 
   it("lays the logo out where it is told", () => {
-    const l = watermarkLayout(video, logo, "large", "top-left");
+    const l = watermarkLayout(video, logo, "medium", "top-left");
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, position: "top-left" });
       // plain overlays the logo itself; the glass filters their padded cell
@@ -278,13 +278,13 @@ describe("watermarkGraph", () => {
     }
   });
 
-  it("draws the small glass's rim at a share of the large one's width", () => {
-    // 1080p: a 2px rim at large, one erosion per px; at small, whole
+  it("draws the small glass's rim at a share of the medium one's width", () => {
+    // 1080p: a 2px rim at medium, one erosion per px; at small, whole
     // erosions and a mixed-in share of one more for any fraction left
     const erosions = (graph: string) => graph.match(/\berosion\b/g)?.length;
-    const large = watermarkGraph(video, logo, { filter: "glass" });
-    expect(erosions(large)).toBe(2);
-    expect(large).not.toContain("all_expr");
+    const base = watermarkGraph(video, logo, { filter: "glass" });
+    expect(erosions(base)).toBe(2);
+    expect(base).not.toContain("all_expr");
     const small = watermarkGraph(video, logo, {
       filter: "glass",
       size: "small",

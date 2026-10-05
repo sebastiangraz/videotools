@@ -34,6 +34,7 @@ const WATERMARK_ACCEPT = "image/png,image/svg+xml,.svg";
 
 const SIZE_OPTIONS: { value: MarkSize; label: string }[] = [
   { value: "small", label: "Small" },
+  { value: "medium", label: "Medium" },
   { value: "large", label: "Large" },
 ];
 
@@ -60,7 +61,7 @@ export const Mark = () => {
   const formatBlocker = useFormatBlocker(source.file, { stills: true }, source.nonSquare);
   const [watermark, setWatermark] = useState<File | null>(null);
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
-  const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("large");
+  const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("medium");
   const [position, setPosition] = useState<MarkPosition>("bottom-right");
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);

@@ -64,8 +64,9 @@ export const MARK = {
 
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
-  large: { scale: 1, gap: 1, rim: 1 },
-  dev: { scale: 2, gap: 1, rim: 1 },
+  medium: { scale: 1, gap: 1, rim: 1 },
+  large: { scale: 2, gap: 0.5, rim: 1 },
+  dev: { scale: 3, gap: 1, rim: 1 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
@@ -125,7 +126,7 @@ const MERGE_GBR = "mergeplanes=map0s=0:map0p=0:map1s=1:map1p=0:map2s=2:map2p=0:f
 export function watermarkLayout(
   video: { width: number; height: number },
   bounds: { width: number; height: number },
-  size: MarkSize = "large",
+  size: MarkSize = "medium",
   position: MarkPosition = "bottom-right",
 ): {
   VW: number;
@@ -143,8 +144,8 @@ export function watermarkLayout(
   const VW = even(video.width);
   const VH = even(video.height);
   const { scale, gap: gapScale } = MARK_SIZES[size];
-  const largeUnit = Math.sqrt(VW * VH);
-  const unit = largeUnit * scale;
+  const mediumUnit = Math.sqrt(VW * VH);
+  const unit = mediumUnit * scale;
 
   const aspect = bounds.width / bounds.height;
   const elongation = Math.max(aspect, 1 / aspect);
@@ -158,7 +159,7 @@ export function watermarkLayout(
   const fit = (n: number) => Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
   const margin = fit(Math.round(unit * MARK.paddingRatio));
   // At least the margin (cell stays inside) and of its parity (corner even).
-  let gap = fit(Math.round(largeUnit * MARK.paddingRatio * gapScale));
+  let gap = fit(Math.round(mediumUnit * MARK.paddingRatio * gapScale));
   if ((gap - margin) % 2) gap -= 1;
   gap = Math.max(gap, margin);
   const [fx, fy] = MARK_POSITIONS[position];
@@ -200,7 +201,7 @@ export function watermarkGraph(
     bounds = { x: 0, y: 0, width: logo.width, height: logo.height },
     base = "yuv420p",
     pad = "[0:v]",
-    size = "large",
+    size = "medium",
     position = "bottom-right",
     view = "render",
   }: {

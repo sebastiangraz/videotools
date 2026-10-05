@@ -53,7 +53,7 @@ export default {
           frameFile: framePath,
           logoFile: logoPath,
           filter: isMarkFilter(filter) ? filter : "glass",
-          size: isMarkSize(size) ? size : "large",
+          size: isMarkSize(size) ? size : "medium",
           position: isMarkPosition(position) ? position : "bottom-right",
           view: isMarkView(view) ? view : "render",
         },

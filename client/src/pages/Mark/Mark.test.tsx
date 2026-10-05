@@ -156,7 +156,7 @@ describe("Mark", () => {
       expect.objectContaining({ method: "POST" }),
     );
     const body = postedBody(fetchMock);
-    expect(body).toMatchObject({ filter: "glass", size: "large", position: "bottom-right" });
+    expect(body).toMatchObject({ filter: "glass", size: "medium", position: "bottom-right" });
     expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
@@ -170,7 +170,7 @@ describe("Mark", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(postedBody(fetchMock, 1)).toMatchObject({
       filter: "blur",
-      size: "large",
+      size: "medium",
     });
 
     await user.click(screen.getByRole("button", { name: /small/i }));

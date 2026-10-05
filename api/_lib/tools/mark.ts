@@ -40,7 +40,7 @@ async function addWatermark(
   {
     logoFile,
     filter = "glass",
-    size = "large",
+    size = "medium",
     position = "bottom-right",
   }: MarkLook & { logoFile: string },
 ): Promise<Render> {
@@ -75,7 +75,7 @@ export async function renderWatermarkFrame(
     frameFile,
     logoFile,
     filter = "glass",
-    size = "large",
+    size = "medium",
     position = "bottom-right",
     view = "render",
   }: MarkLook & { frameFile: string; logoFile: string },
@@ -190,7 +190,7 @@ export const mark: Tool = {
   async run(job) {
     const { ff, workDir, inputs, options, download } = job;
     const filter = isMarkFilter(options.filter) ? options.filter : "glass";
-    const size = isMarkSize(options.size) ? options.size : "large";
+    const size = isMarkSize(options.size) ? options.size : "medium";
     const position = isMarkPosition(options.position) ? options.position : "bottom-right";
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
