@@ -61,6 +61,13 @@ async function addWatermark(
     position,
     rotatePosition,
   });
+  // Planned: anti-removal protection via the separate fortify service (see its README,
+  // "Consumer integration"). Behind a job option, and only when the service is configured:
+  // sample a few watermarked frames per stretch where the mark holds still (each rotation
+  // stay, or the whole clip), crop each one to the mark plus a ring of context, ask fortify
+  // for one small signed residual per stretch, then blend those over the same rects and
+  // times in this graph, so the output is still encoded once. If the service is slow or
+  // fails, return the unshielded render; never fail the job over it.
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
     inputArgs: ["-i", source.path, "-i", logoPng],
