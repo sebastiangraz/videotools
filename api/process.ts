@@ -65,14 +65,16 @@ export default {
       .replace(/[^\w.-]/g, "_");
 
     const response = await runJob(request, "Processing", async (workDir, signal) => {
-      const { outputPath, suffix, ext } = await run({
+      const { outputPath, suffix, verbose, ext } = await run({
         ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
         workDir,
         inputs: inputBlobUrls,
         options,
         download: (url, destPath) => downloadBlob(url, destPath, signal),
       });
-      const outputName = `${base}_${suffix}.${ext}`;
+      const outputName = verbose
+        ? `${base.slice(0, 6)}_${verbose}.${ext}`
+        : `${base}_${suffix}.${ext}`;
 
       const result = await put(`results/${outputName}`, fs.createReadStream(outputPath), {
         access: "public",

@@ -72,6 +72,7 @@ export const Mark = () => {
   const [debugView, setDebugView] = useState<MarkView>("render");
   // Overrides the picked size while on (debug mode only).
   const [devSize, setDevSize] = useState(false);
+  const [verboseOutput, setVerboseOutput] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
   const pickSize = (picked: MarkSize) => {
     if (picked === "dev") return;
@@ -116,7 +117,15 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, position, rotatePosition, quality },
+        options: {
+          filter: filterMode,
+          size,
+          position,
+          rotatePosition,
+          quality,
+          // Names the output after the logo and every setting.
+          ...(debug && verboseOutput && { verboseOutput: true, watermarkName: watermark.name }),
+        },
       }),
     });
   };
@@ -241,6 +250,17 @@ export const Mark = () => {
             />
             <label htmlFor="markDebug-devSize" className={form.label}>
               Dev size
+            </label>
+          </div>
+          <div className={form.switchRow}>
+            <Switch
+              id="markDebug-verboseOutput"
+              checked={verboseOutput}
+              onCheckedChange={setVerboseOutput}
+              disabled={false}
+            />
+            <label htmlFor="markDebug-verboseOutput" className={form.label}>
+              Verbose output
             </label>
           </div>
         </Popover>

@@ -183,6 +183,30 @@ async function logoBounds(ff: FFmpeg, logoFile: string, logo: MediaInfo): Promis
   return parseBounds(stderr, logo.width, logo.height);
 }
 
+const SIZE_TAGS: Record<MarkSize, string> = { small: "Sm", medium: "Md", large: "Lg", dev: "Dev" };
+
+// e.g. watermark.svg_sLg_fGlass_pBR_rTrue_q100: the logo's name, then each
+// setting as its letter and value.
+function verboseName(
+  watermarkName: string,
+  look: {
+    size: MarkSize;
+    filter: MarkFilter;
+    position: MarkPosition;
+    rotatePosition: boolean;
+    quality: number;
+  },
+): string {
+  const logo = watermarkName.replace(/[^\w.-]/g, "_");
+  const filter = look.filter[0].toUpperCase() + look.filter.slice(1);
+  const position = look.position
+    .split("-")
+    .map((part) => part[0].toUpperCase())
+    .join("");
+  const rotate = look.rotatePosition ? "True" : "False";
+  return `${logo}_s${SIZE_TAGS[look.size]}_f${filter}_p${position}_r${rotate}_q${look.quality}`;
+}
+
 export const mark: Tool = {
   inputs({ blobUrl, watermarkUrl }) {
     if (!isBlobUrl(blobUrl) || !isBlobUrl(watermarkUrl)) {
@@ -221,6 +245,19 @@ export const mark: Tool = {
           format: format as FormatId,
           quality,
         });
-    return { outputPath, suffix: "marked", ext: format };
+    const verbose =
+      options.verboseOutput === true
+        ? verboseName(
+            typeof options.watermarkName === "string" ? options.watermarkName : "watermark",
+            {
+              size,
+              filter,
+              position,
+              rotatePosition,
+              quality,
+            },
+          )
+        : undefined;
+    return { outputPath, suffix: "marked", verbose, ext: format };
   },
 };

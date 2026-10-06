@@ -20,9 +20,12 @@ export type ToolJob = {
 };
 
 // Download is named `<source name>_<suffix>.<ext>`; ext also sets the content type.
+// A `verbose` name replaces the suffix and keeps only the source name's first
+// six characters.
 type ToolResult = {
   outputPath: string;
   suffix: string;
+  verbose?: string;
   ext: FormatId | StillId;
 };
 
