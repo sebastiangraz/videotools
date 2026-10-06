@@ -357,8 +357,8 @@ describe("watermarkGraph", () => {
     }
   });
 
-  // The bevel's blur, stretched: the lens's shape
-  const heightfield = (graph: string) => /gblur=[^;[]*,lut=[^;[]*/.exec(graph)?.[0];
+  // The bevel's wide and narrow blurs: the lens's shape
+  const heightfield = (graph: string) => /\[mk1\]gblur=[^;]*;\[mk2\]gblur=[^;]*/.exec(graph)?.[0];
   // The x slope, scaled by how far the lens refracts
   const lens = (graph: string) =>
     /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];

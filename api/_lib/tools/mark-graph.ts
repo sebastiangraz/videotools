@@ -336,17 +336,19 @@ export function watermarkGraph(
   // glass, and offsets can't pass ±127px.
   const FULL = 65535;
   const MID = 32768;
-  // Wide + narrow blur, each stretched edge→0/interior→FULL, averaged. Edge
-  // slope is 2·FULL/(σ√2π); the narrow one is 3× steeper, so the mean's 2×.
+  // Wide + narrow blur, averaged: half height on a straight edge. Edge slope
+  // is FULL/(σ√2π); the narrow one is 3× steeper, so the mean's 2×. Left
+  // unclipped: clipping each blur at the edge's half height creased it along
+  // that contour, which a convex corner pulls inwards, one arc per blur.
   const bevel = Math.min(LW, LH) * M.bevelRatio * SS;
-  const edgeSlope = (2 * 2 * FULL) / (bevel * Math.sqrt(2 * Math.PI));
+  const edgeSlope = (2 * FULL) / (bevel * Math.sqrt(2 * Math.PI));
+  // Edge→0, interior→FULL, for the bevel mask.
   const stretch = `lut=c0='clip((val-${MID})*2,0,${FULL})'`;
-  // Reads [mk1]..[mk3]; multiplied by the alpha so nothing rises outside it.
+  // Reads [mk1] and [mk2].
   const heightfield = (out: string) => [
-    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${stretch}[hw]`,
-    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,${stretch}[hn]`,
-    `[hw][hn]blend=all_mode=average[hb]`,
-    `[hb][mk3]blend=all_mode=multiply${out}`,
+    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2[hw]`,
+    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2[hn]`,
+    `[hw][hn]blend=all_mode=average${out}`,
   ];
   const lensMask = (n: number) =>
     `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,format=gray16le,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
@@ -371,13 +373,13 @@ export function watermarkGraph(
   if (view === "displacement") {
     return [
       `${pad}${open},drawbox=w=iw:h=ih:color=${DEBUG_BACKDROP}:t=fill[base]`,
-      `[1:v]format=rgba${trim},${lensMask(4)}`,
+      `[1:v]format=rgba${trim},${lensMask(3)}`,
       ...heightfield(",split=3[hx][hy][hz]"),
       `[hx]${sobel("x", MID - 1)},format=gray[mx]`,
       `[hy]${sobel("y", MID - 1)},format=gray[my]`,
       `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
-      `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
+      `[map][mk3]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
       `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
   }
@@ -394,7 +396,8 @@ export function watermarkGraph(
   const lightKernel = SOBEL.x
     .map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly)))
     .join(" ");
-  const lighting = `convolution=0m='${lightKernel}':0rdiv=1:0bias=128`;
+  // On the 16-bit field, doubled: the slope the old stretched one gave.
+  const lighting = `convolution=0m='${lightKernel}':0rdiv=2:0bias=${128 * 257}`;
   // Whole rim at glint level, lit side rising from there. A separate far-side
   // ramp notched the rim where edges turn side-on to the light.
   const rimLight = `lut=c0='clip(${(255 * M.glint).toFixed(1)}+${(1 - M.glint).toFixed(3)}*max(0,(val-128)*2),0,255)'`;
@@ -421,7 +424,7 @@ export function watermarkGraph(
     `[1:v]format=rgba${trim},split[l1][l2]`,
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m4][m5]`,
-    `[l2]${lensMask(3)}`,
+    `[l2]${lensMask(2)}`,
     ...heightfield(",split=4[h1][h2][h3][h4]"),
     `[h1]${sobel("x", refractPx * SUB)},split=3[hx1][hx2][hx3]`,
     `[hx1]${sampleAt("x", chroma.r)}[xr]`,
@@ -442,13 +445,13 @@ export function watermarkGraph(
     `[dg][db][dr]${MERGE_GBR},scale=${CW}:${CH}:flags=bicubic,format=rgba,split=3[rf1][rf2][rf3]`,
     // Frost on the flat, barely blurred on the bevel (inverted heightfield).
     `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
-    `[h3]format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
+    `[h3]${stretch},format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
     `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
     `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}[fill]`,
     `[fill][m1]alphamerge[glass]`,
     // Paint softened first so the rim's colour doesn't flicker with detail.
-    `[h4]format=gray,${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
+    `[h4]${lighting},format=gray,scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
