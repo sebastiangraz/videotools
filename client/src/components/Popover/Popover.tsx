@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactElement, ReactNode } from "react";
 import {
   Popover as BasePopover,
   type PopoverPositionerProps,
@@ -11,13 +11,15 @@ type PositionerProps = Pick<
   "anchor" | "side" | "align" | "sideOffset" | "alignOffset" | "collisionAvoidance"
 >;
 
-// Controlled popover on Base UI's Popover, with no trigger of its own: the
-// caller decides when it is `open` and which element it hangs off (`anchor`).
-// `onOpenChange` hears outside presses and Escape; leave it out and only
-// `open` shuts it.
+// Popover on Base UI's Popover. Given a `trigger` (rendered as Base UI's
+// Trigger) it opens and shuts itself and hangs off it. Otherwise it is
+// controlled: the caller decides when it is `open` and which element it hangs
+// off (`anchor`); `onOpenChange` hears outside presses and Escape, and left
+// out, only `open` shuts it.
 export const Popover = ({
   open,
   onOpenChange,
+  trigger,
   children,
   side = "bottom",
   align = "start",
@@ -25,12 +27,14 @@ export const Popover = ({
   className,
   ...positioner
 }: PositionerProps & {
-  open: boolean;
+  open?: boolean;
   onOpenChange?: PopoverRootProps["onOpenChange"];
+  trigger?: ReactElement;
   children: ReactNode;
   className?: string;
 }) => (
   <BasePopover.Root open={open} onOpenChange={onOpenChange}>
+    {trigger && <BasePopover.Trigger render={trigger} />}
     <BasePopover.Portal>
       <BasePopover.Positioner
         className={styles.positioner}

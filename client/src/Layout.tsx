@@ -4,6 +4,7 @@ import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
+import { Popover } from "./components/Popover/Popover";
 import { Switch } from "./components/Switch/Switch";
 import { useDebugMode } from "./hooks/useDebugMode";
 import { VerboseNames } from "./hooks/useToolRun";
@@ -71,12 +72,21 @@ export const Layout = () => {
             {t.label}
           </MessageTrigger>
         ))}
-        <div className={form.switchRow}>
-          <Switch id="verbose" checked={verbose} onCheckedChange={setVerbose} disabled={false} />
-          <label htmlFor="verbose" className={form.label}>
-            verbose
-          </label>
-        </div>
+        {/* Global settings. */}
+        <Popover
+          trigger={
+            <button type="button" aria-label="Settings" className={styles.settingsTrigger} />
+          }
+          align="end"
+          className={styles.settings}
+        >
+          <div className={form.switchRow}>
+            <Switch id="verbose" checked={verbose} onCheckedChange={setVerbose} disabled={false} />
+            <label htmlFor="verbose" className={form.label}>
+              verbose
+            </label>
+          </div>
+        </Popover>
       </Tabs>
       <main className={appStyles.main}>
         <VerboseNames value={verbose}>

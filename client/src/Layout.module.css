@@ -41,3 +41,34 @@
   width: calc(var(--active-tab-width) - 1rem);
   border-top: 1px solid var(--fg);
 }
+
+/* `place-self` has no say on the main axis of the flex tablist: the auto
+   margin is what sends it to the end. */
+.settingsTrigger {
+  margin-inline-start: auto;
+  min-width: var(--quantize);
+  min-height: var(--quantize);
+}
+
+.settings {
+  padding-inline: 1rem;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+}
+
+/* While the settings are open the page fades out towards the top: the solid
+   stop sweeps down from the top edge (0%, nothing masked) to the bottom. */
+@property --settings-mask {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+.tabContainer + main {
+  mask-image: linear-gradient(transparent, #000 var(--settings-mask));
+  transition: --settings-mask 0.4s cubic-bezier(0.7, 0, 0.175, 1);
+}
+
+.tabContainer:has(.settingsTrigger[data-popup-open]) + main {
+  --settings-mask: 100%;
+}
