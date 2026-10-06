@@ -12,6 +12,7 @@ import {
   isMarkPosition,
   isMarkSize,
   parseBounds,
+  perturbGraph,
   watermarkGraph,
   type Bounds,
   type MarkFilter,
@@ -33,6 +34,7 @@ type MarkLook = {
   position?: MarkPosition;
   view?: MarkView;
   rotatePosition?: boolean;
+  perturb?: boolean;
 };
 
 async function addWatermark(
@@ -44,6 +46,8 @@ async function addWatermark(
     size = "medium",
     position = "bottom-right",
     rotatePosition,
+    perturb,
+    view = "render",
   }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
@@ -51,16 +55,20 @@ async function addWatermark(
     ? { ...source.profile, ...(await ff.shownSize(source.path)) }
     : source.profile;
   const { logoPng, logo } = await openLogo(ff, logoFile, frame);
-  const graph = watermarkGraph(frame, logo, {
+  // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
+  const base =
+    source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p";
+  const marked = watermarkGraph(frame, logo, {
     filter,
     bounds: await logoBounds(ff, logoPng, logo),
-    // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
-    base: source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p",
+    base,
     pad: videoPad(source),
     size,
     position,
     rotatePosition,
+    view,
   });
+  const graph = perturb ? perturbGraph(marked, base) : marked;
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
     inputArgs: ["-i", source.path, "-i", logoPng],
@@ -191,9 +199,10 @@ function verboseName(
   watermarkName: string,
   look: {
     size: MarkSize;
-    filter: MarkFilter;
+    filter: MarkFilter | "pureGlass";
     position: MarkPosition;
     rotatePosition: boolean;
+    perturb: boolean;
     quality: number;
   },
 ): string {
@@ -203,8 +212,8 @@ function verboseName(
     .split("-")
     .map((part) => part[0].toUpperCase())
     .join("");
-  const rotate = look.rotatePosition ? "True" : "False";
-  return `${logo}_s${SIZE_TAGS[look.size]}_f${filter}_p${position}_r${rotate}_q${look.quality}`;
+  const flag = (on: boolean) => (on ? "True" : "False");
+  return `${logo}_s${SIZE_TAGS[look.size]}_f${filter}_p${position}_r${flag(look.rotatePosition)}_st${flag(look.perturb)}_q${look.quality}`;
 }
 
 export const mark: Tool = {
@@ -220,6 +229,10 @@ export const mark: Tool = {
     const size = isMarkSize(options.size) ? options.size : "medium";
     const position = isMarkPosition(options.position) ? options.position : "bottom-right";
     const rotatePosition = options.rotatePosition === true;
+    const perturb = options.perturb === true;
+    // Pure glass (MARK_CLEAR) is the one debug view that renders as an output;
+    // like in the preview, it stands in for any filter.
+    const view = options.view === "clear" ? "clear" : "render";
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     const source = await openSource(job, inputs[0]);
@@ -229,7 +242,7 @@ export const mark: Tool = {
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
     console.log(
-      `Adding watermark to ${format} (${size}, ${filter}, ${position}${rotatePosition ? " rotating" : ""}, quality ${quality})...`,
+      `Adding watermark to ${format} (${size}, ${filter}, ${position}${rotatePosition ? " rotating" : ""}${perturb ? " perturbed" : ""}${view === "clear" ? " pure glass" : ""}, quality ${quality})...`,
     );
 
     const render = await addWatermark(ff, source, {
@@ -238,6 +251,8 @@ export const mark: Tool = {
       size,
       position,
       rotatePosition,
+      perturb,
+      view,
     });
     const outputPath = still
       ? await encodeStill(job, render, { format: still, quality })
@@ -251,9 +266,10 @@ export const mark: Tool = {
             typeof options.watermarkName === "string" ? options.watermarkName : "watermark",
             {
               size,
-              filter,
+              filter: view === "clear" ? "pureGlass" : filter,
               position,
               rotatePosition,
+              perturb,
               quality,
             },
           )

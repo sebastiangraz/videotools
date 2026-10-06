@@ -73,6 +73,7 @@ export const Mark = () => {
   // Overrides the picked size while on (debug mode only).
   const [devSize, setDevSize] = useState(false);
   const [verboseOutput, setVerboseOutput] = useState(false);
+  const [perturb, setPerturb] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
   const pickSize = (picked: MarkSize) => {
     if (picked === "dev") return;
@@ -123,6 +124,10 @@ export const Mark = () => {
           position,
           rotatePosition,
           quality,
+          // Perturbs the whole output against processing (debug mode only).
+          perturb: debug && perturb,
+          // Pure glass renders the output too; the depth map stays preview-only.
+          ...(debug && debugView === "clear" && { view: "clear" }),
           // Names the output after the logo and every setting.
           ...(debug && verboseOutput && { verboseOutput: true, watermarkName: watermark.name }),
         },
@@ -261,6 +266,17 @@ export const Mark = () => {
             />
             <label htmlFor="markDebug-verboseOutput" className={form.label}>
               Verbose output
+            </label>
+          </div>
+          <div className={form.switchRow}>
+            <Switch
+              id="markDebug-perturb"
+              checked={perturb}
+              onCheckedChange={setPerturb}
+              disabled={false}
+            />
+            <label htmlFor="markDebug-perturb" className={form.label}>
+              Steganography
             </label>
           </div>
         </Popover>

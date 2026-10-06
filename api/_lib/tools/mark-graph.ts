@@ -82,6 +82,12 @@ export const MARK = {
   // Pixelate opacity inside the shape.
   pixelOpacity: 0.9,
 
+  // Perturbation noise strengths (±half in levels): luma, chroma, and each
+  // channel of an RGBA output.
+  perturbLuma: 6,
+  perturbChroma: 14,
+  perturbRgb: 8,
+
   // Rotation seconds at each position, fades included, at least: the clip
   // divides into equal stays.
   rotateCadence: 2,
@@ -545,6 +551,20 @@ export function watermarkGraph(
     `[c3][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
     `[base][cell]${onto([CX, CY])}[out]`,
   ].join(";");
+}
+
+// Appends a perturbation layer over the whole marked frame to a watermark
+// graph: a fixed fine noise pattern, faint in luma and stronger in chroma,
+// which the eye resolves least. Fixed, not per frame, so inter frames carry it
+// cheaply instead of re-coding (and smoothing) it each frame. Each plane gets
+// its own seed, or the chroma planes would drift together.
+export function perturbGraph(graph: string, base: "yuv420p" | "rgba" = "yuv420p"): string {
+  const { perturbLuma: L, perturbChroma: C, perturbRgb: R } = MARK;
+  const layer =
+    base === "rgba"
+      ? `format=gbrap,noise=c0s=${R}:c0f=u+p:c0_seed=11:c1s=${R}:c1f=u+p:c1_seed=23:c2s=${R}:c2f=u+p:c2_seed=37,format=rgba`
+      : `noise=c0s=${L}:c0f=u+p:c0_seed=11:c1s=${C}:c1f=u:c1_seed=23:c2s=${C}:c2f=u:c2_seed=37,format=yuv420p`;
+  return `${graph.replace(/\[out\]$/, "[marked]")};[marked]${layer}[out]`;
 }
 
 // bbox logs e.g. "... x1:50 x2:349 y1:160 y2:239 ..."; a fully transparent
