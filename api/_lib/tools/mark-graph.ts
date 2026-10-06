@@ -61,6 +61,27 @@ export const MARK = {
   // Blur filter difference layer opacity, a white fill in the logo's shape.
   blurDifference: 0.12,
 
+  // Deboss wall blur fraction of the logo width and height minimum.
+  debossDepthRatio: 0.06,
+  // Deboss wall light and shade, a share of full swing at the steepest wall.
+  debossRelief: 0.3,
+  // Deboss floor darkening, a share of white at the deepest point.
+  debossFloor: 0.05,
+
+  // Pixelate block side fraction of the logo width and height minimum.
+  pixelRatio: 0.08,
+  // Pixelate shape blur before blocking, in blocks: soft stepped edges.
+  pixelShapeBlur: 0.6,
+  // Pixelate block edge softening, in blocks.
+  pixelSoften: 0.18,
+  // Pixelate brightness multiplier and saturation, blown out.
+  pixelGain: 1.6,
+  pixelSaturation: 3,
+  // Pixelate salt and pepper share of pixels per channel, half each way.
+  pixelNoise: 0.45,
+  // Pixelate opacity inside the shape.
+  pixelOpacity: 0.9,
+
   // Rotation seconds at each position, fades included, at least: the clip
   // divides into equal stays.
   rotateCadence: 2,
@@ -93,7 +114,7 @@ export type MarkPosition = keyof typeof MARK_POSITIONS;
 export const isMarkPosition = (value: unknown): value is MarkPosition =>
   typeof value === "string" && Object.hasOwn(MARK_POSITIONS, value);
 
-export const MARK_FILTERS = ["plain", "glass", "blur"] as const;
+export const MARK_FILTERS = ["plain", "glass", "blur", "deboss", "pixelate"] as const;
 export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>
   MARK_FILTERS.includes(value as MarkFilter);
@@ -305,6 +326,61 @@ export function watermarkGraph(
       `[lifted][mask]alphamerge[fill]`,
       `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
       `[fill][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
+      `[base][cell]${onto([CX, CY])}[out]`,
+    ].join(";");
+  }
+
+  // The logo's alpha on the cell, as gray.
+  const cellMask = `[1:v]format=rgba${trim},${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,format=rgba,alphaextract,format=gray`;
+
+  // Pressed into the picture: no paint, only the content's own light shifted.
+  // The wall facing the light catches it, the far wall falls into shade, the
+  // floor sits a touch darker. Added, not blended, so it reads on black and
+  // white too; only pixels the shading reaches are replaced.
+  if (filter === "deboss" && view === "render") {
+    const depth = Math.max(1, Math.min(LW, LH) * M.debossDepthRatio);
+    const [lx, ly] = [
+      Math.sin((M.lightAngle * Math.PI) / 180),
+      -Math.cos((M.lightAngle * Math.PI) / 180),
+    ];
+    // The glass's light kernel flipped: the height runs down into the logo.
+    const kernel = SOBEL.x.map((k, i) => Math.round(100 * (k * lx + SOBEL.y[i] * ly))).join(" ");
+    // Sobel sums 8× the slope; a blurred step's steepest is 255/(σ√2π).
+    const rdiv = 127 / ((8 * 100 * 255) / (depth * Math.sqrt(2 * Math.PI)));
+    return [
+      `${pad}${open},split[base][src]`,
+      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=gbrp[patch]`,
+      `${cellMask},gblur=sigma=${depth.toFixed(2)}:steps=2,split[d1][d2]`,
+      `[d1]convolution=0m='${kernel}':0rdiv=${rdiv.toPrecision(6)}:0bias=128[slope]`,
+      `[slope][d2]blend=all_expr='clip(128+(A-128)*${M.debossRelief}-B*${M.debossFloor},0,255)',split[s1][s2]`,
+      `[s1]format=gbrp[shade]`,
+      `[s2]lut=c0='min(abs(val-128)*64,255)'[reach]`,
+      `[patch][shade]blend=all_expr='clip(A+B-128,0,255)',format=rgba[pressed]`,
+      `[pressed][reach]alphamerge${fading(CW, CH)}${fromRgb}[cell]`,
+      `[base][cell]${onto([CX, CY])}[out]`,
+    ].join(";");
+  }
+
+  // Blown-out blocks in the logo's shape: the content blurred, blocked,
+  // brightened and oversaturated, block edges softened, then salt and pepper
+  // per channel (bright primaries, fresh each frame). The shape is blurred
+  // before blocking, so its edge steps down through part-opaque blocks.
+  if (filter === "pixelate" && view === "render") {
+    const block = Math.max(2, Math.round(Math.min(LW, LH) * M.pixelRatio));
+    const [BW, BH] = [Math.ceil(CW / block), Math.ceil(CH / block)];
+    const blocky = `scale=${BW}:${BH}:flags=area,scale=${CW}:${CH}:flags=neighbor,gblur=sigma=${(block * M.pixelSoften).toFixed(2)}`;
+    // noise's uniform mode spans ±strength/2 around the grey.
+    const edge = 50 * (1 - M.pixelNoise);
+    const speckle = `if(gte(val,${128 + edge}),255,if(lt(val,${128 - edge}),0,128))`;
+    const gain = `min(val*${M.pixelGain},255)`;
+    return [
+      `${pad}${open},split[base][src]`,
+      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split[p1][p2]`,
+      `[p1]gblur=sigma=${(block / 2).toFixed(2)},${blocky},${saturate(M.pixelSaturation)},lutrgb=r='${gain}':g='${gain}':b='${gain}',format=gbrp[blocks]`,
+      `[p2]lutrgb=r=128:g=128:b=128,format=gbrp,noise=c0s=100:c1s=100:c2s=100:allf=t+u:c0_seed=11:c1_seed=23:c2_seed=37,format=rgba,lutrgb=r='${speckle}':g='${speckle}':b='${speckle}',format=gbrp[speckle]`,
+      `${cellMask},gblur=sigma=${(block * M.pixelShapeBlur).toFixed(2)},${blocky},lut=c0='val*${M.pixelOpacity}'[shape]`,
+      `[blocks][speckle]blend=all_expr='if(eq(B,128),A,B)',format=rgba[noisy]`,
+      `[noisy][shape]alphamerge${fading(CW, CH)}${fromRgb}[cell]`,
       `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
   }

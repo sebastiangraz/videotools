@@ -3,7 +3,7 @@ import { openFrameSource, type Frame, type FrameSource } from "../../frameSource
 
 // Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
 export type MarkSize = "small" | "medium" | "large" | "dev";
-export type MarkFilter = "plain" | "glass" | "blur";
+export type MarkFilter = "plain" | "glass" | "blur" | "deboss" | "pixelate";
 // Where along the frame's width and height the logo sits, 0 to 1.
 export const MARK_POSITIONS = {
   "top-left": [0, 0],

@@ -42,6 +42,8 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "plain", label: "Plain" },
   { value: "glass", label: "Glass" },
   { value: "blur", label: "Blur" },
+  { value: "deboss", label: "Deboss" },
+  { value: "pixelate", label: "Pixelate" },
 ];
 
 // Declared in reading order, which is the grid's order.
