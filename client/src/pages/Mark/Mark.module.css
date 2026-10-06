@@ -195,6 +195,7 @@
   /* A debug option: a switch and its label. */
   & > div {
     padding: 0 1rem;
+    min-height: 2rem;
   }
 }
 

@@ -35,6 +35,18 @@
   margin-inline-start: auto;
   min-width: var(--quantize);
   min-height: var(--quantize);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  &:hover,
+  &[data-popup-open] {
+    color: var(--fg);
+  }
+  svg {
+    width: 10px;
+  }
 }
 
 .settings {

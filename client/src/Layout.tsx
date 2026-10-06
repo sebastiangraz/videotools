@@ -76,7 +76,11 @@ export const Layout = () => {
           {/* Global settings. */}
           <Popover
             trigger={
-              <button type="button" aria-label="Settings" className={styles.settingsTrigger} />
+              <button type="button" aria-label="Settings" className={styles.settingsTrigger}>
+                <svg aria-hidden="true" fill="none" viewBox="0 0 7 7">
+                  <path stroke="currentColor" strokeWidth="1.25" d="M0 5.5h7M0 2h7" />
+                </svg>
+              </button>
             }
             align="end"
             className={styles.settings}
