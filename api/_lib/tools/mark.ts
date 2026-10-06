@@ -11,6 +11,7 @@ import {
   isMarkFilter,
   isMarkPosition,
   isMarkSize,
+  isMarkView,
   parseBounds,
   watermarkGraph,
   type Bounds,
@@ -43,6 +44,7 @@ async function addWatermark(
     filter = "glass",
     size = "medium",
     position = "bottom-right",
+    view,
     rotatePosition,
   }: MarkLook & { logoFile: string },
 ): Promise<Render> {
@@ -59,6 +61,7 @@ async function addWatermark(
     pad: videoPad(source),
     size,
     position,
+    view,
     rotatePosition,
   });
   return sourceRender(source, {
@@ -195,6 +198,7 @@ export const mark: Tool = {
     const filter = isMarkFilter(options.filter) ? options.filter : "glass";
     const size = isMarkSize(options.size) ? options.size : "medium";
     const position = isMarkPosition(options.position) ? options.position : "bottom-right";
+    const view = isMarkView(options.view) ? options.view : "render";
     const rotatePosition = options.rotatePosition === true;
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
@@ -213,6 +217,7 @@ export const mark: Tool = {
       filter,
       size,
       position,
+      view,
       rotatePosition,
     });
     const outputPath = still

@@ -1,20 +1,22 @@
 # Smoke assets
 
-Inputs for `npm run smoke` (`scripts/smoke.mjs`), all five required. They are
+Inputs for `npm run smoke` (`scripts/smoke.mjs`), all six required. They are
 committed so every checkout runs on the same footage; `--assets <dir>` points
 at another folder that has them all. Runs record each asset's name and size,
 so a diff across different inputs says so.
 
-| File            | Role                                            | Committed   |
-| --------------- | ----------------------------------------------- | ----------- |
-| `video.<ext>`   | The clip every video tool works on              | `video.mp4` |
-| `animation.gif` | GIF source                                      | yes         |
-| `logo.png`      | Mark watermark (PNG with alpha)                 | yes         |
-| `logo.svg`      | Mark watermark as SVG                           | yes         |
-| `images/*`      | Sequence stills, natural filename order (1–100) | 3 PNGs      |
+| File            | Role                                            |
+| --------------- | ----------------------------------------------- |
+| `video.<ext>`   | The clip every video tool works on              |
+| `animation.gif` | GIF source                                      |
+| `logo.png`      | Mark watermark (PNG with alpha)                 |
+| `logo.svg`      | Mark watermark as SVG                           |
+| `images/*`      | Sequence stills, natural filename order (1–100) |
+| `logos/*`       | Other-shaped watermarks (PNG/SVG), same order   |
 
-Always derived from `video` at runtime: the preview frame; `source.mov` and
-`source.webm`; `source.avif` and a 3-frame `slides.avif`; lossy and lossless
+Always derived from `video` at runtime: the preview frame; one equal part per
+logo, which the `mark-various-*` cases mark each with its logo and join back
+up; `source.mov` and `source.webm`; `source.avif` and a 3-frame `slides.avif`; lossy and lossless
 animated WebPs; `reject.mkv` and `reject-anamorphic.mp4` (a container and
 non-square pixels the tools must refuse); and Mark's stills `still.png`,
 `still.jpg`, `still.webp` and `turned.jpg` (the JPEG with an EXIF rotation).
