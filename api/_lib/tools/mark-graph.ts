@@ -21,9 +21,9 @@ export const MARK = {
   // Frost white mix.
   tint: 0.12,
   // Bevel width fraction of the logo width and height minimum.
-  bevelRatio: 0.1,
+  bevelRatio: 0.1125,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
-  refractRatio: 1.0,
+  refractRatio: 1.1,
   // Red and blue edge shift split around green.
   chroma: 0.02,
   // Light direction in degrees clockwise from the top.
