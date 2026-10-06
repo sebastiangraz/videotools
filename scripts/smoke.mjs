@@ -237,7 +237,8 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
   ff("-i", video, "-frames:v", "1", made("frame.jpg"));
   assets.frame = [made("frame.jpg")];
 
-  // Keyframes at the cuts, so every frame lands in exactly one part.
+  // Keyframes at the cuts and no frame-rate fixing (it can duplicate a frame),
+  // so every frame lands in exactly one part.
   const { duration } = await new FFmpeg(ffmpeg, "").mediaInfo(video);
   const cuts = assets.logos
     .slice(1)
@@ -246,6 +247,8 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
   ff(
     "-i",
     video,
+    "-fps_mode",
+    "passthrough",
     "-c:v",
     "libx264",
     "-pix_fmt",
