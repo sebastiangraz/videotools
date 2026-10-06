@@ -259,7 +259,7 @@ describe("Mark", () => {
 
     // Rotating, each frame shows the mark where its stay puts it: 10s at the
     // cadence of 2 is five stays, each 4 positions on from the last
-    await user.click(screen.getByRole("switch", { name: /rotate/i }));
+    await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2 * SCRUB_FRAMES));
     const positions = Array.from(
       { length: SCRUB_FRAMES },
@@ -338,7 +338,7 @@ describe("Mark", () => {
     await pickLogo(user, logo);
     await user.click(screen.getByRole("button", { name: /blur/i }));
     await user.click(screen.getByRole("button", { name: /small/i }));
-    await user.click(screen.getByRole("switch", { name: /rotate/i }));
+    await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await user.click(markButton());
 
     await runFinished(fetchMock);
