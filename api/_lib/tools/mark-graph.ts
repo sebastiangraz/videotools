@@ -72,7 +72,7 @@ export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   medium: { scale: 1, gap: 1, rim: 1 },
   large: { scale: 2, gap: 1, rim: 1 },
-  dev: { scale: 3, gap: 1, rim: 1 },
+  dev: { scale: 3, gap: 1, rim: 2 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
@@ -98,9 +98,7 @@ export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>
   MARK_FILTERS.includes(value as MarkFilter);
 
-// Debug views: the lens's displacement map alone, or the glass with only
-// refraction and rim (MARK_CLEAR).
-export const MARK_VIEWS = ["render", "displacement", "clear"] as const;
+export const MARK_VIEWS = ["render", "displacement", "clear", "rim"] as const;
 export type MarkView = (typeof MARK_VIEWS)[number];
 export const isMarkView = (value: unknown): value is MarkView =>
   MARK_VIEWS.includes(value as MarkView);
@@ -116,7 +114,14 @@ const MARK_CLEAR: Partial<typeof MARK> = {
   rimOpacity: 0,
 };
 
+const MARK_RIM: Partial<typeof MARK> = {
+  ambient: 0,
+  shadowOpacity: 0,
+  logoOpacity: 0,
+};
+
 const DEBUG_BACKDROP = "0xD9D9D9";
+const RIM_VIEW_DIM = 0.48;
 
 const HD_HEIGHT = 720;
 
@@ -222,7 +227,12 @@ export function watermarkGraph(
     rotatePosition?: boolean;
   },
 ): string {
-  const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
+  const M =
+    view === "clear"
+      ? { ...MARK, ...MARK_CLEAR }
+      : view === "rim"
+        ? { ...MARK, ...MARK_RIM }
+        : MARK;
   const layout = watermarkLayout(video, bounds, size, position);
   const { VW, VH, LW, LH, margin } = layout;
   // Rotating, the mark stops at every position in turn from `position` on, 4
@@ -413,8 +423,16 @@ export function watermarkGraph(
   // Lifted towards white so the rim still reads as light on dark/grey video.
   const rimPaint = [saturate(M.rimSaturation), `lutrgb=${whiten(M.rimWhite, M.rimGain)}`].join(",");
 
+  const keep = (1 - RIM_VIEW_DIM).toFixed(3);
+  const dim = rgb
+    ? `lutrgb=r=val*${keep}:g=val*${keep}:b=val*${keep}`
+    : `lutyuv=y='16+(val-16)*${keep}':u='128+(val-128)*${keep}':v='128+(val-128)*${keep}'`;
+
   return [
-    `${pad}${open},split[base][src]`,
+    // The rim paints off the frame as it is; only what shows around it dims.
+    view === "rim"
+      ? `${pad}${open},split[undimmed][src];[undimmed]${dim}[base]`
+      : `${pad}${open},split[base][src]`,
     // Both conversions name their matrix: on auto the way back falls to
     // bt601 and shifts the hue.
     `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split[cellA][cellB]`,
@@ -449,7 +467,7 @@ export function watermarkGraph(
     `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
     `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}[fill]`,
-    `[fill][m1]alphamerge[glass]`,
+    `[fill][m1]alphamerge${view === "rim" ? ",colorchannelmixer=aa=0" : ""}[glass]`,
     // Paint softened first so the rim's colour doesn't flicker with detail.
     `[h4]${lighting},format=gray,scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
     ...rimErode,

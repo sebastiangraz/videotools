@@ -130,6 +130,7 @@ const CASES = {
   "mark-various-depth-map": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", view: "displacement", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
   "mark-various-dev-size": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
   "mark-various-pure-glass": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", view: "clear", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
+  "mark-various-rim": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", view: "rim", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: "glass" } },
   "preview-blur": { preview: true, files: ["frame", "logo"], options: { filter: "blur" } },
   "preview-glass-svg": { preview: true, files: ["frame", "svglogo"], options: { filter: "glass" } },

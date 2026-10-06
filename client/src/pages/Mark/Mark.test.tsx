@@ -181,7 +181,7 @@ describe("Mark", () => {
     });
   });
 
-  it("previews the displacement map or the clear glass from debug mode, one at a time, and the mark again once debug mode is left", async () => {
+  it("previews the displacement map, the clear glass or the rim from debug mode, one at a time, and the mark again once debug mode is left", async () => {
     const user = userEvent.setup();
     stubVideo();
     const fetchMock = stubPreviewFetch();
@@ -210,9 +210,16 @@ describe("Mark", () => {
     expect(clear).toBeChecked();
     expect(displacement).not.toBeChecked();
 
-    await user.keyboard("{Shift>}D{/Shift}");
+    const rim = screen.getByRole("switch", { name: /rim only/i });
+    await user.click(rim);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
-    expect(view(3)).toBe("render");
+    expect(view(3)).toBe("rim");
+    expect(rim).toBeChecked();
+    expect(clear).not.toBeChecked();
+
+    await user.keyboard("{Shift>}D{/Shift}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    expect(view(4)).toBe("render");
   });
 
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {

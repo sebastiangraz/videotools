@@ -51,8 +51,10 @@ const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // Displacement map alone (red x, green y, olive no shift) over a light-gray frame.
   { value: "displacement", label: "Depth map" },
-  // Refraction and rim only: no frost, tint, light, shadow or logo (MARK_CLEAR).
+  // Refraction only: no frost, tint, light, rim, shadow or logo (MARK_CLEAR).
   { value: "clear", label: "Pure glass" },
+  // The rim alone, as tuned, straight on the frame: no glass under it (MARK_RIM).
+  { value: "rim", label: "Rim only" },
 ];
 
 export const Mark = () => {

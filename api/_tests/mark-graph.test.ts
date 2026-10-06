@@ -399,6 +399,28 @@ describe("watermarkGraph", () => {
     }
   });
 
+  it("keeps only the rim, as tuned, over a dimmed frame, whatever the filter", () => {
+    const glass = watermarkGraph(video, logo, { filter: "glass" });
+    const rimPaint = (graph: string) => /\[rf3\][^;]*\[paint\]/.exec(graph)?.[0];
+    const rimLight = (graph: string) => /\[h4\][^;]*\[light\]/.exec(graph)?.[0];
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, { filter, view: "rim" });
+      expect(graph).not.toContain("drawbox");
+      // The frame dimmed where it shows; the rim still paints off the original
+      expect(graph).toMatch(
+        /^\[0:v\][^;]*,split\[undimmed\]\[src\];\[undimmed\]lutyuv=[^;]*\[base\]/,
+      );
+      // Glass, shadow and faint logo transparent; the rim at its own opacity
+      expect(graph).toMatch(/\[m1\]alphamerge,colorchannelmixer=aa=0\[glass\]/);
+      expect(opacities(graph).filter((aa) => aa > 0)).toEqual([MARK.rimOpacity]);
+      // painted and lit as in the render, off the same lens
+      expect(rimPaint(graph)).toBeDefined();
+      expect(rimPaint(graph)).toBe(rimPaint(glass));
+      expect(rimLight(graph)).toBe(rimLight(glass));
+      expect(lens(graph)).toBe(lens(glass));
+    }
+  });
+
   it("renders the mark by default", () => {
     expect(MARK_VIEWS).toContain("render");
     for (const filter of MARK_FILTERS) {
