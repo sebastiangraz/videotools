@@ -131,11 +131,6 @@
   }
 }
 
-/* Shuffling, the mark hops 4 cells on per stay (useMarkPreview's stopAt), so
-   cell i's turn after the pressed one is 7 * (i - at) mod 9, 7 being 4's
-   inverse mod 9. Each cell glows on its turn, so the pressed look seems to
-   travel the grid as the mark travels the clip; the pressed tile dims to
-   just mark the start. */
 .shuffling {
   --hop: 700ms;
 
@@ -151,7 +146,7 @@
   }
 
   .active {
-    opacity: 0.4;
+    opacity: 0;
   }
 }
 
@@ -167,11 +162,5 @@
   }
   22% {
     background-color: transparent;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shuffling .item {
-    animation: none;
   }
 }

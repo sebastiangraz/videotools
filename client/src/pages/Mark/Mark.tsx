@@ -95,6 +95,11 @@ export const Mark = () => {
   const aspectRatio = source.meta ? `${source.meta.w} / ${source.meta.h}` : "16 / 9";
   const { shownRender } = preview;
 
+  const pickPosition = (picked: MarkPosition) => {
+    setPosition(picked);
+    setRotatePosition(false);
+  };
+
   const pick = (picked: File[]) => {
     run.clearError();
     preview.reset();
@@ -284,7 +289,7 @@ export const Mark = () => {
               labelledBy="markPosition"
               options={POSITION_OPTIONS}
               value={position}
-              onValueChange={setPosition}
+              onValueChange={pickPosition}
               disabled={run.busy}
               shuffling={rotatePosition}
             />
