@@ -42,57 +42,64 @@ export const Layout = () => {
 
   return (
     <div className={appStyles.app}>
-      <header className={appStyles.header}>
-        <Logo />
-        <h1 ref={titleRef} className={appStyles.title}>
-          Video tools
-        </h1>
-        <MessageArea anchor={titleRef} />
-      </header>
+      <div className={appStyles.frame}>
+        <header className={appStyles.header}>
+          <Logo />
+          <h1 ref={titleRef} className={appStyles.title}>
+            Video tools
+          </h1>
+          <MessageArea anchor={titleRef} />
+        </header>
 
-      <Tabs
-        value={tool ?? null}
-        className={styles.tabContainer}
-        listClassName={styles.tabs}
-        indicatorClassName={styles.tabIndicator}
-      >
-        {TOOLS.map((t) => (
-          <MessageTrigger
-            key={t.value}
-            message={t.description}
-            render={
-              <Tab
-                value={t.value}
-                nativeButton={false}
-                className={styles.tab}
-                render={<Link to="/$tool" params={{ tool: t.value }} />}
-              />
-            }
-          >
-            {t.label}
-          </MessageTrigger>
-        ))}
-        {/* Global settings. */}
-        <Popover
-          trigger={
-            <button type="button" aria-label="Settings" className={styles.settingsTrigger} />
-          }
-          align="end"
-          className={styles.settings}
+        <Tabs
+          value={tool ?? null}
+          className={styles.tabContainer}
+          listClassName={styles.tabs}
+          indicatorClassName={styles.tabIndicator}
         >
-          <div className={form.switchRow}>
-            <Switch id="verbose" checked={verbose} onCheckedChange={setVerbose} disabled={false} />
-            <label htmlFor="verbose" className={form.label}>
-              verbose
-            </label>
-          </div>
-        </Popover>
-      </Tabs>
-      <main className={appStyles.main}>
-        <VerboseNames value={verbose}>
-          <Outlet />
-        </VerboseNames>
-      </main>
+          {TOOLS.map((t) => (
+            <MessageTrigger
+              key={t.value}
+              message={t.description}
+              render={
+                <Tab
+                  value={t.value}
+                  nativeButton={false}
+                  className={styles.tab}
+                  render={<Link to="/$tool" params={{ tool: t.value }} />}
+                />
+              }
+            >
+              {t.label}
+            </MessageTrigger>
+          ))}
+          {/* Global settings. */}
+          <Popover
+            trigger={
+              <button type="button" aria-label="Settings" className={styles.settingsTrigger} />
+            }
+            align="end"
+            className={styles.settings}
+          >
+            <div className={form.switchRow}>
+              <Switch
+                id="verbose"
+                checked={verbose}
+                onCheckedChange={setVerbose}
+                disabled={false}
+              />
+              <label htmlFor="verbose" className={form.label}>
+                verbose
+              </label>
+            </div>
+          </Popover>
+        </Tabs>
+        <main className={appStyles.main}>
+          <VerboseNames value={verbose}>
+            <Outlet />
+          </VerboseNames>
+        </main>
+      </div>
     </div>
   );
 };
