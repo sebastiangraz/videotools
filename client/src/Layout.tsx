@@ -83,8 +83,12 @@ export const Layout = () => {
               </button>
             }
             align="end"
+            sideOffset={0}
             className={styles.settings}
           >
+            <label htmlFor="verbose" className={`${form.label} ${styles.settingsLabel}`}>
+              Settings
+            </label>
             <div className={form.switchRow}>
               <Switch
                 id="verbose"
@@ -93,7 +97,7 @@ export const Layout = () => {
                 disabled={false}
               />
               <label htmlFor="verbose" className={form.label}>
-                verbose
+                Verbose file names
               </label>
             </div>
           </Popover>

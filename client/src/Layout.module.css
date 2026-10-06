@@ -7,8 +7,7 @@
   overflow-x: auto;
   min-height: var(--quantize);
   flex-direction: row;
-  padding-inline: 0.5rem;
-  padding-bottom: 1rem;
+  padding: 0 0 1rem 0.5rem;
   scrollbar-width: none;
 }
 
@@ -35,24 +34,31 @@
   margin-inline-start: auto;
   min-width: var(--quantize);
   min-height: var(--quantize);
-  padding: 0;
+  padding: 0 1rem;
   border: 0;
   background: none;
   color: var(--fg-secondary);
+  border-radius: 0 0 0 var(--radius);
   cursor: pointer;
   &:hover,
   &[data-popup-open] {
     color: var(--fg);
   }
   svg {
-    width: 10px;
+    width: 7px;
   }
 }
 
 .settings {
-  padding-inline: 1rem;
-  background-color: var(--bg);
-  border: 1px solid var(--border);
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  padding: 0 1rem;
+}
+
+.settingsLabel {
+  font-size: 10px;
+  color: var(--fg);
 }
 
 /* While the settings are open the page fades out towards the top: the solid
