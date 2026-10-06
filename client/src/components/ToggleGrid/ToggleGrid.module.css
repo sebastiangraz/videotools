@@ -76,6 +76,10 @@
 
 .active {
   pointer-events: none;
+  transition:
+    translate 200ms ease,
+    border-radius 200ms ease,
+    opacity 300ms ease;
   background-image: linear-gradient(var(--fg-secondary) 0 0), linear-gradient(var(--bg) 0 0);
   border-radius: 2px;
   @container style(--at: 0) {
@@ -124,5 +128,50 @@
         var(--period);
     opacity: 0.04;
     transition: opacity 500ms ease;
+  }
+}
+
+/* Shuffling, the mark hops 4 cells on per stay (useMarkPreview's stopAt), so
+   cell i's turn after the pressed one is 7 * (i - at) mod 9, 7 being 4's
+   inverse mod 9. Each cell glows on its turn, so the pressed look seems to
+   travel the grid as the mark travels the clip; the pressed tile dims to
+   just mark the start. */
+.shuffling {
+  --hop: 700ms;
+
+  .item {
+    --turn: mod(7 * (var(--i) - var(--at)), 9);
+    animation: shuffle calc(9 * var(--hop)) ease-in-out infinite;
+    animation-delay: calc((var(--turn) - 9) * var(--hop));
+
+    /* Hover still shows where a click would start it. */
+    &:hover {
+      animation: none;
+    }
+  }
+
+  .active {
+    opacity: 0.4;
+  }
+}
+
+/* A cycle is 9 hops, a hop about 11%: rise, hold, then trail off over the next. */
+@keyframes shuffle {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  3%,
+  9% {
+    background-color: color-mix(in srgb, var(--fg-secondary) 40%, transparent);
+  }
+  22% {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shuffling .item {
+    animation: none;
   }
 }

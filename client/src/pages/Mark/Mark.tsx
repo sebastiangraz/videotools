@@ -259,16 +259,34 @@ export const Mark = () => {
           </div>
         )}
         {watermark && (
-          <div className={`${form.formGroup} ${styles.markPosition}`}>
-            <span id="markPosition" className={form.label}>
-              Place
-            </span>
+          <div
+            className={`${form.formGroup} ${styles.markPosition}`}
+            data-shuffling={rotatePosition || undefined}
+          >
+            {/* Place, or on hover Shuffle: the mark moves on from the picked
+              place every few seconds. */}
+            <button
+              type="button"
+              className={`${form.label} ${styles.markPlace}`}
+              aria-label="Shuffle"
+              aria-pressed={rotatePosition}
+              onClick={() => setRotatePosition((on) => !on)}
+              disabled={run.busy}
+            >
+              <span id="markPosition" className={styles.markPlaceIdle}>
+                Place
+              </span>
+              <span className={styles.markPlaceShuffle}>
+                {rotatePosition ? "Shuffling" : "Shuffle"}
+              </span>
+            </button>
             <ToggleGrid
               labelledBy="markPosition"
               options={POSITION_OPTIONS}
               value={position}
               onValueChange={setPosition}
               disabled={run.busy}
+              shuffling={rotatePosition}
             />
           </div>
         )}
@@ -288,20 +306,6 @@ export const Mark = () => {
           </div>
         )}
       </div>
-      {/* The mark moves on from the picked place every few seconds. */}
-      {watermark && (
-        <div className={form.switchRow}>
-          <Switch
-            id="markRotatePosition"
-            checked={rotatePosition}
-            onCheckedChange={setRotatePosition}
-            disabled={run.busy}
-          />
-          <label htmlFor="markRotatePosition" className={form.label}>
-            Rotate
-          </label>
-        </div>
-      )}
       {!lossless && (
         <div className={form.formGroup}>
           <Slider

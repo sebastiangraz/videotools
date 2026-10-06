@@ -9,12 +9,15 @@ export const ToggleGrid = <T extends string>({
   onValueChange,
   disabled,
   labelledBy,
+  shuffling = false,
 }: {
   options: readonly T[];
   value: T;
   onValueChange: (value: T) => void;
   disabled: boolean;
   labelledBy?: string;
+  // Lights the cells in turn from the pressed one, as the mark hops in the output.
+  shuffling?: boolean;
 }) => (
   <BaseToggleGroup
     value={[value]}
@@ -23,11 +26,17 @@ export const ToggleGrid = <T extends string>({
     }}
     disabled={disabled}
     aria-labelledby={labelledBy}
-    className={styles.root}
+    className={shuffling ? `${styles.root} ${styles.shuffling}` : styles.root}
     style={{ "--at": options.indexOf(value) } as CSSProperties}
   >
-    {options.map((option) => (
-      <Toggle key={option} value={option} aria-label={option} className={styles.item} />
+    {options.map((option, i) => (
+      <Toggle
+        key={option}
+        value={option}
+        aria-label={option}
+        className={styles.item}
+        style={{ "--i": i } as CSSProperties}
+      />
     ))}
     {/* The pressed mark, one element that slides to the pressed dot. */}
     <span aria-hidden="true" className={styles.active} />
