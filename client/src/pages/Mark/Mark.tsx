@@ -282,7 +282,7 @@ export const Mark = () => {
                 Place
               </span>
               <span className={styles.markPlaceShuffle}>
-                {rotatePosition ? "Shuffling" : "Shuffle"}
+                {rotatePosition ? "Shuffling" : "Shuffle?"}
               </span>
             </button>
             <ToggleGrid
