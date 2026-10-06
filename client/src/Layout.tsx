@@ -1,11 +1,14 @@
 import { Link, Outlet, useParams } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
+import { Switch } from "./components/Switch/Switch";
 import { useDebugMode } from "./hooks/useDebugMode";
+import { VerboseNames } from "./hooks/useToolRun";
 import appStyles from "./index.module.css";
+import form from "./pages/form.module.css";
 import styles from "./Layout.module.css";
 
 const Logo = () => (
@@ -34,6 +37,7 @@ export const Layout = () => {
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   useDebugMode();
+  const [verbose, setVerbose] = useState(false);
 
   return (
     <div className={appStyles.app}>
@@ -67,9 +71,17 @@ export const Layout = () => {
             {t.label}
           </MessageTrigger>
         ))}
+        <div className={form.switchRow}>
+          <Switch id="verbose" checked={verbose} onCheckedChange={setVerbose} disabled={false} />
+          <label htmlFor="verbose" className={form.label}>
+            verbose
+          </label>
+        </div>
       </Tabs>
       <main className={appStyles.main}>
-        <Outlet />
+        <VerboseNames value={verbose}>
+          <Outlet />
+        </VerboseNames>
       </main>
     </div>
   );
