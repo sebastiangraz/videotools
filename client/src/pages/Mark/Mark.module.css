@@ -200,11 +200,17 @@
 
 /* The Place label, a stack of two that crossfade like the footer's version
    label: Shuffle on hovering the whole group (so the gap to the grid doesn't
-   flick it back), Shuffling, in full colour, while on. */
+   flick it back), Shuffling, in full colour, while on. Its width is the
+   group's (the grid's), never its text's, so the longer words don't grow the
+   group; they overflow either side, centred. */
 .markPlace {
   --fade: 0.2s;
+  contain: inline-size;
+  align-self: stretch;
   display: grid;
   justify-items: center;
+  justify-content: center;
+  white-space: nowrap;
   margin: 0;
   padding-block: 0;
   border: 0;
