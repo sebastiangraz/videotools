@@ -94,7 +94,7 @@ export const Layout = () => {
                   Settings
                 </span>
                 <svg aria-hidden="true" fill="none" viewBox="0 0 14 7">
-                  <path stroke="currentColor" stroke-width="1" d="M0 5.5h14M0 2h14" />
+                  <path stroke="currentColor" strokeWidth="1" d="M0 5.5h14M0 2h14" />
                 </svg>
               </button>
             }

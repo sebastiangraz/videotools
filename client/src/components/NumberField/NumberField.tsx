@@ -79,12 +79,12 @@ export const NumberField = ({
 
 const PlusIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 7 7">
-    <path stroke="currentColor" stroke-width="1" d="M3.5 0v7M0 3.5h7" />
+    <path stroke="currentColor" strokeWidth="1" d="M3.5 0v7M0 3.5h7" />
   </svg>
 );
 
 const MinusIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 7 7">
-    <path stroke="currentColor" stroke-width="1" d="M0 3.5h7" />
+    <path stroke="currentColor" strokeWidth="1" d="M0 3.5h7" />
   </svg>
 );
