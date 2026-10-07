@@ -37,7 +37,7 @@ export const Layout = () => {
   // Tabs are Links, so the URL drives the active tab (deep links, back/forward).
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
-  useDebugMode();
+  const debug = useDebugMode();
   const [verbose, setVerbose] = useState(false);
 
   return (
@@ -47,6 +47,9 @@ export const Layout = () => {
           <Logo />
           <h1 ref={titleRef} className={appStyles.title}>
             Video tools
+            <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
+              dev
+            </span>
           </h1>
           <MessageArea anchor={titleRef} />
         </header>
