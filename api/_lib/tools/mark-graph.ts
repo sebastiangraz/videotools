@@ -21,9 +21,9 @@ export const MARK = {
   // Frost white mix.
   tint: 0.12,
   // Bevel width fraction of the logo width and height minimum.
-  bevelRatio: 0.1125,
+  bevelRatio: 0.1,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
-  refractRatio: 1.1,
+  refractRatio: 1,
   // Red and blue edge shift split around green.
   chroma: 0.02,
   // Light direction in degrees clockwise from the top.
@@ -35,11 +35,14 @@ export const MARK = {
   // Degrees the lit rim eases into glint over, ending side-on to the light.
   rimFalloff: 28,
   // Rim backdrop saturation multiplier with no change at 1.
-  rimSaturation: 2.25,
+  rimSaturation: 2,
   // Rim brightness multiplier.
   rimGain: 7,
   // Rim white mix with a plain white rim at 1.
-  rimWhite: 0.36,
+  rimWhite: 0.4,
+  // Rim paint blur fraction of the width and height minimum: how far round
+  // the edge the rim gathers its backdrop colour from.
+  rimBlurRatio: 0.0004,
   // Glass light opacity on the side opposite the light.
   ambient: 0.12,
   // Shade side opacity share of the bright side.
@@ -74,7 +77,7 @@ export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   medium: { scale: 1, gap: 1, rim: 1 },
   large: { scale: 2, gap: 1, rim: 1 },
-  dev: { scale: 3, gap: 1, rim: 2 },
+  dev: { scale: 3, gap: 1, rim: 1.33 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
@@ -323,6 +326,7 @@ export function watermarkGraph(
 
   const sigma = (shorter * M.blurRatio).toFixed(2);
   const minSigma = (shorter * M.minBlurRatio).toFixed(2);
+  const rimSigma = (shorter * M.rimBlurRatio).toFixed(2);
   const shadowSigma = (shorter * M.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * M.shadowOffsetRatio));
   // One erosion pass per px, sized off the frame so a hairline stays one. A
@@ -484,7 +488,7 @@ export function watermarkGraph(
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
-    `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
+    `[rf3]gblur=sigma=${rimSigma}:steps=1,${rimPaint}[paint]`,
     `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${M.rimOpacity}[rim]`,
     // gray→rgba put the mask in r, used as alpha.
     `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${M.ambient},${(M.ambient * M.ambientShade).toFixed(3)})'[ambient]`,
