@@ -1,4 +1,4 @@
-import { DEFAULT_FPS, type MediaInfo } from "../ffmpeg.js";
+import type { MediaInfo } from "../ffmpeg.js";
 
 export type Bounds = { x: number; y: number; width: number; height: number };
 
@@ -19,7 +19,7 @@ export const MARK = {
   // Frost saturation multiplier with no change at 1.
   saturation: 1.8,
   // Frost white mix.
-  tint: 0.09,
+  tint: 0.12,
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1125,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
@@ -29,24 +29,18 @@ export const MARK = {
   // Light direction in degrees clockwise from the top.
   lightAngle: -45,
   // Lit rim opacity.
-  rimOpacity: 0.96,
+  rimOpacity: 0.92,
   // Unlit rim brightness share of the lit rim.
-  glint: 0.8,
+  glint: 0.5,
   // Degrees the lit rim eases into glint over, ending side-on to the light.
   rimFalloff: 28,
   // Rim backdrop saturation multiplier with no change at 1.
   rimSaturation: 2.5,
   // Rim brightness multiplier.
   rimGain: 7,
-  // Rim scene tone mix with a plain tone rim at 1.
-  rimColor: 0.5,
-  // Scene tone saturation multiplier: the logo box's average colour,
-  // saturated, then brightened to full.
-  toneSaturation: 0.68,
-  // Seconds of frames the scene tone averages over, so it fades as the scene
-  // changes.
-  toneSeconds: 0.5,
-  // Glass light opacity on the side opposite the light, in the scene tone.
+  // Rim white mix with a plain white rim at 1.
+  rimWhite: 0.36,
+  // Glass light opacity on the side opposite the light.
   ambient: 0.12,
   // Shade side opacity share of the bright side.
   ambientShade: 0.5,
@@ -432,22 +426,8 @@ export function watermarkGraph(
       )
       .join(":");
   const tint = whiten(M.tint);
-  const rimPaint = [saturate(M.rimSaturation), `lutrgb=${whiten(0, M.rimGain)}`].join(",");
-  // The scene tone: the logo box's mean (scale can't reach 1×1 exactly, so
-  // pixelize averages a 32×32 one), over toneSeconds of frames, saturated and
-  // brought to full brightness. A grey scene gives white, as the old rim did.
-  const toneFrames = Math.min(
-    1024,
-    Math.max(1, Math.round(M.toneSeconds * (video.fps ?? DEFAULT_FPS))),
-  );
-  const peak = (c: string) => `${c}='255*${c}(0,0)/max(max(r(0,0),g(0,0)),max(b(0,0),1))'`;
-  const tone = [
-    `crop=${LW}:${LH}:${P}:${P},scale=32:32:flags=area,pixelize=w=32:h=32:mode=avg,crop=1:1:0:0`,
-    `tmix=frames=${toneFrames}`,
-    saturate(M.toneSaturation),
-    `format=rgba,geq=${["r", "g", "b"].map(peak).join(":")}:a=255`,
-    `scale=${CW}:${CH}:flags=neighbor`,
-  ].join(",");
+  // Lifted towards white so the rim still reads as light on dark/grey video.
+  const rimPaint = [saturate(M.rimSaturation), `lutrgb=${whiten(M.rimWhite, M.rimGain)}`].join(",");
 
   const keep = (1 - RIM_VIEW_DIM).toFixed(3);
   const dim = rgb
@@ -461,9 +441,8 @@ export function watermarkGraph(
       : `${pad}${open},split[base][src]`,
     // Both conversions name their matrix: on auto the way back falls to
     // bt601 and shifts the hue.
-    `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split=3[cellA][cellB][cellC]`,
+    `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split[cellA][cellB]`,
     `[cellB]colorchannelmixer=aa=0[canvas]`,
-    `[cellC]${tone},split[tone1][tone2]`,
     // Explicit formats: after a split of an open-format scale output,
     // alphaextract/extractplanes can't negotiate one.
     `[1:v]format=rgba${trim},split[l1][l2]`,
@@ -500,17 +479,10 @@ export function watermarkGraph(
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
-    `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[gained]`,
-    // Lifted towards the scene tone so the rim still reads as light on
-    // dark/grey video.
-    `[tone1]colorchannelmixer=aa=${M.rimColor}[toneMix]`,
-    `[gained][toneMix]overlay=format=auto[paint]`,
+    `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
     `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${M.rimOpacity}[rim]`,
-    // gray→rgba put the mask in r, used as alpha. White on the bright side,
-    // black on the shade side; the tone multiplies into the white.
-    `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${M.ambient},${(M.ambient * M.ambientShade).toFixed(3)})',format=gbrap[glow]`,
-    `[tone2]format=gbrap[toneLit]`,
-    `[toneLit][glow]blend=all_mode=multiply,format=rgba[ambient]`,
+    // gray→rgba put the mask in r, used as alpha.
+    `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${M.ambient},${(M.ambient * M.ambientShade).toFixed(3)})'[ambient]`,
     `[m4]gblur=sigma=${shadowSigma}:steps=2,split[sk1][sk2]`,
     `[sk1]format=rgba,lutrgb=r=0:g=0:b=0[black]`,
     `[black][sk2]alphamerge,colorchannelmixer=aa=${M.shadowOpacity}[shadow]`,
