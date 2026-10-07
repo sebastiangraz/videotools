@@ -29,15 +29,17 @@ export const MARK = {
   // Light direction in degrees clockwise from the top.
   lightAngle: -45,
   // Lit rim opacity.
-  rimOpacity: 0.8,
+  rimOpacity: 0.92,
   // Unlit rim brightness share of the lit rim.
-  glint: 0.66,
+  glint: 0.5,
+  // Degrees the lit rim eases into glint over, ending side-on to the light.
+  rimFalloff: 28,
   // Rim backdrop saturation multiplier with no change at 1.
-  rimSaturation: 2,
+  rimSaturation: 2.5,
   // Rim brightness multiplier.
   rimGain: 7,
   // Rim white mix with a plain white rim at 1.
-  rimWhite: 0.4,
+  rimWhite: 0.36,
   // Glass light opacity on the side opposite the light.
   ambient: 0.12,
   // Shade side opacity share of the bright side.
@@ -72,7 +74,7 @@ export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   medium: { scale: 1, gap: 1, rim: 1 },
   large: { scale: 2, gap: 1, rim: 1 },
-  dev: { scale: 3, gap: 1, rim: 2 },
+  dev: { scale: 3, gap: 1, rim: 1.33 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
@@ -394,8 +396,10 @@ export function watermarkGraph(
     ].join(";");
   }
   const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
-  // Slope towards the light as one kernel (×100 for integer taps). It
-  // saturates on purpose: lit or dark, softened by the downscale to 1×.
+  // Slope towards the light as one kernel (×100 for integer taps), scaled like
+  // the lens so the steepest edge reads cos/sin(rimFalloff): full light up to
+  // rimFalloff short of side-on, a cosine ramp from there. Saturated, the lit
+  // side stepped hard into glint level at the light's sides.
   const angle = (M.lightAngle * Math.PI) / 180;
   const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
   // Radial glow centred one logo radius away from the light; +1 at the
@@ -406,11 +410,13 @@ export function watermarkGraph(
   const lightKernel = SOBEL.x
     .map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly)))
     .join(" ");
-  // On the 16-bit field, doubled: the slope the old stretched one gave.
-  const lighting = `convolution=0m='${lightKernel}':0rdiv=2:0bias=${128 * 257}`;
-  // Whole rim at glint level, lit side rising from there. A separate far-side
-  // ramp notched the rim where edges turn side-on to the light.
-  const rimLight = `lut=c0='clip(${(255 * M.glint).toFixed(1)}+${(1 - M.glint).toFixed(3)}*max(0,(val-128)*2),0,255)'`;
+  const falloff = Math.sin((Math.min(Math.max(M.rimFalloff, 1), 90) * Math.PI) / 180);
+  const lightScale = MID / (8 * 100 * edgeSlope * falloff);
+  const lighting = `convolution=0m='${lightKernel}':0rdiv=${lightScale.toPrecision(6)}:0bias=${128 * 257}`;
+  // Whole rim at glint level, lit side rising from there, smoothstepped so
+  // both ends of the ramp blend in. A separate far-side ramp notched the rim
+  // where edges turn side-on to the light.
+  const rimLight = `lut=c0='st(0,clip((val-128)/127,0,1));${(255 * M.glint).toFixed(1)}+${(255 * (1 - M.glint)).toFixed(1)}*ld(0)*ld(0)*(3-2*ld(0))'`;
 
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
