@@ -5,7 +5,6 @@ import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
-import { Switch } from "./components/Switch/Switch";
 import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
 import { VerboseNames } from "./hooks/useToolRun";
@@ -16,6 +15,11 @@ import styles from "./Layout.module.css";
 const THEME_OPTIONS = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
+] as const;
+
+const VERBOSE_OPTIONS = [
+  { value: "disabled", label: "Disabled" },
+  { value: "enabled", label: "Enabled" },
 ] as const;
 
 const Logo = () => (
@@ -40,6 +44,7 @@ export const Layout = () => {
   // Tab descriptions show in the title message area, not at the tab, so the
   // card never moves.
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const tabsRef = useRef<HTMLDivElement | null>(null);
   // Tabs are Links, so the URL drives the active tab (deep links, back/forward).
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
@@ -65,6 +70,7 @@ export const Layout = () => {
         </header>
 
         <Tabs
+          ref={tabsRef}
           value={tool ?? null}
           className={styles.tabContainer}
           listClassName={styles.tabs}
@@ -98,24 +104,28 @@ export const Layout = () => {
                 </svg>
               </button>
             }
-            align="end"
-            // sideOffset={0}
+            anchor={tabsRef}
+            sideOffset={0}
+
             className={styles.settings}
           >
             <div className={styles.settingsRow}>
-              <label htmlFor="verbose" className={form.label}>
+              <span id="verbose" className={form.label}>
                 Verbose file names
-              </label>
-              <Switch
-                id="verbose"
-                checked={verbose}
-                onCheckedChange={setVerbose}
+              </span>
+              <ToggleGroup
+                labelledBy="verbose"
+                options={VERBOSE_OPTIONS}
+                toggle
+                value={verbose ? "enabled" : "disabled"}
+                onValueChange={(value) => setVerbose(value === "enabled")}
                 disabled={false}
+                size="small"
               />
             </div>
             <div className={styles.settingsRow}>
               <span id="theme" className={form.label}>
-                Theme
+                UI Theme
               </span>
               <ToggleGroup
                 labelledBy="theme"

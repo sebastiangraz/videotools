@@ -106,18 +106,33 @@
 }
 
 .settings {
-  display: flex;
-  align-items: end;
-  justify-content: center;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr max-content;
+  column-gap: 2rem;
+  row-gap: 1rem;
+  width: var(--anchor-width);
   padding: 0 1rem;
 }
 
 .settingsRow {
-  display: flex;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: 0.5rem;
+  justify-items: start;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1em;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  & > *:last-child {
+    justify-self: stretch;
+  }
 }
+
 /* Mask covering the content on open settings */
 @property --settings-mask {
   syntax: "<number>";
