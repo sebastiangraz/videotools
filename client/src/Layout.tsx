@@ -6,11 +6,17 @@ import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
 import { Switch } from "./components/Switch/Switch";
+import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
 import { VerboseNames } from "./hooks/useToolRun";
 import appStyles from "./index.module.css";
 import form from "./pages/form.module.css";
 import styles from "./Layout.module.css";
+
+const THEME_OPTIONS = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const;
 
 const Logo = () => (
   <div className={appStyles.logo}>
@@ -39,6 +45,10 @@ export const Layout = () => {
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   const debug = useDebugMode();
   const [verbose, setVerbose] = useState(false);
+  const [invert, setInvert] = useState(() =>
+    document.documentElement.hasAttribute("data-theme-invert"),
+  );
+  const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
 
   return (
     <div className={appStyles.app}>
@@ -92,7 +102,7 @@ export const Layout = () => {
             <label htmlFor="verbose" className={`${form.label} ${styles.settingsLabel}`}>
               Settings
             </label>
-            <div className={form.switchRow}>
+            <div className={styles.settingsRow}>
               <Switch
                 id="verbose"
                 checked={verbose}
@@ -102,6 +112,25 @@ export const Layout = () => {
               <label htmlFor="verbose" className={form.label}>
                 Verbose file names
               </label>
+            </div>
+            <div className={styles.settingsRow}>
+              <ToggleGroup
+                labelledBy="theme"
+                options={THEME_OPTIONS}
+                toggle
+                value={systemDark !== invert ? "dark" : "light"}
+                onValueChange={(theme) => {
+                  const next = (theme === "dark") !== systemDark;
+                  document.documentElement.toggleAttribute("data-theme-invert", next);
+                  localStorage.setItem("theme-invert", next ? "1" : "0");
+                  setInvert(next);
+                }}
+                disabled={false}
+                size="small"
+              />
+              <span id="theme" className={form.label}>
+                Theme
+              </span>
             </div>
           </Popover>
         </Tabs>

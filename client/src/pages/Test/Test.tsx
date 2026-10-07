@@ -86,9 +86,7 @@ export const Test = () => {
           />
         </div>
         <div className={form.formGroup} style={{ flex: "none" }}>
-          <label htmlFor="number" className={form.label}>
-            Grid
-          </label>
+          <label className={form.label}>Grid</label>
           <ToggleGrid
             labelledBy="toggle-grid"
             value={toggleGrid}

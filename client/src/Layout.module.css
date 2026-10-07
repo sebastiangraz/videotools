@@ -74,9 +74,15 @@
   display: flex;
   align-items: end;
   justify-content: center;
+  gap: 1rem;
   padding: 0 1rem;
 }
 
+.settingsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 .settingsLabel {
   font-size: 10px;
   color: var(--fg);
@@ -91,10 +97,11 @@
 }
 
 .tabContainer + main {
-  mask-image: linear-gradient(transparent, #000 var(--settings-mask));
+  mask-image: linear-gradient(transparent calc(0% + 0rem), #000 var(--settings-mask));
   transition: --settings-mask 0.4s cubic-bezier(0.7, 0, 0.175, 1);
 }
 
 .tabContainer:has(.settingsTrigger[data-popup-open]) + main {
   --settings-mask: 100%;
+  mask-image: linear-gradient(transparent calc(0% + 8rem), #000 var(--settings-mask));
 }
