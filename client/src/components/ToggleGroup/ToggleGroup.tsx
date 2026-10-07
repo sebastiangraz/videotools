@@ -13,12 +13,14 @@ export const ToggleGroup = <T extends string>({
   onValueChange,
   disabled,
   labelledBy,
+  size = "default",
 }: {
   options: readonly { value: T; label: string }[];
   value: T;
   onValueChange: (value: T) => void;
   disabled: boolean;
   labelledBy?: string;
+  size?: "default" | "small";
 }) => (
   <BaseToggleGroup
     value={[value]}
@@ -28,6 +30,7 @@ export const ToggleGroup = <T extends string>({
     disabled={disabled}
     aria-labelledby={labelledBy}
     className={styles.root}
+    data-size={size}
   >
     {options.map((option) => (
       <Toggle key={option.value} value={option.value} className={styles.item}>
