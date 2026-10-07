@@ -31,11 +31,11 @@ export const MARK = {
   // Lit rim opacity.
   rimOpacity: 0.92,
   // Unlit rim brightness share of the lit rim.
-  glint: 0.5,
+  glint: 0.66,
   // Degrees the lit rim eases into glint over, ending side-on to the light.
   rimFalloff: 28,
   // Rim backdrop saturation multiplier with no change at 1.
-  rimSaturation: 2.5,
+  rimSaturation: 2.25,
   // Rim brightness multiplier.
   rimGain: 7,
   // Rim white mix with a plain white rim at 1.
@@ -74,7 +74,7 @@ export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   medium: { scale: 1, gap: 1, rim: 1 },
   large: { scale: 2, gap: 1, rim: 1 },
-  dev: { scale: 3, gap: 1, rim: 1.33 },
+  dev: { scale: 3, gap: 1, rim: 2 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
