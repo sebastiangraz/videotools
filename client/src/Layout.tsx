@@ -90,6 +90,9 @@ export const Layout = () => {
           <Popover
             trigger={
               <button type="button" aria-label="Settings" className={styles.settingsTrigger}>
+                <span aria-hidden="true" className={`${form.label} ${styles.settingsLabel}`}>
+                  Settings
+                </span>
                 <svg aria-hidden="true" fill="none" viewBox="0 0 7 7">
                   <path stroke="currentColor" strokeWidth="1.25" d="M0 5.5h7M0 2h7" />
                 </svg>
@@ -99,9 +102,6 @@ export const Layout = () => {
             sideOffset={0}
             className={styles.settings}
           >
-            <label htmlFor="verbose" className={`${form.label} ${styles.settingsLabel}`}>
-              Settings
-            </label>
             <div className={styles.settingsRow}>
               <label htmlFor="verbose" className={form.label}>
                 Verbose file names
