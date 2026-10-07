@@ -441,13 +441,13 @@ export function watermarkGraph(
       : `${pad}${open},split[base][src]`,
     // Both conversions name their matrix: on auto the way back falls to
     // bt601 and shifts the hue.
-    `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split[cellA][cellB]`,
+    `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split=3[cellA][cellB][cellC]`,
     `[cellB]colorchannelmixer=aa=0[canvas]`,
     // Explicit formats: after a split of an open-format scale output,
     // alphaextract/extractplanes can't negotiate one.
     `[1:v]format=rgba${trim},split[l1][l2]`,
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
-    `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m4][m5]`,
+    `[lg1]format=rgba,alphaextract,format=gray,split=6[m1][m2][m3][m4][m5][m6]`,
     `[l2]${lensMask(2)}`,
     ...heightfield(",split=4[h1][h2][h3][h4]"),
     `[h1]${sobel("x", refractPx * SUB)},split=3[hx1][hx2][hx3]`,
@@ -466,7 +466,12 @@ export function watermarkGraph(
     `[cr][xr][yr]remap=format=gray[dr]`,
     `[cg][xg][yg]remap=format=gray[dg]`,
     `[cb][xb][yb]remap=format=gray[db]`,
-    `[dg][db][dr]${MERGE_GBR},scale=${CW}:${CH}:flags=bicubic,format=rgba,split=3[rf1][rf2][rf3]`,
+    `[dg][db][dr]${MERGE_GBR},scale=${CW}:${CH}:flags=bicubic,format=rgba[refracted]`,
+    // The heightfield's tail runs past the logo's edge, so only the logo's
+    // shape refracts: the blurs below then pull in the backdrop as it is
+    // around the glass, which gives the rim the colour it sits on.
+    `[refracted][m6]alphamerge[inside]`,
+    `[cellC][inside]overlay=format=auto,split=3[rf1][rf2][rf3]`,
     // Frost on the flat, barely blurred on the bevel (inverted heightfield).
     `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
     `[h3]${stretch},format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
