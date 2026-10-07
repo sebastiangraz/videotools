@@ -16,6 +16,9 @@ if (!("PointerEvent" in window)) {
   vi.stubGlobal("PointerEvent", class PointerEvent extends MouseEvent {});
 }
 
+// jsdom has no matchMedia; Layout reads the system colour scheme.
+window.matchMedia ??= (query) => ({ matches: false, media: query }) as MediaQueryList;
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.mocked(upload).mockReset();
