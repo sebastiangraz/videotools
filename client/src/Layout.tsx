@@ -93,13 +93,13 @@ export const Layout = () => {
                 <span aria-hidden="true" className={`${form.label} ${styles.settingsLabel}`}>
                   Settings
                 </span>
-                <svg aria-hidden="true" fill="none" viewBox="0 0 7 7">
-                  <path stroke="currentColor" strokeWidth="1.25" d="M0 5.5h7M0 2h7" />
+                <svg aria-hidden="true" fill="none" viewBox="0 0 14 7">
+                  <path stroke="currentColor" stroke-width="1" d="M0 5.5h14M0 2h14" />
                 </svg>
               </button>
             }
             align="end"
-            sideOffset={0}
+            // sideOffset={0}
             className={styles.settings}
           >
             <div className={styles.settingsRow}>
