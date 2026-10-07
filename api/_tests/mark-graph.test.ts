@@ -362,8 +362,11 @@ describe("watermarkGraph", () => {
   // The x slope, scaled by how far the lens refracts
   const lens = (graph: string) =>
     /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];
+  // Layer opacities; the scene tone's mix share into the rim paint isn't one.
   const opacities = (graph: string) =>
-    [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) => Number(aa));
+    [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)(?![\d.]|\[toneMix\])/g)].map(([, aa]) =>
+      Number(aa),
+    );
 
   it("shows the displacement map over a light-gray frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
@@ -401,7 +404,8 @@ describe("watermarkGraph", () => {
 
   it("keeps only the rim, as tuned, over a dimmed frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
-    const rimPaint = (graph: string) => /\[rf3\][^;]*\[paint\]/.exec(graph)?.[0];
+    // Paint and scene tone mix, through to [paint]
+    const rimPaint = (graph: string) => /;\[rf3\].*?\[paint\]/.exec(graph)?.[0];
     const rimLight = (graph: string) => /\[h4\][^;]*\[light\]/.exec(graph)?.[0];
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, view: "rim" });
@@ -419,6 +423,18 @@ describe("watermarkGraph", () => {
       expect(rimLight(graph)).toBe(rimLight(glass));
       expect(lens(graph)).toBe(lens(glass));
     }
+  });
+
+  it("tones the rim and the lit ambient by the logo box's mean, over toneSeconds of frames", () => {
+    const at = (fps: number | null) => watermarkGraph({ ...video, fps }, logo, { filter: "glass" });
+    const frames = (graph: string) => Number(/tmix=frames=(\d+)/.exec(graph)?.[1]);
+    expect(at(30)).toContain("pixelize=w=32:h=32:mode=avg,crop=1:1:0:0");
+    expect(frames(at(30))).toBe(Math.max(1, Math.round(MARK.toneSeconds * 30)));
+    expect(frames(at(60))).toBe(Math.max(1, Math.round(MARK.toneSeconds * 60)));
+    expect(frames(at(null))).toBeGreaterThanOrEqual(1);
+    // Mixed into the rim paint, multiplied into the ambient's white
+    expect(at(30)).toContain(`[tone1]colorchannelmixer=aa=${MARK.rimColor}[toneMix]`);
+    expect(at(30)).toContain("[toneLit][glow]blend=all_mode=multiply");
   });
 
   it("renders the mark by default", () => {
