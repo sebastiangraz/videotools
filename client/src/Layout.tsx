@@ -103,17 +103,20 @@ export const Layout = () => {
               Settings
             </label>
             <div className={styles.settingsRow}>
+              <label htmlFor="verbose" className={form.label}>
+                Verbose file names
+              </label>
               <Switch
                 id="verbose"
                 checked={verbose}
                 onCheckedChange={setVerbose}
                 disabled={false}
               />
-              <label htmlFor="verbose" className={form.label}>
-                Verbose file names
-              </label>
             </div>
             <div className={styles.settingsRow}>
+              <span id="theme" className={form.label}>
+                Theme
+              </span>
               <ToggleGroup
                 labelledBy="theme"
                 options={THEME_OPTIONS}
@@ -128,9 +131,6 @@ export const Layout = () => {
                 disabled={false}
                 size="small"
               />
-              <span id="theme" className={form.label}>
-                Theme
-              </span>
             </div>
           </Popover>
         </Tabs>
