@@ -19,11 +19,6 @@
   view-transition-class: panelItem;
 }
 
-/* Positions are enumerated to stagger the sequence. sibling-index() cannot do
-   this job: inside a pseudo-element it resolves against the originating
-   element, which for every view transition pseudo is <html>, so it is always 1.
-   A view-transition-class is a plain property though, so :nth-child() can hand
-   each position its own hook. Items past the last rule share the final step. */
 .container + .container > *:nth-child(1) {
   view-transition-class: panelItem i1;
 }
@@ -40,10 +35,7 @@
   view-transition-class: panelItem i5;
 }
 
-/* :global is required throughout: CSS modules would otherwise hash the class
-   inside the pseudo-element while leaving the property values above alone.
-   --i is set on the group because custom properties inherit from there down to
-   the old and new snapshots, which is where the animations read them. */
+/* :global is required to avoid class hashing */
 ::view-transition-group(*:global(.panelItem)) {
   --stagger: 35ms;
 }
@@ -106,10 +98,8 @@
   }
 }
 
-/* Unusable rather than :disabled, so hover and focus still reach the button
-   and can open its tooltip */
+/* Hover and focus still work */
 .button[aria-disabled="true"] {
-  /* opacity: 0.5; */
   cursor: not-allowed;
 }
 
