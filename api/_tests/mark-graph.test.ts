@@ -341,7 +341,7 @@ describe("watermarkGraph", () => {
     const erosions = (graph: string) => graph.match(/\berosion\b/g)?.length;
     const base = watermarkGraph(video, logo, { filter: "glass" });
     expect(erosions(base)).toBe(2);
-    expect(base).not.toContain("all_expr");
+    expect(base).not.toContain("[er3]");
     const small = watermarkGraph(video, logo, {
       filter: "glass",
       size: "small",
@@ -350,7 +350,7 @@ describe("watermarkGraph", () => {
     const part = width % 1;
     if (part < 0.01) {
       expect(erosions(small)).toBe(Math.round(width));
-      expect(small).not.toContain("all_expr");
+      expect(small).not.toContain("[er3]");
     } else {
       expect(erosions(small)).toBe(Math.floor(width) + 1);
       expect(small).toContain(`blend=all_expr='A+(B-A)*${part.toFixed(3)}'`);

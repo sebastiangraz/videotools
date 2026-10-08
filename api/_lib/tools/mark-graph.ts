@@ -22,6 +22,8 @@ export const MARK = {
   tint: 0.12,
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1,
+  // Gain on a shape's blurred core; higher keeps thinner strokes refracting.
+  coreGain: 5,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
   refractRatio: 1,
   // Red and blue edge shift split around green.
@@ -42,7 +44,7 @@ export const MARK = {
   rimWhite: 0.4,
   // Rim paint blur fraction of the width and height minimum: how far round
   // the edge the rim gathers its backdrop colour from.
-  rimBlurRatio: 0.0004,
+  rimBlurRatio: 0.0048,
   // Glass light opacity on the side opposite the light.
   ambient: 0.12,
   // Shade side opacity share of the bright side.
@@ -360,12 +362,22 @@ export function watermarkGraph(
   const edgeSlope = (2 * FULL) / (bevel * Math.sqrt(2 * Math.PI));
   // Edge→0, interior→FULL, for the bevel mask.
   const stretch = `lut=c0='clip((val-${MID})*2,0,${FULL})'`;
-  // Reads [mk1] and [mk2].
-  const heightfield = (out: string) => [
+  // Thin strokes flattened: a stroke under ~bevel/2 never takes the narrow
+  // blur past half height, so it has no core. The cores, blurred wide and
+  // boosted, reach a thick shape's edges and corners at 1 and fade to 0 over
+  // a stroke too thin to hold a bevel. It scales the slopes, not the field:
+  // a gain falling along a taper would add a slope of its own.
+  const thick = `${stretch},gblur=sigma=${bevel.toFixed(2)}:steps=2,lut=c0='st(0,clip(val*${(M.coreGain / FULL).toPrecision(6)},0,1));${FULL}*ld(0)*ld(0)*(3-2*ld(0))'`;
+  // Reads [mk1] and [mk2]; one gain per slope, from [k1] on.
+  const heightfield = (out: string, slopes: number) => [
     `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2[hw]`,
-    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2[hn]`,
+    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,split[hn][hc]`,
     `[hw][hn]blend=all_mode=average${out}`,
+    `[hc]${thick},split=${slopes}${Array.from({ length: slopes }, (_, i) => `[k${i + 1}]`).join("")}`,
   ];
+  // A slope around `bias`, scaled by gain [k<n>].
+  const flatten = (n: number, bias: number) =>
+    `[k${n}]blend=all_expr='${bias}+(A-${bias})*B/${FULL}'`;
   const lensMask = (n: number) =>
     `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,format=gray16le,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
   // Sobel sums 8× the slope, so this scale gives `shift` at the steepest edge.
@@ -390,9 +402,11 @@ export function watermarkGraph(
     return [
       `${pad}${open},drawbox=w=iw:h=ih:color=${DEBUG_BACKDROP}:t=fill[base]`,
       `[1:v]format=rgba${trim},${lensMask(3)}`,
-      ...heightfield(",split=3[hx][hy][hz]"),
-      `[hx]${sobel("x", MID - 1)},format=gray[mx]`,
-      `[hy]${sobel("y", MID - 1)},format=gray[my]`,
+      ...heightfield(",split=3[hx][hy][hz]", 2),
+      `[hx]${sobel("x", MID - 1)}[sx]`,
+      `[sx]${flatten(1, MID)},format=gray[mx]`,
+      `[hy]${sobel("y", MID - 1)}[sy]`,
+      `[sy]${flatten(2, MID)},format=gray[my]`,
       `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
       `[map][mk3]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
@@ -453,12 +467,14 @@ export function watermarkGraph(
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
     `[lg1]format=rgba,alphaextract,format=gray,split=6[m1][m2][m3][m4][m5][m6]`,
     `[l2]${lensMask(2)}`,
-    ...heightfield(",split=4[h1][h2][h3][h4]"),
-    `[h1]${sobel("x", refractPx * SUB)},split=3[hx1][hx2][hx3]`,
+    ...heightfield(",split=4[h1][h2][h3][h4]", 3),
+    `[h1]${sobel("x", refractPx * SUB)}[sx]`,
+    `[sx]${flatten(1, MID)},split=3[hx1][hx2][hx3]`,
     `[hx1]${sampleAt("x", chroma.r)}[xr]`,
     `[hx2]${sampleAt("x", chroma.g)}[xg]`,
     `[hx3]${sampleAt("x", chroma.b)}[xb]`,
-    `[h2]${sobel("y", refractPx * SUB)},split=3[hy1][hy2][hy3]`,
+    `[h2]${sobel("y", refractPx * SUB)}[sy]`,
+    `[sy]${flatten(2, MID)},split=3[hy1][hy2][hy3]`,
     `[hy1]${sampleAt("y", chroma.r)}[yr]`,
     `[hy2]${sampleAt("y", chroma.g)}[yg]`,
     `[hy3]${sampleAt("y", chroma.b)}[yb]`,
@@ -484,7 +500,8 @@ export function watermarkGraph(
     `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}[fill]`,
     `[fill][m1]alphamerge${view === "rim" ? ",colorchannelmixer=aa=0" : ""}[glass]`,
     // Paint softened first so the rim's colour doesn't flicker with detail.
-    `[h4]${lighting},format=gray,scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
+    `[h4]${lighting}[sl]`,
+    `[sl]${flatten(3, 128 * 257)},format=gray,scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
