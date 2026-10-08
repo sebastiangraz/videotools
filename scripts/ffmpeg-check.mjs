@@ -58,6 +58,9 @@ const NEEDS = {
     "erosion",
     "blend",
     "geq",
+    // Mark: the tracked light's per-frame commands; the depth map's backdrop.
+    "sendcmd",
+    "drawbox",
     // smoke-run lavfi sources
     "testsrc2",
     "sine",

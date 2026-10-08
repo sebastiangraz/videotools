@@ -1,4 +1,5 @@
-import type { MediaInfo } from "../ffmpeg.js";
+import { DEFAULT_FPS, type MediaInfo } from "../ffmpeg.js";
+import { fixedRig, type MarkLight } from "./mark-light.js";
 
 export type Bounds = { x: number; y: number; width: number; height: number };
 
@@ -230,6 +231,8 @@ const saturate = (s: number) => {
 // Inputs [0] video, [1] logo; output [out]. Sizes are computed from the probe,
 // not filter expressions, so the glass crops only the patch under the logo.
 // `base` rgba keeps a GIF's transparency and odd sizes (yuv420p would lose both).
+// `light` aims the glass's light at the picture's (mark-light.ts) rather than
+// MARK.lightAngle; its write() must follow before ffmpeg runs the graph.
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
@@ -242,6 +245,7 @@ export function watermarkGraph(
     position = "bottom-right",
     view = "render",
     rotatePosition = false,
+    light,
   }: {
     filter: MarkFilter;
     bounds?: Bounds;
@@ -251,6 +255,7 @@ export function watermarkGraph(
     position?: MarkPosition;
     view?: MarkView;
     rotatePosition?: boolean;
+    light?: MarkLight | null;
   },
 ): string {
   const M =
@@ -437,47 +442,80 @@ export function watermarkGraph(
     ].join(";");
   }
   const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
+  // The logo's centre where it stands at `time`, for the light's direction.
+  const centreAt = (time: number): [number, number] => {
+    const at = rotating
+      ? stops[Math.min(Math.floor(time / period), stays - 1) % stops.length]
+      : layout;
+    return [at.LX + LW / 2, at.LY + LH / 2];
+  };
+  const rig = light
+    ? light.rig({
+        fallback: M.lightAngle,
+        centreAt,
+        radius: Math.hypot(LW, LH) / 2,
+        fps: video.fps ?? DEFAULT_FPS,
+      })
+    : fixedRig(M.lightAngle);
+  const towards = (deg: number) => {
+    const angle = (deg * Math.PI) / 180;
+    return [Math.sin(angle), -Math.cos(angle)];
+  };
   // Slope towards the light as one kernel (×100 for integer taps), scaled like
   // the lens so the steepest edge reads the cosine to the light, ±1 facing it
   // or away.
-  const angle = (M.lightAngle * Math.PI) / 180;
-  const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
-  const lightKernel = SOBEL.x
-    .map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly)))
-    .join(" ");
+  const lightKernel = (deg: number) => {
+    const [lx, ly] = towards(deg);
+    return SOBEL.x.map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly))).join("|");
+  };
   const lightScale = MID / (8 * 100 * edgeSlope);
-  const lighting = `convolution=0m='${lightKernel}':0rdiv=${lightScale.toPrecision(6)}:0bias=${MID}`;
+  const lighting = `${rig.follow("convolution", { "0m": lightKernel })}=0m='${lightKernel(rig.angle)}':0rdiv=${lightScale.toPrecision(6)}:0bias=${MID}`;
   // Rim and glint are their own layers on either side of side-on, rimGap/2
   // clear of it, each smoothstepped in over rimFalloff, in degrees off side-on
-  // (asin of the cosine). The core gain [k3] fades the angle out: a stroke too
-  // thin for a bevel has no direction, so it's glint all round.
+  // (asin of the cosine): one lut, as the slope may change every frame. The
+  // core gain [k3] (and [k4]) fades the angle out: a stroke too thin for a
+  // bevel has no direction, so it's glint all round.
   const radians = (deg: number) => (Math.min(Math.max(deg, 0), 180) * Math.PI) / 180;
   const halfGap = radians(M.rimGap) / 2;
   const ease = radians(Math.max(M.rimFalloff, 1));
   const ramp = (side: string) =>
     `st(1,clip((${side}ld(0)-${halfGap.toFixed(5)})/${ease.toFixed(5)},0,1));ld(1)*ld(1)*(3-2*ld(1))`;
-  const rimLight = [
-    `blend=all_expr='st(0,asin(clip((A-${MID})/${MID},-1,1)));`,
+  const rimLevel = [
+    `lut=c0='st(0,asin(clip((val-${MID})/${MID},-1,1)));`,
     `st(2,${M.rimOpacity}*(${ramp("")}));`,
     `st(3,${M.glint}*(${ramp("-")}));`,
-    `st(4,B/${FULL});`,
-    `${FULL}*(ld(4)*(ld(2)+ld(3))+(1-ld(4))*${M.glint})'`,
+    `${FULL}*(ld(2)+ld(3))'`,
   ].join("");
+  // core·level + (1-core)·glint.
+  const rimLight = [
+    `${rig.perFrame("[h4]", CW2, CH2)}${lighting},${rimLevel}[rimLevel]`,
+    `[rimLevel][k3]blend=all_mode=multiply[rimCore]`,
+    `[k4]lut=c0='(${FULL}-val)*${M.glint}'[rimThin]`,
+    `[rimCore][rimThin]blend=all_mode=addition,format=gray,scale=${CW}:${CH}:flags=bicubic[light]`,
+  ];
   // Glass light, inner shadows in white: the logo blurred over each glow's
   // bevel, moved towards the light and inverted, inside the logo. They hug
   // every edge, strongest on the far side, faint on the near one, and never
   // reach a thick shape's middle. A slope across the same blur lit the middle
   // too, with a terminator through it. Screened together as stacked white
   // layers would; 16-bit so the faint wide glows keep their levels.
-  const ambientGlow = ({ bevelRatio, opacity }: AmbientGlow) => {
+  const ambientGlow = ({ bevelRatio, opacity }: AmbientGlow, i: number) => {
     const bevel = Math.min(LW, LH) * bevelRatio;
-    const shift = (n: number) => Math.round(n * bevel * M.ambientShift);
-    const [dx, dy] = [shift(lx), shift(ly)];
-    const room = Math.max(Math.abs(dx), Math.abs(dy));
-    return `gblur=sigma=${Math.max(0.5, bevel).toFixed(2)}:steps=2,pad=${CW + 2 * room}:${CH + 2 * room}:${room}:${room},crop=${CW}:${CH}:${room - dx}:${room - dy},negate,lut=c0='val*${opacity}'`;
+    const shift = (deg: number) => towards(deg).map((n) => Math.round(n * bevel * M.ambientShift));
+    // A moving light may shift it any way round.
+    const room = rig.moving
+      ? Math.ceil(bevel * M.ambientShift)
+      : Math.max(...shift(rig.angle).map(Math.abs));
+    const crop = rig.follow("crop", {
+      x: (deg) => String(room - shift(deg)[0]),
+      y: (deg) => String(room - shift(deg)[1]),
+    });
+    const [dx, dy] = shift(rig.angle);
+    const blurred = `[am${i}]gblur=sigma=${Math.max(0.5, bevel).toFixed(2)}:steps=2,pad=${CW + 2 * room}:${CH + 2 * room}:${room}:${room}`;
+    return `${rig.perFrame(blurred, CW + 2 * room, CH + 2 * room)}${crop}=${CW}:${CH}:${room - dx}:${room - dy},negate,lut=c0='val*${opacity}'`;
   };
   const glows = M.ambient.length;
-  // The lens's core gain [k4], back at 1×, one per `core` glow.
+  // The lens's core gain [k5], back at 1×, one per `core` glow.
   const cores = M.ambient.filter((glow) => glow.core).length;
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
@@ -513,12 +551,12 @@ export function watermarkGraph(
         `[m5]format=gray16le,split=${laid.length ? `${glows + 1}[amask]` : glows}${ids.map((i) => `[am${i}]`).join("")}`,
         ...(cores
           ? [
-              `[k4]scale=${CW}:${CH}:flags=bicubic,format=gray16le,split=${cores}${M.ambient.map((glow, i) => (glow.core ? `[ac${i}]` : "")).join("")}`,
+              `[k5]scale=${CW}:${CH}:flags=bicubic,format=gray16le,split=${cores}${M.ambient.map((glow, i) => (glow.core ? `[ac${i}]` : "")).join("")}`,
             ]
           : []),
         ...M.ambient.map(
           (glow, i) =>
-            `[am${i}]${ambientGlow(glow)}${glow.core ? `[ar${i}];[ar${i}][ac${i}]blend=all_mode=multiply` : ""}[ag${i}]`,
+            `${ambientGlow(glow, i)}${glow.core ? `[ar${i}];[ar${i}][ac${i}]blend=all_mode=multiply` : ""}[ag${i}]`,
         ),
         ...(plusLighter
           ? [
@@ -564,7 +602,7 @@ export function watermarkGraph(
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0[lg1]`,
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m5][m6]`,
     `[l2]${lensMask(2)}`,
-    ...heightfield(",split=4[h1][h2][h3][h4]", cores ? 4 : 3),
+    ...heightfield(",split=4[h1][h2][h3][h4]", cores ? 5 : 4),
     `[h1]${sobel("x", refractPx * SUB)}[sx]`,
     `[sx]${flatten(1, MID)},split=3[hx1][hx2][hx3]`,
     `[hx1]${sampleAt("x", chroma.r)}[xr]`,
@@ -597,8 +635,7 @@ export function watermarkGraph(
     `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}${plusLighter ? "[frosted]" : "[fill]"}`,
     `[fill][m1]alphamerge${view === "rim" ? ",colorchannelmixer=aa=0" : ""}[glass]`,
     // Paint softened first so the rim's colour doesn't flicker with detail.
-    `[h4]${lighting}[sl]`,
-    `[sl][k3]${rimLight},format=gray,scale=${CW}:${CH}:flags=bicubic[light]`,
+    ...rimLight,
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
@@ -614,6 +651,7 @@ export function watermarkGraph(
     `[l3]${scaleLogo},pad=${SW}:${SH}:${S}:${S + shadowDy}:color=black@0,format=rgba,gblur=sigma=${shadowSigma}:steps=2,colorchannelmixer=rr=0:gg=0:bb=0:aa=${M.shadowOpacity}${fading(SW, SH)}${fromRgb}[shadow]`,
     `[base][shadow]${onto(corner(S))}[shaded]`,
     `[shaded][cell]${onto([CX, CY])}[out]`,
+    ...rig.driver(pad),
   ].join(";");
 }
 

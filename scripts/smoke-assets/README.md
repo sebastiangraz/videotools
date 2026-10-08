@@ -13,6 +13,7 @@ so a diff across different inputs says so.
 | `logo.svg`      | Mark watermark as SVG                           |
 | `images/*`      | Sequence stills, natural filename order (1–100) |
 | `logos/*`       | Other-shaped watermarks (PNG/SVG), same order   |
+| `light/*`       | Light tracker clips (not used by the cases yet) |
 
 Always derived from `video` at runtime: the preview frame; one equal part per
 logo, which the `mark-various-*` cases mark each with its logo and join back
@@ -23,3 +24,9 @@ non-square pixels the tools must refuse); and Mark's stills `still.png`,
 
 Keep clips short (about 4–10 s; the loop cases need at least ~4 s): the slow
 encoders run on them too, GIF stops at 1500 frames and AVIF at 60 s.
+
+`light/` is written by `bun scripts/light-assets.mjs`: `sweep.mp4`, one radial
+gradient crossing left to right, and `pair.mp4`, two equally bright ones
+wandering and meeting, which a tracker must not flip between.
+`bun scripts/light-track.mjs <clip> --out <mp4>` shows where Mark's light
+tracker (api/_lib/light-track.ts) puts the light on any clip.
