@@ -31,12 +31,14 @@ export const MARK = {
   // Red and blue edge shift split around green.
   chroma: 0.02,
   // Light direction in degrees clockwise from the top.
-  lightAngle: -45,
+  lightAngle: -60,
   // Lit rim opacity.
   rimOpacity: 0.88,
-  // Unlit rim brightness share of the lit rim.
-  glint: 0.66,
-  // Degrees the lit rim eases into glint over, ending side-on to the light.
+  // Unlit rim (glint) opacity, the far side from the light.
+  glint: 0.58,
+  // Degrees around side-on to the light where neither rim nor glint shows.
+  rimGap: 1,
+  // Degrees the rim eases out over into the gap, and the glint in over out of it.
   rimFalloff: 28,
   // Rim backdrop saturation multiplier with no change at 1.
   rimSaturation: 2,
@@ -136,6 +138,7 @@ const MARK_CLEAR: Partial<typeof MARK> = {
   ambient: [],
   shadowOpacity: 0,
   rimOpacity: 0,
+  glint: 0,
 };
 
 const MARK_RIM: Partial<typeof MARK> = {
@@ -435,21 +438,31 @@ export function watermarkGraph(
   }
   const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
   // Slope towards the light as one kernel (×100 for integer taps), scaled like
-  // the lens so the steepest edge reads cos/sin(rimFalloff): full light up to
-  // rimFalloff short of side-on, a cosine ramp from there. Saturated, the lit
-  // side stepped hard into glint level at the light's sides.
+  // the lens so the steepest edge reads the cosine to the light, ±1 facing it
+  // or away.
   const angle = (M.lightAngle * Math.PI) / 180;
   const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
   const lightKernel = SOBEL.x
     .map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly)))
     .join(" ");
-  const falloff = Math.sin((Math.min(Math.max(M.rimFalloff, 1), 90) * Math.PI) / 180);
-  const lightScale = MID / (8 * 100 * edgeSlope * falloff);
-  const lighting = `convolution=0m='${lightKernel}':0rdiv=${lightScale.toPrecision(6)}:0bias=${128 * 257}`;
-  // Whole rim at glint level, lit side rising from there, smoothstepped so
-  // both ends of the ramp blend in. A separate far-side ramp notched the rim
-  // where edges turn side-on to the light.
-  const rimLight = `lut=c0='st(0,clip((val-128)/127,0,1));${(255 * M.glint).toFixed(1)}+${(255 * (1 - M.glint)).toFixed(1)}*ld(0)*ld(0)*(3-2*ld(0))'`;
+  const lightScale = MID / (8 * 100 * edgeSlope);
+  const lighting = `convolution=0m='${lightKernel}':0rdiv=${lightScale.toPrecision(6)}:0bias=${MID}`;
+  // Rim and glint are their own layers on either side of side-on, rimGap/2
+  // clear of it, each smoothstepped in over rimFalloff, in degrees off side-on
+  // (asin of the cosine). The core gain [k3] fades the angle out: a stroke too
+  // thin for a bevel has no direction, so it's glint all round.
+  const radians = (deg: number) => (Math.min(Math.max(deg, 0), 180) * Math.PI) / 180;
+  const halfGap = radians(M.rimGap) / 2;
+  const ease = radians(Math.max(M.rimFalloff, 1));
+  const ramp = (side: string) =>
+    `st(1,clip((${side}ld(0)-${halfGap.toFixed(5)})/${ease.toFixed(5)},0,1));ld(1)*ld(1)*(3-2*ld(1))`;
+  const rimLight = [
+    `blend=all_expr='st(0,asin(clip((A-${MID})/${MID},-1,1)));`,
+    `st(2,${M.rimOpacity}*(${ramp("")}));`,
+    `st(3,${M.glint}*(${ramp("-")}));`,
+    `st(4,B/${FULL});`,
+    `${FULL}*(ld(4)*(ld(2)+ld(3))+(1-ld(4))*${M.glint})'`,
+  ].join("");
   // Glass light, inner shadows in white: the logo blurred over each glow's
   // bevel, moved towards the light and inverted, inside the logo. They hug
   // every edge, strongest on the far side, faint on the near one, and never
@@ -585,12 +598,12 @@ export function watermarkGraph(
     `[fill][m1]alphamerge${view === "rim" ? ",colorchannelmixer=aa=0" : ""}[glass]`,
     // Paint softened first so the rim's colour doesn't flicker with detail.
     `[h4]${lighting}[sl]`,
-    `[sl]${flatten(3, 128 * 257)},format=gray,scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
+    `[sl][k3]${rimLight},format=gray,scale=${CW}:${CH}:flags=bicubic[light]`,
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
     `[rf3]gblur=sigma=${rimSigma}:steps=1,${rimPaint}[paint]`,
-    `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${M.rimOpacity}[rim]`,
+    `[paint][rimAlpha]alphamerge[rim]`,
     ...ambient,
     // Layers go on a transparent canvas so only covered pixels change: no
     // conversion round trip can leave a faint box.

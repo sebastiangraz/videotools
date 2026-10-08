@@ -386,6 +386,11 @@ describe("watermarkGraph", () => {
     /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];
   const opacities = (graph: string) =>
     [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) => Number(aa));
+  // The lit rim's and the glint's opacities, as the rim light weighs them
+  const rimLevels = (graph: string) => {
+    const [, rim, glint] = /st\(2,([\d.]+)\*.*;st\(3,([\d.]+)\*/.exec(graph) ?? [];
+    return { rim: Number(rim), glint: Number(glint) };
+  };
 
   it("shows the displacement map over a light-gray frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
@@ -407,14 +412,14 @@ describe("watermarkGraph", () => {
 
   it("clears the glass of all but its refraction, over the frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
-    expect(opacities(glass).some((aa) => aa > 0)).toBe(true);
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, view: "clear" });
       expect(graph).not.toContain("drawbox");
       expect(graph).toContain("remap=");
-      // No frost; shadow and rim both transparent
+      // No frost; shadow, rim and glint all transparent
       expect(graph).toContain("gblur=sigma=0.00:steps=2");
       expect(opacities(graph).every((aa) => aa === 0)).toBe(true);
+      expect(rimLevels(graph)).toEqual({ rim: 0, glint: 0 });
       // and the lens as tuned
       expect(lens(graph)).toBeDefined();
       expect(lens(graph)).toBe(lens(glass));
@@ -432,9 +437,10 @@ describe("watermarkGraph", () => {
       expect(graph).toMatch(
         /^\[0:v\][^;]*,split\[undimmed\]\[src\];\[undimmed\]lutyuv=[^;]*\[base\]/,
       );
-      // Glass and shadow transparent; the rim at its own opacity
+      // Glass and shadow transparent; rim and glint at their own opacities
       expect(graph).toMatch(/\[m1\]alphamerge,colorchannelmixer=aa=0\[glass\]/);
-      expect(opacities(graph).filter((aa) => aa > 0)).toEqual([MARK.rimOpacity]);
+      expect(opacities(graph).filter((aa) => aa > 0)).toEqual([]);
+      expect(rimLevels(graph)).toEqual({ rim: MARK.rimOpacity, glint: MARK.glint });
       // painted and lit as in the render, off the same lens
       expect(rimPaint(graph)).toBeDefined();
       expect(rimPaint(graph)).toBe(rimPaint(glass));
