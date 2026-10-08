@@ -412,7 +412,7 @@ describe("watermarkGraph", () => {
       const graph = watermarkGraph(video, logo, { filter, view: "clear" });
       expect(graph).not.toContain("drawbox");
       expect(graph).toContain("remap=");
-      // No frost; shadow, faint logo and rim all transparent
+      // No frost; shadow and rim both transparent
       expect(graph).toContain("gblur=sigma=0.00:steps=2");
       expect(opacities(graph).every((aa) => aa === 0)).toBe(true);
       // and the lens as tuned
@@ -432,7 +432,7 @@ describe("watermarkGraph", () => {
       expect(graph).toMatch(
         /^\[0:v\][^;]*,split\[undimmed\]\[src\];\[undimmed\]lutyuv=[^;]*\[base\]/,
       );
-      // Glass, shadow and faint logo transparent; the rim at its own opacity
+      // Glass and shadow transparent; the rim at its own opacity
       expect(graph).toMatch(/\[m1\]alphamerge,colorchannelmixer=aa=0\[glass\]/);
       expect(opacities(graph).filter((aa) => aa > 0)).toEqual([MARK.rimOpacity]);
       // painted and lit as in the render, off the same lens

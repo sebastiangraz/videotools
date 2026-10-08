@@ -19,7 +19,7 @@ export const MARK = {
   // Frost saturation multiplier with no change at 1.
   saturation: 1.8,
   // Frost white mix.
-  tint: 0.12,
+  tint: 0.0,
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1,
   // Gain on a shape's blurred core; higher keeps thinner strokes refracting.
@@ -31,7 +31,7 @@ export const MARK = {
   // Light direction in degrees clockwise from the top.
   lightAngle: -45,
   // Lit rim opacity.
-  rimOpacity: 0.92,
+  rimOpacity: 0.88,
   // Unlit rim brightness share of the lit rim.
   glint: 0.66,
   // Degrees the lit rim eases into glint over, ending side-on to the light.
@@ -46,10 +46,10 @@ export const MARK = {
   // the edge the rim gathers its backdrop colour from.
   rimBlurRatio: 0.0018,
   // Glass light opacity at the edge opposite the light.
-  ambient: 0.12,
+  ambient: 0.3,
   // Ambient bevel width fraction of the logo width and height minimum: how far
   // in from the edges the glass light fades.
-  ambientBevelRatio: 0.12,
+  ambientBevelRatio: 0.09,
   // Ambient shift towards the light in ambient bevels: more leaves the near
   // edge darker against the far one.
   ambientShift: 1,
@@ -60,8 +60,6 @@ export const MARK = {
   shadowOffsetRatio: 0.016,
   // Drop shadow opacity.
   shadowOpacity: 0.08,
-  // Logo pixel opacity over the glass.
-  logoOpacity: 0.05,
 
   // Blur filter blur fraction of the width and height minimum.
   blurFilterRatio: 0.016,
@@ -69,6 +67,8 @@ export const MARK = {
   blurSaturation: 1.8,
   // Blur filter difference layer opacity, a white fill in the logo's shape.
   blurDifference: 0.12,
+  // Blur filter logo pixel opacity over the frost.
+  blurLogoOpacity: 0.05,
 
   // Rotation seconds at each position, fades included, at least: the clip
   // divides into equal stays.
@@ -119,14 +119,12 @@ const MARK_CLEAR: Partial<typeof MARK> = {
   tint: 0,
   ambient: 0,
   shadowOpacity: 0,
-  logoOpacity: 0,
   rimOpacity: 0,
 };
 
 const MARK_RIM: Partial<typeof MARK> = {
   ambient: 0,
   shadowOpacity: 0,
-  logoOpacity: 0,
 };
 
 const DEBUG_BACKDROP = "0xD9D9D9";
@@ -322,7 +320,7 @@ export function watermarkGraph(
       `[inverted][dmask]alphamerge,colorchannelmixer=aa=${M.blurDifference}[difference]`,
       `[frost][difference]overlay=format=auto[lifted]`,
       `[lifted][mask]alphamerge[fill]`,
-      `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
+      `[lg2]colorchannelmixer=aa=${M.blurLogoOpacity}[faint]`,
       `[fill][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
       `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
@@ -477,7 +475,7 @@ export function watermarkGraph(
     // Explicit formats: after a split of an open-format scale output,
     // alphaextract/extractplanes can't negotiate one.
     `[1:v]format=rgba${trim},split=3[l1][l2][l3]`,
-    `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
+    `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0[lg1]`,
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m5][m6]`,
     `[l2]${lensMask(2)}`,
     ...heightfield(",split=4[h1][h2][h3][h4]", 3),
@@ -523,13 +521,11 @@ export function watermarkGraph(
     `[m5]split[am1][am2]`,
     `[am1]${ambientGlow}[as]`,
     `[am2][as]blend=all_mode=multiply,${ambientPaint}[ambient]`,
-    `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
     // Layers go on a transparent canvas so only covered pixels change: no
     // conversion round trip can leave a faint box.
     `[canvas][glass]overlay=format=auto[c2a]`,
     `[c2a][ambient]overlay=format=auto[c2]`,
-    `[c2][rim]overlay=format=auto[c3]`,
-    `[c3][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
+    `[c2][rim]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
     `[l3]${scaleLogo},pad=${SW}:${SH}:${S}:${S + shadowDy}:color=black@0,format=rgba,gblur=sigma=${shadowSigma}:steps=2,colorchannelmixer=rr=0:gg=0:bb=0:aa=${M.shadowOpacity}${fading(SW, SH)}${fromRgb}[shadow]`,
     `[base][shadow]${onto(corner(S))}[shaded]`,
     `[shaded][cell]${onto([CX, CY])}[out]`,
