@@ -23,7 +23,7 @@ export const MARK = {
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1,
   // Gain on a shape's blurred core; higher keeps thinner strokes refracting.
-  coreGain: 10,
+  coreGain: 14,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
   refractRatio: 1,
   // Red and blue edge shift split around green.
