@@ -331,16 +331,10 @@ export function watermarkGraph(
   const rimSigma = (shorter * M.rimBlurRatio).toFixed(2);
   const shadowSigma = (shorter * M.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * M.shadowOffsetRatio));
-  const shadowInset = Math.ceil(3 * Number(shadowSigma));
-  const S = shadowInset + (Math.abs(shadowInset - P) % 2);
-  const [SW, SH] = [LW + 2 * S, LH + 2 * S + shadowDy + (shadowDy % 2)];
-  const shadowed = M.shadowOpacity > 0;
-  const shadow = [
-    `[l3]${scaleLogo},pad=${SW}:${SH}:${S}:${S + shadowDy}:color=black@0,format=rgba,alphaextract,format=gray,gblur=sigma=${shadowSigma}:steps=2,split[sk1][sk2]`,
-    `[sk1]format=rgba,lutrgb=r=0:g=0:b=0[black]`,
-    `[black][sk2]alphamerge,colorchannelmixer=aa=${M.shadowOpacity}${fading(SW, SH)}${fromRgb}[shadow]`,
-    `[unshadowed][shadow]${onto(corner(S))}[base]`,
-  ];
+
+  const reach = Math.ceil(3 * shorter * M.shadowBlurRatio) + shadowDy;
+  const S = reach + ((reach + P) % 2);
+  const [SW, SH] = [LW + 2 * S, LH + 2 * S];
   // One erosion pass per px, sized off the frame so a hairline stays one. A
   // fractional part blends in one more pass: an antialiased sub-pixel line.
   const rimWidth = Math.max(1, Math.round(Math.min(VW, VH) / HD_HEIGHT)) * MARK_SIZES[size].rim;
@@ -466,15 +460,14 @@ export function watermarkGraph(
     // The rim paints off the frame as it is; only what shows around it dims.
     view === "rim"
       ? `${pad}${open},split[undimmed][src];[undimmed]${dim}[base]`
-      : `${pad}${open},split[${shadowed ? "unshadowed" : "base"}][src]`,
+      : `${pad}${open},split[base][src]`,
     // Both conversions name their matrix: on auto the way back falls to
     // bt601 and shifts the hue.
     `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split=3[cellA][cellB][cellC]`,
     `[cellB]colorchannelmixer=aa=0[canvas]`,
     // Explicit formats: after a split of an open-format scale output,
     // alphaextract/extractplanes can't negotiate one.
-    `[1:v]format=rgba${trim},split=${shadowed ? 3 : 2}[l1][l2]${shadowed ? "[l3]" : ""}`,
-    ...(shadowed ? shadow : []),
+    `[1:v]format=rgba${trim},split=3[l1][l2][l3]`,
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m5][m6]`,
     `[l2]${lensMask(2)}`,
@@ -527,7 +520,9 @@ export function watermarkGraph(
     `[c2a][ambient]overlay=format=auto[c2]`,
     `[c2][rim]overlay=format=auto[c3]`,
     `[c3][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
-    `[base][cell]${onto([CX, CY])}[out]`,
+    `[l3]${scaleLogo},pad=${SW}:${SH}:${S}:${S + shadowDy}:color=black@0,format=rgba,gblur=sigma=${shadowSigma}:steps=2,colorchannelmixer=rr=0:gg=0:bb=0:aa=${M.shadowOpacity}${fading(SW, SH)}${fromRgb}[shadow]`,
+    `[base][shadow]${onto(corner(S))}[shaded]`,
+    `[shaded][cell]${onto([CX, CY])}[out]`,
   ].join(";");
 }
 

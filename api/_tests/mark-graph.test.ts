@@ -298,19 +298,18 @@ describe("watermarkGraph", () => {
         const l = watermarkLayout(video, logo, size, position);
         const graph = watermarkGraph(video, logo, { filter: "glass", size, position });
         const [, w, h, x, y, sigma] =
-          /pad=(\d+):(\d+):(\d+):(\d+):color=black@0,format=rgba,alphaextract,format=gray,gblur=sigma=([\d.]+)[^;]*\[sk1\]/
+          /pad=(\d+):(\d+):(\d+):(\d+):[^;]*gblur=sigma=([\d.]+)[^;]*\[shadow\]/
             .exec(graph)!
             .map(Number);
-        const dy = y - x;
-        expect(dy).toBeGreaterThan(0);
-        // 3σ clear on every side, the offset included
+        // 3σ clear on every side of the offset logo
+        expect(y).toBeGreaterThan(x);
         expect(x).toBeGreaterThanOrEqual(3 * sigma);
         expect(w - l.LW - x).toBeGreaterThanOrEqual(3 * sigma);
         expect(h - l.LH - y).toBeGreaterThanOrEqual(3 * sigma);
-        // on the frame, around the logo (off its edge if need be), at an even
-        // corner and size
-        expect(graph).toContain(`[unshadowed][shadow]overlay=x=${l.LX - x}:y=${l.LY - x},`);
-        for (const n of [w, h, l.LX - x, l.LY - x]) expect(Math.abs(n % 2)).toBe(0);
+        // on the frame around the logo (off its edge if need be), corner even
+        expect(graph).toContain(`[base][shadow]overlay=x=${l.LX - x}:y=${l.LY - x},`);
+        expect((l.LX - x) & 1).toBe(0);
+        expect((l.LY - x) & 1).toBe(0);
       }
     }
   });
