@@ -51,13 +51,20 @@ export const MARK = {
   // with the lens on strokes too thin for a bevel (coreGain), which it would
   // otherwise fill.
   ambient: [
-    { bevelRatio: 0.03, opacity: 0.22, core: true },
-    { bevelRatio: 0.09, opacity: 0.08, core: true },
-    { bevelRatio: 0.225, opacity: 0.06, core: true },
+    { bevelRatio: 0.03, opacity: 0.6, core: true },
+    { bevelRatio: 0.09, opacity: 0.3, core: true },
+    { bevelRatio: 0.225, opacity: 0.2 },
   ],
   // Ambient shift towards the light in each glow's bevels: more leaves the
   // near edge darker against the far one.
   ambientShift: 1,
+  // How the glows meet the glass: "normal" lays white over it, fading its
+  // colour; "plus-lighter" adds light, keeping the backdrop's hue until a
+  // channel clips.
+  ambientBlend: "plus-lighter" as "normal" | "plus-lighter",
+  // Plus-lighter light colour from white at 0 to the glass's own at 1: white
+  // clips light backdrops' bright channels first and washes them out.
+  ambientTint: 1,
 
   // Drop shadow blur fraction of the width and height minimum.
   shadowBlurRatio: 0.016,
@@ -455,9 +462,21 @@ export function watermarkGraph(
   const glows = M.ambient.length;
   // The lens's core gain [k4], back at 1×, one per `core` glow.
   const cores = M.ambient.filter((glow) => glow.core).length;
+  const glowed = glows > 1 ? `as${glows - 1}` : "ag0";
+  const whiten = (t: number, gain = 1) =>
+    ["r", "g", "b"]
+      .map(
+        (c) =>
+          `${c}='min(val*${gain.toFixed(3)},255)*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`,
+      )
+      .join(":");
+  // Plus-lighter adds the light onto the frost, clipping at white, before the
+  // frost takes the logo's alpha: the glows go in unmasked, the alpha masks
+  // them. The light is the frost's own colour at ambientTint 1.
+  const plusLighter = glows > 0 && M.ambientBlend === "plus-lighter";
   const ambient = glows
     ? [
-        `[m5]format=gray16le,split=${glows + 1}[amask]${M.ambient.map((_, i) => `[am${i}]`).join("")}`,
+        `[m5]format=gray16le,split=${plusLighter ? glows : `${glows + 1}[amask]`}${M.ambient.map((_, i) => `[am${i}]`).join("")}`,
         ...(cores
           ? [
               `[k4]scale=${CW}:${CH}:flags=bicubic,format=gray16le,split=${cores}${M.ambient.map((glow, i) => (glow.core ? `[ac${i}]` : "")).join("")}`,
@@ -470,18 +489,21 @@ export function watermarkGraph(
         ...M.ambient
           .slice(1)
           .map((_, i) => `[${i ? `as${i}` : "ag0"}][ag${i + 1}]blend=all_mode=screen[as${i + 1}]`),
-        // gray→rgba put the glow in r, moved to alpha under white.
-        `[amask][${glows > 1 ? `as${glows - 1}` : "ag0"}]blend=all_mode=multiply,format=gray,format=rgba,colorchannelmixer=aa=0:ar=1,lutrgb=r=255:g=255:b=255[ambient]`,
+        ...(plusLighter
+          ? [
+              `[${glowed}]format=gray,format=rgba[aglow]`,
+              `[frosted]split[fbase][fcolour]`,
+              `[fcolour]lutrgb=${whiten(1 - M.ambientTint)}[acolour]`,
+              `[acolour][aglow]blend=all_mode=multiply[alight]`,
+              `[fbase][alight]blend=all_mode=addition[fill]`,
+            ]
+          : // gray→rgba put the glow in r, moved to alpha under white.
+            [
+              `[amask][${glowed}]blend=all_mode=multiply,format=gray,format=rgba,colorchannelmixer=aa=0:ar=1,lutrgb=r=255:g=255:b=255[ambient]`,
+            ]),
       ]
     : [`[m5]format=rgba,colorchannelmixer=aa=0[ambient]`];
 
-  const whiten = (t: number, gain = 1) =>
-    ["r", "g", "b"]
-      .map(
-        (c) =>
-          `${c}='min(val*${gain.toFixed(3)},255)*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`,
-      )
-      .join(":");
   const tint = whiten(M.tint);
   // Lifted towards white so the rim still reads as light on dark/grey video.
   const rimPaint = [saturate(M.rimSaturation), `lutrgb=${whiten(M.rimWhite, M.rimGain)}`].join(",");
@@ -536,7 +558,7 @@ export function watermarkGraph(
     `[h3]${stretch},format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
     `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
-    `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}[fill]`,
+    `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}${plusLighter ? "[frosted]" : "[fill]"}`,
     `[fill][m1]alphamerge${view === "rim" ? ",colorchannelmixer=aa=0" : ""}[glass]`,
     // Paint softened first so the rim's colour doesn't flicker with detail.
     `[h4]${lighting}[sl]`,
@@ -549,8 +571,9 @@ export function watermarkGraph(
     ...ambient,
     // Layers go on a transparent canvas so only covered pixels change: no
     // conversion round trip can leave a faint box.
-    `[canvas][glass]overlay=format=auto[c2a]`,
-    `[c2a][ambient]overlay=format=auto[c2]`,
+    plusLighter
+      ? `[canvas][glass]overlay=format=auto[c2]`
+      : `[canvas][glass]overlay=format=auto[c2a];[c2a][ambient]overlay=format=auto[c2]`,
     `[c2][rim]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
     `[l3]${scaleLogo},pad=${SW}:${SH}:${S}:${S + shadowDy}:color=black@0,format=rgba,gblur=sigma=${shadowSigma}:steps=2,colorchannelmixer=rr=0:gg=0:bb=0:aa=${M.shadowOpacity}${fading(SW, SH)}${fromRgb}[shadow]`,
     `[base][shadow]${onto(corner(S))}[shaded]`,
