@@ -26,7 +26,11 @@ Keep clips short (about 4–10 s; the loop cases need at least ~4 s): the slow
 encoders run on them too, GIF stops at 1500 frames and AVIF at 60 s.
 
 `light/` is written by `bun scripts/light-assets.mjs`: `sweep.mp4`, one radial
-gradient crossing left to right, and `pair.mp4`, two equally bright ones
-wandering and meeting, which a tracker must not flip between.
+gradient crossing left to right; `pair.mp4`, two equally bright ones
+wandering and meeting, which a tracker must not flip between; `accel.mp4`,
+one swinging ever faster and then resting mid-frame (smoothing lag and
+settling); and `pulse.mp4` (53 s), two still ones, left and right, pulsing
+round by round to probe switchMargin and holdSeconds: the script prints each
+round's start time and what the tracker should do.
 `bun scripts/light-track.mjs <clip> --out <mp4>` shows where Mark's light
 tracker (api/_lib/light-track.ts) puts the light on any clip.
