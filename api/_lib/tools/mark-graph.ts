@@ -45,12 +45,14 @@ export const MARK = {
   // Rim paint blur fraction of the width and height minimum: how far round
   // the edge the rim gathers its backdrop colour from.
   rimBlurRatio: 0.0018,
-  // Glass light opacity on the side opposite the light.
+  // Glass light opacity at the edge opposite the light.
   ambient: 0.12,
-  // Shade side opacity share of the bright side.
-  ambientShade: 0.5,
-  // Ambient gradient radius in logo radii from a point outside the logo.
-  ambientReach: 1.8,
+  // Ambient bevel width fraction of the logo width and height minimum: how far
+  // in from the edges the glass light fades.
+  ambientBevelRatio: 0.12,
+  // Ambient shift towards the light in ambient bevels: more leaves the near
+  // edge darker against the far one.
+  ambientShift: 1,
 
   // Drop shadow blur fraction of the width and height minimum.
   shadowBlurRatio: 0.016,
@@ -424,11 +426,6 @@ export function watermarkGraph(
   // side stepped hard into glint level at the light's sides.
   const angle = (M.lightAngle * Math.PI) / 180;
   const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
-  // Radial glow centred one logo radius away from the light; +1 at the
-  // centre to −1 at ambientReach, reading as a gently curved ramp.
-  const radius = Math.hypot(LW, LH) / 2;
-  const [ax, ay] = [CW / 2 - lx * radius, CH / 2 - ly * radius];
-  const ambientS = `(1-2*min(hypot(X-${ax.toFixed(1)},Y-${ay.toFixed(1)})/${(radius * M.ambientReach).toFixed(1)},1))`;
   const lightKernel = SOBEL.x
     .map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly)))
     .join(" ");
@@ -439,6 +436,18 @@ export function watermarkGraph(
   // both ends of the ramp blend in. A separate far-side ramp notched the rim
   // where edges turn side-on to the light.
   const rimLight = `lut=c0='st(0,clip((val-128)/127,0,1));${(255 * M.glint).toFixed(1)}+${(255 * (1 - M.glint)).toFixed(1)}*ld(0)*ld(0)*(3-2*ld(0))'`;
+  // Glass light, an inner shadow in white: the logo blurred over a bevel of
+  // its own, moved towards the light and inverted, inside the logo. It hugs
+  // every edge, strongest on the far side, faint on the near one, and never
+  // reaches a thick shape's middle. A slope across the same blur lit the
+  // middle too, with a terminator through it.
+  const ambientBevel = Math.min(LW, LH) * M.ambientBevelRatio;
+  const shift = (n: number) => Math.round(n * ambientBevel * M.ambientShift);
+  const [dx, dy] = [shift(lx), shift(ly)];
+  const room = Math.max(Math.abs(dx), Math.abs(dy));
+  const ambientGlow = `gblur=sigma=${Math.max(0.5, ambientBevel).toFixed(2)}:steps=2,pad=${CW + 2 * room}:${CH + 2 * room}:${room}:${room},crop=${CW}:${CH}:${room - dx}:${room - dy},negate`;
+  // gray→rgba put the glow in r, moved to alpha under white.
+  const ambientPaint = `format=rgba,colorchannelmixer=aa=0:ar=${M.ambient},lutrgb=r=255:g=255:b=255`;
 
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
@@ -511,8 +520,9 @@ export function watermarkGraph(
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
     `[rf3]gblur=sigma=${rimSigma}:steps=1,${rimPaint}[paint]`,
     `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${M.rimOpacity}[rim]`,
-    // gray→rgba put the mask in r, used as alpha.
-    `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${M.ambient},${(M.ambient * M.ambientShade).toFixed(3)})'[ambient]`,
+    `[m5]split[am1][am2]`,
+    `[am1]${ambientGlow}[as]`,
+    `[am2][as]blend=all_mode=multiply,${ambientPaint}[ambient]`,
     `[lg2]colorchannelmixer=aa=${M.logoOpacity}[faint]`,
     // Layers go on a transparent canvas so only covered pixels change: no
     // conversion round trip can leave a faint box.
