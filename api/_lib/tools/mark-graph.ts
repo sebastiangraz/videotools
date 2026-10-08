@@ -23,7 +23,7 @@ export const MARK = {
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1,
   // Gain on a shape's blurred core; higher keeps thinner strokes refracting.
-  coreGain: 5,
+  coreGain: 10,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
   refractRatio: 1,
   // Red and blue edge shift split around green.
@@ -44,7 +44,7 @@ export const MARK = {
   rimWhite: 0.4,
   // Rim paint blur fraction of the width and height minimum: how far round
   // the edge the rim gathers its backdrop colour from.
-  rimBlurRatio: 0.0048,
+  rimBlurRatio: 0.0018,
   // Glass light opacity on the side opposite the light.
   ambient: 0.12,
   // Shade side opacity share of the bright side.
