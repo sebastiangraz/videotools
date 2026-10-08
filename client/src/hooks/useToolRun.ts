@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ToolId } from "../tools";
 import { shortenFilename } from "../helpers";
@@ -17,10 +17,16 @@ function deleteBlobs(urls: string[]) {
 interface RunRequest {
   files: File[];
   extras?: { file: File; status: string }[];
-  payload: (urls: { blobUrls: string[]; extraUrls: string[] }) => Record<string, unknown>;
+  payload: (urls: { blobUrls: string[]; extraUrls: string[] }) => {
+    options: Record<string, unknown>;
+  } & Record<string, unknown>;
 }
 
+// Temporary: the "verbose" switch by the tabs names downloads after their settings.
+export const VerboseNames = createContext(false);
+
 export function useToolRun(tool: ToolId) {
+  const verbose = useContext(VerboseNames);
   const [status, setMsg] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
@@ -63,14 +69,11 @@ export function useToolRun(tool: ToolId) {
       }
 
       setMsg("Processing");
+      const body = payload({ blobUrls, extraUrls });
       const res = await fetch("/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tool,
-          filename: files[0].name,
-          ...payload({ blobUrls, extraUrls }),
-        }),
+        body: JSON.stringify({ tool, filename: files[0].name, ...body }),
         signal,
       });
       if (!res.ok) {
@@ -80,7 +83,23 @@ export function useToolRun(tool: ToolId) {
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
       const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
-      const downloadName = resultName || `${base}_${tool}${ext}`;
+      // Verbose: 6 characters of the source, the extras' names, then each setting
+      // as key initials + value (fadeDuration 0.7 → fd0.7, true → Y, false left out).
+      const downloadName = verbose
+        ? [
+            base.slice(0, 6),
+            ...extras.map(({ file }) => file.name),
+            ...Object.entries(body.options)
+              .filter(([, value]) => value !== false)
+              .map(
+                ([key, value]) =>
+                  key.replace(/\B[a-z]+/g, "").toLowerCase() +
+                  (value === true
+                    ? "Y"
+                    : String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())),
+              ),
+          ].join("_") + resultName.slice(resultName.lastIndexOf("."))
+        : resultName || `${base}_${tool}${ext}`;
 
       setMsg(`Downloading ${shortenFilename(files[0])}`);
       // Blob storage is cross-origin, where `download` is ignored.

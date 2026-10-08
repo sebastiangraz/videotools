@@ -17,7 +17,7 @@ export const MARK_POSITIONS = {
   "bottom-right": [1, 1],
 };
 export type MarkPosition = keyof typeof MARK_POSITIONS;
-export type MarkView = "render" | "displacement" | "clear";
+export type MarkView = "render" | "displacement" | "clear" | "rim";
 const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 // Mirrors the API's MARK.rotateCadence and watermarkGraph's rotation: the clip
 // in equal stays (as many as the cadence fits, two at least), each stay's stop

@@ -1,12 +1,26 @@
 import { Link, Outlet, useParams } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
+import { Popover } from "./components/Popover/Popover";
+import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
+import { VerboseNames } from "./hooks/useToolRun";
 import appStyles from "./index.module.css";
+import form from "./pages/form.module.css";
 import styles from "./Layout.module.css";
+
+const THEME_OPTIONS = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const;
+
+const VERBOSE_OPTIONS = [
+  { value: "disabled", label: "Disabled" },
+  { value: "enabled", label: "Enabled" },
+] as const;
 
 const Logo = () => (
   <div className={appStyles.logo}>
@@ -30,47 +44,112 @@ export const Layout = () => {
   // Tab descriptions show in the title message area, not at the tab, so the
   // card never moves.
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const tabsRef = useRef<HTMLDivElement | null>(null);
   // Tabs are Links, so the URL drives the active tab (deep links, back/forward).
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
-  useDebugMode();
+  const debug = useDebugMode();
+  const [verbose, setVerbose] = useState(false);
+  const [invert, setInvert] = useState(() =>
+    document.documentElement.hasAttribute("data-theme-invert"),
+  );
+  const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
 
   return (
     <div className={appStyles.app}>
-      <header className={appStyles.header}>
-        <Logo />
-        <h1 ref={titleRef} className={appStyles.title}>
-          Video tools
-        </h1>
-        <MessageArea anchor={titleRef} />
-      </header>
+      <div className={appStyles.frame}>
+        <header className={appStyles.header}>
+          <Logo />
+          <h1 ref={titleRef} className={appStyles.title}>
+            Video tools
+            <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
+              dev
+            </span>
+          </h1>
+          <MessageArea anchor={titleRef} />
+        </header>
 
-      <Tabs
-        value={tool ?? null}
-        className={styles.tabContainer}
-        listClassName={styles.tabs}
-        indicatorClassName={styles.tabIndicator}
-      >
-        {TOOLS.map((t) => (
-          <MessageTrigger
-            key={t.value}
-            message={t.description}
-            render={
-              <Tab
-                value={t.value}
-                nativeButton={false}
-                className={styles.tab}
-                render={<Link to="/$tool" params={{ tool: t.value }} />}
-              />
+        <Tabs
+          ref={tabsRef}
+          value={tool ?? null}
+          className={styles.tabContainer}
+          listClassName={styles.tabs}
+          indicatorClassName={styles.tabIndicator}
+        >
+          {TOOLS.map((t) => (
+            <MessageTrigger
+              key={t.value}
+              message={t.description}
+              render={
+                <Tab
+                  value={t.value}
+                  nativeButton={false}
+                  className={styles.tab}
+                  render={<Link to="/$tool" params={{ tool: t.value }} />}
+                />
+              }
+            >
+              {t.label}
+            </MessageTrigger>
+          ))}
+          {/* Global settings. */}
+          <Popover
+            trigger={
+              <button type="button" aria-label="Settings" className={styles.settingsTrigger}>
+                <span aria-hidden="true" className={`${form.label} ${styles.settingsLabel}`}>
+                  Settings
+                </span>
+                <svg aria-hidden="true" fill="none" viewBox="0 0 14 7">
+                  <path stroke="currentColor" strokeWidth="1" d="M0 5.5h14M0 2h14" />
+                </svg>
+              </button>
             }
+            anchor={tabsRef}
+            sideOffset={0}
+
+            className={styles.settings}
           >
-            {t.label}
-          </MessageTrigger>
-        ))}
-      </Tabs>
-      <main className={appStyles.main}>
-        <Outlet />
-      </main>
+            <div className={styles.settingsRow}>
+              <span id="verbose" className={form.label}>
+                Verbose file names
+              </span>
+              <ToggleGroup
+                labelledBy="verbose"
+                options={VERBOSE_OPTIONS}
+                toggle
+                value={verbose ? "enabled" : "disabled"}
+                onValueChange={(value) => setVerbose(value === "enabled")}
+                disabled={false}
+                size="small"
+              />
+            </div>
+            <div className={styles.settingsRow}>
+              <span id="theme" className={form.label}>
+                UI Theme
+              </span>
+              <ToggleGroup
+                labelledBy="theme"
+                options={THEME_OPTIONS}
+                toggle
+                value={systemDark !== invert ? "dark" : "light"}
+                onValueChange={(theme) => {
+                  const next = (theme === "dark") !== systemDark;
+                  document.documentElement.toggleAttribute("data-theme-invert", next);
+                  localStorage.setItem("theme-invert", next ? "1" : "0");
+                  setInvert(next);
+                }}
+                disabled={false}
+                size="small"
+              />
+            </div>
+          </Popover>
+        </Tabs>
+        <main className={appStyles.main}>
+          <VerboseNames value={verbose}>
+            <Outlet />
+          </VerboseNames>
+        </main>
+      </div>
     </div>
   );
 };

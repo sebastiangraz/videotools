@@ -6,13 +6,15 @@ import styles from "./Tabs.module.css";
 // what each tab reveals (here a route), so `value` is controlled and there are
 // no panels. `className` goes on the Root, `listClassName` on the tablist.
 // `indicatorClassName` adds a Tabs.Indicator that tracks the active tab: it is
-// positioned and animated here, and the caller gives it its look.
+// positioned and animated here, and the caller gives it its look. `ref` lands
+// on the Root.
 export const Tabs = ({
   value,
   onValueChange,
   className,
   listClassName,
   indicatorClassName,
+  ref,
   children,
 }: {
   value: TabsTabProps["value"];
@@ -20,9 +22,10 @@ export const Tabs = ({
   className?: string;
   listClassName?: string;
   indicatorClassName?: string;
+  ref?: Ref<HTMLDivElement>;
   children: ReactNode;
 }) => (
-  <BaseTabs.Root value={value} onValueChange={onValueChange} className={className}>
+  <BaseTabs.Root ref={ref} value={value} onValueChange={onValueChange} className={className}>
     <BaseTabs.List className={listClassName ? `${styles.list} ${listClassName}` : styles.list}>
       {children}
       {indicatorClassName ? (

@@ -51,8 +51,10 @@ const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // Displacement map alone (red x, green y, olive no shift) over a light-gray frame.
   { value: "displacement", label: "Depth map" },
-  // Refraction and rim only: no frost, tint, light, shadow or logo (MARK_CLEAR).
+  // Refraction only: no frost, tint, light, rim, shadow or logo (MARK_CLEAR).
   { value: "clear", label: "Pure glass" },
+  // The rim alone, as tuned, straight on the frame: no glass under it (MARK_RIM).
+  { value: "rim", label: "Rim only" },
 ];
 
 export const Mark = () => {
@@ -94,6 +96,11 @@ export const Mark = () => {
   const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
   const aspectRatio = source.meta ? `${source.meta.w} / ${source.meta.h}` : "16 / 9";
   const { shownRender } = preview;
+
+  const pickPosition = (picked: MarkPosition) => {
+    setPosition(picked);
+    setRotatePosition(false);
+  };
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -259,16 +266,34 @@ export const Mark = () => {
           </div>
         )}
         {watermark && (
-          <div className={`${form.formGroup} ${styles.markPosition}`}>
-            <span id="markPosition" className={form.label}>
-              Place
-            </span>
+          <div
+            className={`${form.formGroup} ${styles.markPosition}`}
+            data-shuffling={rotatePosition || undefined}
+          >
+            {/* Place, or on hover Shuffle: the mark moves on from the picked
+              place every few seconds. */}
+            <button
+              type="button"
+              className={`${form.label} ${styles.markPlace}`}
+              aria-label="Shuffle"
+              aria-pressed={rotatePosition}
+              onClick={() => setRotatePosition((on) => !on)}
+              disabled={run.busy}
+            >
+              <span id="markPosition" className={styles.markPlaceIdle}>
+                Place
+              </span>
+              <span className={styles.markPlaceShuffle}>
+                {rotatePosition ? "Shuffling" : "Shuffle?"}
+              </span>
+            </button>
             <ToggleGrid
               labelledBy="markPosition"
               options={POSITION_OPTIONS}
               value={position}
-              onValueChange={setPosition}
+              onValueChange={pickPosition}
               disabled={run.busy}
+              shuffling={rotatePosition}
             />
           </div>
         )}
@@ -288,20 +313,6 @@ export const Mark = () => {
           </div>
         )}
       </div>
-      {/* The mark moves on from the picked place every few seconds. */}
-      {watermark && (
-        <div className={form.switchRow}>
-          <Switch
-            id="markRotatePosition"
-            checked={rotatePosition}
-            onCheckedChange={setRotatePosition}
-            disabled={run.busy}
-          />
-          <label htmlFor="markRotatePosition" className={form.label}>
-            Rotate
-          </label>
-        </div>
-      )}
       {!lossless && (
         <div className={form.formGroup}>
           <Slider

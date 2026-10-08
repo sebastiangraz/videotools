@@ -1,13 +1,26 @@
 .root {
+  --inset: 3px;
+  --item-padding: 1em;
+
   display: flex;
   box-sizing: border-box;
   min-height: 2.5rem;
-  padding: 3px;
-  gap: 3px;
+  padding: var(--inset);
+  gap: var(--inset);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
+
+  &[data-size="small"] {
+    --inset: 2px;
+    --item-padding: 1em;
+    min-height: 1.5rem;
+
+    .item {
+      font-size: 8.5px;
+    }
+  }
 
   &[data-disabled] {
     opacity: 0.4;
@@ -18,9 +31,9 @@
   flex: 1;
   appearance: none;
   margin: 0;
-  padding: 0 1em;
+  padding: 0 var(--item-padding);
   border: 0;
-  border-radius: calc(var(--radius) - 3px - 1px);
+  border-radius: calc(var(--radius) - var(--inset) - 1px);
   corner-shape: superellipse(1.45);
   background: none;
   font: inherit;

@@ -341,7 +341,7 @@ describe("watermarkGraph", () => {
     const erosions = (graph: string) => graph.match(/\berosion\b/g)?.length;
     const base = watermarkGraph(video, logo, { filter: "glass" });
     expect(erosions(base)).toBe(2);
-    expect(base).not.toContain("all_expr");
+    expect(base).not.toContain("[er3]");
     const small = watermarkGraph(video, logo, {
       filter: "glass",
       size: "small",
@@ -350,15 +350,15 @@ describe("watermarkGraph", () => {
     const part = width % 1;
     if (part < 0.01) {
       expect(erosions(small)).toBe(Math.round(width));
-      expect(small).not.toContain("all_expr");
+      expect(small).not.toContain("[er3]");
     } else {
       expect(erosions(small)).toBe(Math.floor(width) + 1);
       expect(small).toContain(`blend=all_expr='A+(B-A)*${part.toFixed(3)}'`);
     }
   });
 
-  // The bevel's blur, stretched: the lens's shape
-  const heightfield = (graph: string) => /gblur=[^;[]*,lut=[^;[]*/.exec(graph)?.[0];
+  // The bevel's wide and narrow blurs: the lens's shape
+  const heightfield = (graph: string) => /\[mk1\]gblur=[^;]*;\[mk2\]gblur=[^;]*/.exec(graph)?.[0];
   // The x slope, scaled by how far the lens refracts
   const lens = (graph: string) =>
     /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];
@@ -395,6 +395,28 @@ describe("watermarkGraph", () => {
       expect(opacities(graph).every((aa) => aa === 0)).toBe(true);
       // and the lens as tuned
       expect(lens(graph)).toBeDefined();
+      expect(lens(graph)).toBe(lens(glass));
+    }
+  });
+
+  it("keeps only the rim, as tuned, over a dimmed frame, whatever the filter", () => {
+    const glass = watermarkGraph(video, logo, { filter: "glass" });
+    const rimPaint = (graph: string) => /\[rf3\][^;]*\[paint\]/.exec(graph)?.[0];
+    const rimLight = (graph: string) => /\[h4\][^;]*\[light\]/.exec(graph)?.[0];
+    for (const filter of MARK_FILTERS) {
+      const graph = watermarkGraph(video, logo, { filter, view: "rim" });
+      expect(graph).not.toContain("drawbox");
+      // The frame dimmed where it shows; the rim still paints off the original
+      expect(graph).toMatch(
+        /^\[0:v\][^;]*,split\[undimmed\]\[src\];\[undimmed\]lutyuv=[^;]*\[base\]/,
+      );
+      // Glass, shadow and faint logo transparent; the rim at its own opacity
+      expect(graph).toMatch(/\[m1\]alphamerge,colorchannelmixer=aa=0\[glass\]/);
+      expect(opacities(graph).filter((aa) => aa > 0)).toEqual([MARK.rimOpacity]);
+      // painted and lit as in the render, off the same lens
+      expect(rimPaint(graph)).toBeDefined();
+      expect(rimPaint(graph)).toBe(rimPaint(glass));
+      expect(rimLight(graph)).toBe(rimLight(glass));
       expect(lens(graph)).toBe(lens(glass));
     }
   });

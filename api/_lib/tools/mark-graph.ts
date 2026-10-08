@@ -22,22 +22,29 @@ export const MARK = {
   tint: 0.12,
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1,
+  // Gain on a shape's blurred core; higher keeps thinner strokes refracting.
+  coreGain: 14,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
-  refractRatio: 1.0,
+  refractRatio: 1,
   // Red and blue edge shift split around green.
   chroma: 0.02,
   // Light direction in degrees clockwise from the top.
   lightAngle: -45,
   // Lit rim opacity.
-  rimOpacity: 0.8,
+  rimOpacity: 0.92,
   // Unlit rim brightness share of the lit rim.
   glint: 0.66,
+  // Degrees the lit rim eases into glint over, ending side-on to the light.
+  rimFalloff: 28,
   // Rim backdrop saturation multiplier with no change at 1.
   rimSaturation: 2,
   // Rim brightness multiplier.
   rimGain: 7,
   // Rim white mix with a plain white rim at 1.
   rimWhite: 0.4,
+  // Rim paint blur fraction of the width and height minimum: how far round
+  // the edge the rim gathers its backdrop colour from.
+  rimBlurRatio: 0.0018,
   // Glass light opacity on the side opposite the light.
   ambient: 0.12,
   // Shade side opacity share of the bright side.
@@ -72,7 +79,7 @@ export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   medium: { scale: 1, gap: 1, rim: 1 },
   large: { scale: 2, gap: 1, rim: 1 },
-  dev: { scale: 3, gap: 1, rim: 1 },
+  dev: { scale: 3, gap: 1, rim: 1.33 },
 };
 export type MarkSize = keyof typeof MARK_SIZES;
 export const isMarkSize = (value: unknown): value is MarkSize =>
@@ -98,9 +105,7 @@ export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>
   MARK_FILTERS.includes(value as MarkFilter);
 
-// Debug views: the lens's displacement map alone, or the glass with only
-// refraction and rim (MARK_CLEAR).
-export const MARK_VIEWS = ["render", "displacement", "clear"] as const;
+export const MARK_VIEWS = ["render", "displacement", "clear", "rim"] as const;
 export type MarkView = (typeof MARK_VIEWS)[number];
 export const isMarkView = (value: unknown): value is MarkView =>
   MARK_VIEWS.includes(value as MarkView);
@@ -116,7 +121,14 @@ const MARK_CLEAR: Partial<typeof MARK> = {
   rimOpacity: 0,
 };
 
+const MARK_RIM: Partial<typeof MARK> = {
+  ambient: 0,
+  shadowOpacity: 0,
+  logoOpacity: 0,
+};
+
 const DEBUG_BACKDROP = "0xD9D9D9";
+const RIM_VIEW_DIM = 0.48;
 
 const HD_HEIGHT = 720;
 
@@ -222,7 +234,12 @@ export function watermarkGraph(
     rotatePosition?: boolean;
   },
 ): string {
-  const M = view === "clear" ? { ...MARK, ...MARK_CLEAR } : MARK;
+  const M =
+    view === "clear"
+      ? { ...MARK, ...MARK_CLEAR }
+      : view === "rim"
+        ? { ...MARK, ...MARK_RIM }
+        : MARK;
   const layout = watermarkLayout(video, bounds, size, position);
   const { VW, VH, LW, LH, margin } = layout;
   // Rotating, the mark stops at every position in turn from `position` on, 4
@@ -311,6 +328,7 @@ export function watermarkGraph(
 
   const sigma = (shorter * M.blurRatio).toFixed(2);
   const minSigma = (shorter * M.minBlurRatio).toFixed(2);
+  const rimSigma = (shorter * M.rimBlurRatio).toFixed(2);
   const shadowSigma = (shorter * M.shadowBlurRatio).toFixed(2);
   const shadowDy = Math.max(1, Math.round(shorter * M.shadowOffsetRatio));
   // One erosion pass per px, sized off the frame so a hairline stays one. A
@@ -336,18 +354,30 @@ export function watermarkGraph(
   // glass, and offsets can't pass ±127px.
   const FULL = 65535;
   const MID = 32768;
-  // Wide + narrow blur, each stretched edge→0/interior→FULL, averaged. Edge
-  // slope is 2·FULL/(σ√2π); the narrow one is 3× steeper, so the mean's 2×.
+  // Wide + narrow blur, averaged: half height on a straight edge. Edge slope
+  // is FULL/(σ√2π); the narrow one is 3× steeper, so the mean's 2×. Left
+  // unclipped: clipping each blur at the edge's half height creased it along
+  // that contour, which a convex corner pulls inwards, one arc per blur.
   const bevel = Math.min(LW, LH) * M.bevelRatio * SS;
-  const edgeSlope = (2 * 2 * FULL) / (bevel * Math.sqrt(2 * Math.PI));
+  const edgeSlope = (2 * FULL) / (bevel * Math.sqrt(2 * Math.PI));
+  // Edge→0, interior→FULL, for the bevel mask.
   const stretch = `lut=c0='clip((val-${MID})*2,0,${FULL})'`;
-  // Reads [mk1]..[mk3]; multiplied by the alpha so nothing rises outside it.
-  const heightfield = (out: string) => [
-    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2,${stretch}[hw]`,
-    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,${stretch}[hn]`,
-    `[hw][hn]blend=all_mode=average[hb]`,
-    `[hb][mk3]blend=all_mode=multiply${out}`,
+  // Thin strokes flattened: a stroke under ~bevel/2 never takes the narrow
+  // blur past half height, so it has no core. The cores, blurred wide and
+  // boosted, reach a thick shape's edges and corners at 1 and fade to 0 over
+  // a stroke too thin to hold a bevel. It scales the slopes, not the field:
+  // a gain falling along a taper would add a slope of its own.
+  const thick = `${stretch},gblur=sigma=${bevel.toFixed(2)}:steps=2,lut=c0='st(0,clip(val*${(M.coreGain / FULL).toPrecision(6)},0,1));${FULL}*ld(0)*ld(0)*(3-2*ld(0))'`;
+  // Reads [mk1] and [mk2]; one gain per slope, from [k1] on.
+  const heightfield = (out: string, slopes: number) => [
+    `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2[hw]`,
+    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,split[hn][hc]`,
+    `[hw][hn]blend=all_mode=average${out}`,
+    `[hc]${thick},split=${slopes}${Array.from({ length: slopes }, (_, i) => `[k${i + 1}]`).join("")}`,
   ];
+  // A slope around `bias`, scaled by gain [k<n>].
+  const flatten = (n: number, bias: number) =>
+    `[k${n}]blend=all_expr='${bias}+(A-${bias})*B/${FULL}'`;
   const lensMask = (n: number) =>
     `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,format=gray16le,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
   // Sobel sums 8× the slope, so this scale gives `shift` at the steepest edge.
@@ -371,19 +401,23 @@ export function watermarkGraph(
   if (view === "displacement") {
     return [
       `${pad}${open},drawbox=w=iw:h=ih:color=${DEBUG_BACKDROP}:t=fill[base]`,
-      `[1:v]format=rgba${trim},${lensMask(4)}`,
-      ...heightfield(",split=3[hx][hy][hz]"),
-      `[hx]${sobel("x", MID - 1)},format=gray[mx]`,
-      `[hy]${sobel("y", MID - 1)},format=gray[my]`,
+      `[1:v]format=rgba${trim},${lensMask(3)}`,
+      ...heightfield(",split=3[hx][hy][hz]", 2),
+      `[hx]${sobel("x", MID - 1)}[sx]`,
+      `[sx]${flatten(1, MID)},format=gray[mx]`,
+      `[hy]${sobel("y", MID - 1)}[sy]`,
+      `[sy]${flatten(2, MID)},format=gray[my]`,
       `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
-      `[map][mk4]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
+      `[map][mk3]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
       `[base][cell]${onto([CX, CY])}[out]`,
     ].join(";");
   }
   const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
-  // Slope towards the light as one kernel (×100 for integer taps). It
-  // saturates on purpose: lit or dark, softened by the downscale to 1×.
+  // Slope towards the light as one kernel (×100 for integer taps), scaled like
+  // the lens so the steepest edge reads cos/sin(rimFalloff): full light up to
+  // rimFalloff short of side-on, a cosine ramp from there. Saturated, the lit
+  // side stepped hard into glint level at the light's sides.
   const angle = (M.lightAngle * Math.PI) / 180;
   const [lx, ly] = [Math.sin(angle), -Math.cos(angle)];
   // Radial glow centred one logo radius away from the light; +1 at the
@@ -394,10 +428,13 @@ export function watermarkGraph(
   const lightKernel = SOBEL.x
     .map((k, i) => Math.round(-100 * (k * lx + SOBEL.y[i] * ly)))
     .join(" ");
-  const lighting = `convolution=0m='${lightKernel}':0rdiv=1:0bias=128`;
-  // Whole rim at glint level, lit side rising from there. A separate far-side
-  // ramp notched the rim where edges turn side-on to the light.
-  const rimLight = `lut=c0='clip(${(255 * M.glint).toFixed(1)}+${(1 - M.glint).toFixed(3)}*max(0,(val-128)*2),0,255)'`;
+  const falloff = Math.sin((Math.min(Math.max(M.rimFalloff, 1), 90) * Math.PI) / 180);
+  const lightScale = MID / (8 * 100 * edgeSlope * falloff);
+  const lighting = `convolution=0m='${lightKernel}':0rdiv=${lightScale.toPrecision(6)}:0bias=${128 * 257}`;
+  // Whole rim at glint level, lit side rising from there, smoothstepped so
+  // both ends of the ramp blend in. A separate far-side ramp notched the rim
+  // where edges turn side-on to the light.
+  const rimLight = `lut=c0='st(0,clip((val-128)/127,0,1));${(255 * M.glint).toFixed(1)}+${(255 * (1 - M.glint)).toFixed(1)}*ld(0)*ld(0)*(3-2*ld(0))'`;
 
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
@@ -410,24 +447,34 @@ export function watermarkGraph(
   // Lifted towards white so the rim still reads as light on dark/grey video.
   const rimPaint = [saturate(M.rimSaturation), `lutrgb=${whiten(M.rimWhite, M.rimGain)}`].join(",");
 
+  const keep = (1 - RIM_VIEW_DIM).toFixed(3);
+  const dim = rgb
+    ? `lutrgb=r=val*${keep}:g=val*${keep}:b=val*${keep}`
+    : `lutyuv=y='16+(val-16)*${keep}':u='128+(val-128)*${keep}':v='128+(val-128)*${keep}'`;
+
   return [
-    `${pad}${open},split[base][src]`,
+    // The rim paints off the frame as it is; only what shows around it dims.
+    view === "rim"
+      ? `${pad}${open},split[undimmed][src];[undimmed]${dim}[base]`
+      : `${pad}${open},split[base][src]`,
     // Both conversions name their matrix: on auto the way back falls to
     // bt601 and shifts the hue.
-    `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split[cellA][cellB]`,
+    `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split=3[cellA][cellB][cellC]`,
     `[cellB]colorchannelmixer=aa=0[canvas]`,
     // Explicit formats: after a split of an open-format scale output,
     // alphaextract/extractplanes can't negotiate one.
     `[1:v]format=rgba${trim},split[l1][l2]`,
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
-    `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m4][m5]`,
-    `[l2]${lensMask(3)}`,
-    ...heightfield(",split=4[h1][h2][h3][h4]"),
-    `[h1]${sobel("x", refractPx * SUB)},split=3[hx1][hx2][hx3]`,
+    `[lg1]format=rgba,alphaextract,format=gray,split=6[m1][m2][m3][m4][m5][m6]`,
+    `[l2]${lensMask(2)}`,
+    ...heightfield(",split=4[h1][h2][h3][h4]", 3),
+    `[h1]${sobel("x", refractPx * SUB)}[sx]`,
+    `[sx]${flatten(1, MID)},split=3[hx1][hx2][hx3]`,
     `[hx1]${sampleAt("x", chroma.r)}[xr]`,
     `[hx2]${sampleAt("x", chroma.g)}[xg]`,
     `[hx3]${sampleAt("x", chroma.b)}[xb]`,
-    `[h2]${sobel("y", refractPx * SUB)},split=3[hy1][hy2][hy3]`,
+    `[h2]${sobel("y", refractPx * SUB)}[sy]`,
+    `[sy]${flatten(2, MID)},split=3[hy1][hy2][hy3]`,
     `[hy1]${sampleAt("y", chroma.r)}[yr]`,
     `[hy2]${sampleAt("y", chroma.g)}[yg]`,
     `[hy3]${sampleAt("y", chroma.b)}[yb]`,
@@ -439,20 +486,26 @@ export function watermarkGraph(
     `[cr][xr][yr]remap=format=gray[dr]`,
     `[cg][xg][yg]remap=format=gray[dg]`,
     `[cb][xb][yb]remap=format=gray[db]`,
-    `[dg][db][dr]${MERGE_GBR},scale=${CW}:${CH}:flags=bicubic,format=rgba,split=3[rf1][rf2][rf3]`,
+    `[dg][db][dr]${MERGE_GBR},scale=${CW}:${CH}:flags=bicubic,format=rgba[refracted]`,
+    // The heightfield's tail runs past the logo's edge, so only the logo's
+    // shape refracts: the blurs below then pull in the backdrop as it is
+    // around the glass, which gives the rim the colour it sits on.
+    `[refracted][m6]alphamerge[inside]`,
+    `[cellC][inside]overlay=format=auto,split=3[rf1][rf2][rf3]`,
     // Frost on the flat, barely blurred on the bevel (inverted heightfield).
     `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
-    `[h3]format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
+    `[h3]${stretch},format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
     `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
     `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}[fill]`,
-    `[fill][m1]alphamerge[glass]`,
+    `[fill][m1]alphamerge${view === "rim" ? ",colorchannelmixer=aa=0" : ""}[glass]`,
     // Paint softened first so the rim's colour doesn't flicker with detail.
-    `[h4]format=gray,${lighting},scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
+    `[h4]${lighting}[sl]`,
+    `[sl]${flatten(3, 128 * 257)},format=gray,scale=${CW}:${CH}:flags=bicubic,${rimLight}[light]`,
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
-    `[rf3]gblur=sigma=${minSigma}:steps=1,${rimPaint}[paint]`,
+    `[rf3]gblur=sigma=${rimSigma}:steps=1,${rimPaint}[paint]`,
     `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${M.rimOpacity}[rim]`,
     // gray→rgba put the mask in r, used as alpha.
     `[m5]format=rgba,geq=r='255*gt(${ambientS},0)':g='255*gt(${ambientS},0)':b='255*gt(${ambientS},0)':a='r(X,Y)*abs(${ambientS})*if(gt(${ambientS},0),${M.ambient},${(M.ambient * M.ambientShade).toFixed(3)})'[ambient]`,

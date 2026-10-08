@@ -86,9 +86,7 @@ export const Test = () => {
           />
         </div>
         <div className={form.formGroup} style={{ flex: "none" }}>
-          <label htmlFor="number" className={form.label}>
-            Grid
-          </label>
+          <label className={form.label}>Grid</label>
           <ToggleGrid
             labelledBy="toggle-grid"
             value={toggleGrid}
@@ -113,19 +111,33 @@ export const Test = () => {
         </div>
       </div>
 
-      <div className={form.formGroup}>
-        <span id="toggle-group" className={form.label}>
-          Toggle group
-        </span>
-        <ToggleGroup
-          labelledBy="toggle-group"
-          options={TOGGLE_OPTIONS}
-          value={toggle}
-          onValueChange={setToggle}
-          disabled={disabled}
-        />
+      <div className={form.horizontal}>
+        <div className={form.formGroup}>
+          <span id="toggle-group" className={form.label}>
+            Toggle group
+          </span>
+          <ToggleGroup
+            labelledBy="toggle-group"
+            options={TOGGLE_OPTIONS}
+            value={toggle}
+            onValueChange={setToggle}
+            disabled={disabled}
+          />
+        </div>
+        <div className={form.formGroup}>
+          <span id="toggle-group" className={form.label}>
+            Toggle group small
+          </span>
+          <ToggleGroup
+            labelledBy="toggle-group"
+            options={TOGGLE_OPTIONS.slice(0, 2)}
+            value={toggle}
+            onValueChange={setToggle}
+            disabled={disabled}
+            size="small"
+          />
+        </div>
       </div>
-
       <div className={form.formGroup}>
         <Slider
           label={`Slider (${slider})`}

@@ -1,9 +1,5 @@
 import { useSyncExternalStore } from "react";
 
-// Vite sets DEV for `vite` (run by `vercel dev`) and clears it for builds: no
-// deployment can switch it on, and it drops out of the bundle.
-const AVAILABLE = import.meta.env.DEV;
-
 let debug = false;
 const listeners = new Set<() => void>();
 
@@ -33,7 +29,6 @@ const onKeyDown = (event: KeyboardEvent) => {
 };
 
 const subscribe = (listener: () => void) => {
-  if (!AVAILABLE) return () => {};
   if (listeners.size === 0) window.addEventListener("keydown", onKeyDown);
   listeners.add(listener);
   return () => {
@@ -42,7 +37,7 @@ const subscribe = (listener: () => void) => {
   };
 };
 
-const getSnapshot = () => AVAILABLE && debug;
+const getSnapshot = () => debug;
 
 // Shift+D flips it; `[data-debug]` on <body> follows.
 export const useDebugMode = (): boolean =>

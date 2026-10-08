@@ -17,7 +17,7 @@ import { checkFfmpeg, pinnedVersion } from "./ffmpeg-check.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const smokeDir = path.join(root, ".smoke");
 
-// Input roles. The first five come from the assets folder, which must have
+// Input roles. The first six come from the assets folder, which must have
 // them all. Keep clips a few seconds (AVIF/lossless WebP are slow; loop cases
 // need ~4s).
 //   video      video.<ext>     the clip every video tool works on
@@ -25,8 +25,10 @@ const smokeDir = path.join(root, ".smoke");
 //   logo       logo.png        watermark with alpha
 //   svglogo    logo.svg        watermark as SVG
 //   images     images/*        sequence stills, natural order (1–100)
+//   logos      logos/*         PNG/SVG watermarks of other shapes, same order
 // Always derived from `video`:
 //   frame                      first frame (what the browser sends /api/preview)
+//   parts                      equal frame-exact MP4 cuts, one per logo
 //   mov, webm                  remuxed .mov, VP9/Opus .webm
 //   avif, slides               2s AVIF; 3 frames at 1 fps (a slideshow AVIF)
 //   animwebp(-lossless)        2s animated WebP, lossy / lossless
@@ -42,7 +44,8 @@ fs.rmSync(outDir, { recursive: true, force: true });
 const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
 const { GENERATION } = await load("api/_lib/encode/rate.ts");
 
-// Each case is a /api/process request (`preview`: /api/preview's single frame).
+// Each case is a /api/process request (`preview`: /api/preview's single frame;
+// `various`: one per logo, each marking its part, then the parts joined).
 // `expect`:
 //   ext        extension; "source" = the first upload's
 //   maxRatio   output/source size bounds; rate-controlled formats may spend up
@@ -124,6 +127,10 @@ const CASES = {
   "mark-glass-rotate": { tool: "mark", files: ["video", "logo"], options: { filter: "glass", rotatePosition: true, quality: 100 }, expect: { ext: "source", maxRatio: 1.15 * GENERATION, frames: "source" } },
   "mark-plain-rotate-gif-source": { tool: "mark", files: ["animation", "logo"], options: { filter: "plain", rotatePosition: true, quality: 90 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
   "mark-plain-svg-logo-png-source": { tool: "mark", files: ["png", "svglogo"], options: { filter: "plain", quality: 100 }, expect: { ext: "source", maxRatio: 1.2, frames: "source" } },
+  "mark-various-depth-map": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", view: "displacement", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
+  "mark-various-dev-size": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
+  "mark-various-pure-glass": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", view: "clear", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
+  "mark-various-rim": { tool: "mark", various: true, files: ["video", "logos"], options: { filter: "glass", size: "dev", position: "center", view: "rim", quality: 100 }, expect: { ext: "mp4", frames: "source" } },
   "preview-glass": { preview: true, files: ["frame", "logo"], options: { filter: "glass" } },
   "preview-blur": { preview: true, files: ["frame", "logo"], options: { filter: "blur" } },
   "preview-glass-svg": { preview: true, files: ["frame", "svglogo"], options: { filter: "glass" } },
@@ -192,7 +199,7 @@ function readArgs(argv) {
   return { label, ...parsed.values };
 }
 
-function resolveAssets(ffmpeg, userDir, madeDir) {
+async function resolveAssets(ffmpeg, userDir, madeDir) {
   fs.mkdirSync(madeDir, { recursive: true });
   const ff = (...args) => {
     const r = spawnSync(ffmpeg, ["-y", "-hide_banner", "-loglevel", "error", ...args]);
@@ -204,19 +211,23 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
     const name = listed.find((f) => pattern.test(f));
     return name ? [path.join(userDir, name)] : [];
   };
-  const imagesDir = path.join(userDir, "images");
+  const ownDir = (name, pattern) => {
+    const dir = path.join(userDir, name);
+    return fs.existsSync(dir)
+      ? fs
+          .readdirSync(dir)
+          .filter((f) => pattern.test(f))
+          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+          .map((f) => path.join(dir, f))
+      : [];
+  };
   const assets = {
     video: own(/^video\.\w+$/i),
     animation: own(/^animation\.gif$/i),
     logo: own(/^logo\.png$/i),
     svglogo: own(/^logo\.svg$/i),
-    images: fs.existsSync(imagesDir)
-      ? fs
-          .readdirSync(imagesDir)
-          .filter((f) => IMAGE_EXT.test(f))
-          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-          .map((f) => path.join(imagesDir, f))
-      : [],
+    images: ownDir("images", IMAGE_EXT),
+    logos: ownDir("logos", /\.(png|svg)$/i),
   };
   const missing = Object.keys(assets).filter((role) => !assets[role].length);
   if (missing.length) {
@@ -226,6 +237,36 @@ function resolveAssets(ffmpeg, userDir, madeDir) {
 
   ff("-i", video, "-frames:v", "1", made("frame.jpg"));
   assets.frame = [made("frame.jpg")];
+
+  // Keyframes at the cuts and no frame-rate fixing (it can duplicate a frame),
+  // so every frame lands in exactly one part.
+  const { duration } = await new FFmpeg(ffmpeg, "").mediaInfo(video);
+  const cuts = assets.logos
+    .slice(1)
+    .map((_, i) => ((i + 1) * duration) / assets.logos.length)
+    .join(",");
+  ff(
+    "-i",
+    video,
+    "-fps_mode",
+    "passthrough",
+    "-c:v",
+    "libx264",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-force_key_frames",
+    cuts,
+    "-f",
+    "segment",
+    "-segment_times",
+    cuts,
+    "-reset_timestamps",
+    "1",
+    made("part%d.mp4"),
+  );
+  assets.parts = assets.logos.map((_, i) => made(`part${i}.mp4`));
 
   // Falls back to encoding when the streams don't fit the container.
   const remux = (name, ...streams) => {
@@ -443,7 +484,10 @@ if (ffmpegCheck.problems.length) {
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
 const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
-const assets = resolveAssets(ffmpegPath, userDir, path.join(outDir, "assets"));
+// Silence the tools' step logging.
+const say = console.log;
+console.log = console.error = () => {};
+const assets = await resolveAssets(ffmpegPath, userDir, path.join(outDir, "assets"));
 const readable = (bytes) =>
   bytes >= 1024 * 1024
     ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -484,10 +528,6 @@ class Recorder extends FFmpeg {
   }
 }
 
-// Silence the tools' step logging.
-const say = console.log;
-console.log = console.error = () => {};
-
 say(`assets from ${userDirShown}\n`);
 
 const commands = {};
@@ -502,7 +542,7 @@ const results = {
 const only = args.only?.split(",").filter(Boolean);
 const names = Object.keys(CASES).filter((n) => !only || only.some((o) => n.includes(o)));
 for (const name of names) {
-  const { tool, preview, files: roles, options, expect } = CASES[name];
+  const { tool, preview, various, files: roles, options, expect } = CASES[name];
   const files = roles.flatMap((role) => assets[role]);
   const source = assets[roles[0]];
   workDir = path.join(outDir, "runs", name);
@@ -525,22 +565,35 @@ for (const name of names) {
       );
       downloadName = path.basename(outputPath);
     } else {
-      const urls = files.map((f) => BLOB + encodeURIComponent(path.basename(f)));
-      const request =
-        tool === "sequence"
-          ? { blobUrls: urls, options }
-          : { blobUrl: urls[0], watermarkUrl: urls[1], options };
-      const inputs = TOOLS[tool].inputs(request);
-      if (!Array.isArray(inputs)) throw new Error(inputs.error);
-      const result = await TOOLS[tool].run({
-        ff,
-        workDir,
-        inputs,
-        options,
-        download,
-      });
-      outputPath = result.outputPath;
-      downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
+      const runs = various ? assets.parts.map((part, i) => [part, assets.logos[i]]) : [files];
+      const parts = [];
+      for (const [i, runFiles] of runs.entries()) {
+        const urls = runFiles.map((f) => BLOB + encodeURIComponent(path.basename(f)));
+        const request =
+          tool === "sequence"
+            ? { blobUrls: urls, options }
+            : { blobUrl: urls[0], watermarkUrl: urls[1], options };
+        const inputs = TOOLS[tool].inputs(request);
+        if (!Array.isArray(inputs)) throw new Error(inputs.error);
+        // Own folder per run: the files are named alike and probes cache by path.
+        const runDir = various ? path.join(workDir, String(i)) : workDir;
+        fs.mkdirSync(runDir, { recursive: true });
+        const result = await TOOLS[tool].run({
+          ff,
+          workDir: runDir,
+          inputs,
+          options,
+          download,
+        });
+        parts.push(`file '${result.outputPath}'`);
+        outputPath = path.join(workDir, path.basename(result.outputPath));
+        downloadName = `${path.parse(source[0]).name}_${result.suffix}.${result.ext}`;
+      }
+      if (various) {
+        const list = path.join(workDir, "parts.txt");
+        fs.writeFileSync(list, parts.join("\n"));
+        await ff.runFFmpeg(["-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", outputPath]);
+      }
     }
     // Fresh instance so probes aren't recorded.
     const info = await new FFmpeg(ffmpegPath, "").mediaInfo(outputPath).catch(() => null);
