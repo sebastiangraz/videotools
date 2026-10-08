@@ -19,7 +19,7 @@ export const MARK = {
   // Frost saturation multiplier with no change at 1.
   saturation: 1.8,
   // Frost white mix.
-  tint: 0.0,
+  tint: 0.02,
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1,
   // Gain on a shape's blurred core; higher keeps thinner strokes refracting.
