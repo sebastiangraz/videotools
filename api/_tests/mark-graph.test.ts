@@ -292,13 +292,36 @@ describe("watermarkGraph", () => {
     }
   });
 
+  it("gives the shadow room for its whole blur and offset, whatever the size and position", () => {
+    for (const size of Object.keys(MARK_SIZES) as (keyof typeof MARK_SIZES)[]) {
+      for (const position of Object.keys(MARK_POSITIONS) as (keyof typeof MARK_POSITIONS)[]) {
+        const l = watermarkLayout(video, logo, size, position);
+        const graph = watermarkGraph(video, logo, { filter: "glass", size, position });
+        const [, w, h, x, y, sigma] =
+          /pad=(\d+):(\d+):(\d+):(\d+):color=black@0,format=rgba,alphaextract,format=gray,gblur=sigma=([\d.]+)[^;]*\[sk1\]/
+            .exec(graph)!
+            .map(Number);
+        const dy = y - x;
+        expect(dy).toBeGreaterThan(0);
+        // 3σ clear on every side, the offset included
+        expect(x).toBeGreaterThanOrEqual(3 * sigma);
+        expect(w - l.LW - x).toBeGreaterThanOrEqual(3 * sigma);
+        expect(h - l.LH - y).toBeGreaterThanOrEqual(3 * sigma);
+        // on the frame, around the logo (off its edge if need be), at an even
+        // corner and size
+        expect(graph).toContain(`[unshadowed][shadow]overlay=x=${l.LX - x}:y=${l.LY - x},`);
+        for (const n of [w, h, l.LX - x, l.LY - x]) expect(Math.abs(n % 2)).toBe(0);
+      }
+    }
+  });
+
   it("rotates through every position from the one it is given, clear at each move", () => {
     const clip = { ...video, duration: 60 };
     const positions = Object.keys(MARK_POSITIONS) as (keyof typeof MARK_POSITIONS)[];
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(clip, logo, { filter, position: "left", rotatePosition: true });
-      // Each stop's corner in turn, as overlay picks them
-      const [, xs, ys] = /overlay=x='[^;]+;([^']+)':y='[^;]+;([^']+)'/.exec(graph)!;
+      // Each stop's corner in turn, as the mark's (last) overlay picks them
+      const [, xs, ys] = /.*overlay=x='[^;]+;([^']+)':y='[^;]+;([^']+)'/.exec(graph)!;
       const stops = xs.split("+").map((x, i) => `${parseInt(x)},${parseInt(ys.split("+")[i])}`);
       const p = filter === "plain" ? 0 : watermarkLayout(clip, logo).margin;
       const corner = (position: (typeof positions)[number]) => {
