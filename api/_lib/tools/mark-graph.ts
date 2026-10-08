@@ -2,6 +2,8 @@ import type { MediaInfo } from "../ffmpeg.js";
 
 export type Bounds = { x: number; y: number; width: number; height: number };
 
+type AmbientGlow = { bevelRatio: number; opacity: number; core?: boolean; ignoreBlend?: boolean };
+
 export const MARK = {
   // Square logo side fraction of the width and height geometric mean.
   sizeRatio: 0.064,
@@ -17,7 +19,7 @@ export const MARK = {
   // Bevel blur floor fraction of the width and height minimum.
   minBlurRatio: 0.0008,
   // Frost saturation multiplier with no change at 1.
-  saturation: 1.8,
+  saturation: 1.64,
   // Frost white mix.
   tint: 0.02,
   // Bevel width fraction of the logo width and height minimum.
@@ -49,12 +51,14 @@ export const MARK = {
   // (fraction of the logo width and height minimum) at its opacity: narrow and
   // strong at the edge, wide and faint further in. A `core` glow fades out
   // with the lens on strokes too thin for a bevel (coreGain), which it would
-  // otherwise fill.
+  // otherwise fill. An `ignoreBlend` glow skips ambientBlend and is laid over
+  // the glass in white, so it still shows on a near-black backdrop.
   ambient: [
-    { bevelRatio: 0.03, opacity: 0.6, core: true },
-    { bevelRatio: 0.09, opacity: 0.3, core: true },
-    { bevelRatio: 0.225, opacity: 0.2 },
-  ],
+    { bevelRatio: 0.02, opacity: 0.09, core: true, ignoreBlend: true },
+    { bevelRatio: 0.025, opacity: 0.24, core: true },
+    { bevelRatio: 0.12, opacity: 0.06, core: true, ignoreBlend: true },
+    { bevelRatio: 0.225, opacity: 0.12 },
+  ] as AmbientGlow[],
   // Ambient shift towards the light in each glow's bevels: more leaves the
   // near edge darker against the far one.
   ambientShift: 1,
@@ -64,7 +68,7 @@ export const MARK = {
   ambientBlend: "plus-lighter" as "normal" | "plus-lighter",
   // Plus-lighter light colour from white at 0 to the glass's own at 1: white
   // clips light backdrops' bright channels first and washes them out.
-  ambientTint: 1,
+  ambientTint: 0.44,
 
   // Drop shadow blur fraction of the width and height minimum.
   shadowBlurRatio: 0.016,
@@ -452,7 +456,7 @@ export function watermarkGraph(
   // reach a thick shape's middle. A slope across the same blur lit the middle
   // too, with a terminator through it. Screened together as stacked white
   // layers would; 16-bit so the faint wide glows keep their levels.
-  const ambientGlow = ({ bevelRatio, opacity }: (typeof MARK.ambient)[number]) => {
+  const ambientGlow = ({ bevelRatio, opacity }: AmbientGlow) => {
     const bevel = Math.min(LW, LH) * bevelRatio;
     const shift = (n: number) => Math.round(n * bevel * M.ambientShift);
     const [dx, dy] = [shift(lx), shift(ly)];
@@ -462,7 +466,6 @@ export function watermarkGraph(
   const glows = M.ambient.length;
   // The lens's core gain [k4], back at 1×, one per `core` glow.
   const cores = M.ambient.filter((glow) => glow.core).length;
-  const glowed = glows > 1 ? `as${glows - 1}` : "ag0";
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
       .map(
@@ -470,13 +473,31 @@ export function watermarkGraph(
           `${c}='min(val*${gain.toFixed(3)},255)*${(1 - t).toFixed(3)}+${(255 * t).toFixed(1)}'`,
       )
       .join(":");
-  // Plus-lighter adds the light onto the frost, clipping at white, before the
-  // frost takes the logo's alpha: the glows go in unmasked, the alpha masks
-  // them. The light is the frost's own colour at ambientTint 1.
-  const plusLighter = glows > 0 && M.ambientBlend === "plus-lighter";
+  // Plus-lighter adds its glows onto the frost, clipping at white, before the
+  // frost takes the logo's alpha: they go in unmasked, the alpha masks them.
+  // The light is the frost's own colour at ambientTint 1, so next to none on
+  // a black frost. `ignoreBlend` glows, and all of them on "normal", are laid
+  // over the glass in white instead, which shows on any backdrop.
+  const ids = M.ambient.map((_, i) => i);
+  const added =
+    M.ambientBlend === "plus-lighter" ? ids.filter((i) => !M.ambient[i].ignoreBlend) : [];
+  const laid = ids.filter((i) => !added.includes(i));
+  const plusLighter = added.length > 0;
+  // A white layer over the glass: the laid glows, or a clear one for none.
+  const layered = laid.length > 0 || !glows;
+  // Glows [ag<i>] screened into [<out>], as stacked white layers would.
+  const screened = (group: number[], out: string) =>
+    group.length === 1
+      ? [`[ag${group[0]}]null[${out}]`]
+      : group
+          .slice(1)
+          .map(
+            (id, n) =>
+              `[${n ? `${out}${n}` : `ag${group[0]}`}][ag${id}]blend=all_mode=screen[${out}${n === group.length - 2 ? "" : n + 1}]`,
+          );
   const ambient = glows
     ? [
-        `[m5]format=gray16le,split=${plusLighter ? glows : `${glows + 1}[amask]`}${M.ambient.map((_, i) => `[am${i}]`).join("")}`,
+        `[m5]format=gray16le,split=${laid.length ? `${glows + 1}[amask]` : glows}${ids.map((i) => `[am${i}]`).join("")}`,
         ...(cores
           ? [
               `[k4]scale=${CW}:${CH}:flags=bicubic,format=gray16le,split=${cores}${M.ambient.map((glow, i) => (glow.core ? `[ac${i}]` : "")).join("")}`,
@@ -486,21 +507,23 @@ export function watermarkGraph(
           (glow, i) =>
             `[am${i}]${ambientGlow(glow)}${glow.core ? `[ar${i}];[ar${i}][ac${i}]blend=all_mode=multiply` : ""}[ag${i}]`,
         ),
-        ...M.ambient
-          .slice(1)
-          .map((_, i) => `[${i ? `as${i}` : "ag0"}][ag${i + 1}]blend=all_mode=screen[as${i + 1}]`),
         ...(plusLighter
           ? [
-              `[${glowed}]format=gray,format=rgba[aglow]`,
+              ...screened(added, "aadd"),
+              `[aadd]format=gray,format=rgba[aglow]`,
               `[frosted]split[fbase][fcolour]`,
               `[fcolour]lutrgb=${whiten(1 - M.ambientTint)}[acolour]`,
               `[acolour][aglow]blend=all_mode=multiply[alight]`,
               `[fbase][alight]blend=all_mode=addition[fill]`,
             ]
-          : // gray→rgba put the glow in r, moved to alpha under white.
-            [
-              `[amask][${glowed}]blend=all_mode=multiply,format=gray,format=rgba,colorchannelmixer=aa=0:ar=1,lutrgb=r=255:g=255:b=255[ambient]`,
-            ]),
+          : []),
+        ...(laid.length
+          ? [
+              ...screened(laid, "alaid"),
+              // gray→rgba put the glow in r, moved to alpha under white.
+              `[amask][alaid]blend=all_mode=multiply,format=gray,format=rgba,colorchannelmixer=aa=0:ar=1,lutrgb=r=255:g=255:b=255[ambient]`,
+            ]
+          : []),
       ]
     : [`[m5]format=rgba,colorchannelmixer=aa=0[ambient]`];
 
@@ -571,9 +594,9 @@ export function watermarkGraph(
     ...ambient,
     // Layers go on a transparent canvas so only covered pixels change: no
     // conversion round trip can leave a faint box.
-    plusLighter
-      ? `[canvas][glass]overlay=format=auto[c2]`
-      : `[canvas][glass]overlay=format=auto[c2a];[c2a][ambient]overlay=format=auto[c2]`,
+    layered
+      ? `[canvas][glass]overlay=format=auto[c2a];[c2a][ambient]overlay=format=auto[c2]`
+      : `[canvas][glass]overlay=format=auto[c2]`,
     `[c2][rim]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
     `[l3]${scaleLogo},pad=${SW}:${SH}:${S}:${S + shadowDy}:color=black@0,format=rgba,gblur=sigma=${shadowSigma}:steps=2,colorchannelmixer=rr=0:gg=0:bb=0:aa=${M.shadowOpacity}${fading(SW, SH)}${fromRgb}[shadow]`,
     `[base][shadow]${onto(corner(S))}[shaded]`,
