@@ -21,13 +21,13 @@ export const TRACK = {
   // one (by contrast) ...
   switchMargin: 0.15,
   // ... for this long, seconds: a flicker or a crossing never moves the light.
-  holdSeconds: 0.6,
+  holdSeconds: 0.4,
   // Grid diagonal share a light may travel between two analysed frames and
   // still be the one followed; past it, it was lost (a cut), and the
   // brightest is taken at once.
-  reach: 0.15,
+  reach: 0.12,
   // Position smoothing time constant, seconds: a switch glides over ~3×.
-  smoothSeconds: 0.15,
+  smoothSeconds: 0.1,
 };
 
 export type Luma = {

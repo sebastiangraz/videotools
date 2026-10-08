@@ -18,7 +18,7 @@ export const LIGHT = {
   near: 1.5,
   // Time constant of each of the two lerps the angle is eased by, seconds:
   // higher turns the light more calmly and further behind the picture's.
-  smoothSeconds: 0.3,
+  smoothSeconds: 0.15,
 };
 
 export type LightKey = { time: number; angle: number };
