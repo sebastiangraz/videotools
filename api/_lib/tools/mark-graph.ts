@@ -45,13 +45,18 @@ export const MARK = {
   // Rim paint blur fraction of the width and height minimum: how far round
   // the edge the rim gathers its backdrop colour from.
   rimBlurRatio: 0.0018,
-  // Glass light opacity at the edge opposite the light.
-  ambient: 0.3,
-  // Ambient bevel width fraction of the logo width and height minimum: how far
-  // in from the edges the glass light fades.
-  ambientBevelRatio: 0.09,
-  // Ambient shift towards the light in ambient bevels: more leaves the near
-  // edge darker against the far one.
+  // Glass light as stacked glows, each fading in from the edges over its bevel
+  // (fraction of the logo width and height minimum) at its opacity: narrow and
+  // strong at the edge, wide and faint further in. A `core` glow fades out
+  // with the lens on strokes too thin for a bevel (coreGain), which it would
+  // otherwise fill.
+  ambient: [
+    { bevelRatio: 0.03, opacity: 0.22, core: true },
+    { bevelRatio: 0.09, opacity: 0.08, core: true },
+    { bevelRatio: 0.225, opacity: 0.06, core: true },
+  ],
+  // Ambient shift towards the light in each glow's bevels: more leaves the
+  // near edge darker against the far one.
   ambientShift: 1,
 
   // Drop shadow blur fraction of the width and height minimum.
@@ -117,13 +122,13 @@ const MARK_CLEAR: Partial<typeof MARK> = {
   minBlurRatio: 0,
   saturation: 1,
   tint: 0,
-  ambient: 0,
+  ambient: [],
   shadowOpacity: 0,
   rimOpacity: 0,
 };
 
 const MARK_RIM: Partial<typeof MARK> = {
-  ambient: 0,
+  ambient: [],
   shadowOpacity: 0,
 };
 
@@ -372,7 +377,7 @@ export function watermarkGraph(
   // a stroke too thin to hold a bevel. It scales the slopes, not the field:
   // a gain falling along a taper would add a slope of its own.
   const thick = `${stretch},gblur=sigma=${bevel.toFixed(2)}:steps=2,lut=c0='st(0,clip(val*${(M.coreGain / FULL).toPrecision(6)},0,1));${FULL}*ld(0)*ld(0)*(3-2*ld(0))'`;
-  // Reads [mk1] and [mk2]; one gain per slope, from [k1] on.
+  // Reads [mk1] and [mk2]; one gain per slope (and core glow), from [k1] on.
   const heightfield = (out: string, slopes: number) => [
     `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2[hw]`,
     `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,split[hn][hc]`,
@@ -434,18 +439,41 @@ export function watermarkGraph(
   // both ends of the ramp blend in. A separate far-side ramp notched the rim
   // where edges turn side-on to the light.
   const rimLight = `lut=c0='st(0,clip((val-128)/127,0,1));${(255 * M.glint).toFixed(1)}+${(255 * (1 - M.glint)).toFixed(1)}*ld(0)*ld(0)*(3-2*ld(0))'`;
-  // Glass light, an inner shadow in white: the logo blurred over a bevel of
-  // its own, moved towards the light and inverted, inside the logo. It hugs
+  // Glass light, inner shadows in white: the logo blurred over each glow's
+  // bevel, moved towards the light and inverted, inside the logo. They hug
   // every edge, strongest on the far side, faint on the near one, and never
-  // reaches a thick shape's middle. A slope across the same blur lit the
-  // middle too, with a terminator through it.
-  const ambientBevel = Math.min(LW, LH) * M.ambientBevelRatio;
-  const shift = (n: number) => Math.round(n * ambientBevel * M.ambientShift);
-  const [dx, dy] = [shift(lx), shift(ly)];
-  const room = Math.max(Math.abs(dx), Math.abs(dy));
-  const ambientGlow = `gblur=sigma=${Math.max(0.5, ambientBevel).toFixed(2)}:steps=2,pad=${CW + 2 * room}:${CH + 2 * room}:${room}:${room},crop=${CW}:${CH}:${room - dx}:${room - dy},negate`;
-  // gray→rgba put the glow in r, moved to alpha under white.
-  const ambientPaint = `format=rgba,colorchannelmixer=aa=0:ar=${M.ambient},lutrgb=r=255:g=255:b=255`;
+  // reach a thick shape's middle. A slope across the same blur lit the middle
+  // too, with a terminator through it. Screened together as stacked white
+  // layers would; 16-bit so the faint wide glows keep their levels.
+  const ambientGlow = ({ bevelRatio, opacity }: (typeof MARK.ambient)[number]) => {
+    const bevel = Math.min(LW, LH) * bevelRatio;
+    const shift = (n: number) => Math.round(n * bevel * M.ambientShift);
+    const [dx, dy] = [shift(lx), shift(ly)];
+    const room = Math.max(Math.abs(dx), Math.abs(dy));
+    return `gblur=sigma=${Math.max(0.5, bevel).toFixed(2)}:steps=2,pad=${CW + 2 * room}:${CH + 2 * room}:${room}:${room},crop=${CW}:${CH}:${room - dx}:${room - dy},negate,lut=c0='val*${opacity}'`;
+  };
+  const glows = M.ambient.length;
+  // The lens's core gain [k4], back at 1×, one per `core` glow.
+  const cores = M.ambient.filter((glow) => glow.core).length;
+  const ambient = glows
+    ? [
+        `[m5]format=gray16le,split=${glows + 1}[amask]${M.ambient.map((_, i) => `[am${i}]`).join("")}`,
+        ...(cores
+          ? [
+              `[k4]scale=${CW}:${CH}:flags=bicubic,format=gray16le,split=${cores}${M.ambient.map((glow, i) => (glow.core ? `[ac${i}]` : "")).join("")}`,
+            ]
+          : []),
+        ...M.ambient.map(
+          (glow, i) =>
+            `[am${i}]${ambientGlow(glow)}${glow.core ? `[ar${i}];[ar${i}][ac${i}]blend=all_mode=multiply` : ""}[ag${i}]`,
+        ),
+        ...M.ambient
+          .slice(1)
+          .map((_, i) => `[${i ? `as${i}` : "ag0"}][ag${i + 1}]blend=all_mode=screen[as${i + 1}]`),
+        // gray→rgba put the glow in r, moved to alpha under white.
+        `[amask][${glows > 1 ? `as${glows - 1}` : "ag0"}]blend=all_mode=multiply,format=gray,format=rgba,colorchannelmixer=aa=0:ar=1,lutrgb=r=255:g=255:b=255[ambient]`,
+      ]
+    : [`[m5]format=rgba,colorchannelmixer=aa=0[ambient]`];
 
   const whiten = (t: number, gain = 1) =>
     ["r", "g", "b"]
@@ -478,7 +506,7 @@ export function watermarkGraph(
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0[lg1]`,
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m5][m6]`,
     `[l2]${lensMask(2)}`,
-    ...heightfield(",split=4[h1][h2][h3][h4]", 3),
+    ...heightfield(",split=4[h1][h2][h3][h4]", cores ? 4 : 3),
     `[h1]${sobel("x", refractPx * SUB)}[sx]`,
     `[sx]${flatten(1, MID)},split=3[hx1][hx2][hx3]`,
     `[hx1]${sampleAt("x", chroma.r)}[xr]`,
@@ -518,9 +546,7 @@ export function watermarkGraph(
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
     `[rf3]gblur=sigma=${rimSigma}:steps=1,${rimPaint}[paint]`,
     `[paint][rimAlpha]alphamerge,colorchannelmixer=aa=${M.rimOpacity}[rim]`,
-    `[m5]split[am1][am2]`,
-    `[am1]${ambientGlow}[as]`,
-    `[am2][as]blend=all_mode=multiply,${ambientPaint}[ambient]`,
+    ...ambient,
     // Layers go on a transparent canvas so only covered pixels change: no
     // conversion round trip can leave a faint box.
     `[canvas][glass]overlay=format=auto[c2a]`,
