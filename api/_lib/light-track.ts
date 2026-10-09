@@ -21,13 +21,12 @@ export const TRACK = {
   // one (by contrast) ...
   switchMargin: 0.15,
   // ... for this long, seconds: a flicker or a crossing never moves the light.
+  // A switch then dates from when the rival got ahead, so this delays nothing.
   holdSeconds: 0.4,
   // Grid diagonal share a light may travel between two analysed frames and
   // still be the one followed; past it, it was lost (a cut), and the
   // brightest is taken at once.
   reach: 0.12,
-  // Position smoothing time constant, seconds: a switch glides over ~3×.
-  smoothSeconds: 0.1,
 };
 
 export type Luma = {
@@ -140,16 +139,18 @@ function medianOf(frame: Uint8Array): number {
 }
 
 // Follows one light across the frames: the peak nearest the last one, until
-// a rival outshines it by switchMargin for holdSeconds, or it's lost. Then
-// smoothed, and mapped from grid to source px.
+// a rival outshines it by switchMargin for holdSeconds, or it's lost. A
+// switch is written back to when the rival got ahead: the whole clip is
+// tracked before it's used, so the light's smoothing (mark-light.ts) can turn
+// towards it on time. Mapped from grid to source px, unsmoothed.
 export function trackLuma(luma: Luma, source: { width: number; height: number }): LightTrack {
   const { width, height, frames, step } = luma;
   const reach = TRACK.reach * Math.hypot(width, height);
-  const smooth = 1 - Math.exp(-step / TRACK.smoothSeconds);
   const apart = (a: Peak, b: Peak) => Math.hypot(a.x - b.x, a.y - b.y);
   let followed: Peak | null = null;
-  // The brighter peak waiting out holdSeconds, and since when.
-  let rival: { peak: Peak; since: number } | null = null;
+  // The brighter peak waiting out holdSeconds, since when, and where it was
+  // at each frame (index into points) meanwhile.
+  let rival: { peak: Peak; since: number; path: [number, Peak][] } | null = null;
   // Starts mid-frame until a light shows.
   let shown = { x: (width - 1) / 2, y: (height - 1) / 2 };
   const points: LightPoint[] = [];
@@ -170,24 +171,29 @@ export function trackLuma(luma: Luma, source: { width: number; height: number })
     if (!last || !near || apart(near, last) > reach) {
       next = brightest;
       rival = null;
-      if (!last) shown = { x: brightest.x, y: brightest.y };
     } else if (brightest.contrast > near.contrast * (1 + TRACK.switchMargin)) {
-      const since: number = rival && apart(brightest, rival.peak) <= reach ? rival.since : time;
+      const waiting = rival && apart(brightest, rival.peak) <= reach ? rival : null;
+      const since: number = waiting?.since ?? time;
+      const path: [number, Peak][] = [...(waiting?.path ?? []), [i, brightest]];
       const held = time - since >= TRACK.holdSeconds - 1e-9;
       next = held ? brightest : near;
-      rival = held ? null : { peak: brightest, since };
+      rival = held ? null : { peak: brightest, since, path };
+      // Taken over: it was the light from `since` on.
+      if (held) {
+        for (const [at, peak] of path.slice(0, -1)) points[at] = pointAt(points[at].time, peak);
+      }
     } else {
       next = near;
       rival = null;
     }
-    followed = next;
-    shown = {
-      x: shown.x + (next.x - shown.x) * smooth,
-      y: shown.y + (next.y - shown.y) * smooth,
-    };
-    points.push({ time, ...toSource(shown), strength: next.contrast / 255 });
+    followed = shown = next;
+    points.push(pointAt(time, next));
   }
   return { width: source.width, height: source.height, points };
+
+  function pointAt(time: number, peak: Peak): LightPoint {
+    return { time, ...toSource(peak), strength: peak.contrast / 255 };
+  }
 
   function toSource({ x, y }: { x: number; y: number }) {
     return {

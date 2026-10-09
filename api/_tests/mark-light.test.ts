@@ -60,18 +60,53 @@ describe("smoothLight", () => {
   it("turns a little every frame where the keys jump", () => {
     // A quarter turn at once, held: a light moving to a new spot.
     const eased = smoothLight(
-      tracked(3, (t) => (t < 0.5 ? 0 : 90)),
+      tracked(3, (t) => (t < 1.5 ? 0 : 90)),
       FPS,
     );
     expect(eased).toHaveLength(3 * FPS + 1);
-    expect(eased[0].angle).toBe(0);
+    expect(eased[0].angle).toBeCloseTo(0, 0);
     const steps = turned(eased);
     const fastest = Math.max(...steps);
-    // Never more than a fraction of what one lerp alone would turn at once.
-    expect(fastest).toBeLessThan((90 / (LIGHT.smoothSeconds * FPS)) * 0.5);
+    // Never faster than the two lerps' kernel at its peak, 1/(sum of their
+    // time constants), turns a step.
+    expect(fastest).toBeLessThan(90 / ((LIGHT.smoothSeconds + LIGHT.leadSeconds) * FPS));
     // Starts gently rather than at its fastest, and gets there.
     expect(steps[steps.findIndex((d) => d > 0.01)]).toBeLessThan(fastest / 4);
-    expect(eased.at(-1)!.angle).toBeGreaterThan(80);
+    expect(eased.at(-1)!.angle).toBeGreaterThan(89);
+  });
+
+  // The keys turn from 0 at 1.0 s to 90 at 1.1 s: halfway at 1.05 s,
+  // between frames 31 and 32.
+  const step = () =>
+    smoothLight(
+      tracked(3, (t) => (t < 1.05 ? 0 : 90)),
+      FPS,
+    ).map((k) => k.angle);
+  const withLead = <T>(leadSeconds: number, run: () => T): T => {
+    const saved = LIGHT.leadSeconds;
+    LIGHT.leadSeconds = leadSeconds;
+    try {
+      return run();
+    } finally {
+      LIGHT.leadSeconds = saved;
+    }
+  };
+
+  it("starts turning ahead of a change", () => {
+    const at = step();
+    expect(at[24]).toBeGreaterThan(2);
+    expect(at[31]).toBeGreaterThan(at[24]);
+  });
+
+  it("turns as much ahead of a change as after it with leadSeconds = smoothSeconds", () => {
+    const at = withLead(LIGHT.smoothSeconds, step);
+    for (const off of [0, 3, 6, 9]) expect(at[31 - off] + at[32 + off]).toBeCloseTo(90, 1);
+  });
+
+  it("never turns ahead of a change with leadSeconds 0", () => {
+    const at = withLead(0, step);
+    for (const angle of at.slice(0, 30)) expect(angle).toBe(0);
+    expect(at.at(-1)).toBeGreaterThan(89);
   });
 
   it("turns the short way round", () => {

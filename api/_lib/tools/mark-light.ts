@@ -16,9 +16,13 @@ export const LIGHT = {
   // Logo half-diagonals from its centre within which the light's direction
   // fades back to MARK.lightAngle: a light right on the logo has none.
   near: 1.5,
-  // Time constant of each of the two lerps the angle is eased by, seconds:
-  // higher turns the light more calmly and further behind the picture's.
-  smoothSeconds: 0.15,
+  // Time constant of the lerp the angle is eased by after the picture's
+  // change, seconds: higher settles more calmly, further behind it.
+  smoothSeconds: 0.25,
+  // Time constant of the lerp run backwards from it, seconds: how far ahead
+  // the light starts turning. 0 never turns before the change; equal to
+  // smoothSeconds centres the turn on it.
+  leadSeconds: 0.15,
 };
 
 export type LightKey = { time: number; angle: number };
@@ -59,30 +63,39 @@ export function aimLight(
 const turn = (a: number, b: number) => ((((b - a) % 360) + 540) % 360) - 180;
 
 // One key per video frame, so the light turns rather than steps at the
-// tracker's rate, eased by two lerps in a row (each LIGHT.smoothSeconds):
-// a change starts and settles gently, never at once. Always the short way
-// round; it starts where the first key aims, so a still or the first frame
-// is aimed as tracked.
+// tracker's rate, eased by a lerp run forwards (LIGHT.smoothSeconds) and then
+// backwards (LIGHT.leadSeconds). The keys are all known before the render, so
+// the turn can start ahead of the picture's change rather than only trail
+// it; it starts and settles gently, never at once. Always the short way
+// round. A still is aimed as tracked.
 export function smoothLight(keys: LightKey[], fps: number): LightKey[] {
   if (keys.length < 2 || !(fps > 0)) return keys;
   const step = 1 / fps;
-  const lerp = 1 - Math.exp(-step / LIGHT.smoothSeconds);
+  // A time constant of 0 is no lerp: 1 - exp(-Infinity).
+  const [lerp, lead] = [LIGHT.smoothSeconds, LIGHT.leadSeconds].map(
+    (seconds) => 1 - Math.exp(-step / seconds),
+  );
   const [first, last] = [keys[0], keys[keys.length - 1]];
-  let at = 0;
-  let [eased, twice] = [first.angle, first.angle];
-  const out: LightKey[] = [];
   const frames = Math.floor((last.time - first.time) / step + 1e-6) + 1;
+  // Unwound past ±180 as it turns, so the lerps go the short way round.
+  const angles: number[] = [];
+  let at = 0;
+  let angle = first.angle;
   for (let i = 0; i < frames; i++) {
     const time = first.time + i * step;
     while (at < keys.length - 2 && keys[at + 1].time <= time) at++;
     const [a, b] = [keys[at], keys[at + 1]];
     const t = Math.min(Math.max((time - a.time) / (b.time - a.time), 0), 1);
-    const target = a.angle + turn(a.angle, b.angle) * t;
-    eased += turn(eased, target) * lerp;
-    twice += turn(twice, eased) * lerp;
-    out.push({ time, angle: ((twice + 540) % 360) - 180 });
+    angle += turn(angle, a.angle + turn(a.angle, b.angle) * t);
+    angles.push(angle);
   }
-  return out;
+  let eased = angles[0];
+  for (let i = 0; i < frames; i++) angles[i] = eased += (angles[i] - eased) * lerp;
+  for (let i = frames - 1; i >= 0; i--) angles[i] = eased += (angles[i] - eased) * lead;
+  return angles.map((angle, i) => ({
+    time: first.time + i * step,
+    angle: ((((angle + 180) % 360) + 360) % 360) - 180,
+  }));
 }
 
 export type LightPlacement = {

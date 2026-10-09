@@ -83,10 +83,9 @@ describe("trackLuma", () => {
     const xs = points.map((p) => p.x);
     expect(xs.every((x, i) => i === 0 || x >= xs[i - 1] - 1)).toBe(true);
     for (const p of points) expect(Math.abs(p.y - SOURCE.height / 2)).toBeLessThan(6);
-    // Behind the glow by no more than the smoothing (and the edge, where half
-    // of it is out of frame).
+    // On the glow, unsmoothed.
     const mid = points[30];
-    expect(Math.abs(mid.x - toSource({ x: W / 2, y: 0 }).x)).toBeLessThan(40);
+    expect(Math.abs(mid.x - toSource({ x: W / 2, y: 0 }).x)).toBeLessThan(10);
     expect(mid.strength).toBeGreaterThan(0.5);
   });
 
@@ -129,7 +128,7 @@ describe("trackLuma", () => {
     for (const p of points) expect(p.x).toBeLessThan(SOURCE.width / 2);
   });
 
-  it("moves to a light that stays brighter for holdSeconds, gliding there", () => {
+  it("moves to a light that stays brighter for holdSeconds, from when it got brighter", () => {
     const { points } = trackLuma(
       clip(4, (t) => [
         { x: 12, y: 18, level: 0.7 },
@@ -137,11 +136,12 @@ describe("trackLuma", () => {
       ]),
       SOURCE,
     );
-    const atSecond = (s: number) => points[Math.round(s * TRACK.fps)].x;
-    expect(atSecond(1 + TRACK.holdSeconds - 0.2)).toBeLessThan(SOURCE.width / 4);
-    expect(atSecond(4 - 0.1)).toBeGreaterThan(SOURCE.width * 0.75);
-    const steps = points.slice(1).map((p, i) => Math.abs(p.x - points[i].x));
-    expect(Math.max(...steps)).toBeLessThan(SOURCE.width / 2);
+    const atSecond = (s: number) => points[Math.round(s * TRACK.fps)];
+    expect(atSecond(1 - 0.1).x).toBeLessThan(SOURCE.width / 4);
+    for (const s of [1, 1 + TRACK.holdSeconds / 2, 4 - 0.1]) {
+      expect(atSecond(s).x).toBeGreaterThan(SOURCE.width * 0.75);
+      expect(atSecond(s).strength).toBeGreaterThan(0.8);
+    }
   });
 
   it("takes the brightest light at once when the followed one is gone (a cut)", () => {
