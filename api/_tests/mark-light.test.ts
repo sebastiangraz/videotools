@@ -33,6 +33,7 @@ describe("aimLight", () => {
 
   it("falls back to the fixed angle for a faint light, or one on the logo", () => {
     expect(angles([{ x: 1900, strength: 0 }, { x: 960 }], 30)).toEqual([30, 30]);
+    expect(angles([])).toEqual([-60]);
     // Halfway in on both counts: between the two.
     const half = angles([{ x: 960 + 50 * LIGHT.near, strength: LIGHT.minStrength / 2 }], 0)[0];
     expect(half).toBeGreaterThan(0);

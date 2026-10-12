@@ -39,6 +39,8 @@ export function aimLight(
   track: LightTrack,
   { fallback, centreAt, radius }: Omit<LightPlacement, "fps">,
 ): LightKey[] {
+  // Nothing sampled (the tracker's fps drops a still's one frame): no light.
+  if (!track.points.length) return [{ time: 0, angle: fallback }];
   const rad = (fallback * Math.PI) / 180;
   const [fx, fy] = [Math.sin(rad), -Math.cos(rad)];
   return track.points.map(({ time, x, y, strength }) => {
