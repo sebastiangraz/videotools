@@ -44,16 +44,12 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "blur", label: "Blur" },
 ];
 
-// Declared in reading order, which is the grid's order.
 const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
-// The preview shows one at a time, so switching one on switches the others off.
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
-  // Displacement map alone (red x, green y, olive no shift) over a light-gray frame.
+  // displacement red x, green y, olive no shift
   { value: "displacement", label: "Depth map" },
-  // Refraction only: no frost, tint, light, rim, shadow or logo (MARK_CLEAR).
   { value: "clear", label: "Pure glass" },
-  // The rim alone, as tuned, straight on the frame: no glass under it (MARK_RIM).
   { value: "rim", label: "Rim only" },
 ];
 
@@ -70,7 +66,6 @@ export const Mark = () => {
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
   const [debugView, setDebugView] = useState<MarkView>("render");
-  // Overrides the picked size while on (debug mode only).
   const [devSize, setDevSize] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
   const pickSize = (picked: MarkSize) => {
@@ -78,7 +73,7 @@ export const Mark = () => {
     setPickedSize(picked);
     setDevSize(false);
   };
-  // An image with no length is a still: there is no time to shuffle over.
+
   const still = source.file !== null && isStillImage(source.file) && source.duration === 0;
   const shuffling = rotatePosition && !still;
   const preview = useMarkPreview(
@@ -91,11 +86,11 @@ export const Mark = () => {
     debug ? debugView : "render",
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
-  // The zoom and its mask home in on the mark.
+
   const [markX, markY] = MARK_POSITIONS[preview.shownPosition];
 
   const sourceFile = source.file;
-  // A PNG is lossless whatever is asked of it, so it isn't asked.
+
   const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
   const aspectRatio = source.meta ? `${source.meta.w} / ${source.meta.h}` : "16 / 9";
   const { shownRender } = preview;
@@ -178,8 +173,6 @@ export const Mark = () => {
             className={styles.markPreview}
             style={{ aspectRatio }}
           >
-            {/* All stacked, only the scrubbed one shown, so scrubbing never
-              waits on an image decode. */}
             {preview.previewUrls.map(
               (url, i) =>
                 url && (
@@ -195,7 +188,7 @@ export const Mark = () => {
                   />
                 ),
             )}
-            {/* Under the renders, so they fade in over it. */}
+
             <FramePreview
               file={sourceFile}
               second={0}
@@ -273,8 +266,7 @@ export const Mark = () => {
             className={`${form.formGroup} ${styles.markPosition}`}
             data-shuffling={shuffling || undefined}
           >
-            {/* Place, or on hover Shuffle: the mark moves on from the picked
-              place every few seconds. A still only has Place. */}
+            {/* Images can't be shuffled */}
             {still ? (
               <span id="markPosition" className={`${form.label} ${styles.markPlace}`}>
                 Place
@@ -306,7 +298,6 @@ export const Mark = () => {
             />
           </div>
         )}
-        {/* Glass and blur take their shape from the logo. */}
         {watermark && (
           <div className={form.formGroup}>
             <span id="markFilter" className={form.label}>
