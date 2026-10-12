@@ -9,7 +9,7 @@ import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { hasFrames, stillFormat } from "../../sourceFormat";
+import { hasFrames, isStillImage, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import {
   MARK_POSITIONS,
@@ -78,13 +78,16 @@ export const Mark = () => {
     setPickedSize(picked);
     setDevSize(false);
   };
+  // An image with no length is a still: there is no time to shuffle over.
+  const still = source.file !== null && isStillImage(source.file) && source.duration === 0;
+  const shuffling = rotatePosition && !still;
   const preview = useMarkPreview(
     source.file,
     watermark,
     filterMode,
     size,
     position,
-    rotatePosition,
+    shuffling,
     debug ? debugView : "render",
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -121,7 +124,7 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, position, rotatePosition, quality },
+        options: { filter: filterMode, size, position, rotatePosition: shuffling, quality },
       }),
     });
   };
@@ -268,32 +271,38 @@ export const Mark = () => {
         {watermark && (
           <div
             className={`${form.formGroup} ${styles.markPosition}`}
-            data-shuffling={rotatePosition || undefined}
+            data-shuffling={shuffling || undefined}
           >
             {/* Place, or on hover Shuffle: the mark moves on from the picked
-              place every few seconds. */}
-            <button
-              type="button"
-              className={`${form.label} ${styles.markPlace}`}
-              aria-label="Shuffle"
-              aria-pressed={rotatePosition}
-              onClick={() => setRotatePosition((on) => !on)}
-              disabled={run.busy}
-            >
-              <span id="markPosition" className={styles.markPlaceIdle}>
+              place every few seconds. A still only has Place. */}
+            {still ? (
+              <span id="markPosition" className={`${form.label} ${styles.markPlace}`}>
                 Place
               </span>
-              <span className={styles.markPlaceShuffle}>
-                {rotatePosition ? "Shuffling" : "Shuffle?"}
-              </span>
-            </button>
+            ) : (
+              <button
+                type="button"
+                className={`${form.label} ${styles.markPlace}`}
+                aria-label="Shuffle"
+                aria-pressed={rotatePosition}
+                onClick={() => setRotatePosition((on) => !on)}
+                disabled={run.busy}
+              >
+                <span id="markPosition" className={styles.markPlaceIdle}>
+                  Place
+                </span>
+                <span className={styles.markPlaceShuffle}>
+                  {rotatePosition ? "Shuffling" : "Shuffle?"}
+                </span>
+              </button>
+            )}
             <ToggleGrid
               labelledBy="markPosition"
               options={POSITION_OPTIONS}
               value={position}
               onValueChange={pickPosition}
               disabled={run.busy}
-              shuffling={rotatePosition}
+              shuffling={shuffling}
             />
           </div>
         )}

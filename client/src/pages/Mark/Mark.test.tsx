@@ -137,6 +137,14 @@ describe("Mark", () => {
     });
   });
 
+  it("offers no shuffle for a still", async () => {
+    const user = userEvent.setup();
+    await renderApp("/mark");
+    await pickSource(user, file("shot.png", "image/png"));
+    await pickLogo(user);
+    expect(screen.queryByRole("button", { name: /shuffle/i })).not.toBeInTheDocument();
+  });
+
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
     const user = userEvent.setup();
     stubVideo();
