@@ -244,7 +244,7 @@ export function watermarkGraph(
     size = "medium",
     position = "bottom-right",
     view = "render",
-    rotatePosition = false,
+    route = [],
     light,
   }: {
     filter: MarkFilter;
@@ -254,7 +254,7 @@ export function watermarkGraph(
     size?: MarkSize;
     position?: MarkPosition;
     view?: MarkView;
-    rotatePosition?: boolean;
+    route?: MarkPosition[];
     light?: MarkLight | null;
   },
 ): string {
@@ -266,15 +266,11 @@ export function watermarkGraph(
         : MARK;
   const layout = watermarkLayout(video, bounds, size, position);
   const { VW, VH, LW, LH, margin } = layout;
-  // Rotating, the mark stops at every position in turn from `position` on, 4
-  // along each time so it jumps across the frame. The clip divides into equal
-  // stays, as many as rotateCadence fits but two at least, so it opens and
-  // closes on a whole mark. A clip of unknown length stays put.
-  const rotating = rotatePosition && video.duration > 0;
-  const names = Object.keys(MARK_POSITIONS) as MarkPosition[];
-  const stops = names.map((_, i) =>
-    watermarkLayout(video, bounds, size, names[(names.indexOf(position) + 4 * i) % names.length]),
-  );
+  // Given a route, the mark stops at each of its positions in turn, looping
+  // it. The clip divides into equal stays, as many as rotateCadence fits but
+  // two at least, so it opens and closes on a whole mark. A clip of unknown length stays put.
+  const rotating = route.length > 1 && video.duration > 0;
+  const stops = route.map((at) => watermarkLayout(video, bounds, size, at));
   const stays = Math.max(2, Math.floor(video.duration / M.rotateCadence));
   const period = video.duration / stays;
   // Short stays keep half their time whole.

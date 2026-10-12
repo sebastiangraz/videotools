@@ -38,7 +38,7 @@ type MarkLook = {
   size?: MarkSize;
   position?: MarkPosition;
   view?: MarkView;
-  rotatePosition?: boolean;
+  route?: MarkPosition[];
 };
 
 async function addWatermark(
@@ -50,7 +50,7 @@ async function addWatermark(
     size = "medium",
     position = "bottom-right",
     view,
-    rotatePosition,
+    route,
   }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
@@ -73,7 +73,7 @@ async function addWatermark(
     size,
     position,
     view,
-    rotatePosition,
+    route,
   });
   await light?.write();
   return sourceRender(source, {
@@ -216,7 +216,8 @@ export const mark: Tool = {
     const size = isMarkSize(options.size) ? options.size : "medium";
     const position = isMarkPosition(options.position) ? options.position : "bottom-right";
     const view = isMarkView(options.view) ? options.view : "render";
-    const rotatePosition = options.rotatePosition === true;
+    const route =
+      Array.isArray(options.route) && options.route.every(isMarkPosition) ? options.route : [];
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     const source = await openSource(job, inputs[0]);
@@ -226,7 +227,7 @@ export const mark: Tool = {
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
     console.log(
-      `Adding watermark to ${format} (${size}, ${filter}, ${position}${rotatePosition ? " rotating" : ""}, quality ${quality})...`,
+      `Adding watermark to ${format} (${size}, ${filter}, ${position}${route.length > 1 ? " shuffled" : ""}, quality ${quality})...`,
     );
 
     const render = await addWatermark(job, source, {
@@ -235,7 +236,7 @@ export const mark: Tool = {
       size,
       position,
       view,
-      rotatePosition,
+      route,
     });
     const outputPath = still
       ? await encodeStill(job, render, { format: still, quality })

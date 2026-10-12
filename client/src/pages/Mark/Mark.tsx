@@ -13,6 +13,7 @@ import { hasFrames, isStillImage, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import {
   MARK_POSITIONS,
+  shuffleRoute,
   useMarkPreview,
   type MarkFilter,
   type MarkPosition,
@@ -66,7 +67,8 @@ export const Mark = () => {
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("medium");
   const [position, setPosition] = useState<MarkPosition>("bottom-right");
-  const [rotatePosition, setRotatePosition] = useState(false);
+  // Reshuffled for each export.
+  const [shuffle, setShuffle] = useState<MarkPosition[] | null>(null);
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
@@ -80,14 +82,15 @@ export const Mark = () => {
   };
 
   const still = source.file !== null && isStillImage(source.file) && source.duration === 0;
-  const shuffling = rotatePosition && !still;
+  const route = still ? null : shuffle;
+  const shuffling = route !== null;
   const preview = useMarkPreview(
     source.file,
     watermark,
     filterMode,
     size,
     position,
-    shuffling,
+    route,
     debug ? debugView : "render",
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -102,7 +105,7 @@ export const Mark = () => {
 
   const pickPosition = (picked: MarkPosition) => {
     setPosition(picked);
-    setRotatePosition(false);
+    setShuffle(null);
   };
 
   const pick = (picked: File[]) => {
@@ -124,9 +127,10 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, position, rotatePosition: shuffling, quality },
+        options: { filter: filterMode, size, position, route, quality },
       }),
     });
+    if (route) setShuffle(shuffleRoute(position));
   };
 
   return (
@@ -292,15 +296,15 @@ export const Mark = () => {
                 type="button"
                 className={`${form.label} ${styles.markPlace}`}
                 aria-label="Shuffle"
-                aria-pressed={rotatePosition}
-                onClick={() => setRotatePosition((on) => !on)}
+                aria-pressed={shuffle !== null}
+                onClick={() => setShuffle((on) => (on ? null : shuffleRoute(position)))}
                 disabled={run.busy}
               >
                 <span id="markPosition" className={styles.markPlaceIdle}>
                   Place
                 </span>
                 <span className={styles.markPlaceShuffle}>
-                  {rotatePosition ? "Shuffling" : "Shuffle?"}
+                  {shuffle ? "Shuffling" : "Shuffle?"}
                 </span>
               </button>
             )}

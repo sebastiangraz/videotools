@@ -314,21 +314,20 @@ describe("watermarkGraph", () => {
     }
   });
 
-  it("rotates through every position from the one it is given, clear at each move", () => {
+  it("follows its route a stop per stay, clear at each move", () => {
     const clip = { ...video, duration: 60 };
-    const positions = Object.keys(MARK_POSITIONS) as (keyof typeof MARK_POSITIONS)[];
+    const route = ["left", "top-right", "bottom", "center"] as const;
     for (const filter of MARK_FILTERS) {
-      const graph = watermarkGraph(clip, logo, { filter, position: "left", rotatePosition: true });
+      const graph = watermarkGraph(clip, logo, { filter, position: "left", route: [...route] });
       // Each stop's corner in turn, as the mark's (last) overlay picks them
       const [, xs, ys] = /.*overlay=x='[^;]+;([^']+)':y='[^;]+;([^']+)'/.exec(graph)!;
       const stops = xs.split("+").map((x, i) => `${parseInt(x)},${parseInt(ys.split("+")[i])}`);
       const p = filter === "plain" ? 0 : watermarkLayout(clip, logo).margin;
-      const corner = (position: (typeof positions)[number]) => {
+      const corner = (position: (typeof route)[number]) => {
         const l = watermarkLayout(clip, logo, "medium", position);
         return `${l.LX - p},${l.LY - p}`;
       };
-      expect(stops[0]).toBe(corner("left"));
-      expect([...stops].sort()).toEqual(positions.map(corner).sort());
+      expect(stops).toEqual(route.map(corner));
       expect(graph).toContain("[clock]");
       expect(watermarkGraph(clip, logo, { filter })).not.toContain("[clock]");
     }
@@ -339,7 +338,7 @@ describe("watermarkGraph", () => {
       const duration = cadences * MARK.rotateCadence;
       const graph = watermarkGraph({ ...video, duration }, logo, {
         filter: "plain",
-        rotatePosition: true,
+        route: ["top", "bottom"],
       });
       // The stay's length and the last stay's index, as the stop is picked
       const [period, last] = /floor\(t\/([\d.]+)\),(\d+)\)/.exec(graph)!.slice(1).map(Number);
@@ -352,7 +351,7 @@ describe("watermarkGraph", () => {
   });
 
   it("stays put while rotating a clip of unknown length", () => {
-    expect(watermarkGraph(video, logo, { filter: "glass", rotatePosition: true })).toBe(
+    expect(watermarkGraph(video, logo, { filter: "glass", route: ["top", "bottom"] })).toBe(
       watermarkGraph(video, logo, { filter: "glass" }),
     );
   });

@@ -19,7 +19,7 @@ import {
   stubMediaLoading,
   stubProperties,
 } from "../../test/media";
-import { SCRUB_FRAMES } from "./useMarkPreview";
+import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
 
 type User = ReturnType<typeof userEvent.setup>;
 const markButton = () => screen.getByRole("button", { name: /^mark$/i });
@@ -272,17 +272,16 @@ describe("Mark", () => {
     fireEvent.pointerEnter(strips[0]);
     expect(within(preview).getByAltText(/watermarked frame/i)).toBe(first);
 
-    // Rotating, each frame shows the mark where its stay puts it: 10s at the
-    // cadence of 2 is five stays, each 4 positions on from the last
+    // Shuffling, each frame shows the mark where its stay puts it: 10s at the
+    // cadence of 2 is five stays, each somewhere new
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2 * SCRUB_FRAMES));
     const positions = Array.from(
       { length: SCRUB_FRAMES },
       (_, n) => postedBody(fetchMock, SCRUB_FRAMES + n).position,
     );
-    expect(positions).toEqual(
-      expect.arrayContaining(["bottom-right", "left", "bottom", "top-right", "bottom-left"]),
-    );
+    expect(positions[0]).toBe("bottom-right");
+    expect(new Set(positions).size).toBe(5);
   });
 
   it("says it is loading until every render of a set has landed, and keeps the last set up meanwhile", async () => {
@@ -368,9 +367,26 @@ describe("Mark", () => {
         filter: "blur",
         size: "small",
         position: "bottom-right",
-        rotatePosition: true,
+        route: expect.any(Array),
         quality: 100,
       },
     });
+  });
+});
+
+describe("shuffleRoute", () => {
+  it("spends every position before any comes round again, never twice running", () => {
+    for (let run = 0; run < 100; run++) {
+      const route = shuffleRoute("top");
+      expect(route[0]).toBe("top");
+      for (let bag = 0; bag < route.length; bag += 9) {
+        expect(new Set(route.slice(bag, bag + 9)).size).toBe(9);
+      }
+      route.forEach((at, i) => expect(at).not.toBe(route[(i + 1) % route.length]));
+    }
+  });
+
+  it("draws a new route each time", () => {
+    expect(shuffleRoute("top")).not.toEqual(shuffleRoute("top"));
   });
 });
