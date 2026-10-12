@@ -22,6 +22,7 @@ window.matchMedia ??= (query) => ({ matches: false, media: query }) as MediaQuer
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.mocked(upload).mockReset();
+  localStorage.clear();
   // jsdom implements neither of these
   URL.createObjectURL = vi.fn(() => "blob:mock");
   URL.revokeObjectURL = vi.fn();

@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import {
   blobUrl,
+  downloadedName,
+  enableVerboseNames,
   postedBody,
   renderApp,
   runFinished,
@@ -19,7 +21,7 @@ import {
   stubMediaLoading,
   stubProperties,
 } from "../../test/media";
-import { SCRUB_FRAMES } from "./useMarkPreview";
+import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
 
 type User = ReturnType<typeof userEvent.setup>;
 const markButton = () => screen.getByRole("button", { name: /^mark$/i });
@@ -135,6 +137,14 @@ describe("Mark", () => {
       blobUrl: blobUrl("shot.png"),
       watermarkUrl: blobUrl("logo.png"),
     });
+  });
+
+  it("offers no shuffle for a still", async () => {
+    const user = userEvent.setup();
+    await renderApp("/mark");
+    await pickSource(user, file("shot.png", "image/png"));
+    await pickLogo(user);
+    expect(screen.queryByRole("button", { name: /shuffle/i })).not.toBeInTheDocument();
   });
 
   it("previews the first frame through the server once both are picked, and again when filter mode changes", async () => {
@@ -264,17 +274,16 @@ describe("Mark", () => {
     fireEvent.pointerEnter(strips[0]);
     expect(within(preview).getByAltText(/watermarked frame/i)).toBe(first);
 
-    // Rotating, each frame shows the mark where its stay puts it: 10s at the
-    // cadence of 2 is five stays, each 4 positions on from the last
+    // Shuffling, each frame shows the mark where its stay puts it: 10s at the
+    // cadence of 2 is five stays, each somewhere new
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2 * SCRUB_FRAMES));
     const positions = Array.from(
       { length: SCRUB_FRAMES },
       (_, n) => postedBody(fetchMock, SCRUB_FRAMES + n).position,
     );
-    expect(positions).toEqual(
-      expect.arrayContaining(["bottom-right", "left", "bottom", "top-right", "bottom-left"]),
-    );
+    expect(positions[0]).toBe("bottom-right");
+    expect(new Set(positions).size).toBe(5);
   });
 
   it("says it is loading until every render of a set has landed, and keeps the last set up meanwhile", async () => {
@@ -360,9 +369,41 @@ describe("Mark", () => {
         filter: "blur",
         size: "small",
         position: "bottom-right",
-        rotatePosition: true,
+        route: expect.any(Array),
         quality: 100,
       },
     });
+  });
+
+  it("names a verbose download after the watermark too, leaving out an unshuffled route", async () => {
+    const user = userEvent.setup();
+    uploadMock.mockImplementation(async (name: string) => ({ url: blobUrl(name) }));
+    const fetchMock = stubProcessFetch();
+
+    await renderApp("/mark");
+    await enableVerboseNames(user);
+    await pickSource(user, file("clip.mp4", "video/mp4"));
+    await pickLogo(user);
+    await user.click(markButton());
+
+    await runFinished(fetchMock);
+    expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
+  });
+});
+
+describe("shuffleRoute", () => {
+  it("spends every position before any comes round again, never twice running", () => {
+    for (let run = 0; run < 100; run++) {
+      const route = shuffleRoute("top");
+      expect(route[0]).toBe("top");
+      for (let bag = 0; bag < route.length; bag += 9) {
+        expect(new Set(route.slice(bag, bag + 9)).size).toBe(9);
+      }
+      route.forEach((at, i) => expect(at).not.toBe(route[(i + 1) % route.length]));
+    }
+  });
+
+  it("draws a new route each time", () => {
+    expect(shuffleRoute("top")).not.toEqual(shuffleRoute("top"));
   });
 });

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ToolId } from "../tools";
-import { shortenFilename } from "../helpers";
+import { shortenFilename, verboseName } from "../helpers";
 
 // Best effort: the server sweeps leftovers anyway.
 function deleteBlobs(urls: string[]) {
@@ -14,12 +14,14 @@ function deleteBlobs(urls: string[]) {
 }
 
 // `extras`: further uploads with their own status line (mark's logo).
+// `onDone`: once the result has downloaded.
 interface RunRequest {
   files: File[];
   extras?: { file: File; status: string }[];
   payload: (urls: { blobUrls: string[]; extraUrls: string[] }) => {
     options: Record<string, unknown>;
   } & Record<string, unknown>;
+  onDone?: () => void;
 }
 
 // Temporary: the "verbose" switch by the tabs names downloads after their settings.
@@ -35,7 +37,7 @@ export function useToolRun(tool: ToolId) {
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const run = async ({ files, extras = [], payload }: RunRequest) => {
+  const run = async ({ files, extras = [], payload, onDone }: RunRequest) => {
     if (busy) return;
     setBusy(true);
     setErrorDetail(null);
@@ -83,22 +85,13 @@ export function useToolRun(tool: ToolId) {
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
       const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
-      // Verbose: 6 characters of the source, the extras' names, then each setting
-      // as key initials + value (fadeDuration 0.7 → fd0.7, true → Y, false left out).
       const downloadName = verbose
-        ? [
-            base.slice(0, 6),
-            ...extras.map(({ file }) => file.name),
-            ...Object.entries(body.options)
-              .filter(([, value]) => value !== false)
-              .map(
-                ([key, value]) =>
-                  key.replace(/\B[a-z]+/g, "").toLowerCase() +
-                  (value === true
-                    ? "Y"
-                    : String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())),
-              ),
-          ].join("_") + resultName.slice(resultName.lastIndexOf("."))
+        ? verboseName(
+            base,
+            extras.map(({ file }) => file.name),
+            body.options,
+            resultName,
+          )
         : resultName || `${base}_${tool}${ext}`;
 
       setMsg(`Downloading ${shortenFilename(files[0])}`);
@@ -114,6 +107,7 @@ export function useToolRun(tool: ToolId) {
       URL.revokeObjectURL(objectUrl);
 
       deleteBlobs([url]);
+      onDone?.();
     } catch (err: unknown) {
       // The server only deletes inputs once it runs; double deletes are harmless.
       const uploaded = [...blobUrls, ...extraUrls];

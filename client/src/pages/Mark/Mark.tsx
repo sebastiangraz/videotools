@@ -9,10 +9,11 @@ import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
-import { hasFrames, stillFormat } from "../../sourceFormat";
+import { hasFrames, isStillImage, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import {
   MARK_POSITIONS,
+  shuffleRoute,
   useMarkPreview,
   type MarkFilter,
   type MarkPosition,
@@ -44,16 +45,17 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "blur", label: "Blur" },
 ];
 
-// Declared in reading order, which is the grid's order.
 const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
-// The preview shows one at a time, so switching one on switches the others off.
+const formatClock = (seconds: number) => {
+  const whole = Math.floor(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+};
+
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
-  // Displacement map alone (red x, green y, olive no shift) over a light-gray frame.
+  // displacement red x, green y, olive no shift
   { value: "displacement", label: "Depth map" },
-  // Refraction only: no frost, tint, light, rim, shadow or logo (MARK_CLEAR).
   { value: "clear", label: "Pure glass" },
-  // The rim alone, as tuned, straight on the frame: no glass under it (MARK_RIM).
   { value: "rim", label: "Rim only" },
 ];
 
@@ -65,12 +67,12 @@ export const Mark = () => {
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("medium");
   const [position, setPosition] = useState<MarkPosition>("bottom-right");
-  const [rotatePosition, setRotatePosition] = useState(false);
+  // Reshuffled for each export.
+  const [shuffle, setShuffle] = useState<MarkPosition[] | null>(null);
   const [quality, setQuality] = useState<number>(100);
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
   const [debugView, setDebugView] = useState<MarkView>("render");
-  // Overrides the picked size while on (debug mode only).
   const [devSize, setDevSize] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
   const pickSize = (picked: MarkSize) => {
@@ -78,28 +80,32 @@ export const Mark = () => {
     setPickedSize(picked);
     setDevSize(false);
   };
+
+  const still = source.file !== null && isStillImage(source.file) && source.duration === 0;
+  const route = still ? null : shuffle;
+  const shuffling = route !== null;
   const preview = useMarkPreview(
     source.file,
     watermark,
     filterMode,
     size,
     position,
-    rotatePosition,
+    route,
     debug ? debugView : "render",
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
-  // The zoom and its mask home in on the mark.
+
   const [markX, markY] = MARK_POSITIONS[preview.shownPosition];
 
   const sourceFile = source.file;
-  // A PNG is lossless whatever is asked of it, so it isn't asked.
+
   const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
   const aspectRatio = source.meta ? `${source.meta.w} / ${source.meta.h}` : "16 / 9";
   const { shownRender } = preview;
 
   const pickPosition = (picked: MarkPosition) => {
     setPosition(picked);
-    setRotatePosition(false);
+    setShuffle(null);
   };
 
   const pick = (picked: File[]) => {
@@ -121,8 +127,9 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, position, rotatePosition, quality },
+        options: { filter: filterMode, size, position, route, quality },
       }),
+      onDone: () => route && setShuffle(shuffleRoute(position)),
     });
   };
 
@@ -156,10 +163,21 @@ export const Mark = () => {
     >
       {sourceFile && hasFrames(sourceFile) && watermark && (
         <Tooltip
-          content={"Toggle zoom"}
-          delay={100}
+          content={
+            preview.frameCount > 1 ? (
+              <span className={styles.markPreviewTooltip}>
+                <span className={styles.markPreviewClock}>
+                  {formatClock(preview.shownSecond)} / {formatClock(Math.round(preview.duration))}
+                </span>
+                {previewZoomed ? "Zoom out" : "Zoom in"}
+              </span>
+            ) : (
+              `${previewZoomed ? "Zoom out" : "Zoom in"}`
+            )
+          }
+          delay={0}
           align="end"
-          disabled={previewZoomed}
+          stretch
           render={
             <div
               ref={previewRef}
@@ -175,8 +193,6 @@ export const Mark = () => {
             className={styles.markPreview}
             style={{ aspectRatio }}
           >
-            {/* All stacked, only the scrubbed one shown, so scrubbing never
-              waits on an image decode. */}
             {preview.previewUrls.map(
               (url, i) =>
                 url && (
@@ -192,7 +208,7 @@ export const Mark = () => {
                   />
                 ),
             )}
-            {/* Under the renders, so they fade in over it. */}
+
             <FramePreview
               file={sourceFile}
               second={0}
@@ -268,36 +284,40 @@ export const Mark = () => {
         {watermark && (
           <div
             className={`${form.formGroup} ${styles.markPosition}`}
-            data-shuffling={rotatePosition || undefined}
+            data-shuffling={shuffling || undefined}
           >
-            {/* Place, or on hover Shuffle: the mark moves on from the picked
-              place every few seconds. */}
-            <button
-              type="button"
-              className={`${form.label} ${styles.markPlace}`}
-              aria-label="Shuffle"
-              aria-pressed={rotatePosition}
-              onClick={() => setRotatePosition((on) => !on)}
-              disabled={run.busy}
-            >
-              <span id="markPosition" className={styles.markPlaceIdle}>
+            {/* Images can't be shuffled */}
+            {still ? (
+              <span id="markPosition" className={`${form.label} ${styles.markPlace}`}>
                 Place
               </span>
-              <span className={styles.markPlaceShuffle}>
-                {rotatePosition ? "Shuffling" : "Shuffle?"}
-              </span>
-            </button>
+            ) : (
+              <button
+                type="button"
+                className={`${form.label} ${styles.markPlace}`}
+                aria-label="Shuffle"
+                aria-pressed={shuffle !== null}
+                onClick={() => setShuffle((on) => (on ? null : shuffleRoute(position)))}
+                disabled={run.busy}
+              >
+                <span id="markPosition" className={styles.markPlaceIdle}>
+                  Place
+                </span>
+                <span className={styles.markPlaceShuffle}>
+                  {shuffle ? "Shuffling" : "Shuffle?"}
+                </span>
+              </button>
+            )}
             <ToggleGrid
               labelledBy="markPosition"
               options={POSITION_OPTIONS}
               value={position}
               onValueChange={pickPosition}
               disabled={run.busy}
-              shuffling={rotatePosition}
+              shuffling={shuffling}
             />
           </div>
         )}
-        {/* Glass and blur take their shape from the logo. */}
         {watermark && (
           <div className={form.formGroup}>
             <span id="markFilter" className={form.label}>

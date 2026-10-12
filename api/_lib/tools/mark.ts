@@ -20,6 +20,7 @@ import {
   type MarkSize,
   type MarkView,
 } from "./mark-graph.js";
+import { followLight } from "./mark-light.js";
 import type { Tool, ToolJob } from "./types.js";
 
 // mjpeg -q:v: 1 finest – 31 coarsest.
@@ -28,16 +29,20 @@ const PREVIEW_JPEG_Q = "3";
 // SVG raster square side: the frame's long side, clamped.
 const SVG_SIDE = { min: 512, max: 4096, fallback: 1920 };
 
+// Only the glass has a light to aim; the depth map shows none.
+const lit = (filter: MarkFilter, view: MarkView | undefined) =>
+  filter === "glass" && view !== "displacement";
+
 type MarkLook = {
   filter?: MarkFilter;
   size?: MarkSize;
   position?: MarkPosition;
   view?: MarkView;
-  rotatePosition?: boolean;
+  route?: MarkPosition[];
 };
 
 async function addWatermark(
-  ff: FFmpeg,
+  { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
   source: Source,
   {
     logoFile,
@@ -45,25 +50,32 @@ async function addWatermark(
     size = "medium",
     position = "bottom-right",
     view,
-    rotatePosition,
+    route,
   }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
   const frame = source.still
     ? { ...source.profile, ...(await ff.shownSize(source.path)) }
     : source.profile;
-  const { logoPng, logo } = await openLogo(ff, logoFile, frame);
+  const [{ logoPng, logo }, light] = await Promise.all([
+    openLogo(ff, logoFile, frame),
+    lit(filter, view)
+      ? followLight(ff, source.path, { ...frame, videoIndex: source.profile.videoIndex }, workDir)
+      : null,
+  ]);
   const graph = watermarkGraph(frame, logo, {
     filter,
     bounds: await logoBounds(ff, logoPng, logo),
+    light,
     // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
     base: source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p",
     pad: videoPad(source),
     size,
     position,
     view,
-    rotatePosition,
+    route,
   });
+  await light?.write();
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
     inputArgs: ["-i", source.path, "-i", logoPng],
@@ -87,14 +99,19 @@ export async function renderWatermarkFrame(
   }: MarkLook & { frameFile: string; logoFile: string },
 ): Promise<string> {
   const frame = await ff.mediaInfo(frameFile);
-  const { logoPng, logo } = await openLogo(ff, logoFile, frame);
+  const [{ logoPng, logo }, light] = await Promise.all([
+    openLogo(ff, logoFile, frame),
+    lit(filter, view) ? followLight(ff, frameFile, frame, workDir) : null,
+  ]);
   const graph = watermarkGraph(frame, logo, {
     filter,
     bounds: await logoBounds(ff, logoPng, logo),
     size,
     position,
     view,
+    light,
   });
+  await light?.write();
 
   const outputFile = path.join(workDir, "preview.jpg");
   await ff.runFFmpeg([
@@ -194,12 +211,13 @@ export const mark: Tool = {
     return [blobUrl, watermarkUrl];
   },
   async run(job) {
-    const { ff, workDir, inputs, options, download } = job;
+    const { workDir, inputs, options, download } = job;
     const filter = isMarkFilter(options.filter) ? options.filter : "glass";
     const size = isMarkSize(options.size) ? options.size : "medium";
     const position = isMarkPosition(options.position) ? options.position : "bottom-right";
     const view = isMarkView(options.view) ? options.view : "render";
-    const rotatePosition = options.rotatePosition === true;
+    const route =
+      Array.isArray(options.route) && options.route.every(isMarkPosition) ? options.route : [];
     const quality = Math.round(clamp(options.quality, 1, 100, 90));
 
     const source = await openSource(job, inputs[0]);
@@ -209,16 +227,16 @@ export const mark: Tool = {
     const logoPath = path.join(workDir, "logo.png");
     await download(inputs[1], logoPath);
     console.log(
-      `Adding watermark to ${format} (${size}, ${filter}, ${position}${rotatePosition ? " rotating" : ""}, quality ${quality})...`,
+      `Adding watermark to ${format} (${size}, ${filter}, ${position}${route.length > 1 ? " shuffled" : ""}, quality ${quality})...`,
     );
 
-    const render = await addWatermark(ff, source, {
+    const render = await addWatermark(job, source, {
       logoFile: logoPath,
       filter,
       size,
       position,
       view,
-      rotatePosition,
+      route,
     });
     const outputPath = still
       ? await encodeStill(job, render, { format: still, quality })

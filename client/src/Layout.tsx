@@ -1,5 +1,5 @@
 import { Link, Outlet, useParams } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
@@ -21,6 +21,9 @@ const VERBOSE_OPTIONS = [
   { value: "disabled", label: "Disabled" },
   { value: "enabled", label: "Enabled" },
 ] as const;
+
+// Persisted in localStorage; index.html also reads themeInvert before first paint.
+const DEFAULT_SETTINGS = { verbose: false, themeInvert: false };
 
 const Logo = () => (
   <div className={appStyles.logo}>
@@ -49,10 +52,14 @@ export const Layout = () => {
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   const debug = useDebugMode();
-  const [verbose, setVerbose] = useState(false);
-  const [invert, setInvert] = useState(() =>
-    document.documentElement.hasAttribute("data-theme-invert"),
-  );
+  const [settings, setSettings] = useState<typeof DEFAULT_SETTINGS>(() => ({
+    ...DEFAULT_SETTINGS,
+    ...JSON.parse(localStorage.getItem("settings") ?? "{}"),
+  }));
+  useEffect(() => {
+    localStorage.setItem("settings", JSON.stringify(settings));
+    document.documentElement.toggleAttribute("data-theme-invert", settings.themeInvert);
+  }, [settings]);
   const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
 
   return (
@@ -117,8 +124,10 @@ export const Layout = () => {
                 labelledBy="verbose"
                 options={VERBOSE_OPTIONS}
                 toggle
-                value={verbose ? "enabled" : "disabled"}
-                onValueChange={(value) => setVerbose(value === "enabled")}
+                value={settings.verbose ? "enabled" : "disabled"}
+                onValueChange={(value) =>
+                  setSettings({ ...settings, verbose: value === "enabled" })
+                }
                 disabled={false}
                 size="small"
               />
@@ -131,13 +140,10 @@ export const Layout = () => {
                 labelledBy="theme"
                 options={THEME_OPTIONS}
                 toggle
-                value={systemDark !== invert ? "dark" : "light"}
-                onValueChange={(theme) => {
-                  const next = (theme === "dark") !== systemDark;
-                  document.documentElement.toggleAttribute("data-theme-invert", next);
-                  localStorage.setItem("theme-invert", next ? "1" : "0");
-                  setInvert(next);
-                }}
+                value={systemDark !== settings.themeInvert ? "dark" : "light"}
+                onValueChange={(theme) =>
+                  setSettings({ ...settings, themeInvert: (theme === "dark") !== systemDark })
+                }
                 disabled={false}
                 size="small"
               />
@@ -145,7 +151,7 @@ export const Layout = () => {
           </Popover>
         </Tabs>
         <main className={appStyles.main}>
-          <VerboseNames value={verbose}>
+          <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>
         </main>

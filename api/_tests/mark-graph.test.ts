@@ -292,21 +292,42 @@ describe("watermarkGraph", () => {
     }
   });
 
-  it("rotates through every position from the one it is given, clear at each move", () => {
+  it("gives the shadow room for its whole blur and offset, whatever the size and position", () => {
+    for (const size of Object.keys(MARK_SIZES) as (keyof typeof MARK_SIZES)[]) {
+      for (const position of Object.keys(MARK_POSITIONS) as (keyof typeof MARK_POSITIONS)[]) {
+        const l = watermarkLayout(video, logo, size, position);
+        const graph = watermarkGraph(video, logo, { filter: "glass", size, position });
+        const [, w, h, x, y, sigma] =
+          /pad=(\d+):(\d+):(\d+):(\d+):[^;]*gblur=sigma=([\d.]+)[^;]*\[shadow\]/
+            .exec(graph)!
+            .map(Number);
+        // 3σ clear on every side of the offset logo
+        expect(y).toBeGreaterThan(x);
+        expect(x).toBeGreaterThanOrEqual(3 * sigma);
+        expect(w - l.LW - x).toBeGreaterThanOrEqual(3 * sigma);
+        expect(h - l.LH - y).toBeGreaterThanOrEqual(3 * sigma);
+        // on the frame around the logo (off its edge if need be), corner even
+        expect(graph).toContain(`[base][shadow]overlay=x=${l.LX - x}:y=${l.LY - x},`);
+        expect((l.LX - x) & 1).toBe(0);
+        expect((l.LY - x) & 1).toBe(0);
+      }
+    }
+  });
+
+  it("follows its route a stop per stay, clear at each move", () => {
     const clip = { ...video, duration: 60 };
-    const positions = Object.keys(MARK_POSITIONS) as (keyof typeof MARK_POSITIONS)[];
+    const route = ["left", "top-right", "bottom", "center"] as const;
     for (const filter of MARK_FILTERS) {
-      const graph = watermarkGraph(clip, logo, { filter, position: "left", rotatePosition: true });
-      // Each stop's corner in turn, as overlay picks them
-      const [, xs, ys] = /overlay=x='[^;]+;([^']+)':y='[^;]+;([^']+)'/.exec(graph)!;
+      const graph = watermarkGraph(clip, logo, { filter, position: "left", route: [...route] });
+      // Each stop's corner in turn, as the mark's (last) overlay picks them
+      const [, xs, ys] = /.*overlay=x='[^;]+;([^']+)':y='[^;]+;([^']+)'/.exec(graph)!;
       const stops = xs.split("+").map((x, i) => `${parseInt(x)},${parseInt(ys.split("+")[i])}`);
       const p = filter === "plain" ? 0 : watermarkLayout(clip, logo).margin;
-      const corner = (position: (typeof positions)[number]) => {
+      const corner = (position: (typeof route)[number]) => {
         const l = watermarkLayout(clip, logo, "medium", position);
         return `${l.LX - p},${l.LY - p}`;
       };
-      expect(stops[0]).toBe(corner("left"));
-      expect([...stops].sort()).toEqual(positions.map(corner).sort());
+      expect(stops).toEqual(route.map(corner));
       expect(graph).toContain("[clock]");
       expect(watermarkGraph(clip, logo, { filter })).not.toContain("[clock]");
     }
@@ -317,7 +338,7 @@ describe("watermarkGraph", () => {
       const duration = cadences * MARK.rotateCadence;
       const graph = watermarkGraph({ ...video, duration }, logo, {
         filter: "plain",
-        rotatePosition: true,
+        route: ["top", "bottom"],
       });
       // The stay's length and the last stay's index, as the stop is picked
       const [period, last] = /floor\(t\/([\d.]+)\),(\d+)\)/.exec(graph)!.slice(1).map(Number);
@@ -330,7 +351,7 @@ describe("watermarkGraph", () => {
   });
 
   it("stays put while rotating a clip of unknown length", () => {
-    expect(watermarkGraph(video, logo, { filter: "glass", rotatePosition: true })).toBe(
+    expect(watermarkGraph(video, logo, { filter: "glass", route: ["top", "bottom"] })).toBe(
       watermarkGraph(video, logo, { filter: "glass" }),
     );
   });
@@ -364,6 +385,11 @@ describe("watermarkGraph", () => {
     /convolution=0m='-1 0 1 -2 0 2 -1 0 1':0rdiv=[^:]*/.exec(graph)?.[0];
   const opacities = (graph: string) =>
     [...graph.matchAll(/colorchannelmixer=aa=([\d.]+)/g)].map(([, aa]) => Number(aa));
+  // The lit rim's and the glint's opacities, as the rim light weighs them
+  const rimLevels = (graph: string) => {
+    const [, rim, glint] = /st\(2,([\d.]+)\*.*;st\(3,([\d.]+)\*/.exec(graph) ?? [];
+    return { rim: Number(rim), glint: Number(glint) };
+  };
 
   it("shows the displacement map over a light-gray frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
@@ -385,14 +411,14 @@ describe("watermarkGraph", () => {
 
   it("clears the glass of all but its refraction, over the frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
-    expect(opacities(glass).some((aa) => aa > 0)).toBe(true);
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, view: "clear" });
       expect(graph).not.toContain("drawbox");
       expect(graph).toContain("remap=");
-      // No frost; shadow, faint logo and rim all transparent
+      // No frost; shadow, rim and glint all transparent
       expect(graph).toContain("gblur=sigma=0.00:steps=2");
       expect(opacities(graph).every((aa) => aa === 0)).toBe(true);
+      expect(rimLevels(graph)).toEqual({ rim: 0, glint: 0 });
       // and the lens as tuned
       expect(lens(graph)).toBeDefined();
       expect(lens(graph)).toBe(lens(glass));
@@ -410,9 +436,10 @@ describe("watermarkGraph", () => {
       expect(graph).toMatch(
         /^\[0:v\][^;]*,split\[undimmed\]\[src\];\[undimmed\]lutyuv=[^;]*\[base\]/,
       );
-      // Glass, shadow and faint logo transparent; the rim at its own opacity
+      // Glass and shadow transparent; rim and glint at their own opacities
       expect(graph).toMatch(/\[m1\]alphamerge,colorchannelmixer=aa=0\[glass\]/);
-      expect(opacities(graph).filter((aa) => aa > 0)).toEqual([MARK.rimOpacity]);
+      expect(opacities(graph).filter((aa) => aa > 0)).toEqual([]);
+      expect(rimLevels(graph)).toEqual({ rim: MARK.rimOpacity, glint: MARK.glint });
       // painted and lit as in the render, off the same lens
       expect(rimPaint(graph)).toBeDefined();
       expect(rimPaint(graph)).toBe(rimPaint(glass));

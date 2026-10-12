@@ -1,8 +1,10 @@
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { cleanup, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import {
   blobUrl,
+  downloadedName,
+  enableVerboseNames,
   postedBody,
   renderApp,
   runFinished,
@@ -131,6 +133,35 @@ describe("App", () => {
         quality: 100,
       },
     });
+    expect(downloadedName()).toBe("out.mp4");
+  });
+
+  it("names the download after the source and settings once verbose names are on", async () => {
+    const user = userEvent.setup();
+    uploadMock.mockResolvedValue({ url: blobUrl("holiday-abc.mp4") });
+    const fetchMock = stubProcessFetch();
+
+    await renderApp();
+    await enableVerboseNames(user);
+    await user.upload(screen.getByLabelText(/choose video/i), mp4("holiday-clip.mp4"));
+    await user.click(loopButton());
+
+    await runFinished(fetchMock);
+    expect(downloadedName()).toBe("holida_tCrossfade_fd0.5_ss0_q100.mp4");
+  });
+
+  it("remembers settings across reloads", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await enableVerboseNames(user);
+    cleanup();
+
+    await renderApp();
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(await screen.findByRole("button", { name: "Enabled" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("shows an error box when processing fails, until a run succeeds", async () => {

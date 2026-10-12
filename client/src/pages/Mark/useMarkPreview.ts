@@ -20,12 +20,29 @@ export type MarkPosition = keyof typeof MARK_POSITIONS;
 export type MarkView = "render" | "displacement" | "clear" | "rim";
 const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 // Mirrors the API's MARK.rotateCadence and watermarkGraph's rotation: the clip
-// in equal stays (as many as the cadence fits, two at least), each stay's stop
-// 4 positions on from the last.
+// in equal stays (as many as the cadence fits, two at least), each at the
+// route's next stop, looping it.
 const ROTATE_CADENCE = 2;
 // Where the mark is `progress` (0 to 1) through a clip of `stays`.
-const stopAt = (position: MarkPosition, stays: number, progress: number) =>
-  POSITIONS[(POSITIONS.indexOf(position) + 4 * Math.floor(progress * stays)) % POSITIONS.length];
+const stopAt = (route: MarkPosition[], stays: number, progress: number) =>
+  route[Math.floor(progress * stays) % route.length];
+
+// Four bags of every position from `start`, each spent before the next, never
+// the same twice running, looping back to `start` included.
+export const shuffleRoute = (start: MarkPosition): MarkPosition[] => {
+  const route = [start];
+  let bag = POSITIONS.filter((at) => at !== start);
+  while (route.length < 4 * POSITIONS.length) {
+    if (bag.length === 0) bag = [...POSITIONS];
+    const draws = bag.filter((at) => at !== route.at(-1));
+    const next = draws[Math.floor(Math.random() * draws.length)];
+    bag.splice(bag.indexOf(next), 1);
+    route.push(next);
+  }
+  const end = route.length - 1;
+  if (route[end] === start) [route[end - 1], route[end]] = [route[end], route[end - 1]];
+  return route;
+};
 
 // The server renders the preview with the real ffmpeg graph. Mark geometry is
 // relative to the frame, so a downscaled frame previews the same.
@@ -66,7 +83,7 @@ export function useMarkPreview(
   filterMode: MarkFilter,
   size: MarkSize,
   position: MarkPosition,
-  rotatePosition: boolean,
+  route: MarkPosition[] | null,
   view: MarkView = "render",
 ) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
@@ -81,12 +98,13 @@ export function useMarkPreview(
     filterMode: MarkFilter;
     size: MarkSize;
     position: MarkPosition;
+    route: MarkPosition[] | null;
     stays: number;
     view: MarkView;
   } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
 
-  const stays = rotatePosition ? Math.max(2, Math.floor(duration / ROTATE_CADENCE)) : 1;
+  const stays = route ? Math.max(2, Math.floor(duration / ROTATE_CADENCE)) : 1;
 
   const liveUrls = useRef<string[]>([]);
   useEffect(() => {
@@ -120,7 +138,7 @@ export function useMarkPreview(
               logo,
               filter: filterMode,
               size,
-              position: stopAt(position, stays, n / frameBlobs.length),
+              position: stopAt(route ?? [position], stays, n / frameBlobs.length),
               view,
             }),
             signal: controller.signal,
@@ -139,10 +157,10 @@ export function useMarkPreview(
       })
       .finally(() => {
         if (controller.signal.aborted) return;
-        setSettled({ frameBlobs, watermark, filterMode, size, position, stays, view });
+        setSettled({ frameBlobs, watermark, filterMode, size, position, route, stays, view });
       });
     return () => controller.abort();
-  }, [frameBlobs, watermark, filterMode, size, position, stays, view]);
+  }, [frameBlobs, watermark, filterMode, size, position, route, stays, view]);
 
   // Its own frame source, so its seeking never shows in the bare frame.
   useEffect(() => {
@@ -193,16 +211,21 @@ export function useMarkPreview(
       settled.filterMode === filterMode &&
       settled.size === size &&
       settled.position === position &&
+      settled.route === route &&
       settled.stays === stays &&
       settled.view === view
     );
 
   return {
     frameCount: frameBlobs.length,
+    duration,
     previewUrls,
     shownRender,
+    shownSecond: (duration * Math.max(0, shownRender)) / (frameBlobs.length || 1),
     shownPosition:
-      shownRender < 0 ? position : stopAt(position, stays, shownRender / frameBlobs.length),
+      shownRender < 0
+        ? position
+        : stopAt(route ?? [position], stays, shownRender / frameBlobs.length),
     loading,
     previewError,
     setScrubIndex,
