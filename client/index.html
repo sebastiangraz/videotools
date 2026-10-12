@@ -7,7 +7,7 @@
     <title>Video Tools</title>
     <script>
       // Restore the theme switch before first paint to avoid a flash
-      if (localStorage.getItem("theme-invert") === "1")
+      if (JSON.parse(localStorage.getItem("settings") ?? "{}").themeInvert)
         document.documentElement.setAttribute("data-theme-invert", "");
     </script>
   </head>

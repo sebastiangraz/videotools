@@ -1,4 +1,4 @@
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { cleanup, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import {
@@ -148,6 +148,20 @@ describe("App", () => {
 
     await runFinished(fetchMock);
     expect(downloadedName()).toBe("holida_tCrossfade_fd0.5_ss0_q100.mp4");
+  });
+
+  it("remembers settings across reloads", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await enableVerboseNames(user);
+    cleanup();
+
+    await renderApp();
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(await screen.findByRole("button", { name: "Enabled" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("shows an error box when processing fails, until a run succeeds", async () => {
