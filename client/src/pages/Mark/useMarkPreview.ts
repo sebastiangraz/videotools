@@ -199,8 +199,10 @@ export function useMarkPreview(
 
   return {
     frameCount: frameBlobs.length,
+    duration,
     previewUrls,
     shownRender,
+    shownSecond: (duration * Math.max(0, shownRender)) / (frameBlobs.length || 1),
     shownPosition:
       shownRender < 0 ? position : stopAt(position, stays, shownRender / frameBlobs.length),
     loading,

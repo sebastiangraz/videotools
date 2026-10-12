@@ -46,6 +46,11 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
 
 const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
+const formatClock = (seconds: number) => {
+  const whole = Math.floor(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+};
+
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // displacement red x, green y, olive no shift
   { value: "displacement", label: "Depth map" },
@@ -154,10 +159,21 @@ export const Mark = () => {
     >
       {sourceFile && hasFrames(sourceFile) && watermark && (
         <Tooltip
-          content={"Toggle zoom"}
-          delay={100}
+          content={
+            preview.frameCount > 1 ? (
+              <span className={styles.markPreviewTooltip}>
+                <span className={styles.markPreviewClock}>
+                  {formatClock(preview.shownSecond)} / {formatClock(Math.round(preview.duration))}
+                </span>
+                {previewZoomed ? "Zoom out" : "Zoom in"}
+              </span>
+            ) : (
+              `${previewZoomed ? "Zoom out" : "Zoom in"}`
+            )
+          }
+          delay={0}
           align="end"
-          disabled={previewZoomed}
+          stretch
           render={
             <div
               ref={previewRef}

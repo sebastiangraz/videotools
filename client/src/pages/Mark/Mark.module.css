@@ -18,6 +18,7 @@
   width: 100%;
   display: grid;
   overflow: hidden;
+  margin-bottom: 1rem;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--bg-1);
@@ -160,6 +161,18 @@
 .markPreviewLoading[hidden] {
   display: none;
   opacity: 0;
+}
+
+.markPreviewTooltip {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  white-space: nowrap;
+}
+
+.markPreviewClock {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
 }
 
 .markPreviewNote {

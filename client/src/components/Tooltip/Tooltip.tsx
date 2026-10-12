@@ -13,7 +13,8 @@ type PositionerProps = Pick<
 
 // Hover/focus tooltip on Base UI's Tooltip. `render` supplies the trigger
 // element and `children` its contents; `content` is the tooltip text. Set
-// `disabled` to keep the trigger interactive while the tooltip stays shut.
+// `disabled` to keep the trigger interactive while the tooltip stays shut, and
+// `stretch` to match the popup's width to the trigger's.
 export const Tooltip = ({
   render,
   children,
@@ -21,6 +22,7 @@ export const Tooltip = ({
   disabled = false,
   delay = 100,
   closeOnClick = false,
+  stretch = false,
   side = "bottom",
   align = "start",
   sideOffset = 10,
@@ -32,6 +34,7 @@ export const Tooltip = ({
   disabled?: boolean;
   delay?: number;
   closeOnClick?: boolean;
+  stretch?: boolean;
 }) => (
   <BaseTooltip.Root disabled={disabled}>
     <BaseTooltip.Trigger delay={delay} closeOnClick={closeOnClick} render={render}>
@@ -45,7 +48,11 @@ export const Tooltip = ({
         sideOffset={sideOffset}
         alignOffset={alignOffset}
       >
-        <BaseTooltip.Popup className={styles.popup}>{content}</BaseTooltip.Popup>
+        <BaseTooltip.Popup
+          className={stretch ? `${styles.popup} ${styles.stretch}` : styles.popup}
+        >
+          {content}
+        </BaseTooltip.Popup>
       </BaseTooltip.Positioner>
     </BaseTooltip.Portal>
   </BaseTooltip.Root>
