@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import {
   blobUrl,
+  downloadedName,
+  enableVerboseNames,
   postedBody,
   renderApp,
   runFinished,
@@ -371,6 +373,21 @@ describe("Mark", () => {
         quality: 100,
       },
     });
+  });
+
+  it("names a verbose download after the watermark too, leaving out an unshuffled route", async () => {
+    const user = userEvent.setup();
+    uploadMock.mockImplementation(async (name: string) => ({ url: blobUrl(name) }));
+    const fetchMock = stubProcessFetch();
+
+    await renderApp("/mark");
+    await enableVerboseNames(user);
+    await pickSource(user, file("clip.mp4", "video/mp4"));
+    await pickLogo(user);
+    await user.click(markButton());
+
+    await runFinished(fetchMock);
+    expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
   });
 });
 

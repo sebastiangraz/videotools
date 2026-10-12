@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { upload } from "@vercel/blob/client";
 import { expect, vi, type Mock } from "vitest";
@@ -26,7 +27,7 @@ export const unexpectedFetch = (input: RequestInfo | URL) =>
 export const stubProcessFetch = (resultUrl = blobUrl("results/out-xyz")) => {
   const fetchMock: FetchMock = vi.fn(async (input, init) => {
     if (input === "/api/process" && init?.method === "POST") {
-      return Response.json({ url: resultUrl, filename: "out" });
+      return Response.json({ url: resultUrl, filename: "out.mp4" });
     }
     if (input === resultUrl) return new Response(new Blob(["result"]));
     if (input === "/api/process" && init?.method === "DELETE") {
@@ -46,6 +47,16 @@ export const runFinished = (fetchMock: FetchMock) =>
       expect.objectContaining({ method: "DELETE" }),
     ),
   );
+
+export const enableVerboseNames = async (user: UserEvent) => {
+  await user.click(screen.getByRole("button", { name: "Settings" }));
+  await user.click(await screen.findByRole("button", { name: "Enabled" }));
+};
+
+// The result is saved through a clicked link (setup.ts stubs the click).
+export const downloadedName = () =>
+  (vi.spyOn(HTMLAnchorElement.prototype, "click").mock.contexts.at(-1) as HTMLAnchorElement)
+    .download;
 
 // The JSON body of the nth POST.
 export const postedBody = (fetchMock: FetchMock, nth = 0) => {

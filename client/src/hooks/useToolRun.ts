@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ToolId } from "../tools";
-import { shortenFilename } from "../helpers";
+import { shortenFilename, verboseName } from "../helpers";
 
 // Best effort: the server sweeps leftovers anyway.
 function deleteBlobs(urls: string[]) {
@@ -85,23 +85,13 @@ export function useToolRun(tool: ToolId) {
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
       const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
-      // Verbose: 6 characters of the source, the extras' names, then each setting
-      // as key initials + value (fadeDuration 0.7 → fd0.7, true or a list → Y,
-      // false or null left out).
       const downloadName = verbose
-        ? [
-            base.slice(0, 6),
-            ...extras.map(({ file }) => file.name),
-            ...Object.entries(body.options)
-              .filter(([, value]) => value !== false && value !== null)
-              .map(
-                ([key, value]) =>
-                  key.replace(/\B[a-z]+/g, "").toLowerCase() +
-                  (value === true || Array.isArray(value)
-                    ? "Y"
-                    : String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())),
-              ),
-          ].join("_") + resultName.slice(resultName.lastIndexOf("."))
+        ? verboseName(
+            base,
+            extras.map(({ file }) => file.name),
+            body.options,
+            resultName,
+          )
         : resultName || `${base}_${tool}${ext}`;
 
       setMsg(`Downloading ${shortenFilename(files[0])}`);
