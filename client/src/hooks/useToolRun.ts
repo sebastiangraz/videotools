@@ -86,17 +86,18 @@ export function useToolRun(tool: ToolId) {
       resultUrl = url;
       const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
       // Verbose: 6 characters of the source, the extras' names, then each setting
-      // as key initials + value (fadeDuration 0.7 → fd0.7, true → Y, false left out).
+      // as key initials + value (fadeDuration 0.7 → fd0.7, true or a list → Y,
+      // false or null left out).
       const downloadName = verbose
         ? [
             base.slice(0, 6),
             ...extras.map(({ file }) => file.name),
             ...Object.entries(body.options)
-              .filter(([, value]) => value !== false)
+              .filter(([, value]) => value !== false && value !== null)
               .map(
                 ([key, value]) =>
                   key.replace(/\B[a-z]+/g, "").toLowerCase() +
-                  (value === true
+                  (value === true || Array.isArray(value)
                     ? "Y"
                     : String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())),
               ),
