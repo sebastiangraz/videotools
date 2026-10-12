@@ -129,8 +129,8 @@ export const Mark = () => {
         watermarkUrl: extraUrls[0],
         options: { filter: filterMode, size, position, route, quality },
       }),
+      onDone: () => route && setShuffle(shuffleRoute(position)),
     });
-    if (route) setShuffle(shuffleRoute(position));
   };
 
   return (

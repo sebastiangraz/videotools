@@ -14,12 +14,14 @@ function deleteBlobs(urls: string[]) {
 }
 
 // `extras`: further uploads with their own status line (mark's logo).
+// `onDone`: once the result has downloaded.
 interface RunRequest {
   files: File[];
   extras?: { file: File; status: string }[];
   payload: (urls: { blobUrls: string[]; extraUrls: string[] }) => {
     options: Record<string, unknown>;
   } & Record<string, unknown>;
+  onDone?: () => void;
 }
 
 // Temporary: the "verbose" switch by the tabs names downloads after their settings.
@@ -35,7 +37,7 @@ export function useToolRun(tool: ToolId) {
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const run = async ({ files, extras = [], payload }: RunRequest) => {
+  const run = async ({ files, extras = [], payload, onDone }: RunRequest) => {
     if (busy) return;
     setBusy(true);
     setErrorDetail(null);
@@ -114,6 +116,7 @@ export function useToolRun(tool: ToolId) {
       URL.revokeObjectURL(objectUrl);
 
       deleteBlobs([url]);
+      onDone?.();
     } catch (err: unknown) {
       // The server only deletes inputs once it runs; double deletes are harmless.
       const uploaded = [...blobUrls, ...extraUrls];
