@@ -147,10 +147,10 @@
 }
 
 .tabContainer + main {
-  mask-image: linear-gradient(
-    transparent calc(var(--settings-mask) * 8rem),
-    hsla(0, 0%, 0%, var(--settings-opacity)) calc(var(--settings-mask) * 100%)
-  );
+  --ease-to: hsla(0, 0%, 0%, var(--settings-opacity));
+  --ease-start: calc(var(--settings-mask) * 8rem);
+  --ease-end: calc(var(--settings-mask) * 100%);
+  mask-image: linear-gradient(var(--ease-in-out-stops));
   transition:
     --settings-mask 0.3s cubic-bezier(0.7, 0, 0.5, 1),
     --settings-opacity 0.2s ease;

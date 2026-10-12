@@ -118,6 +118,69 @@ body {
   accent-color: var(--fg);
 }
 
+/* Eased gradient */
+@property --ease-from {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+@property --ease-to {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #000;
+}
+
+@property --ease-start {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --ease-end {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+
+/* Declared on every element so the var()s resolve against that element's inputs */
+*,
+::before,
+::after {
+  --_ease-span: calc(var(--ease-end) - var(--ease-start));
+  --ease-in-out-stops:
+    var(--ease-from) var(--ease-start),
+    color-mix(in srgb, var(--ease-to) 1.82%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.0961),
+    color-mix(in srgb, var(--ease-to) 6.67%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.1813),
+    color-mix(in srgb, var(--ease-to) 13.32%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.2537),
+    color-mix(in srgb, var(--ease-to) 20.89%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.3165),
+    color-mix(in srgb, var(--ease-to) 28.95%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.3729),
+    color-mix(in srgb, var(--ease-to) 37.28%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.4252),
+    color-mix(in srgb, var(--ease-to) 45.75%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.4753),
+    color-mix(in srgb, var(--ease-to) 54.25%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.5247),
+    color-mix(in srgb, var(--ease-to) 62.72%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.5748),
+    color-mix(in srgb, var(--ease-to) 71.05%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.6272),
+    color-mix(in srgb, var(--ease-to) 79.12%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.6835),
+    color-mix(in srgb, var(--ease-to) 86.69%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.7463),
+    color-mix(in srgb, var(--ease-to) 93.33%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.8187),
+    color-mix(in srgb, var(--ease-to) 98.18%, var(--ease-from))
+      calc(var(--ease-start) + var(--_ease-span) * 0.9039),
+    var(--ease-to) var(--ease-end);
+}
+
 input,
 select,
 button {

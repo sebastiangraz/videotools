@@ -150,25 +150,9 @@
     right: 0;
     width: 28rem;
     height: 12rem;
-    background-image: radial-gradient(
-      farthest-corner at 0% 0%,
-      transparent 70%,
-      color-mix(in srgb, var(--bg) 1.82%, transparent) 72.89%,
-      color-mix(in srgb, var(--bg) 6.68%, transparent) 75.44%,
-      color-mix(in srgb, var(--bg) 13.32%, transparent) 77.61%,
-      color-mix(in srgb, var(--bg) 20.89%, transparent) 79.5%,
-      color-mix(in srgb, var(--bg) 28.96%, transparent) 81.19%,
-      color-mix(in srgb, var(--bg) 37.29%, transparent) 82.76%,
-      color-mix(in srgb, var(--bg) 45.76%, transparent) 84.26%,
-      color-mix(in srgb, var(--bg) 54.26%, transparent) 85.74%,
-      color-mix(in srgb, var(--bg) 62.73%, transparent) 87.25%,
-      color-mix(in srgb, var(--bg) 71.06%, transparent) 88.82%,
-      color-mix(in srgb, var(--bg) 79.13%, transparent) 90.51%,
-      color-mix(in srgb, var(--bg) 86.69%, transparent) 92.39%,
-      color-mix(in srgb, var(--bg) 93.33%, transparent) 94.56%,
-      color-mix(in srgb, var(--bg) 98.18%, transparent) 97.12%,
-      var(--bg) 100%
-    );
+    --ease-to: var(--bg);
+    --ease-start: 70%;
+    background-image: radial-gradient(farthest-corner at 0% 0%, var(--ease-in-out-stops));
     z-index: -1;
   }
 }
