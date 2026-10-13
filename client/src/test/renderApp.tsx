@@ -63,3 +63,7 @@ export const postedBody = (fetchMock: FetchMock, nth = 0) => {
   const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
   return JSON.parse(posts[nth][1]!.body as string);
 };
+
+// NumberField parses with the runtime locale: type its decimal separator
+export const decimal = (whole: number, tenths: number) =>
+  `${whole}${(1.1).toLocaleString().charAt(1)}${tenths}`;

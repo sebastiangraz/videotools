@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import {
   blobUrl,
+  decimal,
   postedBody,
   renderApp,
   runFinished,
@@ -21,10 +22,6 @@ import {
 const pick = (user: ReturnType<typeof userEvent.setup>, picked: File) =>
   user.upload(screen.getByLabelText(/choose video/i), picked);
 const loopButton = () => screen.getByRole("button", { name: /^loop$/i });
-
-// NumberField parses with the runtime locale: type its decimal separator
-const decimal = (whole: number, tenths: number) =>
-  `${whole}${(1.1).toLocaleString().charAt(1)}${tenths}`;
 
 describe("Loop", () => {
   it("accepts decimal values in number fields", async () => {
