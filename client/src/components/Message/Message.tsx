@@ -93,8 +93,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
   );
 };
 
-// An element (`render`, with `children` as its contents) that says `message`
-// in the area while it is hovered or focused.
+// Says `message` in the area while it is hovered or focused.
 export const MessageTrigger = ({
   message,
   render,
@@ -109,9 +108,8 @@ export const MessageTrigger = ({
   </BasePreviewCard.Trigger>
 );
 
-// A message in the area, from anywhere in the app: useMessage for markup. It
-// is up while it is mounted, so render it for as long as what it says holds.
-// It renders nothing where it stands.
+// useMessage as markup: the message is up while this is mounted, so render it
+// for as long as what it says holds. It renders nothing where it stands.
 export const Message = ({
   kind = "default",
   children,

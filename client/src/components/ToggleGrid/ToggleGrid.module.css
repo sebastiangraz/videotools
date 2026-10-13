@@ -17,7 +17,6 @@
 }
 
 .item {
-  border-radius: 0;
   appearance: none;
   margin: 0;
   padding: 0;
@@ -27,19 +26,15 @@
   corner-shape: superellipse(1.1);
   transition: background-color 150ms ease;
   border-radius: 2px;
-  /* top-left corner */
   &:nth-child(1) {
     border-top-left-radius: var(--corner);
   }
-  /* top-right corner */
   &:nth-child(3) {
     border-top-right-radius: var(--corner);
   }
-  /* bottom-left corner */
   &:nth-child(7) {
     border-bottom-left-radius: var(--corner);
   }
-  /* bottom-right corner */
   &:nth-child(9) {
     border-bottom-right-radius: var(--corner);
   }

@@ -14,12 +14,11 @@ const SECONDS_FORMAT: Intl.NumberFormatOptions = {
   minimumFractionDigits: 1,
 };
 
-// Decimal entry on Base UI's NumberField. Typed values are parsed with the
-// browser locale ("0,5" and "0.5" both work where the locale allows). An
-// optional `preview` renders in a PreviewCard anchored to the input, opened
-// by the card's own hover/focus-on-trigger behaviour. `format` defaults to
-// the seconds unit; pass another Intl.NumberFormatOptions (or plain digits
-// via {maximumFractionDigits: 0}) for non-duration fields.
+// Typed values are parsed with the browser locale ("0,5" and "0.5" both work
+// where the locale allows). An optional `preview` shows in a PreviewCard on
+// hover/focus. `format` defaults to the seconds unit; pass another
+// Intl.NumberFormatOptions (or plain digits via {maximumFractionDigits: 0})
+// for non-duration fields.
 export const NumberField = ({
   id,
   value,

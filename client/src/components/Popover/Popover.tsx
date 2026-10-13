@@ -11,11 +11,10 @@ type PositionerProps = Pick<
   "anchor" | "side" | "align" | "sideOffset" | "alignOffset" | "collisionAvoidance"
 >;
 
-// Popover on Base UI's Popover. Given a `trigger` (rendered as Base UI's
-// Trigger) it opens and shuts itself and hangs off it. Otherwise it is
-// controlled: the caller decides when it is `open` and which element it hangs
-// off (`anchor`); `onOpenChange` hears outside presses and Escape, and left
-// out, only `open` shuts it.
+// Given a `trigger` it opens and shuts itself and hangs off it. Otherwise it
+// is controlled: the caller decides when it is `open` and which element it
+// hangs off (`anchor`); `onOpenChange` hears outside presses and Escape, and
+// left out, only `open` shuts it.
 export const Popover = ({
   open,
   onOpenChange,

@@ -24,12 +24,12 @@ interface RunRequest {
   onDone?: () => void;
 }
 
-// Temporary: the "verbose" switch by the tabs names downloads after their settings.
+// Temporary: the "verbose" setting names downloads after their settings.
 export const VerboseNames = createContext(false);
 
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
-  const [status, setMsg] = useState<string>("");
+  const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
@@ -61,16 +61,16 @@ export function useToolRun(tool: ToolId) {
         });
 
       for (let i = 0; i < files.length; i++) {
-        setMsg(files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading");
+        setStatus(files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading");
         blobUrls.push((await send(files[i])).url);
       }
 
       for (const extra of extras) {
-        setMsg(extra.status);
+        setStatus(extra.status);
         extraUrls.push((await send(extra.file)).url);
       }
 
-      setMsg("Processing");
+      setStatus("Processing");
       const body = payload({ blobUrls, extraUrls });
       const res = await fetch("/api/process", {
         method: "POST",
@@ -94,7 +94,7 @@ export function useToolRun(tool: ToolId) {
           )
         : resultName || `${base}_${tool}${ext}`;
 
-      setMsg(`Downloading ${shortenFilename(files[0])}`);
+      setStatus(`Downloading ${shortenFilename(files[0])}`);
       // Blob storage is cross-origin, where `download` is ignored.
       const fileRes = await fetch(url, { signal });
       if (!fileRes.ok) throw new Error(`Failed to download result (${fileRes.status})`);
@@ -112,9 +112,8 @@ export function useToolRun(tool: ToolId) {
       // The server only deletes inputs once it runs; double deletes are harmless.
       const uploaded = [...blobUrls, ...extraUrls];
       deleteBlobs(resultUrl ? [...uploaded, resultUrl] : uploaded);
-      if (signal.aborted) {
-        // Stopped on purpose: no error box.
-      } else {
+      // Aborted = stopped on purpose: no error box.
+      if (!signal.aborted) {
         console.error(err);
         setErrorDetail(err instanceof Error ? err.message : String(err));
       }

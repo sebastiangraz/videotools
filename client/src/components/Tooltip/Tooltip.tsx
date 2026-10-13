@@ -11,8 +11,7 @@ type PositionerProps = Pick<
   "side" | "align" | "sideOffset" | "alignOffset"
 >;
 
-// Hover/focus tooltip on Base UI's Tooltip. `render` supplies the trigger
-// element and `children` its contents; `content` is the tooltip text. Set
+// `render` supplies the trigger element and `children` its contents. Set
 // `disabled` to keep the trigger interactive while the tooltip stays shut, and
 // `stretch` to match the popup's width to the trigger's.
 export const Tooltip = ({

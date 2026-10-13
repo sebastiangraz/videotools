@@ -2,20 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { openFrameSource, type FrameSource } from "../../frameSource";
 import styles from "./FramePreview.module.css";
 
-// The frame of a picked file showing at `second`, drawn on a canvas: shown
-// while choosing the loop's "Start at" (usually the frame that becomes a
-// social post's thumbnail) and as the mark preview's bare first frame. Video
-// and animated images (GIF, WebP, AVIF) alike come through a frame source (see
-// frameSource.ts), so there is one element and one set of states for both.
-// The accept list is broader than what browsers can decode (server-side
-// ffmpeg handles the rest), so a file the source can't open or seek swaps the
-// frame for a short note. Tracking the failed file rather than a boolean
-// resets the error when a new file is picked. `className` swaps the default
-// card look for the caller's own (the mark preview lays it out as a frame
-// under its renders) and `label` names the frame. Stills come through the same
-// source (a one-frame image). `maxSide` scales the drawing down to fit (px),
-// for a frame shown small (the upload's thumbnail); `fallback` replaces the
-// note for a file that can't be shown (null for nothing at all).
+// The frame of `file` at `second`, drawn on a canvas. Video, animated images
+// and stills alike come through a frame source (see frameSource.ts), so there
+// is one element and one set of states for all of them. The accept list is
+// broader than what browsers can decode (server-side ffmpeg handles the rest),
+// so a file the source can't open or seek swaps the frame for a short note, or
+// for `fallback` (null for nothing at all). Tracking the failed file rather
+// than a boolean resets the error when a new file is picked. `maxSide` scales
+// the drawing down to fit (px).
 export const FramePreview = ({
   file,
   second,

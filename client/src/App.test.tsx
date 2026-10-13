@@ -190,7 +190,6 @@ describe("App", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
-  // Rejects only once its signal is aborted.
   const hangUntilAborted = <T,>(signal?: AbortSignal | null) =>
     new Promise<T>((_, reject) => {
       signal?.addEventListener("abort", () =>

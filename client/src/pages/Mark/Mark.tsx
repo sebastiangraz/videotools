@@ -97,11 +97,10 @@ export const Mark = () => {
 
   const [markX, markY] = MARK_POSITIONS[preview.shownPosition];
 
-  const sourceFile = source.file;
-
-  const lossless = sourceFile !== null && stillFormat(sourceFile)?.id === "png";
+  const lossless = source.file !== null && stillFormat(source.file)?.id === "png";
   const aspectRatio = source.meta ? `${source.meta.w} / ${source.meta.h}` : "16 / 9";
-  const { shownRender } = preview;
+  const zoomLabel = previewZoomed ? "Zoom out" : "Zoom in";
+  const watermarkBlocker = watermark ? null : "Upload a watermark";
 
   const pickPosition = (picked: MarkPosition) => {
     setPosition(picked);
@@ -153,190 +152,184 @@ export const Mark = () => {
           />
         </div>
       }
-      blocker={
-        !source.file
-          ? "Upload a file"
-          : (formatBlocker ?? (!watermark ? "Upload a watermark" : null))
-      }
+      blocker={source.file ? (formatBlocker ?? watermarkBlocker) : "Upload a file"}
       run={run}
       onSubmit={submit}
     >
-      {sourceFile && hasFrames(sourceFile) && watermark && (
-        <Tooltip
-          content={
-            preview.frameCount > 1 ? (
-              <span className={styles.markPreviewTooltip}>
-                <span className={styles.markPreviewClock}>
-                  {formatClock(preview.shownSecond)} / {formatClock(Math.round(preview.duration))}
+      {source.file && hasFrames(source.file) && watermark && (
+        <>
+          <Tooltip
+            content={
+              preview.frameCount > 1 ? (
+                <span className={styles.markPreviewTooltip}>
+                  <span className={styles.markPreviewClock}>
+                    {formatClock(preview.shownSecond)} / {formatClock(Math.round(preview.duration))}
+                  </span>
+                  {zoomLabel}
                 </span>
-                {previewZoomed ? "Zoom out" : "Zoom in"}
-              </span>
-            ) : (
-              `${previewZoomed ? "Zoom out" : "Zoom in"}`
-            )
-          }
-          delay={0}
-          align="end"
-          stretch
-          render={
-            <div
-              ref={previewRef}
-              className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
-              onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
-              style={{ aspectRatio, "--mark-x": markX, "--mark-y": markY } as CSSProperties}
-            />
-          }
-        >
-          <figure
-            aria-label="watermark preview"
-            aria-busy={preview.loading}
-            className={styles.markPreview}
-            style={{ aspectRatio }}
+              ) : (
+                zoomLabel
+              )
+            }
+            delay={0}
+            align="end"
+            stretch
+            render={
+              <div
+                ref={previewRef}
+                className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
+                onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
+                style={{ aspectRatio, "--mark-x": markX, "--mark-y": markY } as CSSProperties}
+              />
+            }
           >
-            {preview.previewUrls.map(
-              (url, i) =>
-                url && (
-                  <img
-                    key={i}
-                    src={url}
-                    alt={i === shownRender ? "watermarked frame" : ""}
-                    className={
-                      i === shownRender
-                        ? styles.markPreviewRender
-                        : `${styles.markPreviewRender} ${styles.markPreviewFrameHidden}`
-                    }
-                  />
-                ),
-            )}
+            <figure
+              aria-label="watermark preview"
+              aria-busy={preview.loading}
+              className={styles.markPreview}
+              style={{ aspectRatio }}
+            >
+              {preview.previewUrls.map(
+                (url, i) =>
+                  url && (
+                    <img
+                      key={i}
+                      src={url}
+                      alt={i === preview.shownRender ? "watermarked frame" : ""}
+                      className={
+                        i === preview.shownRender
+                          ? styles.markPreviewRender
+                          : `${styles.markPreviewRender} ${styles.markPreviewFrameHidden}`
+                      }
+                    />
+                  ),
+              )}
 
-            <FramePreview
-              file={sourceFile}
-              second={0}
-              label="first frame"
-              className={styles.markPreviewFrame}
-            />
-          </figure>
-          <div className={styles.markPreviewLoading} hidden={!preview.loading}>
-            <Spinner />
-          </div>
-          {preview.frameCount > 1 && (
-            <div className={styles.markPreviewScrub} aria-hidden="true">
-              {Array.from({ length: preview.frameCount }, (_, i) => (
-                <div key={i} onPointerEnter={() => preview.setScrubIndex(i)} />
-              ))}
+              <FramePreview
+                file={source.file}
+                second={0}
+                label="first frame"
+                className={styles.markPreviewFrame}
+              />
+            </figure>
+            <div className={styles.markPreviewLoading} hidden={!preview.loading}>
+              <Spinner />
             </div>
-          )}
-          {preview.previewError && (
-            <figcaption className={styles.markPreviewNote}>Preview unavailable</figcaption>
-          )}
-        </Tooltip>
-      )}
-      {sourceFile && hasFrames(sourceFile) && watermark && (
-        <Popover
-          open={debug}
-          className={styles.markPreviewDebug}
-          anchor={previewRef}
-          side="right"
-          sideOffset={16}
-        >
-          <p>debug</p>
-          {DEBUG_VIEWS.map(({ value, label }) => (
-            <div key={value} className={form.switchRow}>
+            {preview.frameCount > 1 && (
+              <div className={styles.markPreviewScrub} aria-hidden="true">
+                {Array.from({ length: preview.frameCount }, (_, i) => (
+                  <div key={i} onPointerEnter={() => preview.setScrubIndex(i)} />
+                ))}
+              </div>
+            )}
+            {preview.previewError && (
+              <figcaption className={styles.markPreviewNote}>Preview unavailable</figcaption>
+            )}
+          </Tooltip>
+          <Popover
+            open={debug}
+            className={styles.markPreviewDebug}
+            anchor={previewRef}
+            side="right"
+            sideOffset={16}
+          >
+            <p>debug</p>
+            {DEBUG_VIEWS.map(({ value, label }) => (
+              <div key={value} className={form.switchRow}>
+                <Switch
+                  id={`markDebug-${value}`}
+                  checked={debugView === value}
+                  onCheckedChange={(on) => setDebugView(on ? value : "render")}
+                  disabled={false}
+                />
+                <label htmlFor={`markDebug-${value}`} className={form.label}>
+                  {label}
+                </label>
+              </div>
+            ))}
+            <div className={form.switchRow}>
               <Switch
-                id={`markDebug-${value}`}
-                checked={debugView === value}
-                onCheckedChange={(on) => setDebugView(on ? value : "render")}
+                id="markDebug-devSize"
+                checked={devSize}
+                onCheckedChange={setDevSize}
                 disabled={false}
               />
-              <label htmlFor={`markDebug-${value}`} className={form.label}>
-                {label}
+              <label htmlFor="markDebug-devSize" className={form.label}>
+                Dev size
               </label>
             </div>
-          ))}
-          <div className={form.switchRow}>
-            <Switch
-              id="markDebug-devSize"
-              checked={devSize}
-              onCheckedChange={setDevSize}
-              disabled={false}
-            />
-            <label htmlFor="markDebug-devSize" className={form.label}>
-              Dev size
-            </label>
-          </div>
-        </Popover>
+          </Popover>
+        </>
       )}
       <div className={form.horizontal}>
         {watermark && (
-          <div className={form.formGroup}>
-            <span id="markSize" className={form.label}>
-              Size
-            </span>
-            <ToggleGroup
-              labelledBy="markSize"
-              options={SIZE_OPTIONS}
-              value={size}
-              onValueChange={pickSize}
-              disabled={run.busy}
-            />
-          </div>
-        )}
-        {watermark && (
-          <div
-            className={`${form.formGroup} ${styles.markPosition}`}
-            data-shuffling={shuffling || undefined}
-          >
-            {/* Images can't be shuffled */}
-            {still ? (
-              <span id="markPosition" className={`${form.label} ${styles.markPlace}`}>
-                Place
+          <>
+            <div className={form.formGroup}>
+              <span id="markSize" className={form.label}>
+                Size
               </span>
-            ) : (
-              <button
-                type="button"
-                className={`${form.label} ${styles.markPlace}`}
-                aria-label="Shuffle"
-                aria-pressed={shuffle !== null}
-                onClick={() => setShuffle((on) => (on ? null : shuffleRoute(position)))}
+              <ToggleGroup
+                labelledBy="markSize"
+                options={SIZE_OPTIONS}
+                value={size}
+                onValueChange={pickSize}
                 disabled={run.busy}
-              >
-                <span id="markPosition" className={styles.markPlaceIdle}>
+              />
+            </div>
+            <div
+              className={`${form.formGroup} ${styles.markPosition}`}
+              data-shuffling={shuffling || undefined}
+            >
+              {/* Images can't be shuffled */}
+              {still ? (
+                <span id="markPosition" className={`${form.label} ${styles.markPlace}`}>
                   Place
                 </span>
-                <span className={styles.markPlaceShuffle}>
-                  {shuffle ? "Shuffling" : "Shuffle?"}
-                </span>
-              </button>
-            )}
-            <ToggleGrid
-              labelledBy="markPosition"
-              options={POSITION_OPTIONS}
-              value={position}
-              onValueChange={pickPosition}
-              disabled={run.busy}
-              shuffling={shuffling}
-            />
-          </div>
-        )}
-        {watermark && (
-          <div className={form.formGroup}>
-            <span id="markFilter" className={form.label}>
-              Filter
-            </span>
-            <ToggleGroup
-              labelledBy="markFilter"
-              options={FILTER_OPTIONS}
-              value={filterMode}
-              onValueChange={setFilterMode}
-              disabled={run.busy}
-            />
-          </div>
+              ) : (
+                <button
+                  type="button"
+                  className={`${form.label} ${styles.markPlace}`}
+                  aria-label="Shuffle"
+                  aria-pressed={shuffle !== null}
+                  onClick={() => setShuffle((on) => (on ? null : shuffleRoute(position)))}
+                  disabled={run.busy}
+                >
+                  <span id="markPosition" className={styles.markPlaceIdle}>
+                    Place
+                  </span>
+                  <span className={styles.markPlaceShuffle}>
+                    {shuffle ? "Shuffling" : "Shuffle?"}
+                  </span>
+                </button>
+              )}
+              <ToggleGrid
+                labelledBy="markPosition"
+                options={POSITION_OPTIONS}
+                value={position}
+                onValueChange={pickPosition}
+                disabled={run.busy}
+                shuffling={shuffling}
+              />
+            </div>
+            <div className={form.formGroup}>
+              <span id="markFilter" className={form.label}>
+                Filter
+              </span>
+              <ToggleGroup
+                labelledBy="markFilter"
+                options={FILTER_OPTIONS}
+                value={filterMode}
+                onValueChange={setFilterMode}
+                disabled={run.busy}
+              />
+            </div>
+          </>
         )}
       </div>
       {!lossless && (
         <div className={form.formGroup}>
           <Slider
-            label={<>{quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}</>}
+            label={`${quality === 100 ? "Lossless" : "Quality"} ${quality}%`}
             value={quality}
             onValueChange={setQuality}
             min={0}

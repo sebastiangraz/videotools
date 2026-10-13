@@ -99,7 +99,6 @@ export const Layout = () => {
               {t.label}
             </MessageTrigger>
           ))}
-          {/* Global settings. */}
           <Popover
             trigger={
               <button type="button" aria-label="Settings" className={styles.settingsTrigger}>
@@ -113,7 +112,6 @@ export const Layout = () => {
             }
             anchor={tabsRef}
             sideOffset={0}
-
             className={styles.settings}
           >
             <div className={styles.settingsRow}>

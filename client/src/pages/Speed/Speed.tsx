@@ -10,6 +10,12 @@ import form from "../form.module.css";
 
 const TOOL = toolById("speed");
 
+function describeSpeed(speed: number): string {
+  if (speed === 0) return "unchanged";
+  if (speed > 0) return `${(1 + speed).toFixed(1)}x faster`;
+  return `${(1 - speed).toFixed(1)}x slower`;
+}
+
 export const Speed = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
@@ -55,12 +61,7 @@ export const Speed = () => {
         <Slider
           label={
             <>
-              Speed (
-              {speed === 0
-                ? "unchanged"
-                : speed > 0
-                  ? `${(1 + speed).toFixed(1)}x faster`
-                  : `${(1 - speed).toFixed(1)}x slower`}
+              Speed ({describeSpeed(speed)}
               {source.duration > 0 && ` ~${(source.duration / speedMultiplier).toFixed(1)}s`})
             </>
           }

@@ -47,11 +47,9 @@ function estimateOutputBytes(
   return pixels * frames * (bpp.min + (bpp.max - bpp.min) * t * t);
 }
 
-// The pick played at the field's pace: a FramePreview handed the next still
-// every `frameDuration` seconds, in a box shaped like the first image (as the
-// output is), so the card holds still between frames. Lives in the card, so it
-// ticks only while that is open and starts over on the first image (the
-// thumbnail) each time.
+// The box is shaped like the first image (as the output is), so the card holds
+// still between frames. Lives in the card, so it ticks only while that is open
+// and starts over on the first image (the thumbnail) each time.
 const SequencePreview = ({
   files,
   frameDuration,
@@ -114,6 +112,12 @@ export const Sequence = () => {
     }
   };
 
+  const lossless = (format === "avif" || format === "webp") && quality === 100;
+  const sizeEstimate =
+    files.length > 0 && imageMeta
+      ? ` ~${formatBytes(estimateOutputBytes(imageMeta.w, imageMeta.h, files.length, format, quality))}`
+      : null;
+
   const submit = () =>
     run.start({
       files,
@@ -171,14 +175,7 @@ export const Sequence = () => {
         <Slider
           label={
             <>
-              Quality {quality}%
-              {(format === "avif" || format === "webp") && quality === 100
-                ? " (lossless)"
-                : files.length > 0 &&
-                  imageMeta &&
-                  ` ~${formatBytes(
-                    estimateOutputBytes(imageMeta.w, imageMeta.h, files.length, format, quality),
-                  )}`}
+              Quality {quality}%{lossless ? " (lossless)" : sizeEstimate}
             </>
           }
           value={quality}

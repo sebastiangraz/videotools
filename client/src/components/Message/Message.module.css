@@ -1,6 +1,5 @@
-/* The message area's card, whoever is speaking: a tab's description or a
-   <Message>. Its size, place and animation are the PreviewCard's; the
-   background covers the title underneath. */
+/* Size, place and animation are the PreviewCard's; the background covers the
+   title underneath. */
 .message {
   padding: 2px;
   color: var(--fg);

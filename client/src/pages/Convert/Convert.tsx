@@ -27,11 +27,15 @@ export const Convert = () => {
 
   // `target` survives a file swap; if the new source claims it, fall to the
   // first remaining option.
-  const sourceFormat = source.file ? fileFormat(source.file) : null;
   const targetOptions = targetsFor(source.file);
   const effectiveTarget = targetOptions.some((t) => t.value === target)
     ? target
     : targetOptions[0].value;
+
+  // WebP at 100 is lossless only from a lossless source (encode/webp.ts); of
+  // those only a GIF shows by name.
+  const sourceFormat = source.file ? fileFormat(source.file) : null;
+  const lossless = effectiveTarget === "webp" && quality === 100 && sourceFormat?.id === "gif";
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -40,21 +44,14 @@ export const Convert = () => {
 
   const submit = () => {
     if (!source.file) return;
+    const options: Record<string, unknown> = { target: effectiveTarget, quality };
+    if (effectiveTarget === "gif") {
+      if (gifFps != null) options.fps = gifFps;
+      options.width = gifWidth ?? 640;
+    }
     run.start({
       files: [source.file],
-      payload: ({ blobUrls }) => ({
-        blobUrl: blobUrls[0],
-        options: {
-          target: effectiveTarget,
-          quality,
-          ...(effectiveTarget === "gif"
-            ? {
-                ...(gifFps != null ? { fps: gifFps } : {}),
-                width: gifWidth ?? 640,
-              }
-            : {}),
-        },
-      }),
+      payload: ({ blobUrls }) => ({ blobUrl: blobUrls[0], options }),
     });
   };
 
@@ -129,15 +126,7 @@ export const Convert = () => {
 
           <div className={form.formGroup}>
             <Slider
-              label={
-                <>
-                  {/* WebP at 100 is lossless only from a lossless source
-                      (encode/webp.ts); of those only a GIF shows by name. */}
-                  {effectiveTarget === "webp" && quality === 100 && sourceFormat?.id === "gif"
-                    ? `Lossless ${quality}%`
-                    : `Quality ${quality}%`}
-                </>
-              }
+              label={`${lossless ? "Lossless" : "Quality"} ${quality}%`}
               value={quality}
               onValueChange={setQuality}
               min={0}

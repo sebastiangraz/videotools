@@ -2,8 +2,8 @@ import { useCallback, useRef, useState, ChangeEvent, DragEvent } from "react";
 import type { SourceMeta } from "../../hooks/useVideoSource";
 import { FramePreview } from "../FramePreview/FramePreview";
 import { hasFrames } from "../../sourceFormat";
-import styles from "./Upload.module.css";
 import { formatBytes, shortenFilename } from "../../helpers";
+import styles from "./Upload.module.css";
 
 // Longest side the thumbnail is drawn at (px): a few times its on-screen size.
 const THUMB_SIDE = 128;
@@ -38,12 +38,13 @@ const UploadThumb = ({ file }: { file: File }) => {
       </div>
     );
   }
-  if (file.type.startsWith("image/"))
+  if (file.type.startsWith("image/")) {
     return (
       <div className={`${styles.uploadThumbContainer} ${styles.uploadThumbImage}`}>
         <img ref={show} alt="" className={styles.uploadThumb} />
       </div>
     );
+  }
   return null;
 };
 
@@ -58,7 +59,6 @@ function matchesAccept(file: File, accept: string): boolean {
   });
 }
 
-// File picker and drop target in one component.
 export const Upload = ({
   accept,
   multiple,
@@ -112,7 +112,7 @@ export const Upload = ({
 
   return (
     <label
-      className={`${styles.upload}${dragging ? ` ${styles.uploadActive}` : ""}`}
+      className={dragging ? `${styles.upload} ${styles.uploadActive}` : styles.upload}
       onDragEnter={dragEnter}
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={dragLeave}

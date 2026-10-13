@@ -11,10 +11,9 @@ type PositionerProps = Pick<
   "anchor" | "side" | "align" | "sideOffset" | "alignOffset" | "collisionAvoidance"
 >;
 
-// The card itself: portal, positioner and the popup with its enter/exit
-// animation. For use under a Base UI PreviewCard.Root — PreviewCard below, or
-// a root of one's own (components/Message, whose triggers are detached).
-// Positioning props go straight to the Positioner.
+// The card without a root, for use under a Base UI PreviewCard.Root:
+// PreviewCard below, or a root of one's own (components/Message, whose
+// triggers are detached).
 export const PreviewCardPopup = ({
   children,
   popupClassName,
@@ -34,10 +33,10 @@ export const PreviewCardPopup = ({
   </BasePreviewCard.Portal>
 );
 
-// Hover/focus preview on Base UI's PreviewCard. `render` supplies the trigger
-// element (a Link, a NumberField.Group, ...) and `children` its contents. The
-// card shows `content`; when that's empty the portal is skipped entirely, so
-// callers can pass a conditional without the trigger ever unmounting.
+// `render` supplies the trigger element (a Link, a NumberField.Group, ...) and
+// `children` its contents. When `content` is empty the portal is skipped
+// entirely, so callers can pass a conditional without the trigger ever
+// unmounting.
 export const PreviewCard = ({
   render,
   children,

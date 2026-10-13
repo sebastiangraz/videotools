@@ -76,17 +76,16 @@ export const Test = () => {
           </label>
           <Select
             id="select"
-            options={OPTIONS.slice(0, 3).map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
+            options={OPTIONS.slice(0, 3)}
             value={option}
             onValueChange={setOption}
             disabled={disabled}
           />
         </div>
         <div className={form.formGroup} style={{ flex: "none" }}>
-          <label className={form.label}>Grid</label>
+          <span id="toggle-grid" className={form.label}>
+            Grid
+          </span>
           <ToggleGrid
             labelledBy="toggle-grid"
             value={toggleGrid}
@@ -125,11 +124,11 @@ export const Test = () => {
           />
         </div>
         <div className={form.formGroup}>
-          <span id="toggle-group" className={form.label}>
+          <span id="toggle-group-small" className={form.label}>
             Toggle group small
           </span>
           <ToggleGroup
-            labelledBy="toggle-group"
+            labelledBy="toggle-group-small"
             options={TOGGLE_OPTIONS.slice(0, 2)}
             value={toggle}
             onValueChange={setToggle}

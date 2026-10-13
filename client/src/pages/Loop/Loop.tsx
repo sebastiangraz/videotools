@@ -29,6 +29,8 @@ export const Loop = () => {
   const [fadeDuration, setFadeDuration] = useState<number | null>(0.5);
   const [startSecond, setStartSecond] = useState<number | null>(0);
   const [quality, setQuality] = useState<number>(100);
+  // The server clamps to the clip as well.
+  const start = clampStart(startSecond, source.duration);
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -50,9 +52,6 @@ export const Loop = () => {
       }),
     });
   };
-
-  // The server clamps to the clip as well.
-  const start = clampStart(startSecond, source.duration);
 
   return (
     <ToolPanel
@@ -123,7 +122,7 @@ export const Loop = () => {
 
       <div className={form.formGroup}>
         <Slider
-          label={<>{quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}</>}
+          label={`${quality === 100 ? "Lossless" : "Quality"} ${quality}%`}
           value={quality}
           onValueChange={setQuality}
           min={0}
