@@ -84,13 +84,10 @@
   z-index: -1;
 }
 
-/* Out of sight, but still laid out: every render but the scrubbed one. */
 .markPreviewFrameHidden {
   visibility: hidden;
 }
 
-/* The scrub strips: one equal, invisible column per grabbed frame, over the
-   whole box and above the (transformed) figure. */
 .markPreviewScrub {
   grid-area: 1 / 1;
   z-index: 2;
@@ -197,7 +194,6 @@
     padding: 0 1rem 0.5rem 1rem;
   }
 
-  /* A debug option: a switch and its label. */
   & > div {
     padding: 0 1rem;
     min-height: 2rem;
