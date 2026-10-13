@@ -1,6 +1,6 @@
 import type { ReactNode, Ref } from "react";
 import { Tabs as BaseTabs, type TabsRootProps, type TabsTabProps } from "@base-ui/react/tabs";
-import { cx } from "@/helpers";
+import { cx } from "@src/helpers";
 import styles from "./Tabs.module.css";
 
 // Only the list is composed here; the caller owns what each tab reveals (here

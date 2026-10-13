@@ -4,7 +4,7 @@ import {
   type TooltipPositionerProps,
   type TooltipTriggerProps,
 } from "@base-ui/react/tooltip";
-import { cx } from "@/helpers";
+import { cx } from "@src/helpers";
 import styles from "./Tooltip.module.css";
 
 type PositionerProps = Pick<

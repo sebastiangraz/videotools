@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { ToolPanel } from "@/components/ToolPanel/ToolPanel";
-import { Upload } from "@/components/Upload/Upload";
-import { Select } from "@/components/Select/Select";
-import { NumberField } from "@/components/NumberField/NumberField";
-import { Slider } from "@/components/Slider/Slider";
-import { useFormatBlocker } from "@/hooks/useFormatBlocker";
-import { useToolRun } from "@/hooks/useToolRun";
-import { useVideoSource } from "@/hooks/useVideoSource";
-import { fileFormat, targetsFor } from "@/sourceFormat";
-import { toolById } from "@/tools";
-import { qualityLabel, toList } from "@/helpers";
-import form from "@/form.module.css";
+import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
+import { Upload } from "@src/components/Upload/Upload";
+import { Select } from "@src/components/Select/Select";
+import { NumberField } from "@src/components/NumberField/NumberField";
+import { Slider } from "@src/components/Slider/Slider";
+import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
+import { useToolRun } from "@src/hooks/useToolRun";
+import { useVideoSource } from "@src/hooks/useVideoSource";
+import { fileFormat, targetsFor } from "@src/sourceFormat";
+import { toolById } from "@src/tools";
+import { qualityLabel, toList } from "@src/helpers";
+import form from "@src/form.module.css";
 
 const TOOL = toolById("convert");
 

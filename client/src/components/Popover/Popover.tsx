@@ -4,7 +4,7 @@ import {
   type PopoverPositionerProps,
   type PopoverRootProps,
 } from "@base-ui/react/popover";
-import { cx } from "@/helpers";
+import { cx } from "@src/helpers";
 import styles from "./Popover.module.css";
 
 type PositionerProps = Pick<

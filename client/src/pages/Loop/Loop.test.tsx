@@ -9,7 +9,7 @@ import {
   runFinished,
   stubProcessFetch,
   uploadMock,
-} from "@/test/renderApp";
+} from "@src/test/renderApp";
 import {
   file,
   stubCanvas,
@@ -17,7 +17,7 @@ import {
   stubProperties,
   stubVideoFrame,
   webpFile,
-} from "@/test/media";
+} from "@src/test/media";
 
 const pick = (user: ReturnType<typeof userEvent.setup>, picked: File) =>
   user.upload(screen.getByLabelText(/choose video/i), picked);

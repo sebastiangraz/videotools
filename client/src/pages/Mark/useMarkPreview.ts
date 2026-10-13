@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { openFrameSource, type Frame, type FrameSource } from "@/frameSource";
-import { sendJson, toDataUrl } from "@/helpers";
+import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
+import { sendJson, toDataUrl } from "@src/helpers";
 
 // Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
 export type MarkSize = "small" | "medium" | "large" | "dev";

@@ -4,7 +4,7 @@ import {
   type PreviewCardPositionerProps,
   type PreviewCardTriggerProps,
 } from "@base-ui/react/preview-card";
-import { cx } from "@/helpers";
+import { cx } from "@src/helpers";
 import styles from "./PreviewCard.module.css";
 
 type PositionerProps = Pick<

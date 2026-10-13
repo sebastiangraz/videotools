@@ -1,6 +1,6 @@
 import { CSSProperties, ReactNode } from "react";
 import { Slider as BaseSlider } from "@base-ui/react/slider";
-import { cx } from "@/helpers";
+import { cx } from "@src/helpers";
 import styles from "./Slider.module.css";
 
 // Centre-anchored fill for a signed slider: Slider.Indicator spans 0 → value
