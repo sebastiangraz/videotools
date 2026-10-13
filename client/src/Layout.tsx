@@ -9,7 +9,6 @@ import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
 import { VerboseNames } from "./hooks/useToolRun";
 import { cx } from "./helpers";
-import appStyles from "./index.module.css";
 import form from "./pages/form.module.css";
 import styles from "./Layout.module.css";
 
@@ -27,7 +26,7 @@ const VERBOSE_OPTIONS = [
 const DEFAULT_SETTINGS = { verbose: false, themeInvert: false };
 
 const Logo = () => (
-  <div className={appStyles.logo}>
+  <div className={styles.logo}>
     <svg
       viewBox="0 0 176 111"
       fill="none"
@@ -64,11 +63,11 @@ export const Layout = () => {
   const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
 
   return (
-    <div className={appStyles.app}>
-      <div className={appStyles.frame}>
-        <header className={appStyles.header}>
+    <div className={styles.app}>
+      <div className={styles.frame}>
+        <header className={styles.header}>
           <Logo />
-          <h1 ref={titleRef} className={appStyles.title}>
+          <h1 ref={titleRef} className={styles.title}>
             Video tools
             <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
               dev
@@ -149,7 +148,7 @@ export const Layout = () => {
             </div>
           </Popover>
         </Tabs>
-        <main className={appStyles.main}>
+        <main className={styles.main}>
           <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>
