@@ -12,7 +12,7 @@ import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
 import { SEQUENCE_FORMATS, formatById } from "@api/formats";
 import form from "@src/form.module.css";
-import { aspectRatioOf, byFilename, fitScale, formatBytes } from "@src/helpers";
+import { aspectRatioOf, byFilename, fitScale, formatBytes, qualityLabel } from "@src/helpers";
 
 const TOOL = toolById("sequence");
 
@@ -171,7 +171,8 @@ export const Sequence = () => {
         <Slider
           label={
             <>
-              Quality {quality}%{lossless ? " (lossless)" : sizeEstimate}
+              {qualityLabel(quality, lossless)}
+              {sizeEstimate}
             </>
           }
           value={quality}
