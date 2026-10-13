@@ -5,17 +5,15 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { MARK_SIZES } from "../../api/_lib/tools/mark-graph.ts";
 
-// Seconds each vector is shown.
 const cycleDuration = 2;
-// How much of each clip a tile shows: 1 is a native-pixel crop, 2 shows twice
-// the width and height at half scale. Each clip zooms out only as far as it
-// can still fill its tile, so tiles from smaller clips end up less zoomed out.
 const ZOOM_OUT = 2;
 const FPS = 30;
-// At most; smaller when a clip couldn't fill its tile without scaling.
 const MAX_CANVAS = { width: 1920, height: 1920 };
-const OPTIONS = { filter: "glass", size: "dev", position: "center", quality: 100 };
+
+MARK_SIZES.smoke = { ...MARK_SIZES.dev, scale: 5 };
+const OPTIONS = { filter: "glass", size: "smoke", position: "center", quality: 100 };
 // Mark runs at once; each ffmpeg is multithreaded already.
 const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
 
