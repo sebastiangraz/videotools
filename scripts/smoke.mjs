@@ -386,7 +386,7 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
 }
 
 // x264 under a bitrate cap isn't bit-exact across runs (thread timing affects
-// rate control); sizes within ~1% are the same result.
+// rate control): runs differ by up to ~1%, so sizes within 2% are the same result.
 const SIZE_TOLERANCE = 0.02;
 function sameResult(before, after) {
   const keys = Object.keys({ ...before, ...after });
@@ -454,9 +454,12 @@ const download = async (url, destPath) =>
 
 let workDir = "";
 const recorded = [];
+// As a filter option (mark-light's sendcmd file): forward slashes, `:` escaped.
+const asFilterPath = (p) => p.replace(/\\/g, "/").replace(/:/g, "\\:");
 const normalize = (arg) =>
   arg
     .replaceAll(workDir, "<work>")
+    .replaceAll(asFilterPath(workDir), "<work>")
     .replaceAll(ffmpegPath, "ffmpeg")
     .replaceAll(binaries.gifskiPath, "gifski")
     .replace(/tmp_loop_\d+/g, "tmp_loop_N");
