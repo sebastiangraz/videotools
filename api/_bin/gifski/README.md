@@ -16,5 +16,4 @@ subprocess, which is aggregation — it does not affect this repo's licensing.
 
 To update: split a new release tarball into gzipped per-platform binaries,
 attach them (and LICENSE) to a new `gifski-<version>` release here, update
-`BINARIES` in `scripts/binaries.mjs`, then `bun install` and
-`bun run smoke -- <label> --only gif`.
+`BINARIES` in `scripts/binaries.mjs`, then `bun install`.
