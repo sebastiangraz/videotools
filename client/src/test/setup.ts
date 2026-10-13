@@ -7,7 +7,7 @@ vi.mock("@vercel/blob/client", () => ({ upload: vi.fn() }));
 
 // VersionLabel's GitHub fetch on mount would show up in tests' fetch counts, depending
 // on network and a sessionStorage cache.
-vi.mock("../components/VersionLabel/VersionLabel", () => ({
+vi.mock("@/components/VersionLabel/VersionLabel", () => ({
   VersionLabel: () => null,
 }));
 

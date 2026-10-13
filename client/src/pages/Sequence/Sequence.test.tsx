@@ -9,8 +9,8 @@ import {
   runFinished,
   stubProcessFetch,
   uploadMock,
-} from "../../test/renderApp";
-import { file, imageFile, stubCanvas, stubImageDecoder } from "../../test/media";
+} from "@/test/renderApp";
+import { file, imageFile, stubCanvas, stubImageDecoder } from "@/test/media";
 
 const createButton = () => screen.getByRole("button", { name: /create video/i });
 

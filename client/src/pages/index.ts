@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { ToolId } from "../tools";
+import type { ToolId } from "@/tools";
 import { Loop } from "./Loop/Loop";
 import { Sequence } from "./Sequence/Sequence";
 import { Speed } from "./Speed/Speed";

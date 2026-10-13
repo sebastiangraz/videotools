@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
-import type { ToolId } from "../tools";
-import { sendJson, shortenFilename, splitExtension, verboseName } from "../helpers";
+import type { ToolId } from "@/tools";
+import { sendJson, shortenFilename, splitExtension, verboseName } from "@/helpers";
 
 // Best effort: the server sweeps leftovers anyway.
 function deleteBlobs(urls: string[]) {

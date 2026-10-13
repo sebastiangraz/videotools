@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Footer } from "../Footer/Footer";
+import { Footer } from "@/components/Footer/Footer";
 import styles from "./Page.module.css";
 
 // A one-off page (see pages/site.ts) in the tool pages' column. Children land

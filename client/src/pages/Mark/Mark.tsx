@@ -1,17 +1,17 @@
 import { useRef, useState, type CSSProperties } from "react";
-import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { Upload } from "../../components/Upload/Upload";
-import { FramePreview } from "../../components/FramePreview/FramePreview";
-import { Slider } from "../../components/Slider/Slider";
-import { Spinner } from "../../components/Spinner/Spinner";
-import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
-import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
-import { useToolRun } from "../../hooks/useToolRun";
-import { useVideoSource } from "../../hooks/useVideoSource";
-import { hasFrames, isStillImage, stillFormat } from "../../sourceFormat";
-import { toolById } from "../../tools";
-import { aspectRatioOf, cx, formatClock, qualityLabel, toList } from "../../helpers";
+import { ToolPanel } from "@/components/ToolPanel/ToolPanel";
+import { Upload } from "@/components/Upload/Upload";
+import { FramePreview } from "@/components/FramePreview/FramePreview";
+import { Slider } from "@/components/Slider/Slider";
+import { Spinner } from "@/components/Spinner/Spinner";
+import { ToggleGroup } from "@/components/ToggleGroup/ToggleGroup";
+import { ToggleGrid } from "@/components/ToggleGrid/ToggleGrid";
+import { useFormatBlocker } from "@/hooks/useFormatBlocker";
+import { useToolRun } from "@/hooks/useToolRun";
+import { useVideoSource } from "@/hooks/useVideoSource";
+import { hasFrames, isStillImage, stillFormat } from "@/sourceFormat";
+import { toolById } from "@/tools";
+import { aspectRatioOf, cx, formatClock, qualityLabel, toList } from "@/helpers";
 import {
   MARK_POSITIONS,
   shuffleRoute,
@@ -21,12 +21,12 @@ import {
   type MarkSize,
   type MarkView,
 } from "./useMarkPreview";
-import form from "../../form.module.css";
+import form from "@/form.module.css";
 import styles from "./Mark.module.css";
-import { Tooltip } from "../../components/Tooltip/Tooltip";
-import { Popover } from "../../components/Popover/Popover";
-import { useDebugMode } from "../../hooks/useDebugMode";
-import { Switch } from "../../components/Switch/Switch";
+import { Tooltip } from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/components/Popover/Popover";
+import { useDebugMode } from "@/hooks/useDebugMode";
+import { Switch } from "@/components/Switch/Switch";
 
 const TOOL = toolById("mark");
 

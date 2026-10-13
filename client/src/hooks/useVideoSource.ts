@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { hasFrames } from "../sourceFormat";
-import { openFrameSource } from "../frameSource";
+import { hasFrames } from "@/sourceFormat";
+import { openFrameSource } from "@/frameSource";
 
 // In tenths (the start field step); undefined while the length is unknown (0).
 export const maxStart = (duration: number): number | undefined =>

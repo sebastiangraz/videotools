@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState, ChangeEvent, DragEvent } from "react";
-import type { SourceMeta } from "../../hooks/useVideoSource";
-import { FramePreview } from "../FramePreview/FramePreview";
-import { hasFrames } from "../../sourceFormat";
-import { cx, formatBytes, matchesAccept, shortenFilename } from "../../helpers";
+import type { SourceMeta } from "@/hooks/useVideoSource";
+import { FramePreview } from "@/components/FramePreview/FramePreview";
+import { hasFrames } from "@/sourceFormat";
+import { cx, formatBytes, matchesAccept, shortenFilename } from "@/helpers";
 import styles from "./Upload.module.css";
 
 // Longest side the thumbnail is drawn at (px): a few times its on-screen size.

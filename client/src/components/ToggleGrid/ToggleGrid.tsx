@@ -1,7 +1,7 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup as BaseToggleGroup } from "@base-ui/react/toggle-group";
 import type { CSSProperties } from "react";
-import { cx } from "../../helpers";
+import { cx } from "@/helpers";
 import styles from "./ToggleGrid.module.css";
 
 export const ToggleGrid = <T extends string>({

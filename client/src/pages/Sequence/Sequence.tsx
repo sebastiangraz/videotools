@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
-import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { Upload } from "../../components/Upload/Upload";
-import { FramePreview } from "../../components/FramePreview/FramePreview";
-import preview from "../../components/FramePreview/FramePreview.module.css";
-import { Select } from "../../components/Select/Select";
-import { NumberField } from "../../components/NumberField/NumberField";
-import { Slider } from "../../components/Slider/Slider";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
-import { useToolRun } from "../../hooks/useToolRun";
-import type { SourceMeta } from "../../hooks/useVideoSource";
-import { toolById } from "../../tools";
-import { SEQUENCE_FORMATS, formatById } from "../../../../api/_lib/formats";
-import form from "../../form.module.css";
-import { aspectRatioOf, byFilename, fitScale, formatBytes } from "../../helpers";
+import { ToolPanel } from "@/components/ToolPanel/ToolPanel";
+import { Upload } from "@/components/Upload/Upload";
+import { FramePreview } from "@/components/FramePreview/FramePreview";
+import preview from "@/components/FramePreview/FramePreview.module.css";
+import { Select } from "@/components/Select/Select";
+import { NumberField } from "@/components/NumberField/NumberField";
+import { Slider } from "@/components/Slider/Slider";
+import { useFormatBlocker } from "@/hooks/useFormatBlocker";
+import { useToolRun } from "@/hooks/useToolRun";
+import type { SourceMeta } from "@/hooks/useVideoSource";
+import { toolById } from "@/tools";
+import { SEQUENCE_FORMATS, formatById } from "@api/formats";
+import form from "@/form.module.css";
+import { aspectRatioOf, byFilename, fitScale, formatBytes } from "@/helpers";
 
 const TOOL = toolById("sequence");
 

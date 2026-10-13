@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { openFrameSource, type FrameSource } from "../../frameSource";
-import { cx, fitScale } from "../../helpers";
+import { openFrameSource, type FrameSource } from "@/frameSource";
+import { cx, fitScale } from "@/helpers";
 import styles from "./FramePreview.module.css";
 
 // The frame of `file` at `second`, drawn on a canvas. Video, animated images

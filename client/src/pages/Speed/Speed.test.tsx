@@ -8,8 +8,8 @@ import {
   runFinished,
   stubProcessFetch,
   uploadMock,
-} from "../../test/renderApp";
-import { file } from "../../test/media";
+} from "@/test/renderApp";
+import { file } from "@/test/media";
 
 describe("Speed", () => {
   it("requests a speed change with the slider value", async () => {

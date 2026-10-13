@@ -1,17 +1,17 @@
 import { useState } from "react";
-import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { Upload } from "../../components/Upload/Upload";
-import { FramePreview } from "../../components/FramePreview/FramePreview";
-import { Select } from "../../components/Select/Select";
-import { NumberField } from "../../components/NumberField/NumberField";
-import { Slider } from "../../components/Slider/Slider";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
-import { useToolRun } from "../../hooks/useToolRun";
-import { clampStart, maxStart, useVideoSource } from "../../hooks/useVideoSource";
-import { hasFrames } from "../../sourceFormat";
-import { toolById } from "../../tools";
-import { qualityLabel, toList } from "../../helpers";
-import form from "../../form.module.css";
+import { ToolPanel } from "@/components/ToolPanel/ToolPanel";
+import { Upload } from "@/components/Upload/Upload";
+import { FramePreview } from "@/components/FramePreview/FramePreview";
+import { Select } from "@/components/Select/Select";
+import { NumberField } from "@/components/NumberField/NumberField";
+import { Slider } from "@/components/Slider/Slider";
+import { useFormatBlocker } from "@/hooks/useFormatBlocker";
+import { useToolRun } from "@/hooks/useToolRun";
+import { clampStart, maxStart, useVideoSource } from "@/hooks/useVideoSource";
+import { hasFrames } from "@/sourceFormat";
+import { toolById } from "@/tools";
+import { qualityLabel, toList } from "@/helpers";
+import form from "@/form.module.css";
 
 const TOOL = toolById("loop");
 

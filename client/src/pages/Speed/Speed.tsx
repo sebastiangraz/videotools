@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { Upload } from "../../components/Upload/Upload";
-import { Slider } from "../../components/Slider/Slider";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
-import { useToolRun } from "../../hooks/useToolRun";
-import { useVideoSource } from "../../hooks/useVideoSource";
-import { toolById } from "../../tools";
-import { toList } from "../../helpers";
-import form from "../../form.module.css";
+import { ToolPanel } from "@/components/ToolPanel/ToolPanel";
+import { Upload } from "@/components/Upload/Upload";
+import { Slider } from "@/components/Slider/Slider";
+import { useFormatBlocker } from "@/hooks/useFormatBlocker";
+import { useToolRun } from "@/hooks/useToolRun";
+import { useVideoSource } from "@/hooks/useVideoSource";
+import { toolById } from "@/tools";
+import { toList } from "@/helpers";
+import form from "@/form.module.css";
 
 const TOOL = toolById("speed");
 

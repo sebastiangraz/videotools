@@ -1,4 +1,4 @@
-import { VersionLabel } from "../VersionLabel/VersionLabel";
+import { VersionLabel } from "@/components/VersionLabel/VersionLabel";
 import styles from "./Footer.module.css";
 
 export const Footer = () => (

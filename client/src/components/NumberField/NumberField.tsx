@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { NumberField as BaseNumberField } from "@base-ui/react/number-field";
-import { PreviewCard } from "../PreviewCard/PreviewCard";
+import { PreviewCard } from "@/components/PreviewCard/PreviewCard";
 import styles from "./NumberField.module.css";
 
 // Duration fields render with a seconds unit ("2.1s"). Base UI derives the

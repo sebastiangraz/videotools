@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { Layout, ToolPage } from "./Layout";
 import { SITE_PAGES, type SitePath } from "./pages/site";
-import { TOOL_IDS, isToolId } from "../../api/_lib/formats";
+import { TOOL_IDS, isToolId } from "@api/formats";
 
 const rootRoute = createRootRoute({ component: Layout });
 

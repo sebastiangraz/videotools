@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { timeAgo } from "../../helpers";
+import { timeAgo } from "@/helpers";
 import styles from "./VersionLabel.module.css";
 
 const REPO = "sebastiangraz/videotools";

@@ -8,8 +8,8 @@ import {
   stillFormat,
   type FormatBlock,
   type FormatOptions,
-} from "../sourceFormat";
-import { toList } from "../helpers";
+} from "@/sourceFormat";
+import { toList } from "@/helpers";
 import { useMessage } from "./useMessage";
 
 // Returns the run-blocking tooltip (null = OK) and posts the long wording as

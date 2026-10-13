@@ -3,7 +3,7 @@ import type { UserEvent } from "@testing-library/user-event";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { upload } from "@vercel/blob/client";
 import { expect, vi, type Mock } from "vitest";
-import { createAppRouter } from "../App";
+import { createAppRouter } from "@/App";
 
 // Loosely typed: tests resolve it with just the fields the app reads ({ url }).
 export const uploadMock = upload as unknown as Mock;

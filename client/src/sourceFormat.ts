@@ -1,4 +1,4 @@
-import { FORMATS, STILLS, type Format, type Still } from "../../api/_lib/formats";
+import { FORMATS, STILLS, type Format, type Still } from "@api/formats";
 import { extensionOf } from "./helpers";
 
 // By name, else by browser MIME type; null = none the app writes. The server

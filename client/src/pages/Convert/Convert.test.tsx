@@ -8,9 +8,9 @@ import {
   runFinished,
   stubProcessFetch,
   uploadMock,
-} from "../../test/renderApp";
-import { file } from "../../test/media";
-import { targetsFor } from "../../sourceFormat";
+} from "@/test/renderApp";
+import { file } from "@/test/media";
+import { targetsFor } from "@/sourceFormat";
 
 const convertButton = () => screen.getByRole("button", { name: /^convert$/i });
 

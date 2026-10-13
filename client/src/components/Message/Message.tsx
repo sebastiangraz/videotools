@@ -3,9 +3,9 @@ import {
   PreviewCard as BasePreviewCard,
   type PreviewCardTriggerProps,
 } from "@base-ui/react/preview-card";
-import { PreviewCardPopup } from "../PreviewCard/PreviewCard";
-import { useMessage } from "../../hooks/useMessage";
-import { cx } from "../../helpers";
+import { PreviewCardPopup } from "@/components/PreviewCard/PreviewCard";
+import { useMessage } from "@/hooks/useMessage";
+import { cx } from "@/helpers";
 import { messageHandle, messages, type MessageKind } from "./messageStore";
 import styles from "./Message.module.css";
 

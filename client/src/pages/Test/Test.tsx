@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Page } from "../../components/Page/Page";
-import { Upload } from "../../components/Upload/Upload";
-import { Message } from "../../components/Message/Message";
-import { NumberField } from "../../components/NumberField/NumberField";
-import { Select } from "../../components/Select/Select";
-import { Slider } from "../../components/Slider/Slider";
-import { Switch } from "../../components/Switch/Switch";
-import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
-import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
-import { Tooltip } from "../../components/Tooltip/Tooltip";
-import form from "../../form.module.css";
+import { Page } from "@/components/Page/Page";
+import { Upload } from "@/components/Upload/Upload";
+import { Message } from "@/components/Message/Message";
+import { NumberField } from "@/components/NumberField/NumberField";
+import { Select } from "@/components/Select/Select";
+import { Slider } from "@/components/Slider/Slider";
+import { Switch } from "@/components/Switch/Switch";
+import { ToggleGroup } from "@/components/ToggleGroup/ToggleGroup";
+import { ToggleGrid } from "@/components/ToggleGrid/ToggleGrid";
+import { Tooltip } from "@/components/Tooltip/Tooltip";
+import form from "@/form.module.css";
 
 const TOGGLE_OPTIONS = [
   { value: "on", label: "On" },
