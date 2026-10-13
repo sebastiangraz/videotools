@@ -7,7 +7,7 @@ import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { toolById } from "../../tools";
 import { toList } from "../../helpers";
-import form from "../form.module.css";
+import form from "../../form.module.css";
 
 const TOOL = toolById("speed");
 

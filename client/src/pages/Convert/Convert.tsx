@@ -10,7 +10,7 @@ import { useVideoSource } from "../../hooks/useVideoSource";
 import { fileFormat, targetsFor } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { qualityLabel, toList } from "../../helpers";
-import form from "../form.module.css";
+import form from "../../form.module.css";
 
 const TOOL = toolById("convert");
 

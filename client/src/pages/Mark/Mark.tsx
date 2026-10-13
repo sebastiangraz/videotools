@@ -21,7 +21,7 @@ import {
   type MarkSize,
   type MarkView,
 } from "./useMarkPreview";
-import form from "../form.module.css";
+import form from "../../form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Popover } from "../../components/Popover/Popover";

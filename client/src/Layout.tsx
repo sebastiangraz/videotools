@@ -9,7 +9,7 @@ import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
 import { VerboseNames } from "./hooks/useToolRun";
 import { cx } from "./helpers";
-import form from "./pages/form.module.css";
+import form from "./form.module.css";
 import styles from "./Layout.module.css";
 
 const THEME_OPTIONS = [

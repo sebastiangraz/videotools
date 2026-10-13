@@ -9,7 +9,7 @@ import { Switch } from "../../components/Switch/Switch";
 import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
-import form from "../form.module.css";
+import form from "../../form.module.css";
 
 const TOGGLE_OPTIONS = [
   { value: "on", label: "On" },

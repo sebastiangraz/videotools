@@ -11,7 +11,7 @@ import { useToolRun } from "../../hooks/useToolRun";
 import type { SourceMeta } from "../../hooks/useVideoSource";
 import { toolById } from "../../tools";
 import { SEQUENCE_FORMATS, formatById } from "../../../../api/_lib/formats";
-import form from "../form.module.css";
+import form from "../../form.module.css";
 import { aspectRatioOf, byFilename, fitScale, formatBytes } from "../../helpers";
 
 const TOOL = toolById("sequence");

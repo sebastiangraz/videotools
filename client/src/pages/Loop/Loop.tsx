@@ -11,7 +11,7 @@ import { clampStart, maxStart, useVideoSource } from "../../hooks/useVideoSource
 import { hasFrames } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { qualityLabel, toList } from "../../helpers";
-import form from "../form.module.css";
+import form from "../../form.module.css";
 
 const TOOL = toolById("loop");
 
