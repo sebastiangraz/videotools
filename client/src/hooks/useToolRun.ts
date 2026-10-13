@@ -1,16 +1,12 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import type { ToolId } from "../tools";
-import { shortenFilename, verboseName } from "../helpers";
+import { sendJson, shortenFilename, splitExtension, verboseName } from "../helpers";
 
 // Best effort: the server sweeps leftovers anyway.
 function deleteBlobs(urls: string[]) {
   if (!urls.length) return;
-  fetch("/api/process", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ urls }),
-  }).catch(() => {});
+  sendJson("/api/process", "DELETE", { urls }).catch(() => {});
 }
 
 // `extras`: further uploads with their own status line (mark's logo).
@@ -72,19 +68,19 @@ export function useToolRun(tool: ToolId) {
 
       setStatus("Processing");
       const body = payload({ blobUrls, extraUrls });
-      const res = await fetch("/api/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tool, filename: files[0].name, ...body }),
+      const res = await sendJson(
+        "/api/process",
+        "POST",
+        { tool, filename: files[0].name, ...body },
         signal,
-      });
+      );
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
         throw new Error(errorData?.error || `Server error (${res.status}): Unable to process`);
       }
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
-      const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
+      const [base, ext] = splitExtension(files[0].name);
       const downloadName = verbose
         ? verboseName(
             base,

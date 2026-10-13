@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { InputError } from "../errors.js";
+import { fileSize, removeDir, sizeLabel } from "../helpers.js";
 import type { Encoder } from "./index.js";
 import {
   conversionFps,
@@ -54,8 +55,7 @@ export const encodeGif: Encoder = async (
     const seconds = Math.round(render.duration);
     throw new InputError(
       `Video too long for GIF: ${seconds}s at ${fps} fps comes to ${total} ` +
-        `frames of ${Math.round(size.width)}×` +
-        `${Math.round(size.height)}, more than the app can hold. ` +
+        `frames of ${sizeLabel(size.width, size.height)}, more than the app can hold. ` +
         `Use a shorter clip, a lower FPS or a smaller size.`,
       "too-long",
     );
@@ -118,7 +118,7 @@ export const encodeGif: Encoder = async (
         { cwd: framesDir },
       );
       if (budget == null || i === ladder.length - 1) break;
-      const { size } = await fs.stat(outputFile);
+      const size = await fileSize(outputFile);
       if (size <= budget) break;
       if (outOfTime(ff, started)) break;
       console.log(
@@ -127,8 +127,6 @@ export const encodeGif: Encoder = async (
       );
     }
   } finally {
-    if (!given) {
-      await fs.rm(framesDir, { recursive: true, force: true }).catch(() => {});
-    }
+    if (!given) await removeDir(framesDir);
   }
 };

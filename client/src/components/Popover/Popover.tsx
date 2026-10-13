@@ -4,6 +4,7 @@ import {
   type PopoverPositionerProps,
   type PopoverRootProps,
 } from "@base-ui/react/popover";
+import { cx } from "../../helpers";
 import styles from "./Popover.module.css";
 
 type PositionerProps = Pick<
@@ -42,10 +43,7 @@ export const Popover = ({
         sideOffset={sideOffset}
         {...positioner}
       >
-        <BasePopover.Popup
-          className={className ? `${styles.popup} ${className}` : styles.popup}
-          initialFocus={false}
-        >
+        <BasePopover.Popup className={cx(styles.popup, className)} initialFocus={false}>
           {children}
         </BasePopover.Popup>
       </BasePopover.Positioner>

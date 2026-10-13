@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { openFrameSource, type FrameSource } from "../../frameSource";
+import { cx, fitScale } from "../../helpers";
 import styles from "./FramePreview.module.css";
 
 // The frame of `file` at `second`, drawn on a canvas. Video, animated images
@@ -59,7 +60,7 @@ export const FramePreview = ({
       .then((frame) => {
         const canvas = canvasRef.current;
         if (canvas && !cancelled) {
-          const scale = Math.min(1, maxSide / Math.max(frame.width, frame.height));
+          const scale = fitScale(frame.width, frame.height, maxSide);
           canvas.width = Math.round(frame.width * scale);
           canvas.height = Math.round(frame.height * scale);
           canvas.getContext("2d")?.drawImage(frame.image, 0, 0, canvas.width, canvas.height);
@@ -77,7 +78,7 @@ export const FramePreview = ({
   if (failedFile === file) {
     if (fallback !== undefined) return fallback;
     return (
-      <p role="status" className={`${className} ${styles.framePreviewError}`}>
+      <p role="status" className={cx(className, styles.framePreviewError)}>
         Can&rsquo;t preview this format.
       </p>
     );

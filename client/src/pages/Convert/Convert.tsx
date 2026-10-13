@@ -9,6 +9,7 @@ import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { fileFormat, targetsFor } from "../../sourceFormat";
 import { toolById } from "../../tools";
+import { qualityLabel, toList } from "../../helpers";
 import form from "../form.module.css";
 
 const TOOL = toolById("convert");
@@ -59,12 +60,7 @@ export const Convert = () => {
     <ToolPanel
       tool={TOOL}
       inputs={
-        <Upload
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-          meta={source.meta}
-        />
+        <Upload {...TOOL.input} files={toList(source.file)} onFiles={pick} meta={source.meta} />
       }
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
@@ -126,7 +122,7 @@ export const Convert = () => {
 
           <div className={form.formGroup}>
             <Slider
-              label={`${lossless ? "Lossless" : "Quality"} ${quality}%`}
+              label={qualityLabel(quality, lossless)}
               value={quality}
               onValueChange={setQuality}
               min={0}

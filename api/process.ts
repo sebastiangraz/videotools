@@ -9,7 +9,7 @@ import { STILLS, formatById, isToolId, type FormatId } from "./_lib/formats.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
-import { isBlobUrl, jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
+import { errorResponse, isBlobUrl, jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 type ProcessBody = Partial<ToolRequest> & {
@@ -21,10 +21,7 @@ export default {
   async fetch(request: Request): Promise<Response> {
     if (request.method === "DELETE") {
       const { urls }: { urls?: unknown } = await jsonBody(request);
-      const valid = Array.isArray(urls) ? urls.filter(isBlobUrl) : [];
-      if (valid.length) {
-        await del(valid).catch(() => {});
-      }
+      await discard(Array.isArray(urls) ? urls.filter(isBlobUrl) : []);
       return new Response(null, { status: 204 });
     }
     if (request.method !== "POST") return methodNotAllowed();
@@ -45,8 +42,8 @@ export default {
       ...(Array.isArray(blobUrls) ? (blobUrls as unknown[]) : []),
     ].filter(isBlobUrl);
     const reject = async (error: string) => {
-      if (uploaded.length) await del(uploaded).catch(() => {});
-      return Response.json({ error }, { status: 400 });
+      await discard(uploaded);
+      return errorResponse(error, 400);
     };
 
     if (!isToolId(tool)) {
@@ -87,14 +84,15 @@ export default {
       });
     });
     // After the response is sent, so the client never waits on it.
-    waitUntil(
-      del(inputBlobUrls)
-        .catch(() => {})
-        .then(() => sweepStaleBlobs(inputBlobUrls)),
-    );
+    waitUntil(discard(inputBlobUrls).then(() => sweepStaleBlobs(inputBlobUrls)));
     return response;
   },
 };
+
+// Best effort: the sweep gets what this misses.
+async function discard(urls: string[]): Promise<void> {
+  if (urls.length) await del(urls).catch(() => {});
+}
 
 // A hard kill (timeout, OOM) skips the in-line deletes, so each job sweeps
 // leftovers; no cron needed since nothing accrues while the app is idle.

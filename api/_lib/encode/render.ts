@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { DEFAULT_FPS, type FFmpeg } from "../ffmpeg.js";
+import { fileSize } from "../helpers.js";
 import type { Source } from "../source.js";
 
 // Leaves room inside the function's 300s (vercel.json) to upload the result.
@@ -158,8 +159,7 @@ export async function sourceBytesBudget(
   const { duration, fps } = source.profile;
   const sourceFrames = Math.round(duration * (fps ?? 0));
   if (sourceFrames < 1) return null;
-  const { size } = await fs.stat(source.path);
-  return size * (frames / sourceFrames) * share * TOOL_ALLOWANCE;
+  return (await fileSize(source.path)) * (frames / sourceFrames) * share * TOOL_ALLOWANCE;
 }
 
 // For encoders without trustworthy rate control (GIF, WebP, short AVIF):
@@ -180,7 +180,7 @@ export async function encodeWithinBudget(
 ): Promise<void> {
   let started = Date.now();
   await encode(levels[0], outputFile);
-  const fits = async (file: string) => (await fs.stat(file)).size <= (budget ?? Infinity);
+  const fits = async (file: string) => (await fileSize(file)) <= (budget ?? Infinity);
   if (await fits(outputFile)) return;
 
   const tryFile = `${outputFile}.try${path.extname(outputFile)}`;

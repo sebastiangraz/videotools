@@ -1,5 +1,5 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { jsonBody, methodNotAllowed } from "./_lib/request.js";
+import { errorResponse, jsonBody, methodNotAllowed } from "./_lib/request.js";
 
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 
@@ -23,10 +23,7 @@ export default {
       });
       return Response.json(jsonResponse);
     } catch (err) {
-      return Response.json(
-        { error: err instanceof Error ? err.message : "Upload token error" },
-        { status: 400 },
-      );
+      return errorResponse(err instanceof Error ? err.message : "Upload token error", 400);
     }
   },
 };

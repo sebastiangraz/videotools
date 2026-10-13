@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, ChangeEvent, DragEvent } from "react";
 import type { SourceMeta } from "../../hooks/useVideoSource";
 import { FramePreview } from "../FramePreview/FramePreview";
 import { hasFrames } from "../../sourceFormat";
-import { formatBytes, shortenFilename } from "../../helpers";
+import { cx, formatBytes, matchesAccept, shortenFilename } from "../../helpers";
 import styles from "./Upload.module.css";
 
 // Longest side the thumbnail is drawn at (px): a few times its on-screen size.
@@ -40,24 +40,13 @@ const UploadThumb = ({ file }: { file: File }) => {
   }
   if (file.type.startsWith("image/")) {
     return (
-      <div className={`${styles.uploadThumbContainer} ${styles.uploadThumbImage}`}>
+      <div className={cx(styles.uploadThumbContainer, styles.uploadThumbImage)}>
         <img ref={show} alt="" className={styles.uploadThumb} />
       </div>
     );
   }
   return null;
 };
-
-// Dropped files skip the native picker's accept filtering, so mirror it:
-// entries are either MIME patterns ("video/*") or bare extensions (".mkv").
-function matchesAccept(file: File, accept: string): boolean {
-  return accept.split(",").some((entry) => {
-    const pattern = entry.trim().toLowerCase();
-    if (pattern.startsWith(".")) return file.name.toLowerCase().endsWith(pattern);
-    if (pattern.endsWith("/*")) return file.type.startsWith(pattern.slice(0, -1));
-    return file.type === pattern;
-  });
-}
 
 export const Upload = ({
   accept,
@@ -112,7 +101,7 @@ export const Upload = ({
 
   return (
     <label
-      className={dragging ? `${styles.upload} ${styles.uploadActive}` : styles.upload}
+      className={cx(styles.upload, dragging && styles.uploadActive)}
       onDragEnter={dragEnter}
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={dragLeave}

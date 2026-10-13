@@ -1,4 +1,5 @@
 import { DEFAULT_FPS, type MediaInfo } from "../ffmpeg.js";
+import { floorEven, towards } from "../helpers.js";
 import { fixedRig, type MarkLight } from "./mark-light.js";
 
 export type Bounds = { x: number; y: number; width: number; height: number };
@@ -179,9 +180,8 @@ export function watermarkLayout(
 } {
   // Everything even: crop on subsampled yuv420p rounds odd sizes/offsets and
   // the patches must line up exactly.
-  const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
-  const VW = even(video.width);
-  const VH = even(video.height);
+  const VW = floorEven(video.width);
+  const VH = floorEven(video.height);
   const { scale, gap: gapScale } = MARK_SIZES[size];
   const mediumUnit = Math.sqrt(VW * VH);
   const unit = mediumUnit * scale;
@@ -192,8 +192,8 @@ export function watermarkLayout(
   const w = Math.sqrt(area * aspect);
   const h = Math.sqrt(area / aspect);
   const clamp = Math.min(1, (MARK.maxSpan * VW) / w, (MARK.maxSpan * VH) / h);
-  const LW = even(Math.round(w * clamp));
-  const LH = even(Math.round(h * clamp));
+  const LW = floorEven(Math.round(w * clamp));
+  const LH = floorEven(Math.round(h * clamp));
   // Only bites on absurdly long frames: the cell must fit the frame.
   const fit = (n: number) => Math.min(n, Math.floor((VW - LW) / 2), Math.floor((VH - LH) / 2));
   const gap = fit(Math.round(mediumUnit * MARK.paddingRatio * gapScale));
@@ -449,10 +449,6 @@ export function watermarkGraph(
         fps: video.fps ?? DEFAULT_FPS,
       })
     : fixedRig(M.lightAngle);
-  const towards = (deg: number) => {
-    const angle = (deg * Math.PI) / 180;
-    return [Math.sin(angle), -Math.cos(angle)];
-  };
   // Slope towards the light as one kernel (×100 for integer taps), scaled like
   // the lens so the steepest edge reads the cosine to the light, ±1 facing it
   // or away.

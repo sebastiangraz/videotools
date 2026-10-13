@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "../../frameSource";
+import { sendJson, toDataUrl } from "../../helpers";
 
 // Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
 export type MarkSize = "small" | "medium" | "large" | "dev";
@@ -69,14 +70,6 @@ const grabFrame = ({ image, width, height }: Frame) =>
     canvas.toBlob(resolve, "image/jpeg", 0.9);
   });
 
-const toDataUrl = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-
 export function useMarkPreview(
   source: File | null,
   watermark: File | null,
@@ -130,19 +123,19 @@ export function useMarkPreview(
       const logo = await toDataUrl(watermark);
       const renders = await Promise.all(
         frameBlobs.map(async (blob, n) => {
-          const res = await fetch("/api/preview", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          const res = await sendJson(
+            "/api/preview",
+            "POST",
+            {
               frame: await toDataUrl(blob),
               logo,
               filter: filterMode,
               size,
               position: stopAt(route ?? [position], stays, n / frameBlobs.length),
               view,
-            }),
-            signal: controller.signal,
-          });
+            },
+            controller.signal,
+          );
           if (!res.ok) throw new Error(`Preview failed (${res.status})`);
           return res.blob();
         }),

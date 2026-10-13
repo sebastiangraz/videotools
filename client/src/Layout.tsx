@@ -8,6 +8,7 @@ import { Popover } from "./components/Popover/Popover";
 import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
 import { VerboseNames } from "./hooks/useToolRun";
+import { cx } from "./helpers";
 import appStyles from "./index.module.css";
 import form from "./pages/form.module.css";
 import styles from "./Layout.module.css";
@@ -102,7 +103,7 @@ export const Layout = () => {
           <Popover
             trigger={
               <button type="button" aria-label="Settings" className={styles.settingsTrigger}>
-                <span aria-hidden="true" className={`${form.label} ${styles.settingsLabel}`}>
+                <span aria-hidden="true" className={cx(form.label, styles.settingsLabel)}>
                   Settings
                 </span>
                 <svg aria-hidden="true" fill="none" viewBox="0 0 14 7">

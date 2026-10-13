@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { timeAgo } from "../../helpers";
 import styles from "./VersionLabel.module.css";
 
 const REPO = "sebastiangraz/videotools";
@@ -13,25 +14,6 @@ interface Version {
   message: string;
   date: string;
   sha: string;
-}
-
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["year", 365 * 24 * 60 * 60],
-  ["month", 30 * 24 * 60 * 60],
-  ["day", 24 * 60 * 60],
-  ["hour", 60 * 60],
-  ["minute", 60],
-];
-
-function timeAgo(iso: string) {
-  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  for (const [unit, size] of UNITS) {
-    if (seconds >= size) {
-      return rtf.format(-Math.floor(seconds / size), unit);
-    }
-  }
-  return "just now";
 }
 
 async function fetchLatestCommit(): Promise<Version | null> {

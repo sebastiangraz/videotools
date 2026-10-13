@@ -11,6 +11,7 @@ import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "../../sourceFormat";
 import { toolById } from "../../tools";
+import { aspectRatioOf, cx, formatClock, qualityLabel, toList } from "../../helpers";
 import {
   MARK_POSITIONS,
   shuffleRoute,
@@ -46,11 +47,6 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
 ];
 
 const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
-
-const formatClock = (seconds: number) => {
-  const whole = Math.floor(seconds);
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-};
 
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // displacement red x, green y, olive no shift
@@ -98,7 +94,7 @@ export const Mark = () => {
   const [markX, markY] = MARK_POSITIONS[preview.shownPosition];
 
   const lossless = source.file !== null && stillFormat(source.file)?.id === "png";
-  const aspectRatio = source.meta ? `${source.meta.w} / ${source.meta.h}` : "16 / 9";
+  const aspectRatio = aspectRatioOf(source.meta);
   const zoomLabel = previewZoomed ? "Zoom out" : "Zoom in";
   const watermarkBlocker = watermark ? null : "Upload a watermark";
 
@@ -137,17 +133,12 @@ export const Mark = () => {
       tool={TOOL}
       inputs={
         <div className={styles.markInputs}>
-          <Upload
-            {...TOOL.input}
-            files={source.file ? [source.file] : []}
-            onFiles={pick}
-            meta={source.meta}
-          />
+          <Upload {...TOOL.input} files={toList(source.file)} onFiles={pick} meta={source.meta} />
           <Upload
             accept={WATERMARK_ACCEPT}
             multiple={false}
             pickerLabel="choose watermark"
-            files={watermark ? [watermark] : []}
+            files={toList(watermark)}
             onFiles={pickWatermark}
           />
         </div>
@@ -177,7 +168,10 @@ export const Mark = () => {
             render={
               <div
                 ref={previewRef}
-                className={`${styles.markPreviewContainer}${previewZoomed ? ` ${styles.markPreviewZoomed}` : ""}`}
+                className={cx(
+                  styles.markPreviewContainer,
+                  previewZoomed && styles.markPreviewZoomed,
+                )}
                 onClick={() => setPreviewZoomed((zoomed) => !zoomed)}
                 style={{ aspectRatio, "--mark-x": markX, "--mark-y": markY } as CSSProperties}
               />
@@ -196,11 +190,10 @@ export const Mark = () => {
                       key={i}
                       src={url}
                       alt={i === preview.shownRender ? "watermarked frame" : ""}
-                      className={
-                        i === preview.shownRender
-                          ? styles.markPreviewRender
-                          : `${styles.markPreviewRender} ${styles.markPreviewFrameHidden}`
-                      }
+                      className={cx(
+                        styles.markPreviewRender,
+                        i !== preview.shownRender && styles.markPreviewFrameHidden,
+                      )}
                     />
                   ),
               )}
@@ -277,18 +270,18 @@ export const Mark = () => {
               />
             </div>
             <div
-              className={`${form.formGroup} ${styles.markPosition}`}
+              className={cx(form.formGroup, styles.markPosition)}
               data-shuffling={shuffling || undefined}
             >
               {/* Images can't be shuffled */}
               {still ? (
-                <span id="markPosition" className={`${form.label} ${styles.markPlace}`}>
+                <span id="markPosition" className={cx(form.label, styles.markPlace)}>
                   Place
                 </span>
               ) : (
                 <button
                   type="button"
-                  className={`${form.label} ${styles.markPlace}`}
+                  className={cx(form.label, styles.markPlace)}
                   aria-label="Shuffle"
                   aria-pressed={shuffle !== null}
                   onClick={() => setShuffle((on) => (on ? null : shuffleRoute(position)))}
@@ -329,7 +322,7 @@ export const Mark = () => {
       {!lossless && (
         <div className={form.formGroup}>
           <Slider
-            label={`${quality === 100 ? "Lossless" : "Quality"} ${quality}%`}
+            label={qualityLabel(quality)}
             value={quality}
             onValueChange={setQuality}
             min={0}

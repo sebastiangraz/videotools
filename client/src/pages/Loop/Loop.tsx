@@ -10,6 +10,7 @@ import { useToolRun } from "../../hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "../../hooks/useVideoSource";
 import { hasFrames } from "../../sourceFormat";
 import { toolById } from "../../tools";
+import { qualityLabel, toList } from "../../helpers";
 import form from "../form.module.css";
 
 const TOOL = toolById("loop");
@@ -57,12 +58,7 @@ export const Loop = () => {
     <ToolPanel
       tool={TOOL}
       inputs={
-        <Upload
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-          meta={source.meta}
-        />
+        <Upload {...TOOL.input} files={toList(source.file)} onFiles={pick} meta={source.meta} />
       }
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
@@ -122,7 +118,7 @@ export const Loop = () => {
 
       <div className={form.formGroup}>
         <Slider
-          label={`${quality === 100 ? "Lossless" : "Quality"} ${quality}%`}
+          label={qualityLabel(quality)}
           value={quality}
           onValueChange={setQuality}
           min={0}

@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from "react";
 import { Tabs as BaseTabs, type TabsRootProps, type TabsTabProps } from "@base-ui/react/tabs";
+import { cx } from "../../helpers";
 import styles from "./Tabs.module.css";
 
 // Only the list is composed here; the caller owns what each tab reveals (here
@@ -25,10 +26,10 @@ export const Tabs = ({
   children: ReactNode;
 }) => (
   <BaseTabs.Root ref={ref} value={value} onValueChange={onValueChange} className={className}>
-    <BaseTabs.List className={listClassName ? `${styles.list} ${listClassName}` : styles.list}>
+    <BaseTabs.List className={cx(styles.list, listClassName)}>
       {children}
       {indicatorClassName ? (
-        <BaseTabs.Indicator className={`${styles.indicator} ${indicatorClassName}`} />
+        <BaseTabs.Indicator className={cx(styles.indicator, indicatorClassName)} />
       ) : null}
     </BaseTabs.List>
   </BaseTabs.Root>
@@ -44,10 +45,4 @@ export const Tab = ({
 }: Omit<TabsTabProps, "className" | "ref"> & {
   className?: string;
   ref?: Ref<HTMLElement>;
-}) => (
-  <BaseTabs.Tab
-    ref={ref}
-    className={className ? `${styles.tab} ${className}` : styles.tab}
-    {...props}
-  />
-);
+}) => <BaseTabs.Tab ref={ref} className={cx(styles.tab, className)} {...props} />;

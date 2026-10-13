@@ -4,6 +4,7 @@ import {
   type TooltipPositionerProps,
   type TooltipTriggerProps,
 } from "@base-ui/react/tooltip";
+import { cx } from "../../helpers";
 import styles from "./Tooltip.module.css";
 
 type PositionerProps = Pick<
@@ -47,7 +48,7 @@ export const Tooltip = ({
         sideOffset={sideOffset}
         alignOffset={alignOffset}
       >
-        <BaseTooltip.Popup className={stretch ? `${styles.popup} ${styles.stretch}` : styles.popup}>
+        <BaseTooltip.Popup className={cx(styles.popup, stretch && styles.stretch)}>
           {content}
         </BaseTooltip.Popup>
       </BaseTooltip.Positioner>

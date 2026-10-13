@@ -5,7 +5,7 @@ import type { FFmpeg, MediaInfo, SourceProfile } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { encodeStill } from "../encode/still.js";
 import { sourceRender, videoPad, type Render } from "../encode/render.js";
-import { clamp, isBlobUrl } from "../request.js";
+import { clampInt, isBlobUrl } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import {
   isMarkFilter,
@@ -168,7 +168,7 @@ async function rasterizeSvg(
   frame: { width: number; height: number },
 ): Promise<string> {
   const { min, max, fallback } = SVG_SIDE;
-  const side = String(Math.round(clamp(Math.max(frame.width, frame.height), min, max, fallback)));
+  const side = String(clampInt(Math.max(frame.width, frame.height), min, max, fallback));
   const pngFile = path.join(path.dirname(svgFile), "logo-svg.png");
   await ff.runFFmpeg([
     "-y",
@@ -219,7 +219,7 @@ export const mark: Tool = {
     const { filter, size, position, view } = markLook(options);
     const route =
       Array.isArray(options.route) && options.route.every(isMarkPosition) ? options.route : [];
-    const quality = Math.round(clamp(options.quality, 1, 100, 90));
+    const quality = clampInt(options.quality, 1, 100, 90);
 
     const source = await openSource(job, inputs[0]);
     // mark is the only tool that takes stills.

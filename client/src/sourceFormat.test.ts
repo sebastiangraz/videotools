@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  byFilename,
   fileFormat,
   formatBlock,
   formatBlocker,
@@ -155,17 +154,5 @@ describe("pickedFormats", () => {
     expect(pickedFormats([png, file("b.PNG")])).toEqual(["PNG"]);
     expect(pickedFormats([file("c.jpg"), file("d.jpeg")])).toEqual(["JPEG"]);
     expect(pickedFormats([png, file("b.jpg"), file("c.xyz")])).toEqual(["PNG", "JPEG", "XYZ"]);
-  });
-});
-
-describe("byFilename", () => {
-  it("sorts in natural order", () => {
-    const names = ["img10.png", "b.png", "img2.png", "a.png"];
-    expect(
-      names
-        .map((name) => file(name))
-        .sort(byFilename)
-        .map((f) => f.name),
-    ).toEqual(["a.png", "b.png", "img2.png", "img10.png"]);
   });
 });

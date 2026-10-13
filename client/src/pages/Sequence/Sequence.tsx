@@ -9,11 +9,10 @@ import { Slider } from "../../components/Slider/Slider";
 import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import type { SourceMeta } from "../../hooks/useVideoSource";
-import { byFilename } from "../../sourceFormat";
 import { toolById } from "../../tools";
 import { SEQUENCE_FORMATS, formatById } from "../../../../api/_lib/formats";
 import form from "../form.module.css";
-import { formatBytes } from "../../helpers";
+import { aspectRatioOf, byFilename, fitScale, formatBytes } from "../../helpers";
 
 const TOOL = toolById("sequence");
 
@@ -41,7 +40,7 @@ function estimateOutputBytes(
   const bpp = SIZE_BPP[format] ?? SIZE_BPP.mp4;
   const t = quality / 100;
   // The server caps the longest side at 1920
-  const scale = Math.min(1, 1920 / Math.max(w, h));
+  const scale = fitScale(w, h, 1920);
   const pixels = Math.round(w * scale) * Math.round(h * scale);
   // Quality affects size superlinearly
   return pixels * frames * (bpp.min + (bpp.max - bpp.min) * t * t);
@@ -66,10 +65,7 @@ const SequencePreview = ({
     return () => clearInterval(timer);
   }, [frameDuration]);
   return (
-    <div
-      className={preview.framePreview}
-      style={{ aspectRatio: meta ? `${meta.w} / ${meta.h}` : "16 / 9" }}
-    >
+    <div className={preview.framePreview} style={{ aspectRatio: aspectRatioOf(meta) }}>
       <FramePreview
         file={files[tick % files.length]}
         second={0}

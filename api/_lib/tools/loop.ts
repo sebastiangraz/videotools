@@ -2,11 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
+import { removeDir, sizeLabel } from "../helpers.js";
 import { DEFAULT_FPS, isRgb, type FFmpeg } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { frameRate, sourceRender, videoPad, type Render } from "../encode/render.js";
 import { FASTSTART } from "../encode/video.js";
-import { clamp, pick, singleVideo } from "../request.js";
+import { clamp, clampInt, pick, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
 
@@ -34,7 +35,7 @@ function reverseLoop(source: Source): Render {
     if (bytes > MAX_REVERSE_BYTES) {
       throw new InputError(
         `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
-          `${width}×${height} (${pixFmt}) doesn't fit in memory. Use a ` +
+          `${sizeLabel(width, height)} (${pixFmt}) doesn't fit in memory. Use a ` +
           `shorter or smaller clip, or the crossfade technique.`,
         "too-long",
       );
@@ -229,7 +230,7 @@ async function reorderCopy(
     }
     return true;
   } finally {
-    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await removeDir(tempDir);
   }
 }
 
@@ -240,7 +241,7 @@ export const loop: Tool = {
     const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
     const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
     const startSeconds = clamp(options.startSecond, 0, Infinity, 0);
-    const quality = Math.round(clamp(options.quality, 1, 100, 100));
+    const quality = clampInt(options.quality, 1, 100, 100);
 
     const source = await openSource(job, inputs[0]);
     const format = preservedFormat(source);

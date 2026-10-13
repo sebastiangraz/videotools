@@ -4,6 +4,7 @@ import {
   type PreviewCardPositionerProps,
   type PreviewCardTriggerProps,
 } from "@base-ui/react/preview-card";
+import { cx } from "../../helpers";
 import styles from "./PreviewCard.module.css";
 
 type PositionerProps = Pick<
@@ -24,9 +25,7 @@ export const PreviewCardPopup = ({
 }) => (
   <BasePreviewCard.Portal>
     <BasePreviewCard.Positioner className={styles.positioner} {...positioner}>
-      <BasePreviewCard.Popup
-        className={popupClassName ? `${styles.popup} ${popupClassName}` : styles.popup}
-      >
+      <BasePreviewCard.Popup className={cx(styles.popup, popupClassName)}>
         {children}
       </BasePreviewCard.Popup>
     </BasePreviewCard.Positioner>

@@ -1,10 +1,5 @@
 import { FORMATS, STILLS, type Format, type Still } from "../../api/_lib/formats";
-
-// "clip.final.MOV" → "mov"; "" when the name has no extension.
-function extensionOf(filename: string): string {
-  const match = /\.([^./\\]+)$/.exec(filename);
-  return match ? match[1].toLowerCase() : "";
-}
+import { extensionOf } from "./helpers";
 
 // By name, else by browser MIME type; null = none the app writes. The server
 // goes by content (api/_lib/source.ts); this is only the pre-upload guess.
@@ -35,10 +30,6 @@ export function targetsFor(source: File | null) {
   const own = source ? fileFormat(source)?.id : undefined;
   return CONVERT_TARGETS.filter((t) => t.value !== own);
 }
-
-// Natural order: img2 before img10.
-export const byFilename = (a: File, b: File) =>
-  a.name.localeCompare(b.name, undefined, { numeric: true });
 
 // Image sources (decoded by ImageDecoder, not a <video>). A .webp counts as a
 // still here, whether or not it is animated.

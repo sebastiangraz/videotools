@@ -5,6 +5,7 @@ import {
 } from "@base-ui/react/preview-card";
 import { PreviewCardPopup } from "../PreviewCard/PreviewCard";
 import { useMessage } from "../../hooks/useMessage";
+import { cx } from "../../helpers";
 import { messageHandle, messages, type MessageKind } from "./messageStore";
 import styles from "./Message.module.css";
 
@@ -66,7 +67,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
         const error = !triggerSpeaks && message?.kind === "error";
         return (
           <PreviewCardPopup
-            popupClassName={error ? `${styles.message} ${styles.error}` : styles.message}
+            popupClassName={cx(styles.message, error && styles.error)}
             anchor={anchor}
             side="bottom"
             align="end"

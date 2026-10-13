@@ -6,6 +6,7 @@ import { useFormatBlocker } from "../../hooks/useFormatBlocker";
 import { useToolRun } from "../../hooks/useToolRun";
 import { useVideoSource } from "../../hooks/useVideoSource";
 import { toolById } from "../../tools";
+import { toList } from "../../helpers";
 import form from "../form.module.css";
 
 const TOOL = toolById("speed");
@@ -46,12 +47,7 @@ export const Speed = () => {
     <ToolPanel
       tool={TOOL}
       inputs={
-        <Upload
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-          meta={source.meta}
-        />
+        <Upload {...TOOL.input} files={toList(source.file)} onFiles={pick} meta={source.meta} />
       }
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}

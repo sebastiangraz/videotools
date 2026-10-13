@@ -1,6 +1,7 @@
 import path from "node:path";
 import { formatById, type FormatId, type StillId } from "./formats.js";
 import { InputError } from "./errors.js";
+import { sizeLabel } from "./helpers.js";
 import type { SourceProfile } from "./ffmpeg.js";
 import { blobExt } from "./request.js";
 import type { ToolJob } from "./tools/types.js";
@@ -57,8 +58,8 @@ export function checkSquarePixels({ format, still, profile }: Source): void {
   const { sar, width, height } = profile;
   if (sar === 1) return;
   throw new InputError(
-    `This video has non-square pixels: it is stored at ${width}×${height} ` +
-      `but plays at ${Math.round(width * sar)}×${height}. Re-export it with ` +
+    `This video has non-square pixels: it is stored at ${sizeLabel(width, height)} ` +
+      `but plays at ${sizeLabel(width * sar, height)}. Re-export it with ` +
       `square pixels (in HandBrake: Dimensions → Anamorphic: None).`,
     "unsupported-source",
   );

@@ -4,7 +4,7 @@ import path from "node:path";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { markLook, renderWatermarkFrame } from "./_lib/tools/mark.js";
 import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
-import { jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
+import { errorResponse, jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
 
 // Frame and logo travel inline as data URLs (both small), skipping Blob storage.
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -33,10 +33,10 @@ export default {
     const frameImage = decodeDataUrl(body.frame);
     const logoImage = decodeDataUrl(body.logo);
     if (!frameImage || !logoImage) {
-      return Response.json({ error: "Expected frame and logo images" }, { status: 400 });
+      return errorResponse("Expected frame and logo images", 400);
     }
     if (frameImage.length + logoImage.length > MAX_BYTES) {
-      return Response.json({ error: "Preview images too large" }, { status: 413 });
+      return errorResponse("Preview images too large", 413);
     }
 
     return runJob(request, "Preview", async (workDir, signal) => {
