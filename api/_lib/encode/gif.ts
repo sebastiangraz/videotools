@@ -39,9 +39,7 @@ export const encodeGif: Encoder = async (
   { outputFile, quality, fps = null, width = 640, everyFrame = false },
 ) => {
   // Capped at 30 (gifski alternates 3cs/4cs); more only adds weight.
-  if (fps == null) {
-    fps = Math.max(1, Math.round(conversionFps(render)));
-  }
+  fps ??= Math.max(1, Math.round(conversionFps(render)));
   fps = Math.min(fps, MAX_GIF_FPS);
   console.log(
     `Encoding GIF via gifski (quality ${quality}, ${fps} fps, ` +

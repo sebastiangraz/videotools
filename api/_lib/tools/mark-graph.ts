@@ -131,20 +131,21 @@ export type MarkView = (typeof MARK_VIEWS)[number];
 export const isMarkView = (value: unknown): value is MarkView =>
   MARK_VIEWS.includes(value as MarkView);
 
-const MARK_CLEAR: Partial<typeof MARK> = {
-  blurRatio: 0,
-  minBlurRatio: 0,
-  saturation: 1,
-  tint: 0,
-  ambient: [],
-  shadowOpacity: 0,
-  rimOpacity: 0,
-  glint: 0,
-};
-
-const MARK_RIM: Partial<typeof MARK> = {
-  ambient: [],
-  shadowOpacity: 0,
+const MARK_BY_VIEW: Partial<Record<MarkView, Partial<typeof MARK>>> = {
+  clear: {
+    blurRatio: 0,
+    minBlurRatio: 0,
+    saturation: 1,
+    tint: 0,
+    ambient: [],
+    shadowOpacity: 0,
+    rimOpacity: 0,
+    glint: 0,
+  },
+  rim: {
+    ambient: [],
+    shadowOpacity: 0,
+  },
 };
 
 const DEBUG_BACKDROP = "0xD9D9D9";
@@ -258,12 +259,7 @@ export function watermarkGraph(
     light?: MarkLight | null;
   },
 ): string {
-  const M =
-    view === "clear"
-      ? { ...MARK, ...MARK_CLEAR }
-      : view === "rim"
-        ? { ...MARK, ...MARK_RIM }
-        : MARK;
+  const M = { ...MARK, ...MARK_BY_VIEW[view] };
   const layout = watermarkLayout(video, bounds, size, position);
   const { VW, VH, LW, LH, margin } = layout;
   // Given a route, the mark stops at each of its positions in turn, looping

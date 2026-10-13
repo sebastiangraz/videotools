@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
-import type { FFmpeg, MediaInfo } from "../ffmpeg.js";
+import type { FFmpeg, MediaInfo, SourceProfile } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { encodeStill } from "../encode/still.js";
 import { sourceRender, videoPad, type Render } from "../encode/render.js";
@@ -41,41 +41,51 @@ type MarkLook = {
   route?: MarkPosition[];
 };
 
-async function addWatermark(
+export function markLook(options: Record<string, unknown>): Required<Omit<MarkLook, "route">> {
+  return {
+    filter: isMarkFilter(options.filter) ? options.filter : "glass",
+    size: isMarkSize(options.size) ? options.size : "medium",
+    position: isMarkPosition(options.position) ? options.position : "bottom-right",
+    view: isMarkView(options.view) ? options.view : "render",
+  };
+}
+
+async function markGraph(
   { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
+  file: string,
+  frame: SourceProfile,
+  logoFile: string,
+  options: Omit<Parameters<typeof watermarkGraph>[2], "bounds" | "light">,
+): Promise<{ graph: string; logoPng: string }> {
+  const [{ logoPng, logo }, light] = await Promise.all([
+    openLogo(ff, logoFile, frame),
+    lit(options.filter, options.view) ? followLight(ff, file, frame, workDir) : null,
+  ]);
+  const graph = watermarkGraph(frame, logo, {
+    ...options,
+    bounds: await logoBounds(ff, logoPng, logo),
+    light,
+  });
+  await light?.write();
+  return { graph, logoPng };
+}
+
+async function addWatermark(
+  job: Pick<ToolJob, "ff" | "workDir">,
   source: Source,
-  {
-    logoFile,
-    filter = "glass",
-    size = "medium",
-    position = "bottom-right",
-    view,
-    route,
-  }: MarkLook & { logoFile: string },
+  { logoFile, filter = "glass", ...look }: MarkLook & { logoFile: string },
 ): Promise<Render> {
   // An EXIF-rotated JPEG reaches the graph turned, so lay out by decoded size.
   const frame = source.still
-    ? { ...source.profile, ...(await ff.shownSize(source.path)) }
+    ? { ...source.profile, ...(await job.ff.shownSize(source.path)) }
     : source.profile;
-  const [{ logoPng, logo }, light] = await Promise.all([
-    openLogo(ff, logoFile, frame),
-    lit(filter, view)
-      ? followLight(ff, source.path, { ...frame, videoIndex: source.profile.videoIndex }, workDir)
-      : null,
-  ]);
-  const graph = watermarkGraph(frame, logo, {
+  const { graph, logoPng } = await markGraph(job, source.path, frame, logoFile, {
+    ...look,
     filter,
-    bounds: await logoBounds(ff, logoPng, logo),
-    light,
     // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
     base: source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p",
     pad: videoPad(source),
-    size,
-    position,
-    view,
-    route,
   });
-  await light?.write();
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
     inputArgs: ["-i", source.path, "-i", logoPng],
@@ -88,7 +98,7 @@ async function addWatermark(
 
 // Same graph as addWatermark, so the preview matches the output. Returns a JPEG.
 export async function renderWatermarkFrame(
-  { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
+  job: Pick<ToolJob, "ff" | "workDir">,
   {
     frameFile,
     logoFile,
@@ -98,20 +108,14 @@ export async function renderWatermarkFrame(
     view = "render",
   }: MarkLook & { frameFile: string; logoFile: string },
 ): Promise<string> {
+  const { ff, workDir } = job;
   const frame = await ff.mediaInfo(frameFile);
-  const [{ logoPng, logo }, light] = await Promise.all([
-    openLogo(ff, logoFile, frame),
-    lit(filter, view) ? followLight(ff, frameFile, frame, workDir) : null,
-  ]);
-  const graph = watermarkGraph(frame, logo, {
+  const { graph, logoPng } = await markGraph(job, frameFile, frame, logoFile, {
     filter,
-    bounds: await logoBounds(ff, logoPng, logo),
     size,
     position,
     view,
-    light,
   });
-  await light?.write();
 
   const outputFile = path.join(workDir, "preview.jpg");
   await ff.runFFmpeg([
@@ -212,10 +216,7 @@ export const mark: Tool = {
   },
   async run(job) {
     const { workDir, inputs, options, download } = job;
-    const filter = isMarkFilter(options.filter) ? options.filter : "glass";
-    const size = isMarkSize(options.size) ? options.size : "medium";
-    const position = isMarkPosition(options.position) ? options.position : "bottom-right";
-    const view = isMarkView(options.view) ? options.view : "render";
+    const { filter, size, position, view } = markLook(options);
     const route =
       Array.isArray(options.route) && options.route.every(isMarkPosition) ? options.route : [];
     const quality = Math.round(clamp(options.quality, 1, 100, 90));

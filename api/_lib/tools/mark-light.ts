@@ -108,9 +108,6 @@ export type LightPlacement = {
   fps: number;
 };
 
-export const lightKeys = (track: LightTrack, placement: LightPlacement) =>
-  smoothLight(aimLight(track, placement), placement.fps);
-
 type Follow = { name: string; options: Record<string, (angle: number) => string> };
 
 // What a graph needs to aim its light: `angle` to start at, and, when it
@@ -204,7 +201,8 @@ export class MarkLight {
   ) {}
 
   rig(placement: LightPlacement): LightRig {
-    this.last = new LightRig(lightKeys(this.track, placement), this.file);
+    const keys = smoothLight(aimLight(this.track, placement), placement.fps);
+    this.last = new LightRig(keys, this.file);
     return this.last;
   }
 

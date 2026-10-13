@@ -31,18 +31,19 @@ export function clamp(value: unknown, min: number, max: number, fallback: number
   return Math.min(max, Math.max(min, n));
 }
 
-export function singleVideo({ blobUrl }: ToolRequest) {
+export function singleVideo({ blobUrl }: ToolRequest): string[] | { error: string } {
   return isBlobUrl(blobUrl) ? [blobUrl] : { error: "Invalid blob URL" };
 }
 
-export const methodNotAllowed = () =>
-  Response.json({ error: "Method not allowed" }, { status: 405 });
+export function methodNotAllowed(): Response {
+  return Response.json({ error: "Method not allowed" }, { status: 405 });
+}
 
 // Parsed JSON body, or {} when there is none (or it isn't JSON).
-export const jsonBody = async (request: Request): Promise<object> => {
+export async function jsonBody(request: Request): Promise<object> {
   const body: unknown = await request.json().catch(() => null);
   return body && typeof body === "object" ? body : {};
-};
+}
 
 // `request.signal` fires when the client disconnects (supportsCancellation in
 // vercel.json). InputError → 400 with code; anything else → generic 500.
@@ -54,8 +55,7 @@ export async function runJob(
   const { signal } = request;
   let workDir: string | undefined;
   try {
-    const prefix = `videotools-${name.toLowerCase()}-`;
-    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), prefix));
+    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), `videotools-${name.toLowerCase()}-`));
     return await work(workDir, signal);
   } catch (err) {
     if (signal.aborted) {

@@ -54,11 +54,10 @@ export default {
     }
     const { inputs, run } = TOOLS[tool];
 
-    const picked = inputs({ blobUrl, blobUrls, watermarkUrl, options });
-    if (!Array.isArray(picked)) {
-      return reject(picked.error);
+    const inputBlobUrls = inputs({ blobUrl, blobUrls, watermarkUrl, options });
+    if (!Array.isArray(inputBlobUrls)) {
+      return reject(inputBlobUrls.error);
     }
-    const inputBlobUrls = picked;
 
     const base = String(filename)
       .replace(/\.[^.]+$/, "")

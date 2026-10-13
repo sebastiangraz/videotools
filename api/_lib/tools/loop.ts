@@ -171,9 +171,8 @@ async function reorderCopy(
   if (!packets) return false;
   const origin = Math.min(...packets.map((p) => p.time));
   const away = (i: number) => Math.abs(packets[i].time - origin - startSeconds);
-  const index = packets
-    .map((p, i) => (p.key && i > 0 ? i : -1))
-    .filter((i) => i > 0)
+  const index = [...packets.keys()]
+    .filter((i) => i > 0 && packets[i].key)
     .sort((a, b) => away(a) - away(b))[0];
   if (index === undefined || away(index) > KEYFRAME_SNAP_SECONDS) {
     console.log("No keyframe near the start point");
@@ -240,7 +239,7 @@ export const loop: Tool = {
     const { ff, workDir, inputs, options } = job;
     const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
     const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
-    const startSecond = clamp(options.startSecond, 0, Infinity, 0);
+    const startSeconds = clamp(options.startSecond, 0, Infinity, 0);
     const quality = Math.round(clamp(options.quality, 1, 100, 100));
 
     const source = await openSource(job, inputs[0]);
@@ -253,7 +252,7 @@ export const loop: Tool = {
     console.log(`Looping ${format} (${technique})...`);
 
     const outputFile = path.join(workDir, `output.${format}`);
-    const copy = { format, outputFile, startSeconds: startSecond };
+    const copy = { format, outputFile, startSeconds };
     const unfaded = technique === "crossfade" && fadeDuration === 0;
     if (unfaded && (await loopByCopy(ff, source, copy))) {
       return result(outputFile);
@@ -261,7 +260,7 @@ export const loop: Tool = {
 
     const render =
       technique === "crossfade"
-        ? crossfadeLoop(source, fadeDuration, startSecond)
+        ? crossfadeLoop(source, fadeDuration, startSeconds)
         : reverseLoop(source);
     return result(await encodePreserved(job, render, { format, quality }));
   },
