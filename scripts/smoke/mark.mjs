@@ -1,13 +1,17 @@
-// Mark's grid: every clip in videos/ becomes one tile of a grid, cropped (never
-// scaled) so it keeps the pixel scale of a real output. Every cycle, all tiles
-// carry the same logo from vectors/, in order, each tile marked by its own
-// Mark run. Lasts vectors × cycleDuration; clips loop to fill it.
+// Mark's grid: every clip in videos/ becomes one tile of a grid, cropped to a
+// region up to ZOOM_OUT× the tile's size and scaled down into it. Every cycle,
+// all tiles carry the same logo from vectors/, in order, each tile marked by
+// its own Mark run. Lasts vectors × cycleDuration; clips loop to fill it.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 // Seconds each vector is shown.
 const cycleDuration = 2;
+// How much of each clip a tile shows: 1 is a native-pixel crop, 2 shows twice
+// the width and height at half scale. Each clip zooms out only as far as it
+// can still fill its tile, so tiles from smaller clips end up less zoomed out.
+const ZOOM_OUT = 2;
 const FPS = 30;
 // At most; smaller when a clip couldn't fill its tile without scaling.
 const MAX_CANVAS = { width: 1920, height: 1920 };
@@ -74,7 +78,7 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
   const { width, height, tiles } = gridTiles(videos.length, smallest);
   const duration = vectors.length * cycleDuration;
   say(
-    `mark: ${videos.length} videos × ${vectors.length} vectors → ${width}x${height}, ${duration}s`,
+    `mark: ${videos.length} videos × ${vectors.length} vectors → ${width}x${height} at up to ${ZOOM_OUT}× out, ${duration}s`,
   );
 
   // Each clip cropped to its tile, looped to length, cut into one part per
@@ -86,6 +90,9 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
     .join(",");
   await pool(videos, CONCURRENCY, async (video, i) => {
     fs.mkdirSync(tileDirs[i], { recursive: true });
+    const { width: w, height: h } = tiles[i];
+    const zoom = Math.min(ZOOM_OUT, infos[i].width / w, infos[i].height / h);
+    const crop = `crop=${floorEven(w * zoom)}:${floorEven(h * zoom)}`;
     await ff.runFFmpeg([
       "-y",
       "-stream_loop",
@@ -96,7 +103,7 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
       String(duration),
       "-an",
       "-vf",
-      `fps=${FPS},crop=${tiles[i].width}:${tiles[i].height}`,
+      `fps=${FPS},${crop},scale=${w}:${h}:flags=lanczos,setsar=1`,
       "-c:v",
       "libx264",
       "-preset",
