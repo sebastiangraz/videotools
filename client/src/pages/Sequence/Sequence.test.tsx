@@ -3,19 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import {
   blobUrl,
+  decimal,
   postedBody,
   renderApp,
   runFinished,
   stubProcessFetch,
   uploadMock,
-} from "../../test/renderApp";
-import { file, imageFile, stubCanvas, stubImageDecoder } from "../../test/media";
+} from "@src/test/renderApp";
+import { file, imageFile, stubCanvas, stubImageDecoder } from "@src/test/media";
 
 const createButton = () => screen.getByRole("button", { name: /create video/i });
-
-// NumberField parses with the runtime locale: type its decimal separator
-const decimal = (whole: number, tenths: number) =>
-  `${whole}${(1.1).toLocaleString().charAt(1)}${tenths}`;
 
 describe("Sequence", () => {
   it("uploads the images and requests an image sequence", async () => {

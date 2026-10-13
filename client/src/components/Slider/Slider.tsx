@@ -1,5 +1,6 @@
 import { CSSProperties, ReactNode } from "react";
 import { Slider as BaseSlider } from "@base-ui/react/slider";
+import { cx } from "@src/helpers";
 import styles from "./Slider.module.css";
 
 // Centre-anchored fill for a signed slider: Slider.Indicator spans 0 → value
@@ -13,9 +14,9 @@ const CENTERED_INDICATOR: CSSProperties = {
 
 const MINOR_TICKS = 61;
 
-// Single-thumb slider on Base UI's Slider with the label above the track.
 // `centered` anchors the fill at the track centre (for signed ranges),
-// `ticks` draws detent marks under the track, and `tickCount` is the major-tick count.
+// `ticks` draws detent marks under the track, and `tickCount` is the number
+// of major-tick intervals (tickCount + 1 marks).
 export const Slider = ({
   label,
   value,
@@ -70,12 +71,12 @@ export const Slider = ({
       step={step}
       disabled={disabled}
       thumbAlignment="edge"
-      className={ticks ? `${styles.slider} ${styles.withTicks}` : styles.slider}
+      className={cx(styles.slider, ticks && styles.withTicks)}
     >
       <BaseSlider.Label className={styles.label}>{label}</BaseSlider.Label>
       {ticks ? (
         <div
-          className={centered ? `${styles.ticks} ${styles.centeredTicks}` : styles.ticks}
+          className={cx(styles.ticks, centered && styles.centeredTicks)}
           style={
             {
               "--fill-ratio": fillRatio,
@@ -102,11 +103,7 @@ export const Slider = ({
             {Array.from({ length: tickCount + 1 }, (_, i) => (
               <span
                 key={i}
-                className={
-                  majorTickActive(i)
-                    ? `${styles.majorTick} ${styles.majorTickActive}`
-                    : styles.majorTick
-                }
+                className={cx(styles.majorTick, majorTickActive(i) && styles.majorTickActive)}
                 style={{ "--pos": i / tickCount } as CSSProperties}
               />
             ))}

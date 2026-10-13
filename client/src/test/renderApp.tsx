@@ -3,7 +3,7 @@ import type { UserEvent } from "@testing-library/user-event";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { upload } from "@vercel/blob/client";
 import { expect, vi, type Mock } from "vitest";
-import { createAppRouter } from "../App";
+import { createAppRouter } from "@src/App";
 
 // Loosely typed: tests resolve it with just the fields the app reads ({ url }).
 export const uploadMock = upload as unknown as Mock;
@@ -63,3 +63,7 @@ export const postedBody = (fetchMock: FetchMock, nth = 0) => {
   const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
   return JSON.parse(posts[nth][1]!.body as string);
 };
+
+// NumberField parses with the runtime locale: type its decimal separator
+export const decimal = (whole: number, tenths: number) =>
+  `${whole}${(1.1).toLocaleString().charAt(1)}${tenths}`;

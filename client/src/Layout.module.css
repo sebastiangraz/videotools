@@ -1,3 +1,65 @@
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template:
+    ". header ." auto
+    ". tabs ." auto
+    ". main ." 1fr
+    / 1fr min(92%, var(--width)) 1fr;
+}
+
+.frame {
+  grid-area: 1 / 1 / -1 / -1;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-template-columns: subgrid;
+  &::before {
+    content: "";
+    grid-area: 1 / 2 / -1;
+    border-inline: 1px solid var(--border);
+  }
+  &::after {
+    content: "";
+    grid-row: tabs;
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+  }
+}
+
+.header {
+  grid-area: header;
+  display: flex;
+  gap: 1em;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4em 1em 1em 1em;
+  color: var(--fg);
+}
+
+.title {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  font-weight: normal;
+  margin: 0;
+}
+
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  width: 2rem;
+  height: var(--quantize);
+  display: flex;
+  svg {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+}
+
 .tabContainer {
   grid-area: tabs;
 }
@@ -32,16 +94,12 @@
   scrollbar-width: none;
 }
 
-/* Sizing and type only; colour states come from the Tabs component */
 .tab {
   min-height: var(--quantize);
   padding: 0.75rem 0.5rem;
   font-size: 10px;
 }
 
-/* The active tab's line, drawn over the container rule above and slid from
-   tab to tab by the Tabs component. Inset by the tab's inline padding so it
-   spans the label rather than the whole box. */
 .tabIndicator {
   height: 1px;
   margin-left: 0.5rem;
@@ -49,8 +107,6 @@
   border-top: 1px solid var(--fg);
 }
 
-/* `place-self` has no say on the main axis of the flex tablist: the auto
-   margin is what sends it to the end. */
 .settingsTrigger {
   display: flex;
   align-items: center;
@@ -133,7 +189,7 @@
   }
 }
 
-/* Mask covering the content on open settings */
+/* Mask on open settings */
 @property --settings-mask {
   syntax: "<number>";
   inherits: false;

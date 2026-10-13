@@ -1,5 +1,5 @@
 import { useEffect, useId, type ReactNode } from "react";
-import { messages, type MessageKind } from "../components/Message/messageStore";
+import { messages, type MessageKind } from "@src/components/Message/messageStore";
 
 // Shows `content` in the message area until it is empty or the caller
 // unmounts. The hook form of <Message>.

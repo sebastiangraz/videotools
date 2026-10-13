@@ -13,7 +13,6 @@
   background-color: var(--bg-1);
 }
 
-/* A frame fitted inside the box, whatever its own size. */
 .framePreviewFrame {
   position: absolute;
   inset: 0;

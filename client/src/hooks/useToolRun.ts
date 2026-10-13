@@ -1,16 +1,12 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
-import type { ToolId } from "../tools";
-import { shortenFilename, verboseName } from "../helpers";
+import type { ToolId } from "@src/tools";
+import { sendJson, shortenFilename, splitExtension, verboseName } from "@src/helpers";
 
 // Best effort: the server sweeps leftovers anyway.
 function deleteBlobs(urls: string[]) {
   if (!urls.length) return;
-  fetch("/api/process", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ urls }),
-  }).catch(() => {});
+  sendJson("/api/process", "DELETE", { urls }).catch(() => {});
 }
 
 // `extras`: further uploads with their own status line (mark's logo).
@@ -24,12 +20,12 @@ interface RunRequest {
   onDone?: () => void;
 }
 
-// Temporary: the "verbose" switch by the tabs names downloads after their settings.
+// Temporary: the "verbose" setting names downloads after their settings.
 export const VerboseNames = createContext(false);
 
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
-  const [status, setMsg] = useState<string>("");
+  const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
@@ -61,30 +57,30 @@ export function useToolRun(tool: ToolId) {
         });
 
       for (let i = 0; i < files.length; i++) {
-        setMsg(files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading");
+        setStatus(files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading");
         blobUrls.push((await send(files[i])).url);
       }
 
       for (const extra of extras) {
-        setMsg(extra.status);
+        setStatus(extra.status);
         extraUrls.push((await send(extra.file)).url);
       }
 
-      setMsg("Processing");
+      setStatus("Processing");
       const body = payload({ blobUrls, extraUrls });
-      const res = await fetch("/api/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tool, filename: files[0].name, ...body }),
+      const res = await sendJson(
+        "/api/process",
+        "POST",
+        { tool, filename: files[0].name, ...body },
         signal,
-      });
+      );
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
         throw new Error(errorData?.error || `Server error (${res.status}): Unable to process`);
       }
       const { url, filename: resultName } = await res.json();
       resultUrl = url;
-      const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(files[0].name) ?? [];
+      const [base, ext] = splitExtension(files[0].name);
       const downloadName = verbose
         ? verboseName(
             base,
@@ -94,7 +90,7 @@ export function useToolRun(tool: ToolId) {
           )
         : resultName || `${base}_${tool}${ext}`;
 
-      setMsg(`Downloading ${shortenFilename(files[0])}`);
+      setStatus(`Downloading ${shortenFilename(files[0])}`);
       // Blob storage is cross-origin, where `download` is ignored.
       const fileRes = await fetch(url, { signal });
       if (!fileRes.ok) throw new Error(`Failed to download result (${fileRes.status})`);
@@ -112,9 +108,8 @@ export function useToolRun(tool: ToolId) {
       // The server only deletes inputs once it runs; double deletes are harmless.
       const uploaded = [...blobUrls, ...extraUrls];
       deleteBlobs(resultUrl ? [...uploaded, resultUrl] : uploaded);
-      if (signal.aborted) {
-        // Stopped on purpose: no error box.
-      } else {
+      // Aborted = stopped on purpose: no error box.
+      if (!signal.aborted) {
         console.error(err);
         setErrorDetail(err instanceof Error ? err.message : String(err));
       }

@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Page } from "../../components/Page/Page";
-import { Upload } from "../../components/Upload/Upload";
-import { Message } from "../../components/Message/Message";
-import { NumberField } from "../../components/NumberField/NumberField";
-import { Select } from "../../components/Select/Select";
-import { Slider } from "../../components/Slider/Slider";
-import { Switch } from "../../components/Switch/Switch";
-import { ToggleGroup } from "../../components/ToggleGroup/ToggleGroup";
-import { ToggleGrid } from "../../components/ToggleGrid/ToggleGrid";
-import { Tooltip } from "../../components/Tooltip/Tooltip";
-import form from "../form.module.css";
+import { Page } from "@src/components/Page/Page";
+import { Upload } from "@src/components/Upload/Upload";
+import { Message } from "@src/components/Message/Message";
+import { NumberField } from "@src/components/NumberField/NumberField";
+import { Select } from "@src/components/Select/Select";
+import { Slider } from "@src/components/Slider/Slider";
+import { Switch } from "@src/components/Switch/Switch";
+import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
+import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
+import { Tooltip } from "@src/components/Tooltip/Tooltip";
+import form from "@src/form.module.css";
 
 const TOGGLE_OPTIONS = [
   { value: "on", label: "On" },
@@ -76,17 +76,16 @@ export const Test = () => {
           </label>
           <Select
             id="select"
-            options={OPTIONS.slice(0, 3).map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
+            options={OPTIONS.slice(0, 3)}
             value={option}
             onValueChange={setOption}
             disabled={disabled}
           />
         </div>
         <div className={form.formGroup} style={{ flex: "none" }}>
-          <label className={form.label}>Grid</label>
+          <span id="toggle-grid" className={form.label}>
+            Grid
+          </span>
           <ToggleGrid
             labelledBy="toggle-grid"
             value={toggleGrid}
@@ -125,11 +124,11 @@ export const Test = () => {
           />
         </div>
         <div className={form.formGroup}>
-          <span id="toggle-group" className={form.label}>
+          <span id="toggle-group-small" className={form.label}>
             Toggle group small
           </span>
           <ToggleGroup
-            labelledBy="toggle-group"
+            labelledBy="toggle-group-small"
             options={TOGGLE_OPTIONS.slice(0, 2)}
             value={toggle}
             onValueChange={setToggle}

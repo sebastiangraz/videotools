@@ -1,14 +1,21 @@
 import { useState } from "react";
-import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { Upload } from "../../components/Upload/Upload";
-import { Slider } from "../../components/Slider/Slider";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
-import { useToolRun } from "../../hooks/useToolRun";
-import { useVideoSource } from "../../hooks/useVideoSource";
-import { toolById } from "../../tools";
-import form from "../form.module.css";
+import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
+import { Upload } from "@src/components/Upload/Upload";
+import { Slider } from "@src/components/Slider/Slider";
+import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
+import { useToolRun } from "@src/hooks/useToolRun";
+import { useVideoSource } from "@src/hooks/useVideoSource";
+import { toolById } from "@src/tools";
+import { toList } from "@src/helpers";
+import form from "@src/form.module.css";
 
 const TOOL = toolById("speed");
+
+function describeSpeed(speed: number): string {
+  if (speed === 0) return "unchanged";
+  if (speed > 0) return `${(1 + speed).toFixed(1)}x faster`;
+  return `${(1 - speed).toFixed(1)}x slower`;
+}
 
 export const Speed = () => {
   const run = useToolRun(TOOL.value);
@@ -40,12 +47,7 @@ export const Speed = () => {
     <ToolPanel
       tool={TOOL}
       inputs={
-        <Upload
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-          meta={source.meta}
-        />
+        <Upload {...TOOL.input} files={toList(source.file)} onFiles={pick} meta={source.meta} />
       }
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
@@ -55,12 +57,7 @@ export const Speed = () => {
         <Slider
           label={
             <>
-              Speed (
-              {speed === 0
-                ? "unchanged"
-                : speed > 0
-                  ? `${(1 + speed).toFixed(1)}x faster`
-                  : `${(1 - speed).toFixed(1)}x slower`}
+              Speed ({describeSpeed(speed)}
               {source.duration > 0 && ` ~${(source.duration / speedMultiplier).toFixed(1)}s`})
             </>
           }

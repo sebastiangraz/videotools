@@ -1,4 +1,5 @@
 import { InputError } from "../errors.js";
+import { sizeLabel } from "../helpers.js";
 import type { Encoder } from "./index.js";
 import { conversionFps, encodeWithinBudget, graphArgs, levelRange, scaledSize } from "./render.js";
 import { vpxCrf } from "./video.js";
@@ -46,7 +47,7 @@ export const encodeAvif: Encoder = async (
   if (duration * fps * size.width * size.height > MAX_AVIF_PIXELS) {
     throw new InputError(
       `Video too long for AVIF at this size: ${Math.round(duration)}s of ` +
-        `${Math.round(size.width)}×${Math.round(size.height)} ` +
+        `${sizeLabel(size.width, size.height)} ` +
         `at ${fps} fps is more than the app can encode in time (AVIF ` +
         `encoding is slow). Use a shorter or smaller clip.`,
       "too-long",

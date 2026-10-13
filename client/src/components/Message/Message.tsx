@@ -3,8 +3,9 @@ import {
   PreviewCard as BasePreviewCard,
   type PreviewCardTriggerProps,
 } from "@base-ui/react/preview-card";
-import { PreviewCardPopup } from "../PreviewCard/PreviewCard";
-import { useMessage } from "../../hooks/useMessage";
+import { PreviewCardPopup } from "@src/components/PreviewCard/PreviewCard";
+import { useMessage } from "@src/hooks/useMessage";
+import { cx } from "@src/helpers";
 import { messageHandle, messages, type MessageKind } from "./messageStore";
 import styles from "./Message.module.css";
 
@@ -66,7 +67,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
         const error = !triggerSpeaks && message?.kind === "error";
         return (
           <PreviewCardPopup
-            popupClassName={error ? `${styles.message} ${styles.error}` : styles.message}
+            popupClassName={cx(styles.message, error && styles.error)}
             anchor={anchor}
             side="bottom"
             align="end"
@@ -93,8 +94,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
   );
 };
 
-// An element (`render`, with `children` as its contents) that says `message`
-// in the area while it is hovered or focused.
+// Says `message` in the area while it is hovered or focused.
 export const MessageTrigger = ({
   message,
   render,
@@ -109,9 +109,8 @@ export const MessageTrigger = ({
   </BasePreviewCard.Trigger>
 );
 
-// A message in the area, from anywhere in the app: useMessage for markup. It
-// is up while it is mounted, so render it for as long as what it says holds.
-// It renders nothing where it stands.
+// useMessage as markup: the message is up while this is mounted, so render it
+// for as long as what it says holds. It renders nothing where it stands.
 export const Message = ({
   kind = "default",
   children,

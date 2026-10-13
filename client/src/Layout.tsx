@@ -8,8 +8,8 @@ import { Popover } from "./components/Popover/Popover";
 import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
 import { VerboseNames } from "./hooks/useToolRun";
-import appStyles from "./index.module.css";
-import form from "./pages/form.module.css";
+import { cx } from "./helpers";
+import form from "./form.module.css";
 import styles from "./Layout.module.css";
 
 const THEME_OPTIONS = [
@@ -26,7 +26,7 @@ const VERBOSE_OPTIONS = [
 const DEFAULT_SETTINGS = { verbose: false, themeInvert: false };
 
 const Logo = () => (
-  <div className={appStyles.logo}>
+  <div className={styles.logo}>
     <svg
       viewBox="0 0 176 111"
       fill="none"
@@ -63,11 +63,11 @@ export const Layout = () => {
   const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
 
   return (
-    <div className={appStyles.app}>
-      <div className={appStyles.frame}>
-        <header className={appStyles.header}>
+    <div className={styles.app}>
+      <div className={styles.frame}>
+        <header className={styles.header}>
           <Logo />
-          <h1 ref={titleRef} className={appStyles.title}>
+          <h1 ref={titleRef} className={styles.title}>
             Video tools
             <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
               dev
@@ -99,11 +99,10 @@ export const Layout = () => {
               {t.label}
             </MessageTrigger>
           ))}
-          {/* Global settings. */}
           <Popover
             trigger={
               <button type="button" aria-label="Settings" className={styles.settingsTrigger}>
-                <span aria-hidden="true" className={`${form.label} ${styles.settingsLabel}`}>
+                <span aria-hidden="true" className={cx(form.label, styles.settingsLabel)}>
                   Settings
                 </span>
                 <svg aria-hidden="true" fill="none" viewBox="0 0 14 7">
@@ -113,7 +112,6 @@ export const Layout = () => {
             }
             anchor={tabsRef}
             sideOffset={0}
-
             className={styles.settings}
           >
             <div className={styles.settingsRow}>
@@ -150,7 +148,7 @@ export const Layout = () => {
             </div>
           </Popover>
         </Tabs>
-        <main className={appStyles.main}>
+        <main className={styles.main}>
           <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>

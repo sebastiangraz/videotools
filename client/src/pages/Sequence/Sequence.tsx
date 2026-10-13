@@ -1,19 +1,18 @@
 import { useEffect, useState } from "react";
-import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { Upload } from "../../components/Upload/Upload";
-import { FramePreview } from "../../components/FramePreview/FramePreview";
-import preview from "../../components/FramePreview/FramePreview.module.css";
-import { Select } from "../../components/Select/Select";
-import { NumberField } from "../../components/NumberField/NumberField";
-import { Slider } from "../../components/Slider/Slider";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
-import { useToolRun } from "../../hooks/useToolRun";
-import type { SourceMeta } from "../../hooks/useVideoSource";
-import { byFilename } from "../../sourceFormat";
-import { toolById } from "../../tools";
-import { SEQUENCE_FORMATS, formatById } from "../../../../api/_lib/formats";
-import form from "../form.module.css";
-import { formatBytes } from "../../helpers";
+import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
+import { Upload } from "@src/components/Upload/Upload";
+import { FramePreview } from "@src/components/FramePreview/FramePreview";
+import preview from "@src/components/FramePreview/FramePreview.module.css";
+import { Select } from "@src/components/Select/Select";
+import { NumberField } from "@src/components/NumberField/NumberField";
+import { Slider } from "@src/components/Slider/Slider";
+import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
+import { useToolRun } from "@src/hooks/useToolRun";
+import type { SourceMeta } from "@src/hooks/useVideoSource";
+import { toolById } from "@src/tools";
+import { SEQUENCE_FORMATS, formatById } from "@api/formats";
+import form from "@src/form.module.css";
+import { aspectRatioOf, byFilename, fitScale, formatBytes, qualityLabel } from "@src/helpers";
 
 const TOOL = toolById("sequence");
 
@@ -41,17 +40,15 @@ function estimateOutputBytes(
   const bpp = SIZE_BPP[format] ?? SIZE_BPP.mp4;
   const t = quality / 100;
   // The server caps the longest side at 1920
-  const scale = Math.min(1, 1920 / Math.max(w, h));
+  const scale = fitScale(w, h, 1920);
   const pixels = Math.round(w * scale) * Math.round(h * scale);
   // Quality affects size superlinearly
   return pixels * frames * (bpp.min + (bpp.max - bpp.min) * t * t);
 }
 
-// The pick played at the field's pace: a FramePreview handed the next still
-// every `frameDuration` seconds, in a box shaped like the first image (as the
-// output is), so the card holds still between frames. Lives in the card, so it
-// ticks only while that is open and starts over on the first image (the
-// thumbnail) each time.
+// The box is shaped like the first image (as the output is), so the card holds
+// still between frames. Lives in the card, so it ticks only while that is open
+// and starts over on the first image (the thumbnail) each time.
 const SequencePreview = ({
   files,
   frameDuration,
@@ -68,10 +65,7 @@ const SequencePreview = ({
     return () => clearInterval(timer);
   }, [frameDuration]);
   return (
-    <div
-      className={preview.framePreview}
-      style={{ aspectRatio: meta ? `${meta.w} / ${meta.h}` : "16 / 9" }}
-    >
+    <div className={preview.framePreview} style={{ aspectRatio: aspectRatioOf(meta) }}>
       <FramePreview
         file={files[tick % files.length]}
         second={0}
@@ -113,6 +107,12 @@ export const Sequence = () => {
       img.src = URL.createObjectURL(first);
     }
   };
+
+  const lossless = (format === "avif" || format === "webp") && quality === 100;
+  const sizeEstimate =
+    files.length > 0 && imageMeta
+      ? ` ~${formatBytes(estimateOutputBytes(imageMeta.w, imageMeta.h, files.length, format, quality))}`
+      : null;
 
   const submit = () =>
     run.start({
@@ -171,14 +171,8 @@ export const Sequence = () => {
         <Slider
           label={
             <>
-              Quality {quality}%
-              {(format === "avif" || format === "webp") && quality === 100
-                ? " (lossless)"
-                : files.length > 0 &&
-                  imageMeta &&
-                  ` ~${formatBytes(
-                    estimateOutputBytes(imageMeta.w, imageMeta.h, files.length, format, quality),
-                  )}`}
+              {qualityLabel(quality, lossless)}
+              {sizeEstimate}
             </>
           }
           value={quality}

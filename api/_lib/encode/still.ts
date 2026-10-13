@@ -1,6 +1,6 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import type { StillId } from "../formats.js";
+import { fileSize } from "../helpers.js";
 import type { ToolJob } from "../tools/types.js";
 import { bisect, graphArgs, hasAlpha, levelRange, TOOL_ALLOWANCE, type Render } from "./render.js";
 import { WEBP_LOSSLESS, webpLevels } from "./webp.js";
@@ -56,13 +56,13 @@ export async function encodeStill(
         ["-c:v", "libwebp", "-q:v", String(level), "-preset", "icon", "-pix_fmt", "bgra"];
 
   const ceiling = render.source
-    ? (await fs.stat(render.source.path)).size * (quality / 100) * TOOL_ALLOWANCE
+    ? (await fileSize(render.source.path)) * (quality / 100) * TOOL_ALLOWANCE
     : Infinity;
   let written = -1;
   const fits = async (index: number) => {
     await encode(codecArgs(levels[index]));
     written = index;
-    return (await fs.stat(outputFile)).size <= ceiling;
+    return (await fileSize(outputFile)) <= ceiling;
   };
   if (await fits(0)) return outputFile;
 

@@ -86,43 +86,23 @@ export const encodeWebp: Encoder = async (
     [...(everyFrame ? [] : [`fps=${rate}`]), ...(width == null ? [] : [fitWidth(width)])],
     "bgra",
   );
+  const encode = (codecArgs: string[], to: string) =>
+    ff.runFFmpeg([...input, "-c:v", "libwebp_anim", ...codecArgs, "-loop", "0", "-an", to]);
   const lossless = quality >= 100 && (await isLosslessSource(render.source));
   if (lossless) {
-    await ff.runFFmpeg([
-      ...input,
-      "-c:v",
-      "libwebp_anim",
-      ...WEBP_LOSSLESS,
-      "-loop",
-      "0",
-      "-an",
-      outputFile,
-    ]);
+    await encode(WEBP_LOSSLESS, outputFile);
     return;
   }
 
-  const encode = (level: number, to: string) =>
-    ff.runFFmpeg([
-      ...input,
-      "-c:v",
-      "libwebp_anim",
-      "-q:v",
-      String(level),
-      // "icon" disables spatial noise shaping, which starves flat regions
-      // into a block grid; better PSNR everywhere (~12% larger on detail).
-      "-preset",
-      "icon",
-      "-loop",
-      "0",
-      "-an",
-      to,
-    ]);
+  // "icon" disables spatial noise shaping, which starves flat regions
+  // into a block grid; better PSNR everywhere (~12% larger on detail).
+  const lossy = (level: number) => ["-q:v", String(level), "-preset", "icon"];
   // No rate control: at the top, a lossy source's artifacts came to over 2×
   // its bytes a frame.
   await encodeWithinBudget(ff, {
     outputFile,
     levels: webpLevels(quality),
     budget: await sourceBytesBudget(render, "webp", render.duration * render.fps, quality / 100),
-    encode,
+    encode: (level, to) => encode(lossy(level), to),
   });
 };

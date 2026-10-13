@@ -1,4 +1,4 @@
-import { FORMATS, STILLS, TOOL_IDS, type ToolId } from "../../api/_lib/formats";
+import { FORMATS, STILLS, TOOL_IDS, type ToolId } from "@api/formats";
 
 export type { ToolId };
 

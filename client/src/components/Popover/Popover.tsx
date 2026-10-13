@@ -4,6 +4,7 @@ import {
   type PopoverPositionerProps,
   type PopoverRootProps,
 } from "@base-ui/react/popover";
+import { cx } from "@src/helpers";
 import styles from "./Popover.module.css";
 
 type PositionerProps = Pick<
@@ -11,11 +12,10 @@ type PositionerProps = Pick<
   "anchor" | "side" | "align" | "sideOffset" | "alignOffset" | "collisionAvoidance"
 >;
 
-// Popover on Base UI's Popover. Given a `trigger` (rendered as Base UI's
-// Trigger) it opens and shuts itself and hangs off it. Otherwise it is
-// controlled: the caller decides when it is `open` and which element it hangs
-// off (`anchor`); `onOpenChange` hears outside presses and Escape, and left
-// out, only `open` shuts it.
+// Given a `trigger` it opens and shuts itself and hangs off it. Otherwise it
+// is controlled: the caller decides when it is `open` and which element it
+// hangs off (`anchor`); `onOpenChange` hears outside presses and Escape, and
+// left out, only `open` shuts it.
 export const Popover = ({
   open,
   onOpenChange,
@@ -43,10 +43,7 @@ export const Popover = ({
         sideOffset={sideOffset}
         {...positioner}
       >
-        <BasePopover.Popup
-          className={className ? `${styles.popup} ${className}` : styles.popup}
-          initialFocus={false}
-        >
+        <BasePopover.Popup className={cx(styles.popup, className)} initialFocus={false}>
           {children}
         </BasePopover.Popup>
       </BasePopover.Positioner>

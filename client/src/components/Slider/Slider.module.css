@@ -43,7 +43,6 @@
 
 .thumb {
   position: relative;
-  background-color: #f005;
   width: var(--thumb-size);
   height: var(--thumb-size);
   cursor: pointer;
@@ -92,7 +91,6 @@
 }
 
 .withTicks {
-  /* margin-bottom: 0; */
   gap: 1.75em;
 }
 
@@ -104,7 +102,7 @@
   --minor-h: 4;
   --minor-peak: 8;
   --hill: 0.1;
-  --tick-inset: calc((9px / 2));
+  --tick-inset: calc(9px / 2);
 }
 
 .slider[data-disabled] {

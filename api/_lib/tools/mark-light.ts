@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { FFmpeg } from "../ffmpeg.js";
+import { towards } from "../helpers.js";
 import { trackLight, type LightTrack } from "../light-track.js";
 
 // Turns the glass's light towards the brightest part of the picture: the
@@ -41,8 +42,7 @@ export function aimLight(
 ): LightKey[] {
   // Nothing sampled (the tracker's fps drops a still's one frame): no light.
   if (!track.points.length) return [{ time: 0, angle: fallback }];
-  const rad = (fallback * Math.PI) / 180;
-  const [fx, fy] = [Math.sin(rad), -Math.cos(rad)];
+  const [fx, fy] = towards(fallback);
   return track.points.map(({ time, x, y, strength }) => {
     const [cx, cy] = centreAt(time);
     const [dx, dy] = [x - cx, y - cy];
@@ -107,9 +107,6 @@ export type LightPlacement = {
   // The video's, for one key per frame.
   fps: number;
 };
-
-export const lightKeys = (track: LightTrack, placement: LightPlacement) =>
-  smoothLight(aimLight(track, placement), placement.fps);
 
 type Follow = { name: string; options: Record<string, (angle: number) => string> };
 
@@ -204,7 +201,8 @@ export class MarkLight {
   ) {}
 
   rig(placement: LightPlacement): LightRig {
-    this.last = new LightRig(lightKeys(this.track, placement), this.file);
+    const keys = smoothLight(aimLight(this.track, placement), placement.fps);
+    this.last = new LightRig(keys, this.file);
     return this.last;
   }
 

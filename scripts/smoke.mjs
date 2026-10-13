@@ -10,11 +10,11 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { checkFfmpeg, pinnedVersion } from "./ffmpeg-check.mjs";
+import { root } from "./binaries.mjs";
+import { requireFfmpeg } from "./ffmpeg-check.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const smokeDir = path.join(root, ".smoke");
 
 // Input roles. The first six come from the assets folder, which must have
@@ -43,6 +43,9 @@ fs.rmSync(outDir, { recursive: true, force: true });
 // Bun runs the api's TypeScript as is (its .js specifiers resolve to .ts).
 const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
 const { GENERATION } = await load("api/_lib/encode/rate.ts");
+const { FFmpeg } = await load("api/_lib/ffmpeg.ts");
+const { TOOLS } = await load("api/_lib/tools/index.ts");
+const { renderWatermarkFrame } = await load("api/_lib/tools/mark.ts");
 
 // Each case is a /api/process request (`preview`: /api/preview's single frame;
 // `various`: one per logo, each marking its part, then the parts joined).
@@ -234,9 +237,14 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
     throw new Error(`missing smoke assets in ${userDir}: ${missing.join(", ")}`);
   }
   const [video] = assets.video;
+  // Encodes `video` into madeDir/<name>, returned as a role's files.
+  const make = (name, ...args) => {
+    ff("-i", video, ...args, made(name));
+    return [made(name)];
+  };
+  const h264 = ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac"];
 
-  ff("-i", video, "-frames:v", "1", made("frame.jpg"));
-  assets.frame = [made("frame.jpg")];
+  assets.frame = make("frame.jpg", "-frames:v", "1");
 
   // Keyframes at the cuts and no frame-rate fixing (it can duplicate a frame),
   // so every frame lands in exactly one part.
@@ -250,12 +258,7 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
     video,
     "-fps_mode",
     "passthrough",
-    "-c:v",
-    "libx264",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
+    ...h264,
     "-force_key_frames",
     cuts,
     "-f",
@@ -271,28 +274,15 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
   // Falls back to encoding when the streams don't fit the container.
   const remux = (name, ...streams) => {
     try {
-      ff("-i", video, ...streams, "-c", "copy", made(name));
+      return make(name, ...streams, "-c", "copy");
     } catch {
-      ff(
-        "-i",
-        video,
-        ...streams,
-        "-c:v",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        made(name),
-      );
+      return make(name, ...streams, ...h264);
     }
-    return [made(name)];
   };
   assets.mov = remux("source.mov");
   assets.mkv = remux("reject.mkv", "-map", "0:v:0");
-  ff(
-    "-i",
-    video,
+  assets.anamorphic = make(
+    "reject-anamorphic.mp4",
     "-t",
     "2",
     "-vf",
@@ -304,12 +294,9 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
     "-pix_fmt",
     "yuv420p",
     "-an",
-    made("reject-anamorphic.mp4"),
   );
-  assets.anamorphic = [made("reject-anamorphic.mp4")];
-  ff(
-    "-i",
-    video,
+  assets.webm = make(
+    "source.webm",
     "-c:v",
     "libvpx-vp9",
     "-crf",
@@ -326,63 +313,35 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
     "libopus",
     "-ac",
     "2",
-    made("source.webm"),
   );
-  assets.webm = [made("source.webm")];
-  ff(
-    "-i",
-    video,
-    "-t",
-    "2",
-    "-vf",
-    "fps=15,scale=320:-2",
-    "-c:v",
-    "libaom-av1",
-    "-crf",
-    "30",
-    "-b:v",
-    "0",
-    "-cpu-used",
-    "8",
-    "-row-mt",
-    "1",
-    "-pix_fmt",
-    "yuv420p",
-    "-an",
-    "-f",
-    "avif",
-    made("source.avif"),
-  );
-  assets.avif = [made("source.avif")];
-  ff(
-    "-i",
-    video,
-    "-t",
-    "3",
-    "-vf",
-    "fps=1,scale=320:-2",
-    "-c:v",
-    "libaom-av1",
-    "-crf",
-    "30",
-    "-b:v",
-    "0",
-    "-cpu-used",
-    "8",
-    "-row-mt",
-    "1",
-    "-pix_fmt",
-    "yuv420p",
-    "-an",
-    "-f",
-    "avif",
-    made("slides.avif"),
-  );
-  assets.slides = [made("slides.avif")];
-  const animWebp = (name, ...codec) => {
-    ff(
-      "-i",
-      video,
+  const avif = (name, seconds, fps) =>
+    make(
+      name,
+      "-t",
+      seconds,
+      "-vf",
+      `fps=${fps},scale=320:-2`,
+      "-c:v",
+      "libaom-av1",
+      "-crf",
+      "30",
+      "-b:v",
+      "0",
+      "-cpu-used",
+      "8",
+      "-row-mt",
+      "1",
+      "-pix_fmt",
+      "yuv420p",
+      "-an",
+      "-f",
+      "avif",
+    );
+  assets.avif = avif("source.avif", "2", 15);
+  assets.slides = avif("slides.avif", "3", 1);
+  const animWebp = (name, ...codec) =>
+    make(
+      name,
       "-t",
       "2",
       "-vf",
@@ -393,19 +352,13 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
       "-loop",
       "0",
       "-an",
-      made(name),
     );
-    return [made(name)];
-  };
   assets.animwebp = animWebp("anim.webp", "-q:v", "80");
   assets["animwebp-lossless"] = animWebp("anim-lossless.webp", "-lossless", "1");
 
-  ff("-i", video, "-frames:v", "1", made("still.png"));
-  assets.png = [made("still.png")];
-  ff("-i", video, "-frames:v", "1", "-q:v", "4", made("still.jpg"));
-  assets.jpg = [made("still.jpg")];
-  ff("-i", video, "-frames:v", "1", "-c:v", "libwebp", "-q:v", "85", made("still.webp"));
-  assets.webp = [made("still.webp")];
+  assets.png = make("still.png", "-frames:v", "1");
+  assets.jpg = make("still.jpg", "-frames:v", "1", "-q:v", "4");
+  assets.webp = make("still.webp", "-frames:v", "1", "-c:v", "libwebp", "-q:v", "85");
   // APP1 EXIF after SOI with one tag: Orientation (0x0112) = 6, rotate 90° CW.
   const tiff = Buffer.alloc(26);
   tiff.write("II");
@@ -433,7 +386,7 @@ async function resolveAssets(ffmpeg, userDir, madeDir) {
 }
 
 // x264 under a bitrate cap isn't bit-exact across runs (thread timing affects
-// rate control); sizes within ~1% are the same result.
+// rate control): runs differ by up to ~1%, so sizes within 2% are the same result.
 const SIZE_TOLERANCE = 0.02;
 function sameResult(before, after) {
   const keys = Object.keys({ ...before, ...after });
@@ -465,22 +418,11 @@ function diff(name, before, after, format, same = (a, b) => format(a) === format
   return false;
 }
 
-const { FFmpeg } = await load("api/_lib/ffmpeg.ts");
-const { TOOLS } = await load("api/_lib/tools/index.ts");
-const { renderWatermarkFrame } = await load("api/_lib/tools/mark.ts");
 // binaries.ts resolves gifski from the cwd, as it does on Vercel.
 process.chdir(root);
 const binaries = await load("api/_lib/binaries.ts");
 const ffmpegPath = args.ffmpeg ?? binaries.ffmpegPath;
-const ffmpegCheck = checkFfmpeg(ffmpegPath, {
-  version: args.ffmpeg ? undefined : pinnedVersion(),
-});
-if (ffmpegCheck.problems.length) {
-  console.error(
-    `${ffmpegPath} (${ffmpegCheck.version}) won't do:\n  ${ffmpegCheck.problems.join("\n  ")}`,
-  );
-  process.exit(1);
-}
+const ffmpegVersion = requireFfmpeg(ffmpegPath, { pinned: !args.ffmpeg });
 
 const userDir = path.resolve(root, args.assets ?? "scripts/smoke-assets");
 const userDirShown = userDir.startsWith(root) ? path.relative(root, userDir) : userDir;
@@ -512,14 +454,14 @@ const download = async (url, destPath) =>
 
 let workDir = "";
 const recorded = [];
+// As a filter option (mark-light's sendcmd file): forward slashes, `:` escaped.
+const asFilterPath = (p) => p.replace(/\\/g, "/").replace(/:/g, "\\:");
 const normalize = (arg) =>
   arg
-    .split(workDir)
-    .join("<work>")
-    .split(ffmpegPath)
-    .join("ffmpeg")
-    .split(binaries.gifskiPath)
-    .join("gifski")
+    .replaceAll(workDir, "<work>")
+    .replaceAll(asFilterPath(workDir), "<work>")
+    .replaceAll(ffmpegPath, "ffmpeg")
+    .replaceAll(binaries.gifskiPath, "gifski")
     .replace(/tmp_loop_\d+/g, "tmp_loop_N");
 class Recorder extends FFmpeg {
   run(command, commandArgs, options) {
@@ -534,7 +476,7 @@ const commands = {};
 const broken = {};
 // Recorded so diffs across different inputs/ffmpeg builds show it.
 const results = {
-  "(ffmpeg)": ffmpegCheck.version,
+  "(ffmpeg)": ffmpegVersion,
   "(assets)": Object.fromEntries(
     Object.entries(assets).map(([role, paths]) => [role, describe(paths)]),
   ),
@@ -592,39 +534,49 @@ for (const name of names) {
       if (various) {
         const list = path.join(workDir, "parts.txt");
         fs.writeFileSync(list, parts.join("\n"));
-        await ff.runFFmpeg(["-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", outputPath]);
+        await ff.runFFmpeg([
+          "-y",
+          "-f",
+          "concat",
+          "-safe",
+          "0",
+          "-i",
+          list,
+          "-c",
+          "copy",
+          outputPath,
+        ]);
       }
     }
-    // Fresh instance so probes aren't recorded.
-    const info = await new FFmpeg(ffmpegPath, "").mediaInfo(outputPath).catch(() => null);
-    const bytes = fs.statSync(outputPath).size;
-    // Decoded, not duration*fps: a frame lost at a cut shows in neither.
+    // Own instance so probes aren't recorded.
     const prober = new FFmpeg(ffmpegPath, "");
-    const countFrames = (file) => prober.decodedFrames(file);
-    results[name] = {
+    const info = await prober.mediaInfo(outputPath).catch(() => null);
+    const bytes = fs.statSync(outputPath).size;
+    const result = {
       source: describe(source),
       output: downloadName,
       bytes,
       bytesReadable: readable(bytes),
       ratio: Number((bytes / bytesOf(source)).toFixed(2)),
-      ...(expect?.frames
-        ? {
-            frames: await countFrames(outputPath),
-            sourceFrames: await countFrames(source[0]),
-          }
-        : {}),
-      ...(expect?.turned
-        ? await prober.mediaInfo(source[0]).then((s) => ({ sourceSize: `${s.width}x${s.height}` }))
-        : {}),
-      ...(info
-        ? {
-            codec: info.codec,
-            size: `${info.width}x${info.height}`,
-            duration: info.duration,
-            fps: info.fps,
-          }
-        : { codec: "NO VIDEO STREAM" }),
     };
+    if (expect?.frames) {
+      // Decoded, not duration*fps: a frame lost at a cut shows in neither.
+      result.frames = await prober.decodedFrames(outputPath);
+      result.sourceFrames = await prober.decodedFrames(source[0]);
+    }
+    if (expect?.turned) {
+      const { width, height } = await prober.mediaInfo(source[0]);
+      result.sourceSize = `${width}x${height}`;
+    }
+    if (info) {
+      result.codec = info.codec;
+      result.size = `${info.width}x${info.height}`;
+      result.duration = info.duration;
+      result.fps = info.fps;
+    } else {
+      result.codec = "NO VIDEO STREAM";
+    }
+    results[name] = result;
   } catch (err) {
     results[name] = {
       error: String(err?.message ?? err)
@@ -638,14 +590,16 @@ for (const name of names) {
   const r = results[name];
   const found = violations(expect, r, source[0]);
   if (found.length) broken[name] = found;
-  say(
-    `${name.padEnd(26)} ${String(((Date.now() - started) / 1000).toFixed(1) + "s").padStart(6)}  ` +
-      (found.length ? "✗ " : "  ") +
-      (r.error
-        ? `${expect?.errorCode && !found.length ? "refused:" : "ERROR"} ${r.error.slice(0, 90)}`
-        : `${r.output.padEnd(24)} ${r.bytesReadable.padStart(8)}  ${String(r.ratio).padStart(6)}x source  ` +
-          (r.size ? `${r.codec} ${r.size} ${r.duration}s` : r.codec)),
-  );
+  let summary;
+  if (r.error) {
+    const verdict = expect?.errorCode && !found.length ? "refused:" : "ERROR";
+    summary = `${verdict} ${r.error.slice(0, 90)}`;
+  } else {
+    const video = r.size ? `${r.codec} ${r.size} ${r.duration}s` : r.codec;
+    summary = `${r.output.padEnd(24)} ${r.bytesReadable.padStart(8)}  ${String(r.ratio).padStart(6)}x source  ${video}`;
+  }
+  const seconds = `${((Date.now() - started) / 1000).toFixed(1)}s`;
+  say(`${name.padEnd(26)} ${seconds.padStart(6)}  ${found.length ? "✗ " : "  "}${summary}`);
 }
 
 fs.writeFileSync(path.join(outDir, "commands.json"), JSON.stringify(commands, null, 1));

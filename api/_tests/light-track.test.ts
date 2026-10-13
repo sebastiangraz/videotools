@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { findPeaks, gridSize, TRACK, trackLuma, type Luma } from "../_lib/light-track.js";
 
-// The analysis grid of a 16:9 source, and glows drawn on it like the
-// scripts/smoke-assets/light clips: a 16 black floor, 1/e² radius 0.22×height.
+// The analysis grid of a 16:9 source, and glows drawn on it: a 16 black
+// floor, 1/e² radius 0.22×height.
 const [W, H] = [64, 36];
 const SOURCE = { width: 640, height: 360 };
 const SIGMA = (0.22 * H) / 2;

@@ -14,7 +14,6 @@
 
   &[data-size="small"] {
     --inset: 2px;
-    --item-padding: 1em;
     min-height: 1.5rem;
 
     .item {

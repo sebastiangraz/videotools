@@ -12,7 +12,7 @@ import {
   uploadMock,
   unexpectedFetch,
   type FetchMock,
-} from "../../test/renderApp";
+} from "@src/test/renderApp";
 import {
   file,
   imageFile,
@@ -20,7 +20,7 @@ import {
   stubImageDecoder,
   stubMediaLoading,
   stubProperties,
-} from "../../test/media";
+} from "@src/test/media";
 import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
 
 type User = ReturnType<typeof userEvent.setup>;

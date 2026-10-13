@@ -3,8 +3,7 @@ import styles from "./Select.module.css";
 
 export type SelectOption = { value: string; label: string };
 
-// Dropdown on Base UI's Select. The trigger takes the id so an external
-// <label htmlFor> keeps working.
+// The trigger takes the id so an external <label htmlFor> keeps working.
 export const Select = ({
   id,
   options,

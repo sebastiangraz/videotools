@@ -2,6 +2,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { InputError } from "./errors.js";
+import { removeDir } from "./helpers.js";
 import type { ToolRequest } from "./tools/types.js";
 
 const BLOB_HOST_RE = /\.public\.blob\.vercel-storage\.com$/;
@@ -31,18 +32,27 @@ export function clamp(value: unknown, min: number, max: number, fallback: number
   return Math.min(max, Math.max(min, n));
 }
 
-export function singleVideo({ blobUrl }: ToolRequest) {
+export const clampInt = (value: unknown, min: number, max: number, fallback: number): number =>
+  Math.round(clamp(value, min, max, fallback));
+
+export function singleVideo({ blobUrl }: ToolRequest): string[] | { error: string } {
   return isBlobUrl(blobUrl) ? [blobUrl] : { error: "Invalid blob URL" };
 }
 
-export const methodNotAllowed = () =>
-  Response.json({ error: "Method not allowed" }, { status: 405 });
+// `extra` joins the body, e.g. an InputError's code.
+export function errorResponse(error: string, status: number, extra: object = {}): Response {
+  return Response.json({ error, ...extra }, { status });
+}
+
+export function methodNotAllowed(): Response {
+  return errorResponse("Method not allowed", 405);
+}
 
 // Parsed JSON body, or {} when there is none (or it isn't JSON).
-export const jsonBody = async (request: Request): Promise<object> => {
+export async function jsonBody(request: Request): Promise<object> {
   const body: unknown = await request.json().catch(() => null);
   return body && typeof body === "object" ? body : {};
-};
+}
 
 // `request.signal` fires when the client disconnects (supportsCancellation in
 // vercel.json). InputError → 400 with code; anything else → generic 500.
@@ -54,8 +64,7 @@ export async function runJob(
   const { signal } = request;
   let workDir: string | undefined;
   try {
-    const prefix = `videotools-${name.toLowerCase()}-`;
-    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), prefix));
+    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), `videotools-${name.toLowerCase()}-`));
     return await work(workDir, signal);
   } catch (err) {
     if (signal.aborted) {
@@ -65,11 +74,9 @@ export async function runJob(
     }
     console.error(`${name} error:`, err);
     return err instanceof InputError
-      ? Response.json({ error: err.message, code: err.code }, { status: 400 })
-      : Response.json({ error: `${name} failed` }, { status: 500 });
+      ? errorResponse(err.message, 400, { code: err.code })
+      : errorResponse(`${name} failed`, 500);
   } finally {
-    if (workDir) {
-      await fsp.rm(workDir, { recursive: true, force: true }).catch(() => {});
-    }
+    if (workDir) await removeDir(workDir);
   }
 }

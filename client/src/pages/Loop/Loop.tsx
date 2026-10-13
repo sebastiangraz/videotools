@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { ToolPanel } from "../../components/ToolPanel/ToolPanel";
-import { Upload } from "../../components/Upload/Upload";
-import { FramePreview } from "../../components/FramePreview/FramePreview";
-import { Select } from "../../components/Select/Select";
-import { NumberField } from "../../components/NumberField/NumberField";
-import { Slider } from "../../components/Slider/Slider";
-import { useFormatBlocker } from "../../hooks/useFormatBlocker";
-import { useToolRun } from "../../hooks/useToolRun";
-import { clampStart, maxStart, useVideoSource } from "../../hooks/useVideoSource";
-import { hasFrames } from "../../sourceFormat";
-import { toolById } from "../../tools";
-import form from "../form.module.css";
+import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
+import { Upload } from "@src/components/Upload/Upload";
+import { FramePreview } from "@src/components/FramePreview/FramePreview";
+import { Select } from "@src/components/Select/Select";
+import { NumberField } from "@src/components/NumberField/NumberField";
+import { Slider } from "@src/components/Slider/Slider";
+import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
+import { useToolRun } from "@src/hooks/useToolRun";
+import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
+import { hasFrames } from "@src/sourceFormat";
+import { toolById } from "@src/tools";
+import { qualityLabel, toList } from "@src/helpers";
+import form from "@src/form.module.css";
 
 const TOOL = toolById("loop");
 
@@ -29,6 +30,8 @@ export const Loop = () => {
   const [fadeDuration, setFadeDuration] = useState<number | null>(0.5);
   const [startSecond, setStartSecond] = useState<number | null>(0);
   const [quality, setQuality] = useState<number>(100);
+  // The server clamps to the clip as well.
+  const start = clampStart(startSecond, source.duration);
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -51,19 +54,11 @@ export const Loop = () => {
     });
   };
 
-  // The server clamps to the clip as well.
-  const start = clampStart(startSecond, source.duration);
-
   return (
     <ToolPanel
       tool={TOOL}
       inputs={
-        <Upload
-          {...TOOL.input}
-          files={source.file ? [source.file] : []}
-          onFiles={pick}
-          meta={source.meta}
-        />
+        <Upload {...TOOL.input} files={toList(source.file)} onFiles={pick} meta={source.meta} />
       }
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
@@ -123,7 +118,7 @@ export const Loop = () => {
 
       <div className={form.formGroup}>
         <Slider
-          label={<>{quality === 100 ? `Lossless ${quality}%` : `Quality ${quality}%`}</>}
+          label={qualityLabel(quality)}
           value={quality}
           onValueChange={setQuality}
           min={0}

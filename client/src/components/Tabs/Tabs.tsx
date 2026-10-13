@@ -1,13 +1,13 @@
 import type { ReactNode, Ref } from "react";
 import { Tabs as BaseTabs, type TabsRootProps, type TabsTabProps } from "@base-ui/react/tabs";
+import { cx } from "@src/helpers";
 import styles from "./Tabs.module.css";
 
-// Tab strip on Base UI's Tabs. Only the list is composed here; the caller owns
-// what each tab reveals (here a route), so `value` is controlled and there are
-// no panels. `className` goes on the Root, `listClassName` on the tablist.
-// `indicatorClassName` adds a Tabs.Indicator that tracks the active tab: it is
-// positioned and animated here, and the caller gives it its look. `ref` lands
-// on the Root.
+// Only the list is composed here; the caller owns what each tab reveals (here
+// a route), so `value` is controlled and there are no panels. `className` and
+// `ref` go on the Root, `listClassName` on the tablist. `indicatorClassName`
+// adds a Tabs.Indicator that tracks the active tab: it is positioned and
+// animated here, and the caller gives it its look.
 export const Tabs = ({
   value,
   onValueChange,
@@ -26,10 +26,10 @@ export const Tabs = ({
   children: ReactNode;
 }) => (
   <BaseTabs.Root ref={ref} value={value} onValueChange={onValueChange} className={className}>
-    <BaseTabs.List className={listClassName ? `${styles.list} ${listClassName}` : styles.list}>
+    <BaseTabs.List className={cx(styles.list, listClassName)}>
       {children}
       {indicatorClassName ? (
-        <BaseTabs.Indicator className={`${styles.indicator} ${indicatorClassName}`} />
+        <BaseTabs.Indicator className={cx(styles.indicator, indicatorClassName)} />
       ) : null}
     </BaseTabs.List>
   </BaseTabs.Root>
@@ -45,10 +45,4 @@ export const Tab = ({
 }: Omit<TabsTabProps, "className" | "ref"> & {
   className?: string;
   ref?: Ref<HTMLElement>;
-}) => (
-  <BaseTabs.Tab
-    ref={ref}
-    className={className ? `${styles.tab} ${className}` : styles.tab}
-    {...props}
-  />
-);
+}) => <BaseTabs.Tab ref={ref} className={cx(styles.tab, className)} {...props} />;

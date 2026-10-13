@@ -8,7 +8,8 @@ import {
   stillFormat,
   type FormatBlock,
   type FormatOptions,
-} from "../sourceFormat";
+} from "@src/sourceFormat";
+import { toList } from "@src/helpers";
 import { useMessage } from "./useMessage";
 
 // Returns the run-blocking tooltip (null = OK) and posts the long wording as
@@ -19,10 +20,7 @@ export const useFormatBlocker = (
   { stills = false, foreign = true, oneFormat = false }: FormatOptions = {},
   nonSquare = false,
 ): string | null => {
-  const files = useMemo(
-    () => (source === null ? [] : Array.isArray(source) ? source : [source]),
-    [source],
-  );
+  const files = useMemo(() => toList(source), [source]);
   // Files, not a flag, so an answer can't outlive the file it was read from.
   const [stillWebps, setStillWebps] = useState<readonly File[]>([]);
   useEffect(() => {

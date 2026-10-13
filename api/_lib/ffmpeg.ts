@@ -34,13 +34,15 @@ function mainVideo(summary: string): { line: string; index: number } | null {
   const score = ({ line }: { line: string }) =>
     (/, \d+x\d+\b.*\b\d+ kb\/s/.test(line) ? OWN_BITRATE_SCORE : 0) +
     Number(/, ([\d.]+) fps\b/.exec(line)?.[1] ?? 0);
-  return (
-    (real.length ? real : streams).reduce<(typeof streams)[number] | null>(
-      (best, s) => (best === null || score(s) > score(best) ? s : best),
-      null,
-    ) ?? null
+  return (real.length ? real : streams).reduce<(typeof streams)[number] | null>(
+    (best, s) => (best === null || score(s) > score(best) ? s : best),
+    null,
   );
 }
+
+// e.g. "yuv420p(tv, bt709, progressive)" or "yuvj444p(pc, bt470bg/unknown/
+// unknown)": one name when all agree, else matrix/primaries/trc.
+const PIX_FMT = /, ([a-z]\w*)(?:\(([^)]*)\))?, \d+x\d+/;
 
 export const isRgb = (pixFmt: string) => /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
 
@@ -61,9 +63,7 @@ export function parseMediaInfo(summary: string): MediaInfo | null {
   const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
   if (!size) return null;
   const codec = /: Video: (\w+)/.exec(video)?.[1] ?? "";
-  // e.g. "yuv420p(tv, bt709, progressive)" or "yuvj444p(pc, bt470bg/unknown/
-  // unknown)": one name when all agree, else matrix/primaries/trc.
-  const [, pixFmt = "", tags = ""] = /, ([a-z]\w*)(?:\(([^)]*)\))?, \d+x\d+/.exec(video) ?? [];
+  const [, pixFmt = "", tags = ""] = PIX_FMT.exec(video) ?? [];
   const matrix = matrixOf(
     tags.split(", ").map((t) => t.split("/")[0]),
     pixFmt,
@@ -123,7 +123,6 @@ export function parseSourceProfile(output: string): SourceProfile | null {
   const summary = output.replace(/\r/g, "");
   const info = parseMediaInfo(summary);
   if (!info) return null;
-  const lines = summary.split("\n");
   const formatNames = /^Input #0, (.+?), from /m.exec(summary)?.[1].split(",") ?? [];
   const brand = formatNames.includes("mov")
     ? /^\s*major_brand\s*:\s*(\S+)/m.exec(summary)?.[1]
@@ -134,7 +133,7 @@ export function parseSourceProfile(output: string): SourceProfile | null {
   };
   const main = mainVideo(summary);
   const video = main?.line ?? "";
-  const audio = lines.find((l) => /Stream #\d+:\d+.*: Audio: /.test(l));
+  const audio = summary.split("\n").find((l) => /Stream #\d+:\d+.*: Audio: /.test(l));
   return {
     ...info,
     videoIndex: main?.index ?? 0,
@@ -143,7 +142,7 @@ export function parseSourceProfile(output: string): SourceProfile | null {
     bitrateKbps: kbps(/Duration: .*bitrate: ([^\n]*)/.exec(summary)?.[1]),
     // Past the WxH field, so the codec tag's digits never match.
     videoKbps: kbps(/, \d+x\d+\b(.*)$/.exec(video)?.[1]),
-    pixFmt: /, ([a-z]\w*)(?:\([^)]*\))?, \d+x\d+/.exec(video)?.[1] ?? "",
+    pixFmt: PIX_FMT.exec(video)?.[1] ?? "",
     audio: audio
       ? {
           codec: /: Audio: (\w+)/.exec(audio)?.[1] ?? "",
@@ -180,16 +179,14 @@ export class FFmpeg {
     const stderr = summary ?? (await this.summary(inputFile));
     const info = parseSourceProfile(stderr);
     // The client can't validate WebP, so a bad one is the user's error.
-    if (!info && /^Input #0, webp_(pipe|anim),/m.test(stderr)) {
-      throw new InputError("This WebP file can't be read.", "unreadable-source");
-    }
+    const unreadableWebp = () =>
+      new InputError("This WebP file can't be read.", "unreadable-source");
+    if (!info && /^Input #0, webp_(pipe|anim),/m.test(stderr)) throw unreadableWebp();
     if (!info) throw new Error(`Could not read media info: ${stderr.trim()}`);
     // The animated WebP demuxer prints "Duration: N/A"; sum the packets.
     if (!info.duration && info.formatNames.includes("webp_anim")) {
       const packets = await this.listPackets(inputFile, info.videoIndex);
-      if (!packets) {
-        throw new InputError("This WebP file can't be read.", "unreadable-source");
-      }
+      if (!packets) throw unreadableWebp();
       let start = Infinity;
       let end = 0;
       for (const p of packets) {

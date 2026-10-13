@@ -1,9 +1,9 @@
 import { useRef, MouseEvent, ReactNode } from "react";
-import { Tooltip } from "../Tooltip/Tooltip";
-import { Footer } from "../Footer/Footer";
-import { Spinner } from "../Spinner/Spinner";
-import type { Tool } from "../../tools";
-import type { ToolRun } from "../../hooks/useToolRun";
+import { Tooltip } from "@src/components/Tooltip/Tooltip";
+import { Footer } from "@src/components/Footer/Footer";
+import { Spinner } from "@src/components/Spinner/Spinner";
+import type { Tool } from "@src/tools";
+import type { ToolRun } from "@src/hooks/useToolRun";
 import styles from "./ToolPanel.module.css";
 
 // The frame every tool page fills in: `inputs` (the drop zones) in the first

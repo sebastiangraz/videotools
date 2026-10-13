@@ -6,8 +6,6 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { BINARIES, binaryPath } from "./binaries.mjs";
 
-export const pinnedVersion = () => BINARIES.ffmpeg.version;
-
 const NEEDS = {
   encoders: [
     "libx264",
@@ -76,12 +74,15 @@ function ffmpegVersion(ffmpeg) {
   return /^ffmpeg version (\S+)/.exec(r.stdout)?.[1] ?? "unknown";
 }
 
-export function checkFfmpeg(ffmpeg, { version } = {}) {
+// Exits listing what `ffmpeg` lacks; `pinned` also holds it to the version
+// binaries.mjs pins (off for another build). Returns the version it reports.
+export function requireFfmpeg(ffmpeg, { pinned }) {
   const problems = [];
   const found = ffmpegVersion(ffmpeg);
+  const { version } = BINARIES.ffmpeg;
   // BtbN builds say "n8.1.3-20260922", a branch head "n9.0.2-3-ga5923073bf-…".
   const bare = found.replace(/^n/, "");
-  if (version && !(bare === version || bare.startsWith(`${version}-`))) {
+  if (pinned && !(bare === version || bare.startsWith(`${version}-`))) {
     problems.push(`version ${found}, binaries.mjs pins ${version}`);
   }
   for (const [kind, names] of Object.entries(NEEDS)) {
@@ -95,17 +96,15 @@ export function checkFfmpeg(ffmpeg, { version } = {}) {
     const missing = names.filter((n) => !listed.has(n));
     if (missing.length) problems.push(`no ${kind}: ${missing.join(", ")}`);
   }
-  return { version: found, problems };
+  if (problems.length) {
+    console.error(`${ffmpeg} (${found}) won't do:\n  ${problems.join("\n  ")}`);
+    process.exit(1);
+  }
+  return found;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const ffmpeg = process.argv[2] ?? binaryPath("ffmpeg");
-  const { version, problems } = checkFfmpeg(ffmpeg, {
-    version: process.argv[2] ? undefined : pinnedVersion(),
-  });
-  if (problems.length) {
-    console.error(`${ffmpeg} (${version}) won't do:\n  ${problems.join("\n  ")}`);
-    process.exit(1);
-  }
+  const version = requireFfmpeg(ffmpeg, { pinned: !process.argv[2] });
   console.log(`${ffmpeg}: ffmpeg ${version}, has everything the api uses`);
 }

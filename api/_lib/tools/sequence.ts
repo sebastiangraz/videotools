@@ -2,8 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { SEQUENCE_FORMATS, type FormatId } from "../formats.js";
 import { encodeRender } from "../encode/index.js";
+import { floorEven } from "../helpers.js";
 import type { Render } from "../encode/render.js";
-import { blobExt, clamp, isBlobUrl, pick } from "../request.js";
+import { blobExt, clamp, clampInt, isBlobUrl, pick } from "../request.js";
 import type { Tool, ToolJob } from "./types.js";
 
 const MAX_IMAGES = 100;
@@ -19,8 +20,8 @@ async function imageSequence(
   // Floored to even for yuv420p/x264.
   const { width: w, height: h } = await ff.mediaInfo(imagePaths[0]);
   const scaleFactor = Math.min(1, MAX_SIDE / Math.max(w, h));
-  const W = Math.max(2, Math.floor((w * scaleFactor) / 2) * 2);
-  const H = Math.max(2, Math.floor((h * scaleFactor) / 2) * 2);
+  const W = floorEven(w * scaleFactor);
+  const H = floorEven(h * scaleFactor);
 
   // The image2 demuxer needs identical frames; PNG keeps this step lossless.
   const framesDir = path.join(workDir, "frames");
@@ -78,7 +79,7 @@ export const sequence: Tool = {
     const { workDir, inputs, options, download } = job;
     const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
     const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
-    const quality = Math.round(clamp(options.quality, 1, 100, 100));
+    const quality = clampInt(options.quality, 1, 100, 100);
 
     const imagePaths: string[] = [];
     for (let i = 0; i < inputs.length; i++) {

@@ -21,8 +21,7 @@ const answerSrc = (proto: object, event: string) => {
 // so they are left alone.
 export const stubMediaLoading = (outcome: "decodes" | "fails") => {
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
-  const ok = outcome === "decodes";
-  answerSrc(HTMLMediaElement.prototype, ok ? "loadeddata" : "error");
+  answerSrc(HTMLMediaElement.prototype, outcome === "decodes" ? "loadeddata" : "error");
 };
 
 export const stubProperties = (proto: object, stubs: Record<string, PropertyDescriptor>) => {
@@ -119,7 +118,11 @@ export const webpFile = (name: string, flags: number, chunk = "VP8X") =>
 
 const bytes = (parts: Uint8Array[]) => {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-  parts.reduce((at, p) => (out.set(p, at), at + p.length), 0);
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.length;
+  }
   return out;
 };
 
