@@ -97,6 +97,9 @@ export const MARK = {
   fadeSeconds: 0.25,
 };
 
+// `uncapped` lifts the maxSpan cap, the logo kept only inside the frame.
+type MarkSizeSpec = { scale: number; gap: number; rim: number; uncapped?: boolean };
+
 export const MARK_SIZES = {
   small: { scale: 0.66, gap: 1.2, rim: 0.66 },
   medium: { scale: 1, gap: 1, rim: 1 },
@@ -182,7 +185,7 @@ export function watermarkLayout(
   // the patches must line up exactly.
   const VW = floorEven(video.width);
   const VH = floorEven(video.height);
-  const { scale, gap: gapScale } = MARK_SIZES[size];
+  const { scale, gap: gapScale, uncapped }: MarkSizeSpec = MARK_SIZES[size];
   const mediumUnit = Math.sqrt(VW * VH);
   const unit = mediumUnit * scale;
 
@@ -191,7 +194,10 @@ export function watermarkLayout(
   const area = (unit * MARK.sizeRatio) ** 2 * elongation ** MARK.elongationGain;
   const w = Math.sqrt(area * aspect);
   const h = Math.sqrt(area / aspect);
-  const clamp = Math.min(1, (MARK.maxSpan * VW) / w, (MARK.maxSpan * VH) / h);
+
+  // uncapped still needs a safety margin
+  const span = uncapped ? 0.96 : MARK.maxSpan;
+  const clamp = Math.min(1, (span * VW) / w, (span * VH) / h);
   const LW = floorEven(Math.round(w * clamp));
   const LH = floorEven(Math.round(h * clamp));
   // Only bites on absurdly long frames: the cell must fit the frame.

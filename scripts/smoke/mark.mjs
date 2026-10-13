@@ -1,7 +1,8 @@
 // Mark's grid: every clip in videos/ becomes one tile of a grid, cropped to a
 // region up to ZOOM_OUT× the tile's size and scaled down into it. Every cycle,
-// all tiles carry the same logo from vectors/, in order, each tile marked by
-// its own Mark run. Lasts vectors × cycleDuration; clips loop to fill it.
+// all tiles carry the same logo from vectors/, in order, stepping through
+// SCALES in equal slots, each slot of each tile marked by its own Mark run.
+// Lasts vectors × cycleDuration; clips loop to fill it.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,8 +13,15 @@ const ZOOM_OUT = 2;
 const FPS = 30;
 const MAX_CANVAS = { width: 1920, height: 1920 };
 
-MARK_SIZES.smoke = { ...MARK_SIZES.dev, scale: 5 };
-const OPTIONS = { filter: "glass", size: "smoke", position: "center", quality: 100 };
+// Each cycle splits evenly between these, in order.
+const SCALES = [6, 3];
+const SIZES = SCALES.map((scale) => {
+  const size = `smoke${scale}`;
+  MARK_SIZES[size] = { ...MARK_SIZES.dev, scale, uncapped: true };
+  return size;
+});
+const slot = cycleDuration / SCALES.length;
+const OPTIONS = { filter: "glass", position: "center", quality: 100 };
 // Mark runs at once; each ffmpeg is multithreaded already.
 const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
 
@@ -80,12 +88,10 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
   );
 
   // Each clip cropped to its tile, looped to length, cut into one part per
-  // cycle (keyframes at the cuts, so the parts are frame-exact).
+  // slot (keyframes at the cuts, so the parts are frame-exact).
   const tileDirs = videos.map((_, i) => path.join(outDir, `tile${i}`));
-  const cuts = vectors
-    .slice(1)
-    .map((_, v) => (v + 1) * cycleDuration)
-    .join(",");
+  const slots = vectors.length * SCALES.length;
+  const cuts = Array.from({ length: slots - 1 }, (_, k) => (k + 1) * slot).join(",");
   await pool(videos, CONCURRENCY, async (video, i) => {
     fs.mkdirSync(tileDirs[i], { recursive: true });
     const { width: w, height: h } = tiles[i];
@@ -123,15 +129,23 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
     ]);
   });
 
-  const runs = videos.flatMap((video, t) => vectors.map((vector, v) => ({ video, t, vector, v })));
+  const runs = videos.flatMap((video, t) =>
+    Array.from({ length: slots }, (_, k) => ({
+      video,
+      t,
+      k,
+      vector: vectors[Math.floor(k / SCALES.length)],
+      size: SIZES[k % SCALES.length],
+    })),
+  );
   let done = 0;
-  const marked = await pool(runs, CONCURRENCY, async ({ video, t, vector, v }) => {
-    const part = path.join(tileDirs[t], `part${v}.mp4`);
-    const workDir = path.join(tileDirs[t], String(v));
+  const marked = await pool(runs, CONCURRENCY, async ({ video, t, k, vector, size }) => {
+    const part = path.join(tileDirs[t], `part${k}.mp4`);
+    const workDir = path.join(tileDirs[t], String(k));
     try {
-      const { outputPath } = await runTool("mark", [part, vector], OPTIONS, workDir);
+      const { outputPath } = await runTool("mark", [part, vector], { ...OPTIONS, size }, workDir);
       done += 1;
-      if (done % vectors.length === 0) say(`  ${done}/${runs.length} marked`);
+      if (done % slots === 0) say(`  ${done}/${runs.length} marked`);
       return outputPath;
     } catch (err) {
       const log = path.join(workDir, "error.log");
@@ -143,7 +157,7 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
   // Each tile's parts joined back up, then laid out on the canvas.
   const inputs = tileDirs.flatMap((dir, t) => {
     const list = path.join(dir, "parts.txt");
-    const parts = marked.slice(t * vectors.length, (t + 1) * vectors.length);
+    const parts = marked.slice(t * slots, (t + 1) * slots);
     fs.writeFileSync(list, parts.map((p) => `file '${p}'`).join("\n"));
     return ["-f", "concat", "-safe", "0", "-i", list];
   });
