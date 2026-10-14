@@ -1,29 +1,42 @@
-// Mark's grid: every clip in videos/ becomes one tile of a grid, cropped to a
-// region up to ZOOM_OUT× the tile's size and scaled down into it. Every cycle,
-// all tiles carry the same logo from vectors/, in order, stepping through
-// SCALES in equal slots, each slot of each tile marked by its own Mark run.
-// Lasts vectors × cycleDuration; clips loop to fill it.
+// Mark's grids: every clip becomes one tile of a grid, cropped to a region up
+// to ZOOM_OUT× the tile's size, scaled down into it and looped to the grid's
+// length. That length is split into equal slots, each slot of each tile marked
+// by its own Mark run: each logo in turn, through each size in turn.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { MARK_SIZES } from "../../api/_lib/tools/mark-graph.ts";
 
-const cycleDuration = 2;
 const ZOOM_OUT = 2;
 const FPS = 30;
-const MAX_CANVAS = { width: 1920, height: 1920 };
+const MAX_CANVAS = { width: 1920, height: 1200 };
 
-// Each cycle splits evenly between these, in order.
 const SCALES = [6, 3];
 const SIZES = SCALES.map((scale) => {
   const size = `smoke${scale}`;
   MARK_SIZES[size] = { ...MARK_SIZES.dev, scale, uncapped: true };
   return size;
 });
-const slot = cycleDuration / SCALES.length;
 const OPTIONS = { filter: "glass", position: "center", quality: 100 };
 // Mark runs at once; each ffmpeg is multithreaded already.
 const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
+
+export function markGrid({ assets, ...suite }) {
+  const { videos, vectors } = assets;
+  return grid(suite, { name: "mark", videos, vectors, sizes: SIZES, slot: 1 });
+}
+
+// light/ marked with the first logo in one run per clip, so the light is
+// tracked over the whole clip; shorter clips loop.
+export function lightGrid({ assets, ...suite }) {
+  const { light, vectors } = assets;
+  return grid(suite, {
+    name: "light",
+    videos: light,
+    vectors: vectors.slice(0, 1),
+    sizes: ["dev"],
+  });
+}
 
 const floorEven = (n) => 2 * Math.floor(n / 2);
 
@@ -73,25 +86,25 @@ async function pool(items, limit, run) {
   return results;
 }
 
-export async function markGrid({ ff, assets, outDir, runTool, say }) {
-  const { videos, vectors } = assets;
-  if (!videos.length || !vectors.length) throw new Error("needs videos/ and vectors/ assets");
+// `slot` in seconds; without one, a single slot as long as the longest clip.
+async function grid({ ff, outDir, runTool, say }, { name, videos, vectors, sizes, slot }) {
+  if (!videos.length || !vectors.length) throw new Error("needs clips and vectors");
   const infos = await Promise.all(videos.map((file) => ff.mediaInfo(file)));
   const smallest = {
     width: Math.min(...infos.map((i) => i.width)),
     height: Math.min(...infos.map((i) => i.height)),
   };
   const { width, height, tiles } = gridTiles(videos.length, smallest);
-  const duration = vectors.length * cycleDuration;
+  slot ??= Math.max(...infos.map((i) => i.duration));
+  const slots = vectors.length * sizes.length;
+  const duration = slots * slot;
   say(
-    `mark: ${videos.length} videos × ${vectors.length} vectors → ${width}x${height} at up to ${ZOOM_OUT}× out, ${duration}s`,
+    `${name}: ${videos.length} videos × ${vectors.length} vectors → ${width}x${height} at up to ${ZOOM_OUT}× out, ${duration}s`,
   );
 
   // Each clip cropped to its tile, looped to length, cut into one part per
   // slot (keyframes at the cuts, so the parts are frame-exact).
   const tileDirs = videos.map((_, i) => path.join(outDir, `tile${i}`));
-  const slots = vectors.length * SCALES.length;
-  const cuts = Array.from({ length: slots - 1 }, (_, k) => (k + 1) * slot).join(",");
   await pool(videos, CONCURRENCY, async (video, i) => {
     fs.mkdirSync(tileDirs[i], { recursive: true });
     const { width: w, height: h } = tiles[i];
@@ -119,10 +132,12 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
       "0",
       "-pix_fmt",
       "yuv420p",
-      ...(cuts ? ["-force_key_frames", cuts] : []),
+      "-force_key_frames",
+      `expr:gte(t,n_forced*${slot})`,
       "-f",
       "segment",
-      ...(cuts ? ["-segment_times", cuts] : []),
+      "-segment_time",
+      String(slot),
       "-reset_timestamps",
       "1",
       path.join(tileDirs[i], "part%d.mp4"),
@@ -134,8 +149,8 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
       video,
       t,
       k,
-      vector: vectors[Math.floor(k / SCALES.length)],
-      size: SIZES[k % SCALES.length],
+      vector: vectors[Math.floor(k / sizes.length)],
+      size: sizes[k % sizes.length],
     })),
   );
   let done = 0;
@@ -166,7 +181,7 @@ export async function markGrid({ ff, assets, outDir, runTool, say }) {
     tiles.length > 1
       ? `${tiles.map((_, i) => `[${i}:v]`).join("")}xstack=inputs=${tiles.length}:layout=${layout}`
       : "[0:v]null";
-  const output = path.join(outDir, "mark.mp4");
+  const output = path.join(outDir, `${name}.mp4`);
   await ff.runFFmpeg([
     "-y",
     ...inputs,

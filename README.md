@@ -15,13 +15,13 @@ bun run test                 # vitest (client tests + api unit tests)
 bun run lint                 # oxlint (type-aware on api/)
 bun run format               # oxfmt
 bun run typecheck            # api + client
-bun run smoke <name> [mark]  # visual checks against the real ffmpeg, into .smoke/<name>/<suite>/
+bun run smoke <name> [suite] # visual checks against the real ffmpeg, into .smoke/<name>/<suite>/
 vercel --prod                # production deploy
 
 git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
-Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the real tool handlers on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `videos/`, `vectors/`). `mark` lays every video out as a cropped tile of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop.
+Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the real tool handlers on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `videos/`, `light/`, `vectors/`). `mark` lays every video out as a cropped tile of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the `light/` clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip.
 
 Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size). Dev servers also serve a `/test` scratch page for the shared components.
 

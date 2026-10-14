@@ -2,6 +2,7 @@
 // against the pinned ffmpeg and the assets in scripts/smoke/assets/:
 //   images/   stills
 //   videos/   clips
+//   light/    clips for Mark's light tracking
 //   vectors/  SVG logos
 // each listed in natural filename order. Every suite writes to .smoke/<name>/<suite>/.
 //
@@ -13,9 +14,9 @@ import { FFmpeg } from "../../api/_lib/ffmpeg.ts";
 import { TOOLS } from "../../api/_lib/tools/index.ts";
 import { binaryPath, root } from "../binaries.mjs";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
-import { markGrid } from "./mark.mjs";
+import { lightGrid, markGrid } from "./mark.mjs";
 
-const SUITES = { mark: markGrid };
+const SUITES = { mark: markGrid, light: lightGrid };
 
 const assetsDir = path.join(root, "scripts", "smoke", "assets");
 const smokeDir = path.join(root, ".smoke");
@@ -36,7 +37,12 @@ const listed = (dir) =>
     .readdirSync(path.join(assetsDir, dir))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
     .map((name) => path.join(assetsDir, dir, name));
-const assets = { images: listed("images"), videos: listed("videos"), vectors: listed("vectors") };
+const assets = {
+  images: listed("images"),
+  videos: listed("videos"),
+  light: listed("light"),
+  vectors: listed("vectors"),
+};
 
 // Files stand in for uploads: each gets its own blob URL, which `download` copies back.
 const uploads = new Map();
