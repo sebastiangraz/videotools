@@ -3,10 +3,10 @@
 //   images/   stills
 //   videos/   clips
 //   vectors/  SVG logos
-// each listed in natural filename order. Every suite writes to .smoke/<suite>/.
+// each listed in natural filename order. Every suite writes to .smoke/<name>/<suite>/.
 //
-//   bun run smoke             every suite
-//   bun run smoke mark        only these
+//   bun run smoke before          every suite
+//   bun run smoke before mark     only these
 import fs from "node:fs";
 import path from "node:path";
 import { FFmpeg } from "../../api/_lib/ffmpeg.ts";
@@ -20,10 +20,10 @@ const SUITES = { mark: markGrid };
 const assetsDir = path.join(root, "scripts", "smoke", "assets");
 const smokeDir = path.join(root, ".smoke");
 
-const names = process.argv.slice(2);
+const [label, ...names] = process.argv.slice(2);
 const unknown = names.filter((name) => !Object.hasOwn(SUITES, name));
-if (unknown.length) {
-  console.error(`no suite ${unknown.join(", ")}; have ${Object.keys(SUITES).join(", ")}`);
+if (!label || unknown.length) {
+  console.error(`usage: bun run smoke <name> [${Object.keys(SUITES).join("|")}...]`);
   process.exit(2);
 }
 
@@ -67,7 +67,7 @@ console.log = console.error = () => {};
 
 let failed = false;
 for (const name of names.length ? names : Object.keys(SUITES)) {
-  const outDir = path.join(smokeDir, name);
+  const outDir = path.join(smokeDir, label, name);
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(outDir, { recursive: true });
   const started = Date.now();

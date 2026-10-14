@@ -15,13 +15,13 @@ bun run test                 # vitest (client tests + api unit tests)
 bun run lint                 # oxlint (type-aware on api/)
 bun run format               # oxfmt
 bun run typecheck            # api + client
-bun run smoke [mark]         # visual checks against the real ffmpeg, into .smoke/<suite>/
+bun run smoke <name> [mark]  # visual checks against the real ffmpeg, into .smoke/<name>/<suite>/
 vercel --prod                # production deploy
 
 git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
-Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the real tool handlers on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `videos/`, `vectors/`). `mark` lays every video out as a cropped tile of one grid and marks all tiles with each vector in turn, one per second, into `.smoke/mark/mark.mp4` for a look at the glass over each backdrop.
+Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the real tool handlers on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `videos/`, `vectors/`). `mark` lays every video out as a cropped tile of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop.
 
 Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size). Dev servers also serve a `/test` scratch page for the shared components.
 
@@ -48,7 +48,7 @@ Handlers are web-standard (`export default { fetch(request) }`, returning a `Res
 
 ## ffmpeg
 
-One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build locally and on Vercel, with no version workarounds in code. Upgrades are rare and manual: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `bun install`, then `bun run test` and `bun run smoke`. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
+One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build locally and on Vercel, with no version workarounds in code. Upgrades are rare and manual: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `bun install`, then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
 
 ## Adding a tool
 
