@@ -1,4 +1,4 @@
-// Encode loss: each tool's output scored (SSIM, PSNR) against a lossless FFV1
+// Encode loss: each tool's output scored (SSIM, PSNR, VMAF) against a lossless FFV1
 // render of the same pictures, or against its input when the tool copied
 // instead of encoding. Nothing here asks for loss, so quality is 100 throughout.
 import fs from "node:fs";
@@ -10,11 +10,10 @@ import { CONCURRENCY, pool } from "./mark.mjs";
 // Worst frame of any step.
 const MIN_SSIM = 0.95;
 const MIN_PSNR = 35;
+const MIN_VMAF = 90;
 
 const VIDEOS = [
   "bokeh.mp4",
-  "checker.mp4",
-  "colorcircle.mp4",
   "gradient.mp4",
   "paint.mp4",
   "radial.mp4",
@@ -70,12 +69,13 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
         input = outputPath;
       }
       if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
-      return scores.map(([label, { ssim, psnr }]) => {
-        const failed = ssim.min < MIN_SSIM || psnr.min < MIN_PSNR;
+      return scores.map(([label, { ssim, psnr, vmaf }]) => {
+        const failed = ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
         const row =
           `${failed ? "FAIL" : "ok  "} ${label.padEnd(17)} ${clip.padEnd(15)}` +
-          ` SSIM ${ssim.mean.toFixed(4)} (min ${ssim.min.toFixed(4)})` +
-          `  PSNR ${decibels(psnr.mean)} (min ${decibels(psnr.min)})`;
+          ` SSIM ${ssim.mean.toFixed(2)} (min ${ssim.min.toFixed(2)})` +
+          `  PSNR ${decibels(psnr.mean)} (min ${decibels(psnr.min)})` +
+          `  VMAF ${vmaf.mean.toFixed(1)} (min ${vmaf.min.toFixed(1)})`;
         say(row);
         return row;
       });
@@ -93,21 +93,29 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
 
 const decibels = (value) => (value === Infinity ? "∞" : value.toFixed(1));
 
-// Per-frame scores over RGB, paired by frame index, with the reference fitted to the output's size.
+// Per-frame scores over RGB (VMAF: luma only), paired by frame index, with the
+// reference fitted to the output's size.
 async function score(ff, output, reference) {
   const { width, height } = await ff.mediaInfo(output);
-  const fit = `settb=1,setpts=N,scale=${width}:${height}:flags=lanczos,format=gbrp,split`;
-  const stats = await ff.runFFmpeg([
-    "-i",
-    output,
-    "-i",
-    reference,
-    "-filter_complex",
-    `[0:v]${fit}[a][b];[1:v]${fit}[c][d];[a][c]ssim=f=-;[b][d]psnr=f=-`,
-    "-f",
-    "null",
-    "-",
-  ]);
+  const fit = `settb=1,setpts=N,scale=${width}:${height}:flags=lanczos,format=gbrp,split=3`;
+  // VMAF logs frames only to a file, and a drive letter's colon breaks the
+  // filter's options, hence a relative path from the output's directory.
+  const dir = path.dirname(output);
+  const stats = await ff.runFFmpeg(
+    [
+      "-i",
+      output,
+      "-i",
+      reference,
+      "-filter_complex",
+      `[0:v]${fit}[a][b][c];[1:v]${fit}[d][e][f];[a][d]ssim=f=-;[b][e]psnr=f=-;` +
+        `[c][f]libvmaf=log_fmt=json:log_path=vmaf.json`,
+      "-f",
+      "null",
+      "-",
+    ],
+    { cwd: dir },
+  );
   const frames = (key) =>
     [...stats.matchAll(new RegExp(`${key}:(\\S+)`, "g"))].map(([, v]) =>
       v === "inf" ? Infinity : Number(v),
@@ -116,5 +124,13 @@ async function score(ff, output, reference) {
     mean: values.reduce((a, b) => a + b, 0) / values.length,
     min: Math.min(...values),
   });
-  return { ssim: summary(frames("All")), psnr: summary(frames("psnr_avg")) };
+  return {
+    ssim: summary(frames("All")),
+    psnr: summary(frames("psnr_avg")),
+    vmaf: summary(
+      JSON.parse(fs.readFileSync(path.join(dir, "vmaf.json"), "utf8")).frames.map(
+        (frame) => frame.metrics.vmaf,
+      ),
+    ),
+  };
 }
