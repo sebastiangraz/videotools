@@ -30,6 +30,7 @@ const CASES = {
   "loop-reverse": [["loop", { technique: "reverse" }]],
   "loop-crossfade": [["loop", { technique: "crossfade" }]],
   mark: [["mark", { filter: "plain", quality: 100 }]],
+  "mark-glass": [["mark", { filter: "glass", size: "dev", position: "center", quality: 100 }]],
   "webm-and-back": [
     ["convert", { target: "webm", quality: 100 }],
     ["convert", { target: "mp4", quality: 100 }],
