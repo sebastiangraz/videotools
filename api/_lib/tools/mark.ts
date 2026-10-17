@@ -5,7 +5,7 @@ import type { FFmpeg, MediaInfo, SourceProfile } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { encodeStill } from "../encode/still.js";
 import { sourceRender, videoPad, type Render } from "../encode/render.js";
-import { clampInt, isBlobUrl } from "../request.js";
+import { blobExt, clampInt, isBlobUrl } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import {
   isMarkFilter,
@@ -225,7 +225,7 @@ export const mark: Tool = {
     // mark is the only tool that takes stills.
     const { still } = source;
     const format = still ?? preservedFormat(source);
-    const logoPath = path.join(workDir, "logo.png");
+    const logoPath = path.join(workDir, `logo${blobExt(inputs[1], ".png")}`);
     await download(inputs[1], logoPath);
     console.log(
       `Adding watermark to ${format} (${size}, ${filter}, ${position}${route.length > 1 ? " shuffled" : ""}, quality ${quality})...`,

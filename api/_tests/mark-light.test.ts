@@ -153,6 +153,13 @@ describe("LightRig", () => {
     expect(rig.commands()).toBe(["0.200 crop@light0 x 1;", "0.400 crop@light0 x 2;"].join("\n"));
   });
 
+  it("re-sends the first values when no option changes, as sendcmd needs a command", () => {
+    const rig = new LightRig(keys, "light.cmd");
+    expect(rig.moving).toBe(true);
+    rig.follow("crop", { x: () => "4", y: () => "0" });
+    expect(rig.commands()).toBe("0.000 crop@light0 x 4, crop@light0 y 0;");
+  });
+
   it("repeats a still frame at the video's rate, on a clock carrying the commands", () => {
     const rig = new LightRig(keys, "C:\\work\\light.cmd");
     const chain = rig.perFrame("[a]negate", 8, 4);
