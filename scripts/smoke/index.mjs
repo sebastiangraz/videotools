@@ -1,11 +1,9 @@
 // Smoke runs: the real tool handlers, called as /api/process would call them,
 // against the pinned ffmpeg and the assets in scripts/smoke/assets/:
-//   images/   stills
-//   videos/   clips
-//   light/    clips for Mark's light tracking
-//   vectors/  SVG logos
-//   quality/  sources for the quality suite
-// each listed in natural filename order. Every suite writes to .smoke/<name>/<suite>/.
+//   images/   stills, listed in natural filename order
+//   vectors/  SVG logos, likewise
+//   videos/   clips, which each suite picks by file name
+// Every suite writes to .smoke/<name>/<suite>/.
 //
 //   bun run smoke before          every suite
 //   bun run smoke before mark     only these
@@ -41,10 +39,8 @@ const listed = (dir) =>
     .map((name) => path.join(assetsDir, dir, name));
 const assets = {
   images: listed("images"),
-  videos: listed("videos"),
-  light: listed("light"),
   vectors: listed("vectors"),
-  quality: listed("quality"),
+  videos: (names) => names.map((name) => path.join(assetsDir, "videos", name)),
 };
 
 // Files stand in for uploads: each gets its own blob URL, which `download` copies back.

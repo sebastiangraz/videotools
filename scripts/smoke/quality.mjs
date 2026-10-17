@@ -11,6 +11,19 @@ import { CONCURRENCY, pool } from "./mark.mjs";
 const MIN_SSIM = 0.95;
 const MIN_PSNR = 35;
 
+const VIDEOS = [
+  "abstract.mp4",
+  "bokeh.mp4",
+  "checker.mp4",
+  "colorcircle.mp4",
+  "gradient.mp4",
+  "paint.mp4",
+  "radial.mp4",
+  "repeatgradient.mp4",
+  "ui.mp4",
+  "video.mp4",
+];
+
 // Multi-step cases are round trips: the last output is also scored against the source.
 const CASES = {
   "speed-1x": [["speed", { speed: 0 }]],
@@ -26,7 +39,7 @@ const CASES = {
 };
 
 export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
-  const { quality, vectors } = assets;
+  const { videos, vectors } = assets;
   const encoders = { ...ENCODERS };
   for (const [format, encode] of Object.entries(encoders)) {
     ENCODERS[format] = async (ff, render, target) => {
@@ -36,7 +49,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
     };
   }
   const runs = Object.entries(CASES).flatMap(([name, steps]) =>
-    quality.map((source) => ({ name, steps, source })),
+    videos(VIDEOS).map((source) => ({ name, steps, source })),
   );
   let rows;
   try {

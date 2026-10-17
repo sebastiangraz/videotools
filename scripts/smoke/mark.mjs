@@ -18,21 +18,37 @@ const SIZES = SCALES.map((scale) => {
   return size;
 });
 const OPTIONS = { filter: "glass", position: "center", quality: 100 };
+const MARK_VIDEOS = [
+  "abstract.mp4",
+  "banana.mp4",
+  "bokeh.mp4",
+  "checker.mp4",
+  "colorcircle.mp4",
+  "gradient.mp4",
+  "nature.mp4",
+  "paint.mp4",
+  "radial.mp4",
+  "repeatgradient.mp4",
+  "ui.mp4",
+  "video.mp4",
+];
+
+const LIGHT_VIDEOS = ["accel.mp4", "pair.mp4", "pulse.mp4", "sweep.mp4"];
 // Mark runs at once; each ffmpeg is multithreaded already.
 export const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
 
 export function markGrid({ assets, ...suite }) {
   const { videos, vectors } = assets;
-  return grid(suite, { name: "mark", videos, vectors, sizes: SIZES, slot: 1 });
+  return grid(suite, { name: "mark", videos: videos(MARK_VIDEOS), vectors, sizes: SIZES, slot: 1 });
 }
 
-// light/ marked with the first logo in one run per clip, so the light is
+// The light clips marked with the first logo in one run per clip, so the light is
 // tracked over the whole clip; shorter clips loop.
 export function lightGrid({ assets, ...suite }) {
-  const { light, vectors } = assets;
+  const { videos, vectors } = assets;
   return grid(suite, {
     name: "light",
-    videos: light,
+    videos: videos(LIGHT_VIDEOS),
     vectors: vectors.slice(0, 1),
     sizes: ["dev"],
   });

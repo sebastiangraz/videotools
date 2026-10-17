@@ -2,7 +2,7 @@
 // it put the light; with --out, also writes the clip with the tracked point
 // boxed, to see it follow (or not).
 //
-//   bun scripts/light-track.mjs scripts/smoke/assets/light/pair.mp4 --out .smoke/pair-track.mp4
+//   bun scripts/light-track.mjs scripts/smoke/assets/videos/pair.mp4 --out .smoke/pair-track.mp4
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
