@@ -1,6 +1,7 @@
 // Encode loss: each tool's output scored (SSIM, PSNR, VMAF) against a lossless FFV1
 // render of the same pictures, or against its input when the tool copied
 // instead of encoding. Nothing here asks for loss, so quality is 100 throughout.
+// Mark rows split in two: in (the mark itself) and out (the video around it).
 import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
@@ -62,10 +63,37 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
         const { outputPath } = await runTool(tool, files, options, workDir);
         const reference = path.join(workDir, "reference.mkv");
         const against = fs.existsSync(reference) ? reference : input;
-        scores.push([
-          steps.length > 1 ? `${name} ${i + 1}` : name,
-          await score(ff, outputPath, against),
-        ]);
+        const label = steps.length > 1 ? `${name} ${i + 1}` : name;
+        if (tool === "mark") {
+          // The mark dilutes in a whole frame, so it is scored within the box
+          // of every pixel it changed in any frame, against the marked
+          // pictures, and the rest of the frame against the source.
+          const paired = "settb=1,setpts=N,format=gray";
+          const { stderr } = await ff.run(ff.ffmpeg, [
+            "-hide_banner",
+            "-i",
+            reference,
+            "-i",
+            input,
+            "-filter_complex",
+            `[0:v]${paired}[a];[1:v]${paired}[b];[a][b]blend=all_mode=difference,bbox=min_val=0`,
+            "-f",
+            "null",
+            "-",
+          ]);
+          const boxes = [...stderr.matchAll(/x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/g)];
+          if (!boxes.length) throw new Error(`${name} left ${clip} unchanged`);
+          const [x1, x2, y1, y2] = [Math.min, Math.max, Math.min, Math.max].map((pick, k) =>
+            pick(...boxes.map((box) => Number(box[k + 1]))),
+          );
+          const [w, h] = [x2 - x1 + 1, y2 - y1 + 1];
+          // drawbox lacks gbrp and would score in yuv444p; rgb24 repacks losslessly.
+          const blank = `format=rgb24,drawbox=${x1}:${y1}:${w}:${h}:black:fill,format=gbrp`;
+          scores.push(
+            [`${label} in`, await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`)],
+            [`${label} out`, await score(ff, outputPath, input, blank)],
+          );
+        } else scores.push([label, await score(ff, outputPath, against)]);
         fs.rmSync(reference, { force: true });
         input = outputPath;
       }
@@ -95,10 +123,10 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
 const decibels = (value) => (value === Infinity ? "∞" : value.toFixed(1));
 
 // Per-frame scores over RGB (VMAF: luma only), paired by frame index, with the
-// reference fitted to the output's size.
-async function score(ff, output, reference) {
+// reference fitted to the output's size and both then passed through `region`.
+async function score(ff, output, reference, region = "null") {
   const { width, height } = await ff.mediaInfo(output);
-  const fit = `settb=1,setpts=N,scale=${width}:${height}:flags=lanczos,format=gbrp,split=3`;
+  const fit = `settb=1,setpts=N,scale=${width}:${height}:flags=lanczos,format=gbrp,${region},split=3`;
   // VMAF logs frames only to a file, and a drive letter's colon breaks the
   // filter's options, hence a relative path from the output's directory.
   const dir = path.dirname(output);
