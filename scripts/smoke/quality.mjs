@@ -75,7 +75,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
         const row =
           `${failed ? "FAIL" : "ok  "} ${label.padEnd(17)} ${clip.padEnd(15)}` +
           ` SSIM ${ssim.mean.toFixed(4)} (min ${ssim.min.toFixed(4)})` +
-          `  PSNR ${psnr.mean.toFixed(1)} (min ${psnr.min.toFixed(1)})`;
+          `  PSNR ${decibels(psnr.mean)} (min ${decibels(psnr.min)})`;
         say(row);
         return row;
       });
@@ -90,6 +90,8 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
   if (failures) throw new Error(`${failures} below the floor, see ${report}`);
   return report;
 }
+
+const decibels = (value) => (value === Infinity ? "∞" : value.toFixed(1));
 
 // Per-frame scores over RGB, paired by frame index, with the reference fitted to the output's size.
 async function score(ff, output, reference) {
