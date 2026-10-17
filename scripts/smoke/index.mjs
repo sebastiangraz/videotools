@@ -4,6 +4,7 @@
 //   videos/   clips
 //   light/    clips for Mark's light tracking
 //   vectors/  SVG logos
+//   quality/  sources for the quality suite
 // each listed in natural filename order. Every suite writes to .smoke/<name>/<suite>/.
 //
 //   bun run smoke before          every suite
@@ -15,8 +16,9 @@ import { TOOLS } from "../../api/_lib/tools/index.ts";
 import { binaryPath, root } from "../binaries.mjs";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, markGrid } from "./mark.mjs";
+import { encodeLoss } from "./quality.mjs";
 
-const SUITES = { mark: markGrid, light: lightGrid };
+const SUITES = { mark: markGrid, light: lightGrid, quality: encodeLoss };
 
 const assetsDir = path.join(root, "scripts", "smoke", "assets");
 const smokeDir = path.join(root, ".smoke");
@@ -42,6 +44,7 @@ const assets = {
   videos: listed("videos"),
   light: listed("light"),
   vectors: listed("vectors"),
+  quality: listed("quality"),
 };
 
 // Files stand in for uploads: each gets its own blob URL, which `download` copies back.

@@ -19,7 +19,7 @@ const SIZES = SCALES.map((scale) => {
 });
 const OPTIONS = { filter: "glass", position: "center", quality: 100 };
 // Mark runs at once; each ffmpeg is multithreaded already.
-const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
+export const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
 
 export function markGrid({ assets, ...suite }) {
   const { videos, vectors } = assets;
@@ -73,7 +73,7 @@ function gridTiles(n, smallest) {
   return { width, height, tiles };
 }
 
-async function pool(items, limit, run) {
+export async function pool(items, limit, run) {
   const results = [];
   let next = 0;
   const worker = async () => {
