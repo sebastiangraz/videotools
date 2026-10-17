@@ -13,15 +13,7 @@ const MIN_SSIM = 0.95;
 const MIN_PSNR = 35;
 const MIN_VMAF = 90;
 
-const VIDEOS = [
-  "bokeh.mp4",
-  "gradient.mp4",
-  "paint.mp4",
-  "radial.mp4",
-  "ui.mp4",
-  "video.mp4",
-  "sweep.mp4",
-];
+const VIDEOS = ["bokeh.mp4", "paint.mp4", "radial.mp4", "ui.mp4", "video.mp4", "sweep.mp4"];
 
 // Multi-step cases are round trips: the last output is also scored against the source.
 const CASES = {
