@@ -42,8 +42,6 @@ export function markGrid({ assets, ...suite }) {
   return grid(suite, { name: "mark", videos: videos(MARK_VIDEOS), vectors, sizes: SIZES, slot: 1 });
 }
 
-// The light clips marked with the first logo in one run per clip, so the light is
-// tracked over the whole clip; shorter clips loop.
 export function lightGrid({ assets, ...suite }) {
   const { videos, vectors } = assets;
   return grid(suite, {
