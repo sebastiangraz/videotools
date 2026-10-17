@@ -12,16 +12,15 @@ const MIN_SSIM = 0.95;
 const MIN_PSNR = 35;
 
 const VIDEOS = [
-  "abstract.mp4",
   "bokeh.mp4",
   "checker.mp4",
   "colorcircle.mp4",
   "gradient.mp4",
   "paint.mp4",
   "radial.mp4",
-  "repeatgradient.mp4",
   "ui.mp4",
   "video.mp4",
+  "sweep.mp4",
 ];
 
 // Multi-step cases are round trips: the last output is also scored against the source.
