@@ -2,14 +2,10 @@
 // render of the same pictures, or against its input when the tool copied
 // instead of encoding. Nothing here asks for loss, so quality is 100 throughout.
 // Mark rows split in two: in (the mark itself) and out (the video around it).
-// FORMAT_VIDEO is also converted to every other format, and every case runs on
-// each conversion too: the tools give back the format they get. It alone makes
-// the round trip.
 import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
-import { conversionFps, graphArgs } from "../../api/_lib/encode/render.ts";
-import { FORMATS, formatById } from "../../api/_lib/formats.ts";
+import { graphArgs } from "../../api/_lib/encode/render.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
 // Worst frame of any step.
@@ -18,8 +14,8 @@ const MIN_PSNR = 35;
 const MIN_VMAF = 90;
 
 const VIDEOS = ["bokeh.mp4", "paint.mp4", "radial.mp4", "ui.mp4", "video.mp4", "sweep.mp4"];
-const FORMAT_VIDEO = "video.mp4";
 
+// Multi-step cases are round trips: the last output is also scored against the source.
 const CASES = {
   "speed-1x": [["speed", { speed: 0 }]],
   "speed-2x": [["speed", { speed: 1 }]],
@@ -28,13 +24,11 @@ const CASES = {
   "loop-crossfade": [["loop", { technique: "crossfade" }]],
   mark: [["mark", { filter: "plain", quality: 100 }]],
   "mark-glass": [["mark", { filter: "glass", size: "dev", position: "center", quality: 100 }]],
+  "webm-and-back": [
+    ["convert", { target: "webm", quality: 100 }],
+    ["convert", { target: "mp4", quality: 100 }],
+  ],
 };
-
-// The last output is also scored against the source.
-const ROUND_TRIP = [
-  ["convert", { target: "webm", quality: 100 }],
-  ["convert", { target: "mp4", quality: 100 }],
-];
 
 export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
   const { videos, vectors } = assets;
@@ -42,99 +36,75 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
   for (const [format, encode] of Object.entries(encoders)) {
     ENCODERS[format] = async (ff, render, target) => {
       const reference = path.join(path.dirname(target.outputFile), "reference.mkv");
-      // Conversions to animations resample (gif.ts, webp.ts, avif.ts): pick the same frames.
-      const rate = target.fps ?? conversionFps(render);
-      const chain =
-        target.everyFrame || formatById(format).kind !== "animation"
-          ? []
-          : [`fps=${format === "gif" ? Math.round(rate) : rate}`];
-      await ff.runFFmpeg([...graphArgs(render, chain, "gbrp"), "-an", "-c:v", "ffv1", reference]);
+      await ff.runFFmpeg([...graphArgs(render, [], "gbrp"), "-an", "-c:v", "ffv1", reference]);
       return encode(ff, render, target);
     };
   }
-  // One case on one source, shown as `clip`: its rows and last output.
-  const run = async ({ name, steps, source, clip }) => {
-    let input = source;
-    const scores = [];
-    for (const [i, [tool, options]] of steps.entries()) {
-      const workDir = path.join(outDir, name, clip, String(i));
-      const files = tool === "mark" ? [input, vectors[0]] : [input];
-      const { outputPath } = await runTool(tool, files, options, workDir);
-      const reference = path.join(workDir, "reference.mkv");
-      const against = fs.existsSync(reference) ? reference : input;
-      const label = steps.length > 1 ? `${name} ${i + 1}` : name;
-      if (tool === "mark") {
-        // The mark dilutes in a whole frame, so it is scored within the box
-        // of every pixel it changed in any frame, against the marked
-        // pictures, and the rest of the frame against the source.
-        const paired = "settb=1,setpts=N,format=gray";
-        const { stderr } = await ff.run(ff.ffmpeg, [
-          "-hide_banner",
-          "-i",
-          reference,
-          "-i",
-          input,
-          "-filter_complex",
-          `[0:v]${paired}[a];[1:v]${paired}[b];[a][b]blend=all_mode=difference,bbox=min_val=0`,
-          "-f",
-          "null",
-          "-",
-        ]);
-        const boxes = [...stderr.matchAll(/x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/g)];
-        if (!boxes.length) throw new Error(`${name} left ${clip} unchanged`);
-        const [x1, x2, y1, y2] = [Math.min, Math.max, Math.min, Math.max].map((pick, k) =>
-          pick(...boxes.map((box) => Number(box[k + 1]))),
-        );
-        const [w, h] = [x2 - x1 + 1, y2 - y1 + 1];
-        // drawbox lacks gbrp and would score in yuv444p; rgb24 repacks losslessly.
-        const blank = `format=rgb24,drawbox=${x1}:${y1}:${w}:${h}:black:fill,format=gbrp`;
-        scores.push(
-          [`${label} in`, await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`)],
-          [`${label} out`, await score(ff, outputPath, input, blank)],
-        );
-      } else scores.push([label, await score(ff, outputPath, against)]);
-      fs.rmSync(reference, { force: true });
-      input = outputPath;
-    }
-    if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
-    const rows = scores.map(([label, { ssim, psnr, vmaf }]) => {
-      const failed = ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
-      const row =
-        `${failed ? "FAIL" : "ok  "} ${label.padEnd(17)} ${clip.padEnd(15)}` +
-        ` SSIM ${ssim.mean.toFixed(2)} (min ${ssim.min.toFixed(2)})` +
-        `  PSNR ${decibels(psnr.mean)} (min ${decibels(psnr.min)})` +
-        `  VMAF ${vmaf.mean.toFixed(1)} (min ${vmaf.min.toFixed(1)})`;
-      say(row);
-      return row;
-    });
-    return { rows, output: input };
-  };
-  const formatSource = { source: videos([FORMAT_VIDEO])[0], clip: FORMAT_VIDEO };
-  const conversions = FORMATS.filter(({ id }) => id !== "mp4").map(({ id }) => ({
-    name: `to-${id}`,
-    steps: [["convert", { target: id, quality: 100 }]],
-    ...formatSource,
-  }));
+  const runs = Object.entries(CASES).flatMap(([name, steps]) =>
+    videos(VIDEOS).map((source) => ({ name, steps, source })),
+  );
   let rows;
   try {
-    const converted = await pool(conversions, CONCURRENCY, run);
-    const sources = [
-      ...videos(VIDEOS).map((source) => ({ source, clip: path.basename(source) })),
-      ...converted.map(({ output }) => ({
-        source: output,
-        clip: path.parse(FORMAT_VIDEO).name + path.extname(output),
-      })),
-    ];
-    const runs = [
-      ...sources.flatMap((source) =>
-        Object.entries(CASES).map(([name, steps]) => ({ name, steps, ...source })),
-      ),
-      { name: "webm-and-back", steps: ROUND_TRIP, ...formatSource },
-    ];
-    rows = [...converted, ...(await pool(runs, CONCURRENCY, run))].flatMap((done) => done.rows);
+    rows = await pool(runs, CONCURRENCY, async ({ name, steps, source }) => {
+      const clip = path.parse(source).name;
+      let input = source;
+      const scores = [];
+      for (const [i, [tool, options]] of steps.entries()) {
+        const workDir = path.join(outDir, name, clip, String(i));
+        const files = tool === "mark" ? [input, vectors[0]] : [input];
+        const { outputPath } = await runTool(tool, files, options, workDir);
+        const reference = path.join(workDir, "reference.mkv");
+        const against = fs.existsSync(reference) ? reference : input;
+        const label = steps.length > 1 ? `${name} ${i + 1}` : name;
+        if (tool === "mark") {
+          // The mark dilutes in a whole frame, so it is scored within the box
+          // of every pixel it changed in any frame, against the marked
+          // pictures, and the rest of the frame against the source.
+          const paired = "settb=1,setpts=N,format=gray";
+          const { stderr } = await ff.run(ff.ffmpeg, [
+            "-hide_banner",
+            "-i",
+            reference,
+            "-i",
+            input,
+            "-filter_complex",
+            `[0:v]${paired}[a];[1:v]${paired}[b];[a][b]blend=all_mode=difference,bbox=min_val=0`,
+            "-f",
+            "null",
+            "-",
+          ]);
+          const boxes = [...stderr.matchAll(/x1:(\d+) x2:(\d+) y1:(\d+) y2:(\d+)/g)];
+          if (!boxes.length) throw new Error(`${name} left ${clip} unchanged`);
+          const [x1, x2, y1, y2] = [Math.min, Math.max, Math.min, Math.max].map((pick, k) =>
+            pick(...boxes.map((box) => Number(box[k + 1]))),
+          );
+          const [w, h] = [x2 - x1 + 1, y2 - y1 + 1];
+          // drawbox lacks gbrp and would score in yuv444p; rgb24 repacks losslessly.
+          const blank = `format=rgb24,drawbox=${x1}:${y1}:${w}:${h}:black:fill,format=gbrp`;
+          scores.push(
+            [`${label} in`, await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`)],
+            [`${label} out`, await score(ff, outputPath, input, blank)],
+          );
+        } else scores.push([label, await score(ff, outputPath, against)]);
+        fs.rmSync(reference, { force: true });
+        input = outputPath;
+      }
+      if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
+      return scores.map(([label, { ssim, psnr, vmaf }]) => {
+        const failed = ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
+        const row =
+          `${failed ? "FAIL" : "ok  "} ${label.padEnd(17)} ${clip.padEnd(15)}` +
+          ` SSIM ${ssim.mean.toFixed(2)} (min ${ssim.min.toFixed(2)})` +
+          `  PSNR ${decibels(psnr.mean)} (min ${decibels(psnr.min)})` +
+          `  VMAF ${vmaf.mean.toFixed(1)} (min ${vmaf.min.toFixed(1)})`;
+        say(row);
+        return row;
+      });
+    });
   } finally {
     Object.assign(ENCODERS, encoders);
   }
+  rows = rows.flat();
   const report = path.join(outDir, "quality.txt");
   fs.writeFileSync(report, rows.join("\n"));
   const failures = rows.filter((row) => row.startsWith("FAIL")).length;
