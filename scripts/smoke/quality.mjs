@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
 import { graphArgs } from "../../api/_lib/encode/render.ts";
-import { FORMATS } from "../../api/_lib/formats.ts";
+import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
 // Worst frame of any step.
@@ -17,6 +17,8 @@ const MIN_VMAF = 90;
 const VIDEOS = ["bokeh.mp4", "paint.mp4", "radial.mp4", "ui.mp4", "video.mp4", "sweep.mp4"];
 // Round trips run on one clip only.
 const ROUND_TRIP_VIDEOS = ["video.mp4"];
+// Sequence runs on opaque stills only.
+const SEQUENCE_IMAGES = ["image1.png", "image2.png", "image3.png"];
 
 // Multi-step cases are round trips: the last output is also scored against the source.
 const CASES = {
@@ -27,6 +29,9 @@ const CASES = {
   "loop-crossfade": [["loop", { technique: "crossfade" }]],
   mark: [["mark", { filter: "plain", quality: 100 }]],
   "mark-glass": [["mark", { filter: "glass", size: "dev", position: "center", quality: 100 }]],
+  ...Object.fromEntries(
+    SEQUENCE_FORMATS.map((id) => [`sequence-${id}`, [["sequence", { format: id, quality: 100 }]]]),
+  ),
   ...Object.fromEntries(
     FORMATS.filter(({ id }) => id !== "mp4").map(({ id }) => [
       `${id}-and-back`,
@@ -39,7 +44,8 @@ const CASES = {
 };
 
 export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
-  const { videos, vectors } = assets;
+  const { images, videos, vectors } = assets;
+  const stills = images(SEQUENCE_IMAGES);
   const encoders = { ...ENCODERS };
   for (const [format, encode] of Object.entries(encoders)) {
     ENCODERS[format] = async (ff, render, target) => {
@@ -48,9 +54,13 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
       return encode(ff, render, target);
     };
   }
+  // Sequence takes all its stills at once, its source named after their folder.
   const runs = Object.entries(CASES).flatMap(([name, steps]) => {
-    const clips = steps.length > 1 ? ROUND_TRIP_VIDEOS : VIDEOS;
-    return videos(clips).map((source) => ({ name, steps, source }));
+    const sources =
+      steps[0][0] === "sequence"
+        ? [path.dirname(stills[0])]
+        : videos(steps.length > 1 ? ROUND_TRIP_VIDEOS : VIDEOS);
+    return sources.map((source) => ({ name, steps, source }));
   });
   let rows;
   try {
@@ -60,7 +70,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
       const scores = [];
       for (const [i, [tool, options]] of steps.entries()) {
         const workDir = path.join(outDir, name, clip, String(i));
-        const files = tool === "mark" ? [input, vectors[0]] : [input];
+        const files = { mark: [input, vectors[0]], sequence: stills }[tool] ?? [input];
         const { outputPath } = await runTool(tool, files, options, workDir);
         const reference = path.join(workDir, "reference.mkv");
         const against = fs.existsSync(reference) ? reference : input;

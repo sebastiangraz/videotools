@@ -1,8 +1,8 @@
 // Smoke runs: the real tool handlers, called as /api/process would call them,
 // against the pinned ffmpeg and the assets in scripts/smoke/assets/:
-//   images/   stills, listed in natural filename order
-//   vectors/  SVG logos, likewise
-//   videos/   clips, which each suite picks by file name
+//   images/   stills, which each suite picks by file name
+//   vectors/  SVG logos, listed in natural filename order
+//   videos/   clips, picked like stills
 // Every suite writes to .smoke/<name>/<suite>/.
 //
 //   bun run smoke before          every suite
@@ -37,10 +37,11 @@ const listed = (dir) =>
     .readdirSync(path.join(assetsDir, dir))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
     .map((name) => path.join(assetsDir, dir, name));
+const picked = (dir) => (names) => names.map((name) => path.join(assetsDir, dir, name));
 const assets = {
-  images: listed("images"),
+  images: picked("images"),
   vectors: listed("vectors"),
-  videos: (names) => names.map((name) => path.join(assetsDir, "videos", name)),
+  videos: picked("videos"),
 };
 
 // Files stand in for uploads: each gets its own blob URL, which `download` copies back.
