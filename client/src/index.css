@@ -20,7 +20,7 @@
 
 @font-face {
   font-family: "octio";
-  src: url("./fonts/octio.woff2") format("woff2");
+  src: url("./fonts/octio-light.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -44,8 +44,8 @@
   --font-mono: monospace, menlo, monaco;
   --quantize: calc-size(auto, round(up, size, 1px));
 
-  --font-small: 8.5px;
-  --font-default: 10px;
+  --font-small: 9.5px;
+  --font-default: 10.5px;
 
   --bg: light-dark(hsl(156, 21%, 95%), hsl(150, 10%, 6%));
   --fg: light-dark(hsl(152, 74%, 5%), hsl(150, 28%, 85%));
@@ -116,6 +116,7 @@ body {
   background-color: var(--bg);
   color: var(--fg);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
   scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
