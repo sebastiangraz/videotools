@@ -39,7 +39,7 @@
   box-sizing: border-box;
   min-width: var(--anchor-width);
   padding: calc(3px + 1px);
-  font-size: 10px;
+  font-size: var(--font-default);
   color: currentColor;
   background-color: var(--bg-1);
   border-radius: var(--radius);

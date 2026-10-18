@@ -22,7 +22,7 @@
 }
 
 .framePreviewError {
-  font-size: 10px;
+  font-size: var(--font-default);
   padding: 2em;
   align-items: center;
   justify-content: center;

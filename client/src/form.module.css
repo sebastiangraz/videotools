@@ -25,7 +25,7 @@
 }
 
 .label {
-  font-size: 8.5px;
+  font-size: var(--font-small);
   padding-inline: 0.175em;
   min-height: var(--quantize);
   font-feature-settings: "tnum" on;
