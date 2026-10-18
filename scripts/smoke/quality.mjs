@@ -43,7 +43,7 @@ const CASES = {
   ),
 };
 
-export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
+export async function encodeLoss({ ff, assets, outDir, runTool, say, progress }) {
   const { images, videos, vectors } = assets;
   const stills = images(SEQUENCE_IMAGES);
   const encoders = { ...ENCODERS };
@@ -62,6 +62,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
         : videos(steps.length > 1 ? ROUND_TRIP_VIDEOS : VIDEOS);
     return sources.map((source) => ({ name, steps, source }));
   });
+  const tick = progress(runs.reduce((n, { steps }) => n + steps.length, 0));
   let rows;
   try {
     rows = await pool(runs, CONCURRENCY, async ({ name, steps, source }) => {
@@ -107,6 +108,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
         } else scores.push([label, await score(ff, outputPath, against)]);
         fs.rmSync(reference, { force: true });
         input = outputPath;
+        tick();
       }
       if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
       return scores.map(([label, { ssim, psnr, vmaf }]) => {

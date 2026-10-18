@@ -101,7 +101,10 @@ export async function pool(items, limit, run) {
 }
 
 // `slot` in seconds; without one, a single slot as long as the longest clip.
-async function grid({ ff, outDir, runTool, say }, { name, videos, vectors, sizes, slot }) {
+async function grid(
+  { ff, outDir, runTool, say, progress },
+  { name, videos, vectors, sizes, slot },
+) {
   if (!videos.length || !vectors.length) throw new Error("needs clips and vectors");
   const infos = await Promise.all(videos.map((file) => ff.mediaInfo(file)));
   const smallest = {
@@ -115,6 +118,8 @@ async function grid({ ff, outDir, runTool, say }, { name, videos, vectors, sizes
   say(
     `${name}: ${videos.length} videos × ${vectors.length} vectors → ${width}x${height} at up to ${ZOOM_OUT}× out, ${duration}s`,
   );
+  // Per tile one cut, one Mark run per slot, then the stack.
+  const tick = progress(videos.length * (1 + slots) + 1);
 
   // Each clip cropped to its tile, looped to length, cut into one part per
   // slot (keyframes at the cuts, so the parts are frame-exact).
@@ -156,6 +161,7 @@ async function grid({ ff, outDir, runTool, say }, { name, videos, vectors, sizes
       "1",
       path.join(tileDirs[i], "part%d.mp4"),
     ]);
+    tick();
   });
 
   const runs = videos.flatMap((video, t) =>
@@ -167,14 +173,12 @@ async function grid({ ff, outDir, runTool, say }, { name, videos, vectors, sizes
       size: sizes[k % sizes.length],
     })),
   );
-  let done = 0;
   const marked = await pool(runs, CONCURRENCY, async ({ video, t, k, vector, size }) => {
     const part = path.join(tileDirs[t], `part${k}.mp4`);
     const workDir = path.join(tileDirs[t], String(k));
     try {
       const { outputPath } = await runTool("mark", [part, vector], { ...OPTIONS, size }, workDir);
-      done += 1;
-      if (done % slots === 0) say(`  ${done}/${runs.length} marked`);
+      tick();
       return outputPath;
     } catch (err) {
       const log = path.join(workDir, "error.log");
@@ -213,5 +217,6 @@ async function grid({ ff, outDir, runTool, say }, { name, videos, vectors, sizes
     "+faststart",
     output,
   ]);
+  tick();
   return output;
 }

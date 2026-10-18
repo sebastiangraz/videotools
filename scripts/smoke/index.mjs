@@ -67,9 +67,30 @@ async function runTool(tool, files, options, workDir) {
   return TOOLS[tool].run({ ff, workDir, inputs, options, download });
 }
 
-// The tools log every step and command; suites report through `say`.
-const say = console.log;
+// Progress bar
+const BAR_WIDTH = 20;
+const tty = process.stdout.isTTY;
+let bar = "";
+const write = (text) => process.stdout.write(tty ? `\r\x1b[2K${text}${bar}` : text);
+const say = (text) => write(`${text}\n`);
 console.log = console.error = () => {};
+
+const progressFor = (name) => (total) => {
+  let done = 0;
+  let shown;
+  const draw = () => {
+    const filled = Math.floor((done / total) * BAR_WIDTH);
+    bar = `${name} ▕${"█".repeat(filled).padEnd(BAR_WIDTH, "░")}▏ ${done}/${total}`;
+    if (tty) write("");
+    else if (filled !== shown) write(`${bar}\n`);
+    shown = filled;
+  };
+  draw();
+  return () => {
+    done += 1;
+    draw();
+  };
+};
 
 let failed = false;
 for (const name of names.length ? names : Object.keys(SUITES)) {
@@ -77,13 +98,17 @@ for (const name of names.length ? names : Object.keys(SUITES)) {
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(outDir, { recursive: true });
   const started = Date.now();
+  let result;
   try {
-    const output = await SUITES[name]({ ff, assets, outDir, runTool, say });
+    const progress = progressFor(name);
+    const output = await SUITES[name]({ ff, assets, outDir, runTool, say, progress });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
-    say(`${name}: ${path.relative(root, output)} (${seconds}s)`);
+    result = `${name}: ${path.relative(root, output)} (${seconds}s)`;
   } catch (err) {
     failed = true;
-    say(`${name}: FAILED ${String(err?.message ?? err).trim()}`);
+    result = `${name}: FAILED ${String(err?.message ?? err).trim()}`;
   }
+  bar = "";
+  say(result);
 }
 process.exit(failed ? 1 : 0);
