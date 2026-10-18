@@ -80,7 +80,8 @@ const progressFor = (name) => (total) => {
   let shown;
   const draw = () => {
     const filled = Math.floor((done / total) * BAR_WIDTH);
-    bar = `${name} ▕${"█".repeat(filled).padEnd(BAR_WIDTH, "░")}▏ ${done}/${total}`;
+    const fill = filled && done < total ? `${"█".repeat(filled - 1)}▌` : "█".repeat(filled);
+    bar = `${name} ▕${fill.padEnd(BAR_WIDTH, "░")}▏ ${done}/${total}`;
     if (tty) write("");
     else if (filled !== shown) write(`${bar}\n`);
     shown = filled;
