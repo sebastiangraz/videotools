@@ -2,9 +2,12 @@
 // render of the same pictures, or against its input when the tool copied
 // instead of encoding. Nothing here asks for loss, so quality is 100 throughout.
 // Mark rows split in two: in (the mark itself) and out (the video around it).
+// Scores alone would pass a bloated or frame-dropping output, so each step's
+// bitrate and frames are held to its input's and the reference's too.
 import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
+import { GENERATION } from "../../api/_lib/encode/rate.ts";
 import { graphArgs } from "../../api/_lib/encode/render.ts";
 import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
@@ -13,6 +16,13 @@ import { CONCURRENCY, pool } from "./mark.mjs";
 const MIN_SSIM = 0.95;
 const MIN_PSNR = 35;
 const MIN_VMAF = 90;
+// Over the input's bitrate, where the encoder has a rate cap: room for the
+// codec factor and a cap that overshoots, not for a missing one.
+const MAX_RATE = 2 * GENERATION;
+// Container durations run a frame or two past the video's.
+const MAX_DRIFT = 0.02;
+// gifski and libwebp_anim merge repeated frames.
+const MERGES_FRAMES = [".gif", ".webp"];
 
 const VIDEOS = ["bokeh.mp4", "paint.mp4", "radial.mp4", "ui.mp4", "video.mp4", "sweep.mp4"];
 // Round trips run on one clip only.
@@ -47,10 +57,16 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
   const { images, videos, vectors } = assets;
   const stills = images(SEQUENCE_IMAGES);
   const encoders = { ...ENCODERS };
+  // By output file: the duration its render asks for, and whether it had a rate cap.
+  const encoded = new Map();
   for (const [format, encode] of Object.entries(encoders)) {
     ENCODERS[format] = async (ff, render, target) => {
       const reference = path.join(path.dirname(target.outputFile), "reference.mkv");
       await ff.runFFmpeg([...graphArgs(render, [], "gbrp"), "-an", "-c:v", "ffv1", reference]);
+      encoded.set(target.outputFile, {
+        duration: render.duration,
+        capped: target.cap !== null,
+      });
       return encode(ff, render, target);
     };
   }
@@ -76,6 +92,25 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
         const reference = path.join(workDir, "reference.mkv");
         const against = fs.existsSync(reference) ? reference : input;
         const label = steps.length > 1 ? `${name} ${i + 1}` : name;
+        const problems = [];
+        const asked = encoded.get(outputPath);
+        if (asked?.capped) {
+          const rate = async (file) => fs.statSync(file).size / (await ff.mediaInfo(file)).duration;
+          const ratio = (await rate(outputPath)) / (await rate(input));
+          if (ratio > MAX_RATE) problems.push(`${ratio.toFixed(1)}x its input's bitrate`);
+        }
+        if (asked) {
+          const { duration } = await ff.mediaInfo(reference);
+          if (Math.abs(duration - asked.duration) > MAX_DRIFT * asked.duration) {
+            problems.push(`rendered ${duration}s for ${asked.duration}s`);
+          }
+        }
+        const [frames, expected] = await Promise.all(
+          [outputPath, against].map(async (file) => (await ff.videoPackets(file))?.length),
+        );
+        if (!MERGES_FRAMES.includes(path.extname(outputPath)) && frames !== expected) {
+          problems.push(`${frames} frames for ${expected}`);
+        }
         if (tool === "mark") {
           // The mark dilutes in a whole frame, so it is scored within the box
           // of every pixel it changed in any frame, against the marked
@@ -102,22 +137,28 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
           // drawbox lacks gbrp and would score in yuv444p; rgb24 repacks losslessly.
           const blank = `format=rgb24,drawbox=${x1}:${y1}:${w}:${h}:black:fill,format=gbrp`;
           scores.push(
-            [`${label} in`, await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`)],
+            [
+              `${label} in`,
+              await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`),
+              problems,
+            ],
             [`${label} out`, await score(ff, outputPath, input, blank)],
           );
-        } else scores.push([label, await score(ff, outputPath, against)]);
+        } else scores.push([label, await score(ff, outputPath, against), problems]);
         fs.rmSync(reference, { force: true });
         input = outputPath;
         tick();
       }
       if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
-      return scores.map(([label, { ssim, psnr, vmaf }]) => {
-        const failed = ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
+      return scores.map(([label, { ssim, psnr, vmaf }, problems = []]) => {
+        const failed =
+          problems.length > 0 || ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
         const row =
           `${failed ? "FAIL" : "ok  "} ${label.padEnd(17)} ${clip.padEnd(15)}` +
           ` SSIM ${ssim.mean.toFixed(2)} (min ${ssim.min.toFixed(2)})` +
           `  PSNR ${decibels(psnr.mean)} (min ${decibels(psnr.min)})` +
-          `  VMAF ${vmaf.mean.toFixed(1)} (min ${vmaf.min.toFixed(1)})`;
+          `  VMAF ${vmaf.mean.toFixed(1)} (min ${vmaf.min.toFixed(1)})` +
+          problems.map((problem) => `  ${problem}`).join("");
         say(row);
         return row;
       });
@@ -129,7 +170,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
   const report = path.join(outDir, "quality.txt");
   fs.writeFileSync(report, rows.join("\n"));
   const failures = rows.filter((row) => row.startsWith("FAIL")).length;
-  if (failures) throw new Error(`${failures} below the floor, see ${report}`);
+  if (failures) throw new Error(`${failures} failed, see ${report}`);
   return report;
 }
 
