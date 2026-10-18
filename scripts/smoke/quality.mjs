@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
 import { graphArgs } from "../../api/_lib/encode/render.ts";
+import { FORMATS } from "../../api/_lib/formats.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
 // Worst frame of any step.
@@ -14,6 +15,8 @@ const MIN_PSNR = 35;
 const MIN_VMAF = 90;
 
 const VIDEOS = ["bokeh.mp4", "paint.mp4", "radial.mp4", "ui.mp4", "video.mp4", "sweep.mp4"];
+// Round trips run on one clip only.
+const ROUND_TRIP_VIDEOS = ["video.mp4"];
 
 // Multi-step cases are round trips: the last output is also scored against the source.
 const CASES = {
@@ -24,10 +27,15 @@ const CASES = {
   "loop-crossfade": [["loop", { technique: "crossfade" }]],
   mark: [["mark", { filter: "plain", quality: 100 }]],
   "mark-glass": [["mark", { filter: "glass", size: "dev", position: "center", quality: 100 }]],
-  "webm-and-back": [
-    ["convert", { target: "webm", quality: 100 }],
-    ["convert", { target: "mp4", quality: 100 }],
-  ],
+  ...Object.fromEntries(
+    FORMATS.filter(({ id }) => id !== "mp4").map(({ id }) => [
+      `${id}-and-back`,
+      [
+        ["convert", { target: id, quality: 100 }],
+        ["convert", { target: "mp4", quality: 100 }],
+      ],
+    ]),
+  ),
 };
 
 export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
@@ -40,9 +48,10 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say }) {
       return encode(ff, render, target);
     };
   }
-  const runs = Object.entries(CASES).flatMap(([name, steps]) =>
-    videos(VIDEOS).map((source) => ({ name, steps, source })),
-  );
+  const runs = Object.entries(CASES).flatMap(([name, steps]) => {
+    const clips = steps.length > 1 ? ROUND_TRIP_VIDEOS : VIDEOS;
+    return videos(clips).map((source) => ({ name, steps, source }));
+  });
   let rows;
   try {
     rows = await pool(runs, CONCURRENCY, async ({ name, steps, source }) => {
@@ -116,9 +125,15 @@ const decibels = (value) => (value === Infinity ? "∞" : value.toFixed(1));
 
 // Per-frame scores over RGB (VMAF: luma only), paired by frame index, with the
 // reference fitted to the output's size and both then passed through `region`.
+// Unequal frame counts pair by time instead: gifski keeps a repeated frame as
+// one longer frame.
 async function score(ff, output, reference, region = "null") {
-  const { width, height } = await ff.mediaInfo(output);
-  const fit = `settb=1,setpts=N,scale=${width}:${height}:flags=lanczos,format=gbrp,${region},split=3`;
+  const { width, height, videoIndex } = await ff.mediaInfo(output);
+  const [count, referenceCount] = await Promise.all(
+    [output, reference].map(async (file) => (await ff.videoPackets(file))?.length),
+  );
+  const pace = count === referenceCount ? "" : `fps=${(await ff.mediaInfo(reference)).fps},`;
+  const fit = `${pace}settb=1,setpts=N,scale=${width}:${height}:flags=lanczos,format=gbrp,${region},split=3`;
   // VMAF logs frames only to a file, and a drive letter's colon breaks the
   // filter's options, hence a relative path from the output's directory.
   const dir = path.dirname(output);
@@ -129,7 +144,7 @@ async function score(ff, output, reference, region = "null") {
       "-i",
       reference,
       "-filter_complex",
-      `[0:v]${fit}[a][b][c];[1:v]${fit}[d][e][f];[a][d]ssim=f=-;[b][e]psnr=f=-;` +
+      `[0:v:${videoIndex}]${fit}[a][b][c];[1:v]${fit}[d][e][f];[a][d]ssim=f=-;[b][e]psnr=f=-;` +
         `[c][f]libvmaf=log_fmt=json:log_path=vmaf.json`,
       "-f",
       "null",
