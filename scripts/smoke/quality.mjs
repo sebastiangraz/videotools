@@ -28,7 +28,7 @@ const VIDEOS = [
   "paint.mp4",
   "radial.mp4",
   "ui.mp4",
-  "video.mp4",
+  "colorrotate.mp4",
   "sweep.mp4",
   "gif.gif",
 ];
