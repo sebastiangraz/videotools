@@ -23,7 +23,15 @@ const MAX_DRIFT = 0.02;
 // gifski and libwebp_anim merge repeated frames.
 const MERGES_FRAMES = [".gif", ".webp"];
 
-const VIDEOS = ["bokeh.mp4", "paint.mp4", "radial.mp4", "ui.mp4", "video.mp4", "sweep.mp4"];
+const VIDEOS = [
+  "bokeh.mp4",
+  "paint.mp4",
+  "radial.mp4",
+  "ui.mp4",
+  "video.mp4",
+  "sweep.mp4",
+  "gif.gif",
+];
 // Round trips run on one clip only.
 const ROUND_TRIP_VIDEOS = ["video.mp4"];
 // Sequence runs on opaque stills only.
