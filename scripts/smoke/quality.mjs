@@ -79,6 +79,8 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
     return sources.map((source) => ({ name, steps, source }));
   });
   const tick = progress(runs.reduce((n, { steps }) => n + steps.length, 0));
+  const header = columns("", "case", "clip", "SSIM      · PSNR      · VMAF     ", ["problems"]);
+  say(header);
   let rows;
   try {
     rows = await pool(runs, CONCURRENCY, async ({ name, steps, source }) => {
@@ -153,12 +155,17 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       return scores.map(([label, { ssim, psnr, vmaf }, problems = []]) => {
         const failed =
           problems.length > 0 || ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
-        const row =
-          `${failed ? "FAIL" : "ok  "} ${label.padEnd(17)} ${clip.padEnd(15)}` +
-          ` SSIM ${ssim.mean.toFixed(2)} (min ${ssim.min.toFixed(2)})` +
-          `  PSNR ${decibels(psnr.mean)} (min ${decibels(psnr.min)})` +
-          `  VMAF ${vmaf.mean.toFixed(1)} (min ${vmaf.min.toFixed(1)})` +
-          problems.map((problem) => `  ${problem}`).join("");
+        const row = columns(
+          failed ? "FAIL" : "ok",
+          label,
+          clip,
+          [
+            `${ssim.min.toFixed(2)}-${ssim.mean.toFixed(2)}`,
+            `${decibels(psnr.min)}-${decibels(psnr.mean)}`,
+            `${vmaf.min.toFixed(1)}-${vmaf.mean.toFixed(1)}`,
+          ].join(" · "),
+          problems,
+        );
         say(row);
         return row;
       });
@@ -168,13 +175,19 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
   }
   rows = rows.flat();
   const report = path.join(outDir, "quality.txt");
-  fs.writeFileSync(report, rows.join("\n"));
+  fs.writeFileSync(report, [header, ...rows].join("\n"));
   const failures = rows.filter((row) => row.startsWith("FAIL")).length;
   if (failures) throw new Error(`${failures} failed, see ${report}`);
   return report;
 }
 
-const decibels = (value) => (value === Infinity ? "∞" : value.toFixed(1));
+const decibels = (value) => (value === Infinity ? "Inf" : value.toFixed(1));
+
+// Each metric as min-mean: the worst frame, then the average.
+const columns = (status, label, clip, scores, problems) =>
+  [status.padEnd(4), label.padEnd(17), clip.padEnd(15), scores.padEnd(34), problems.join(", ")]
+    .join(" ")
+    .trimEnd();
 
 // Per-frame scores over RGB (VMAF: luma only), paired by frame index, with the
 // reference fitted to the output's size and both then passed through `region`.
