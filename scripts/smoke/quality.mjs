@@ -156,7 +156,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
           scores.push(
             [
               `${label} in`,
-              await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`),
+              await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`, false),
               size,
               cap,
               problems,
@@ -171,7 +171,10 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
       return scores.map(([label, { ssim, psnr, vmaf }, size = "", cap = "", problems = []]) => {
         const failed =
-          problems.length > 0 || ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
+          problems.length > 0 ||
+          ssim.min < MIN_SSIM ||
+          psnr.min < MIN_PSNR ||
+          (vmaf && vmaf.min < MIN_VMAF);
         const row = columns(
           failed ? "FAIL" : "ok",
           label,
@@ -179,7 +182,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
           [
             `${ssim.min.toFixed(2)}-${ssim.mean.toFixed(2)}`,
             `${decibels(psnr.min)}-${decibels(psnr.mean)}`,
-            `${vmaf.min.toFixed(1)}-${vmaf.mean.toFixed(1)}`,
+            vmaf ? `${vmaf.min.toFixed(1)}-${vmaf.mean.toFixed(1)}` : "-",
           ].join(" · "),
           size,
           cap,
@@ -218,11 +221,14 @@ const columns = (status, label, clip, scores, size, cap, problems) =>
     .join(" ")
     .trimEnd();
 
-// Per-frame scores over RGB (VMAF: luma only), paired by frame index, with the
-// reference fitted to the output's size and both then passed through `region`.
-// Unequal frame counts pair by time instead: gifski keeps a repeated frame as
-// one longer frame.
-async function score(ff, output, reference, region = "null") {
+// Per-frame scores (PSNR over RGB, SSIM over YUV, VMAF luma only), paired by
+// frame index, with the reference fitted to the output's size and both then
+// passed through `region`. Unequal frame counts pair by time instead: gifski
+// keeps a repeated frame as one longer frame. SSIM over RGB put a channel
+// resting at 0 (saturated colours) near 0.2 for a lossless yuv444p copy.
+// VMAF models whole frames: on a crop as small as a mark it stays near 90
+// for an identical copy, so `vmaf` false skips it.
+async function score(ff, output, reference, region = "null", vmaf = true) {
   const { width, height, videoIndex } = await ff.mediaInfo(output);
   const [count, referenceCount] = await Promise.all(
     [output, reference].map(async (file) => (await ff.videoPackets(file))?.length),
@@ -239,8 +245,9 @@ async function score(ff, output, reference, region = "null") {
       "-i",
       reference,
       "-filter_complex",
-      `[0:v:${videoIndex}]${fit}[a][b][c];[1:v]${fit}[d][e][f];[a][d]ssim=f=-;[b][e]psnr=f=-;` +
-        `[c][f]libvmaf=log_fmt=json:log_path=vmaf.json`,
+      `[0:v:${videoIndex}]${fit}[a][b][c];[1:v]${fit}[d][e][f];[b][e]psnr=f=-;` +
+        `[a]format=yuv444p[y];[d]format=yuv444p[z];[y][z]ssim=f=-;` +
+        (vmaf ? `[c][f]libvmaf=log_fmt=json:log_path=vmaf.json` : `[c]nullsink;[f]nullsink`),
       "-f",
       "null",
       "-",
@@ -258,10 +265,12 @@ async function score(ff, output, reference, region = "null") {
   return {
     ssim: summary(frames("All")),
     psnr: summary(frames("psnr_avg")),
-    vmaf: summary(
-      JSON.parse(fs.readFileSync(path.join(dir, "vmaf.json"), "utf8")).frames.map(
-        (frame) => frame.metrics.vmaf,
+    vmaf:
+      vmaf &&
+      summary(
+        JSON.parse(fs.readFileSync(path.join(dir, "vmaf.json"), "utf8")).frames.map(
+          (frame) => frame.metrics.vmaf,
+        ),
       ),
-    ),
   };
 }

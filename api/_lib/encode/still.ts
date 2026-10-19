@@ -2,8 +2,11 @@ import path from "node:path";
 import type { StillId } from "../formats.js";
 import { fileSize } from "../helpers.js";
 import type { ToolJob } from "../tools/types.js";
-import { bisect, graphArgs, hasAlpha, levelRange, TOOL_ALLOWANCE, type Render } from "./render.js";
+import { bisect, graphArgs, hasAlpha, levelRange, type Render } from "./render.js";
 import { WEBP_LOSSLESS, webpLevels } from "./webp.js";
+
+// Headroom over the source's bytes for what a tool adds.
+const TOOL_ALLOWANCE = 1.1;
 
 const JPEG_COARSEST = 31;
 

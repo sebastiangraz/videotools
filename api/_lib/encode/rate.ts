@@ -1,8 +1,10 @@
 // Quality 100 caps the rate at GENERATION × the source's, on top of crf
 // (a ceiling, not a target): crf alone re-encodes source artifacts at 5–15×
 // the size. At 1× the source rate x264 VBV visibly blocks gradients (47 vs
-// 57 dB PSNR at 2×), so 100 ≈ visually the source and 50 ≈ its size.
-export const GENERATION = 2;
+// 57 dB PSNR at 2×). At 2× crf 1 keeps the buffer drained, so keyframes at
+// scene cuts and fast motion still starved (SSIM 0.92, VMAF 82 on the worst
+// frames); 3× clears them, so 100 ≈ the source.
+export const GENERATION = 3;
 
 export type RateCap = {
   // kb/s

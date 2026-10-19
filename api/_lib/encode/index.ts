@@ -21,7 +21,6 @@ export type EncodeOptions = {
   everyFrame?: boolean;
   // AVIF only, for stills (no prior subsampling or quantization).
   lossless?: boolean;
-  chroma444?: boolean;
 };
 
 export type Encoder = (

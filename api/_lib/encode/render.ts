@@ -4,6 +4,7 @@ import type { FormatId } from "../formats.js";
 import { DEFAULT_FPS, type FFmpeg } from "../ffmpeg.js";
 import { fileSize } from "../helpers.js";
 import type { Source } from "../source.js";
+import { GENERATION } from "./rate.js";
 
 // Leaves room inside the function's 300s (vercel.json) to upload the result.
 const TIME_BUDGET_MS = 240_000;
@@ -13,9 +14,6 @@ export function outOfTime(ff: FFmpeg, started: number): boolean {
   const took = Date.now() - started;
   return Date.now() - ff.startedAt + took > TIME_BUDGET_MS;
 }
-
-// Headroom over the source's bytes for what a tool adds.
-export const TOOL_ALLOWANCE = 1.1;
 
 const CONVERSION_FPS = 30;
 export const conversionFps = (render: Render) => Math.min(render.fps, CONVERSION_FPS);
@@ -146,8 +144,9 @@ export function audioArgs(render: Render, fits: string[], encode: string[]): str
   return [...mapped, ...(copy ? ["-c:a", "copy"] : encode)];
 }
 
-// For same-format frame lists (no rate control): source bytes per frame.
-// Null otherwise: a GIF of a video is never the video's size.
+// For same-format frame lists (no rate control): source bytes per frame,
+// with the rate caps' headroom (rate.ts). Null otherwise: a GIF of a video
+// is never the video's size.
 export async function sourceBytesBudget(
   render: Render,
   format: FormatId,
@@ -159,7 +158,7 @@ export async function sourceBytesBudget(
   const { duration, fps } = source.profile;
   const sourceFrames = Math.round(duration * (fps ?? 0));
   if (sourceFrames < 1) return null;
-  return (await fileSize(source.path)) * (frames / sourceFrames) * share * TOOL_ALLOWANCE;
+  return (await fileSize(source.path)) * (frames / sourceFrames) * share * GENERATION;
 }
 
 // For encoders without trustworthy rate control (GIF, WebP, short AVIF):

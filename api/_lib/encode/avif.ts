@@ -22,16 +22,7 @@ const SHORT_CLIP_FRAMES = 100;
 export const encodeAvif: Encoder = async (
   ff,
   render,
-  {
-    outputFile,
-    quality,
-    fps = null,
-    width = 800,
-    everyFrame = false,
-    lossless = false,
-    chroma444 = false,
-    cap,
-  },
+  { outputFile, quality, fps = null, width = 800, everyFrame = false, lossless = false, cap },
 ) => {
   const { duration } = render;
   if (duration > MAX_AVIF_SECONDS) {
@@ -44,7 +35,8 @@ export const encodeAvif: Encoder = async (
   }
   fps ??= conversionFps(render);
   const size = scaledSize(render, width);
-  if (duration * fps * size.width * size.height > MAX_AVIF_PIXELS) {
+  const pixels = duration * fps * size.width * size.height;
+  if (pixels > MAX_AVIF_PIXELS) {
     throw new InputError(
       `Video too long for AVIF at this size: ${Math.round(duration)}s of ` +
         `${sizeLabel(size.width, size.height)} ` +
@@ -56,15 +48,22 @@ export const encodeAvif: Encoder = async (
   const frames = duration * fps;
   const cpuUsed = frames <= SHORT_CLIP_FRAMES ? "6" : "8";
   // gbrp + lossless=1 is bit-exact (verified PSNR = inf); yuv420p halves
-  // colour detail whatever the crf.
-  const pixFmt = lossless ? "gbrp" : chroma444 ? "yuv444p" : "yuv420p";
+  // colour detail whatever the crf, which only a 4:2:0 source kept at its
+  // size can spare. 4:4:4 takes ~2× as long, so only where that fits too.
+  const subsampled =
+    /^yuvj?420p/.test(render.source?.profile.pixFmt ?? "") && size.width === render.width;
+  const fullChroma = quality >= 90 && !subsampled && pixels * 2 <= MAX_AVIF_PIXELS;
+  const pixFmt = lossless ? "gbrp" : fullChroma ? "yuv444p" : "yuv420p";
+  // At the source's rate the fps filter, like the muxer's default constant
+  // rate, would only fill timestamp gaps with repeats.
+  const passthrough = everyFrame || fps >= render.fps;
   // The trunc in the scale keeps odd sources even for yuv420p.
   const encode = (crf: number, bitrate: string, to: string) =>
     ff.runFFmpeg([
       ...graphArgs(
         render,
         [
-          ...(everyFrame ? [] : [`fps=${fps}`]),
+          ...(passthrough ? [] : [`fps=${fps}`]),
           `scale='trunc(${width == null ? "iw" : `min(${width},iw)`}/2)*2':-2:flags=lanczos`,
         ],
         pixFmt,
@@ -85,6 +84,7 @@ export const encodeAvif: Encoder = async (
       "0",
       "-pix_fmt",
       pixFmt,
+      ...(passthrough ? ["-fps_mode", "passthrough"] : []),
       "-an",
       "-f",
       "avif",
