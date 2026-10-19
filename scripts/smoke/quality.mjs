@@ -97,7 +97,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
         const label = steps.length > 1 ? `${name} ${i + 1}` : name;
         const size = [files, [outputPath]]
           .map((list) => formatBytes(list.reduce((n, file) => n + fs.statSync(file).size, 0)))
-          .join("→");
+          .join(" → ");
         const problems = [];
         const asked = encoded.get(outputPath);
         const [packets, expected] = await Promise.all(
@@ -203,8 +203,8 @@ const columns = (status, label, clip, scores, size, cap, problems) =>
     label.padEnd(17),
     clip.padEnd(15),
     scores.padEnd(34),
-    size.padEnd(16),
-    cap.padEnd(4),
+    size.padEnd(17),
+    cap.padEnd(5),
     problems.join(", "),
   ]
     .join(" ")
