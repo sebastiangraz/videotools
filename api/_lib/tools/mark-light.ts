@@ -186,6 +186,12 @@ export class LightRig {
       }
       if (changed.length) lines.push(`${time.toFixed(3)} ${changed.join(", ")};`);
     }
+    // sendcmd refuses an empty file, and a light can move without moving any
+    // option a whole tap or pixel: then it re-sends the first values.
+    if (!lines.length && last.size) {
+      const first = [...last].map(([key, value]) => `${key} ${value}`);
+      lines.push(`${(0).toFixed(3)} ${first.join(", ")};`);
+    }
     return lines.join("\n");
   }
 }

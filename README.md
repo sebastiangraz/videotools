@@ -15,16 +15,16 @@ bun run test                 # vitest (client tests + api unit tests)
 bun run lint                 # oxlint (type-aware on api/)
 bun run format               # oxfmt
 bun run typecheck            # api + client
-                             # e2e tests against the real ffmpeg
-bun run smoke -- <label> [--diff <label>] [--only a,b] [--ffmpeg <path>] [--assets <dir>]
+bun run smoke name           # run smoke test for name .smoke/name
+bun run smoke name quality   # run smoke test only for quality in .smoke/name/quality
 vercel --prod                # production deploy
 
 git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
-Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke.mjs` is the end-to-end gate: it runs every case through the real tool handlers and the pinned ffmpeg, checks each case's expectations (format, size ratio, frame count, rejections), and saves commands and results under `.smoke/<label>/` for `--diff`. A refactor should diff clean; a deliberate encoding change should show only the commands it meant to change.
+Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the real tool handlers on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `vectors/`, and `videos/`, where each suite lists the clips it uses by file name). `mark` lays its videos out as cropped tiles of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the light-tracking clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip. `quality` runs each tool over its videos at quality 100 and scores each result's SSIM, PSNR and VMAF against a lossless render of the same pictures (or against its input where the tool copies), failing when any frame falls below the floors in `quality.mjs`; round trips are also scored against the source.
 
-Debug mode (dev only, never in a build): press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size). Dev servers also serve a `/test` scratch page for the shared components.
+Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size). Dev servers also serve a `/test` scratch page for the shared components.
 
 ## Architecture
 
@@ -49,7 +49,7 @@ Handlers are web-standard (`export default { fetch(request) }`, returning a `Res
 
 ## ffmpeg
 
-One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build locally and on Vercel, with no version workarounds in code. Upgrades are rare and manual: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `bun install`, then `bun run smoke -- <label> --diff <previous label>`. The smoke diff is the gate. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
+One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build locally and on Vercel, with no version workarounds in code. Upgrades are rare and manual: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `bun install`, then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
 
 ## Adding a tool
 
@@ -57,7 +57,7 @@ One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build l
 2. Add its entry to `TOOL_META` in `client/src/tools.ts` (label, description, input accept, action label).
 3. Write the handler in `api/_lib/tools/<tool>.ts` and register it in `TOOLS` in `api/_lib/tools/index.ts`.
 4. Add a page under `client/src/pages/<Tool>/` and register it in `PAGES` in `client/src/pages/index.ts`.
-5. Add smoke cases to `CASES` in `scripts/smoke.mjs`.
+5. Add a smoke suite in `scripts/smoke/` and register it in `SUITES` in `scripts/smoke/index.mjs`.
 
 Steps 1–4 are type-checked against each other, so a missing registration fails to compile. Routes, tabs and the SPA rewrite need no changes.
 

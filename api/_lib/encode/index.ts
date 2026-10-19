@@ -40,7 +40,7 @@ const CODECS: Partial<Record<FormatId, string>> = {
   avif: "av1",
 };
 
-const ENCODERS: Record<FormatId, Encoder> = {
+export const ENCODERS: Record<FormatId, Encoder> = {
   mp4: encodeMp4,
   webm: encodeWebm,
   mov: encodeMov,
