@@ -181,7 +181,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
   return report;
 }
 
-const decibels = (value) => (value === Infinity ? "Inf" : value.toFixed(1));
+const decibels = (value) => (value === Infinity ? "Infy" : value.toFixed(1));
 
 // Each metric as min-mean: the worst frame, then the average.
 const columns = (status, label, clip, scores, problems) =>
