@@ -15,7 +15,8 @@ bun run test                 # vitest (client tests + api unit tests)
 bun run lint                 # oxlint (type-aware on api/)
 bun run format               # oxfmt
 bun run typecheck            # api + client
-bun run smoke <name> [suite] # visual checks against the real ffmpeg, into .smoke/<name>/<suite>/
+bun run smoke name           # run smoke test for name .smoke/name
+bun run smoke name quality   # run smoke test only for quality in .smoke/name/quality
 vercel --prod                # production deploy
 
 git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)

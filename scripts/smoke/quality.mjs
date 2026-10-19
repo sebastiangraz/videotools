@@ -3,11 +3,11 @@
 // instead of encoding. Nothing here asks for loss, so quality is 100 throughout.
 // Mark rows split in two: in (the mark itself) and out (the video around it).
 // Scores alone would pass a bloated or frame-dropping output, so each step's
-// bitrate and frames are held to its input's and the reference's too.
+// video bitrate is held to its rate cap and its frames to the reference's too.
 import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
-import { GENERATION } from "../../api/_lib/encode/rate.ts";
+import { formatBytes } from "../../client/src/helpers.ts";
 import { graphArgs } from "../../api/_lib/encode/render.ts";
 import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
@@ -16,9 +16,8 @@ import { CONCURRENCY, pool } from "./mark.mjs";
 const MIN_SSIM = 0.95;
 const MIN_PSNR = 35;
 const MIN_VMAF = 90;
-// Over the input's bitrate, where the encoder has a rate cap: room for the
-// codec factor and a cap that overshoots, not for a missing one.
-const MAX_RATE = 2 * GENERATION;
+// Over the encoder's rate cap: the buffer lets it run a little past.
+const MAX_RATE = 1.15;
 // Container durations run a frame or two past the video's.
 const MAX_DRIFT = 0.02;
 // gifski and libwebp_anim merge repeated frames.
@@ -57,7 +56,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
   const { images, videos, vectors } = assets;
   const stills = images(SEQUENCE_IMAGES);
   const encoders = { ...ENCODERS };
-  // By output file: the duration its render asks for, and whether it had a rate cap.
+  // By output file: the duration its render asks for, and its rate cap in kb/s.
   const encoded = new Map();
   for (const [format, encode] of Object.entries(encoders)) {
     ENCODERS[format] = async (ff, render, target) => {
@@ -65,7 +64,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       await ff.runFFmpeg([...graphArgs(render, [], "gbrp"), "-an", "-c:v", "ffv1", reference]);
       encoded.set(target.outputFile, {
         duration: render.duration,
-        capped: target.cap !== null,
+        maxrate: target.cap?.maxrate,
       });
       return encode(ff, render, target);
     };
@@ -79,7 +78,9 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
     return sources.map((source) => ({ name, steps, source }));
   });
   const tick = progress(runs.reduce((n, { steps }) => n + steps.length, 0));
-  const header = columns("", "case", "clip", "SSIM      · PSNR      · VMAF     ", ["problems"]);
+  const header = columns("", "case", "clip", "SSIM      · PSNR      · VMAF     ", "size", "cap", [
+    "problems",
+  ]);
   say(header);
   let rows;
   try {
@@ -94,12 +95,20 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
         const reference = path.join(workDir, "reference.mkv");
         const against = fs.existsSync(reference) ? reference : input;
         const label = steps.length > 1 ? `${name} ${i + 1}` : name;
+        const size = [files, [outputPath]]
+          .map((list) => formatBytes(list.reduce((n, file) => n + fs.statSync(file).size, 0)))
+          .join("→");
         const problems = [];
         const asked = encoded.get(outputPath);
-        if (asked?.capped) {
-          const rate = async (file) => fs.statSync(file).size / (await ff.mediaInfo(file)).duration;
-          const ratio = (await rate(outputPath)) / (await rate(input));
-          if (ratio > MAX_RATE) problems.push(`${ratio.toFixed(1)}x its input's bitrate`);
+        const [packets, expected] = await Promise.all(
+          [outputPath, against].map((file) => ff.videoPackets(file)),
+        );
+        let cap = "";
+        if (asked?.maxrate) {
+          const kbps = (packets.reduce((sum, p) => sum + p.size, 0) * 8) / 1000 / asked.duration;
+          const ratio = kbps / asked.maxrate;
+          cap = `${Math.round(ratio * 100)}%`;
+          if (ratio > MAX_RATE) problems.push("over its rate cap");
         }
         if (asked) {
           const { duration } = await ff.mediaInfo(reference);
@@ -107,11 +116,9 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
             problems.push(`rendered ${duration}s for ${asked.duration}s`);
           }
         }
-        const [frames, expected] = await Promise.all(
-          [outputPath, against].map(async (file) => (await ff.videoPackets(file))?.length),
-        );
-        if (!MERGES_FRAMES.includes(path.extname(outputPath)) && frames !== expected) {
-          problems.push(`${frames} frames for ${expected}`);
+        const frames = packets?.length;
+        if (!MERGES_FRAMES.includes(path.extname(outputPath)) && frames !== expected?.length) {
+          problems.push(`${frames} frames for ${expected?.length}`);
         }
         if (tool === "mark") {
           // The mark dilutes in a whole frame, so it is scored within the box
@@ -142,17 +149,19 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
             [
               `${label} in`,
               await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`),
+              size,
+              cap,
               problems,
             ],
             [`${label} out`, await score(ff, outputPath, input, blank)],
           );
-        } else scores.push([label, await score(ff, outputPath, against), problems]);
+        } else scores.push([label, await score(ff, outputPath, against), size, cap, problems]);
         fs.rmSync(reference, { force: true });
         input = outputPath;
         tick();
       }
       if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
-      return scores.map(([label, { ssim, psnr, vmaf }, problems = []]) => {
+      return scores.map(([label, { ssim, psnr, vmaf }, size = "", cap = "", problems = []]) => {
         const failed =
           problems.length > 0 || ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
         const row = columns(
@@ -164,6 +173,8 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
             `${decibels(psnr.min)}-${decibels(psnr.mean)}`,
             `${vmaf.min.toFixed(1)}-${vmaf.mean.toFixed(1)}`,
           ].join(" · "),
+          size,
+          cap,
           problems,
         );
         say(row);
@@ -183,9 +194,19 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
 
 const decibels = (value) => (value === Infinity ? "Infy" : value.toFixed(1));
 
-// Each metric as min-mean: the worst frame, then the average.
-const columns = (status, label, clip, scores, problems) =>
-  [status.padEnd(4), label.padEnd(17), clip.padEnd(15), scores.padEnd(34), problems.join(", ")]
+// Each metric as min-mean: the worst frame, then the average. Size: the
+// step's input files, then its output. Cap: the video bitrate as a share of
+// the encoder's rate cap.
+const columns = (status, label, clip, scores, size, cap, problems) =>
+  [
+    status.padEnd(4),
+    label.padEnd(17),
+    clip.padEnd(15),
+    scores.padEnd(34),
+    size.padEnd(16),
+    cap.padEnd(4),
+    problems.join(", "),
+  ]
     .join(" ")
     .trimEnd();
 
