@@ -21,8 +21,9 @@ const STREAM_COPY: FormatId[] = ["mp4", "mov", "webm"];
 const KEYFRAME_SNAP_SECONDS = 0.5;
 
 // reverse buffers every decoded frame. Measured to fit a 2GB function next to
-// the encoder; raise only together with the function's memory.
-const MAX_REVERSE_BYTES = 1.2e9;
+// the encoder; raise only together with the function's memory. Mutable so the
+// smoke quality suite can lift it locally.
+export const LOOP_LIMITS = { maxReverseBytes: 1.2e9 };
 
 // The output stage does the reversing (encode/render.ts), cheapest per format.
 function reverseLoop(source: Source): Render {
@@ -32,7 +33,7 @@ function reverseLoop(source: Source): Render {
   if (source.format !== "gif") {
     const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
     const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
-    if (bytes > MAX_REVERSE_BYTES) {
+    if (bytes > LOOP_LIMITS.maxReverseBytes) {
       throw new InputError(
         `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
           `${sizeLabel(width, height)} (${pixFmt}) doesn't fit in memory. Use a ` +

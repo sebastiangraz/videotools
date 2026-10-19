@@ -10,6 +10,7 @@ import { ENCODERS } from "../../api/_lib/encode/index.ts";
 import { formatBytes } from "../../client/src/helpers.ts";
 import { graphArgs } from "../../api/_lib/encode/render.ts";
 import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
+import { LOOP_LIMITS } from "../../api/_lib/tools/loop.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
 // Worst frame of any step.
@@ -77,6 +78,9 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       return encode(ff, render, target);
     };
   }
+  // The reverse cap guards a 2GB function; locally it would only skip clips.
+  const limits = { ...LOOP_LIMITS };
+  LOOP_LIMITS.maxReverseBytes = Infinity;
   // Sequence takes all its stills at once, its source named after their folder.
   const runs = Object.entries(CASES).flatMap(([name, steps]) => {
     const sources =
@@ -194,6 +198,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
     });
   } finally {
     Object.assign(ENCODERS, encoders);
+    Object.assign(LOOP_LIMITS, limits);
   }
   rows = rows.flat();
   const report = path.join(outDir, "quality.txt");
