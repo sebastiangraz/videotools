@@ -111,11 +111,8 @@ export type SourceProfile = MediaInfo & {
   formatNames: string[];
   // mov family only; elsewhere it's a leftover (a webm from an mp4 keeps it).
   majorBrand: string | null;
-  // ffmpeg prints videoKbps for the mov family only.
-  bitrateKbps: number | null;
-  videoKbps: number | null;
   pixFmt: string;
-  audio: { codec: string; kbps: number | null } | null;
+  audio: { codec: string } | null;
 };
 
 export function parseSourceProfile(output: string): SourceProfile | null {
@@ -127,10 +124,6 @@ export function parseSourceProfile(output: string): SourceProfile | null {
   const brand = formatNames.includes("mov")
     ? /^\s*major_brand\s*:\s*(\S+)/m.exec(summary)?.[1]
     : undefined;
-  const kbps = (text: string | undefined) => {
-    const match = /(\d+) kb\/s/.exec(text ?? "");
-    return match ? Number(match[1]) : null;
-  };
   const main = mainVideo(summary);
   const video = main?.line ?? "";
   const audio = summary.split("\n").find((l) => /Stream #\d+:\d+.*: Audio: /.test(l));
@@ -139,16 +132,8 @@ export function parseSourceProfile(output: string): SourceProfile | null {
     videoIndex: main?.index ?? 0,
     formatNames,
     majorBrand: brand ?? null,
-    bitrateKbps: kbps(/Duration: .*bitrate: ([^\n]*)/.exec(summary)?.[1]),
-    // Past the WxH field, so the codec tag's digits never match.
-    videoKbps: kbps(/, \d+x\d+\b(.*)$/.exec(video)?.[1]),
     pixFmt: PIX_FMT.exec(video)?.[1] ?? "",
-    audio: audio
-      ? {
-          codec: /: Audio: (\w+)/.exec(audio)?.[1] ?? "",
-          kbps: kbps(audio),
-        }
-      : null,
+    audio: audio ? { codec: /: Audio: (\w+)/.exec(audio)?.[1] ?? "" } : null,
   };
 }
 

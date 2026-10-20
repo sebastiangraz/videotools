@@ -54,7 +54,6 @@ export function rateCap(
     while (sorted[start].time <= packet.time - span) bytes -= sorted[start++].size;
     peak = Math.max(peak, bytes);
   }
-  if (!peak) return null;
   const sourceKbps = (peak * 8) / 1000 / span;
   const maxrate = Math.max(8, Math.round((sourceKbps * factor * GENERATION * quality) / 100));
   return { maxrate, bufsize: Math.round(maxrate * window) };

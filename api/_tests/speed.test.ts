@@ -15,8 +15,6 @@ const profile = (fps: number): SourceProfile => ({
   videoIndex: 0,
   formatNames: [],
   majorBrand: null,
-  bitrateKbps: null,
-  videoKbps: null,
   pixFmt: "yuv420p",
   audio: null,
 });
