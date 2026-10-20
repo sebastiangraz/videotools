@@ -39,6 +39,8 @@ const VIDEOS = [
 ];
 // Round trips run on one clip only.
 const ROUND_TRIP_VIDEOS = ["video.mp4"];
+// Conversions to every format run on a source the app reads but does not write.
+const FOREIGN_VIDEOS = ["mkv.mkv"];
 // Sequence runs on opaque stills only.
 const SEQUENCE_IMAGES = ["image1.png", "image2.png", "image3.png"];
 
@@ -53,6 +55,9 @@ const CASES = {
   "mark-glass": [["mark", { filter: "glass", size: "dev", position: "center", quality: 100 }]],
   ...Object.fromEntries(
     SEQUENCE_FORMATS.map((id) => [`sequence-${id}`, [["sequence", { format: id, quality: 100 }]]]),
+  ),
+  ...Object.fromEntries(
+    FORMATS.map(({ id }) => [`convert-${id}`, [["convert", { target: id, quality: 100 }]]]),
   ),
   ...Object.fromEntries(
     FORMATS.filter(({ id }) => id !== "mp4").map(({ id }) => [
@@ -87,10 +92,12 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
   LOOP_LIMITS.maxReverseBytes = Infinity;
   // Sequence takes all its stills at once, its source named after their folder.
   const runs = Object.entries(CASES).flatMap(([name, steps]) => {
-    const sources =
-      steps[0][0] === "sequence"
-        ? [path.dirname(stills[0])]
-        : videos(steps.length > 1 ? ROUND_TRIP_VIDEOS : VIDEOS);
+    const [tool] = steps[0];
+    let sources;
+    if (tool === "sequence") sources = [path.dirname(stills[0])];
+    else if (tool !== "convert") sources = videos(VIDEOS);
+    else if (steps.length > 1) sources = videos(ROUND_TRIP_VIDEOS);
+    else sources = videos(FOREIGN_VIDEOS);
     return sources.map((source) => ({ name, steps, source }));
   });
   const tick = progress(runs.reduce((n, { steps }) => n + steps.length, 0));
