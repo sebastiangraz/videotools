@@ -36,6 +36,13 @@ describe("rateCap", () => {
     expect(rateCap(steady(1000, 60), 50, 60)?.bufsize).toBe(3000);
   });
 
+  it("spends at least a hundredth of a bit per pixel on a lean source", () => {
+    const cap = rateCap(steady(50, 10), 100, 10, 1, 1920 * 1080 * 30);
+    expect(cap?.maxrate).toBe(622);
+    expect(cap?.bufsize).toBe(1037);
+    expect(rateCap(steady(2700, 6), 100, 6, 1, 1920 * 1080 * 30)?.maxrate).toBe(8100);
+  });
+
   it("gives a source in a leaner codec more to spend", () => {
     expect(rateCap(steady(1000, 6), 50, 6, codecFactor("hevc", "h264"))?.maxrate).toBe(2250);
   });

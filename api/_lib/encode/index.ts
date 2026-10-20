@@ -78,6 +78,7 @@ export async function encodeRender(
           options.quality,
           render.duration,
           codecFactor(render.source.profile.codec, codec) * (render.pace ?? 1),
+          render.width * render.height * render.fps,
         )
       : null;
   if (cap) console.log(`At most ${cap.maxrate} kb/s, going by the source`);

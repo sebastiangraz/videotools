@@ -6,6 +6,11 @@
 // frames); 3× clears them, so 100 ≈ the source.
 export const GENERATION = 3;
 
+// Nor below this many bits per output pixel: on near-still frames x264 VBV
+// plans for far more than it spends, so a lean source at a large size starved
+// at a fifth of its cap. A bigger buffer fixed it too, but grew small busy clips.
+const MIN_BITS_PER_PIXEL = 0.01;
+
 export type RateCap = {
   // kb/s
   maxrate: number;
@@ -28,12 +33,13 @@ export function codecFactor(sourceCodec: string, resultCodec: string): number {
 }
 
 // `packets` (the source's video) null means no ceiling. `factor` =
-// codecFactor × Render.pace.
+// codecFactor × Render.pace. `pixels`: the output's pixels per second.
 export function rateCap(
   packets: { time: number; duration: number; size: number }[] | null,
   quality: number,
   seconds: number,
   factor = 1,
+  pixels = 0,
 ): RateCap | null {
   // ~1/6 of the clip keeps the file within ~15% of rate × duration (x264);
   // ≥0.5s so short clips open on a full keyframe, ≤2s to stay streamable.
@@ -55,6 +61,7 @@ export function rateCap(
     peak = Math.max(peak, bytes);
   }
   const sourceKbps = (peak * 8) / 1000 / span;
-  const maxrate = Math.max(8, Math.round((sourceKbps * factor * GENERATION * quality) / 100));
+  const ceiling = Math.max(sourceKbps * factor * GENERATION, (pixels * MIN_BITS_PER_PIXEL) / 1000);
+  const maxrate = Math.max(8, Math.round((ceiling * quality) / 100));
   return { maxrate, bufsize: Math.round(maxrate * window) };
 }
