@@ -32,6 +32,10 @@ const VIDEOS = [
   "colorrotate.mp4",
   "sweep.mp4",
   "gif.gif",
+  "hold.mp4",
+  "glow.mp4",
+  "caption.mp4",
+  "screen.mp4",
 ];
 // Round trips run on one clip only.
 const ROUND_TRIP_VIDEOS = ["video.mp4"];
