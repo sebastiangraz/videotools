@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
+import { shownDuration } from "../../api/_lib/ffmpeg.ts";
 import { formatBytes } from "../../client/src/helpers.ts";
 import { graphArgs } from "../../api/_lib/encode/render.ts";
 import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
@@ -36,6 +37,7 @@ const VIDEOS = [
   "glow.mp4",
   "caption.mp4",
   "screen.mp4",
+  "discard.mp4",
 ];
 // Round trips run on one clip only.
 const ROUND_TRIP_VIDEOS = ["video.mp4"];
@@ -45,12 +47,19 @@ const FOREIGN_VIDEOS = ["mkv.mkv"];
 const SEQUENCE_IMAGES = ["image1.png", "image2.png", "image3.png"];
 
 // Multi-step cases are round trips: the last output is also scored against the source.
+// A step's third entry is the length its output should have, given the source's and its fps.
 const CASES = {
   "speed-1x": [["speed", { speed: 0 }]],
   "speed-2x": [["speed", { speed: 1 }]],
-  "loop-copy": [["loop", { technique: "crossfade", fadeDuration: 0 }]],
-  "loop-reverse": [["loop", { technique: "reverse" }]],
-  "loop-crossfade": [["loop", { technique: "crossfade" }]],
+  "loop-copy": [["loop", { technique: "crossfade", fadeDuration: 0 }, (d) => d]],
+  "loop-reverse": [["loop", { technique: "reverse" }, (d) => 2 * d]],
+  "loop-crossfade": [
+    [
+      "loop",
+      { technique: "crossfade", fadeDuration: 0.5 },
+      (d, fps) => (Math.round(d * fps) - Math.round(0.5 * fps)) / fps,
+    ],
+  ],
   mark: [["mark", { filter: "plain", quality: 100 }]],
   "mark-glass": [["mark", { filter: "glass", size: "dev", position: "center", quality: 100 }]],
   ...Object.fromEntries(
@@ -111,7 +120,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       const clip = path.parse(source).name;
       let input = source;
       const scores = [];
-      for (const [i, [tool, options]] of steps.entries()) {
+      for (const [i, [tool, options, length]] of steps.entries()) {
         const workDir = path.join(outDir, name, clip, String(i));
         const files = { mark: [input, vectors[0]], sequence: stills }[tool] ?? [input];
         const { outputPath } = await runTool(tool, files, options, workDir);
@@ -137,6 +146,15 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
           const { duration } = await ff.mediaInfo(reference);
           if (Math.abs(duration - asked.duration) > MAX_DRIFT * asked.duration) {
             problems.push(`rendered ${duration}s for ${asked.duration}s`);
+          }
+        }
+        if (length) {
+          const { fps } = await ff.mediaInfo(input);
+          const want = length(shownDuration(await ff.videoPackets(input)), fps);
+          const got = shownDuration(packets);
+          // Within half a frame: a whole one more or less is a frame too many or few.
+          if (Math.abs(got - want) > 0.5 / fps) {
+            problems.push(`lasts ${got.toFixed(3)}s for ${want.toFixed(3)}s`);
           }
         }
         const frames = packets?.length;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMediaInfo, parseOutputSize } from "../_lib/ffmpeg.js";
+import { parseMediaInfo, parseOutputSize, shownDuration } from "../_lib/ffmpeg.js";
 
 describe("parseMediaInfo", () => {
   // Real ffmpeg lines, each file probed as logo.png (the watermark PNG check).
@@ -47,5 +47,29 @@ Output #0, null, to 'pipe:':
 
   it("has none for a run that never got to its output", () => {
     expect(parseOutputSize(log.slice(0, log.indexOf("Stream mapping")))).toBeNull();
+  });
+});
+
+describe("shownDuration", () => {
+  const packet = (frame: number, discard = false) => ({
+    time: frame / 30,
+    duration: 1 / 30,
+    size: 1,
+    key: false,
+    discard,
+  });
+
+  // In decode order, as a trim without re-encoding leaves them: hidden frames
+  // ahead of the cut, and a skip before the last.
+  it("runs from the first shown frame to the end of the last", () => {
+    const packets = [
+      packet(-2, true),
+      packet(-1, true),
+      packet(0),
+      packet(2),
+      packet(1),
+      packet(4),
+    ];
+    expect(shownDuration(packets)).toBeCloseTo(5 / 30);
   });
 });

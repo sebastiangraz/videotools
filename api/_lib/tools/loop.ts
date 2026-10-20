@@ -3,7 +3,7 @@ import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
 import { removeDir, sizeLabel } from "../helpers.js";
-import { DEFAULT_FPS, isRgb, type FFmpeg } from "../ffmpeg.js";
+import { DEFAULT_FPS, isRgb, shownDuration, type FFmpeg } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { frameRate, sourceRender, videoPad, type Render } from "../encode/render.js";
 import { FASTSTART } from "../encode/video.js";
@@ -26,8 +26,8 @@ const KEYFRAME_SNAP_SECONDS = 0.5;
 export const LOOP_LIMITS = { maxReverseBytes: 1.2e9 };
 
 // The output stage does the reversing (encode/render.ts), cheapest per format.
-function reverseLoop(source: Source): Render {
-  const { duration, fps, width, height, pixFmt } = source.profile;
+function reverseLoop(source: Source, duration: number): Render {
+  const { fps, width, height, pixFmt } = source.profile;
   // GIF frames are files gifski reads twice; others buffer yuv420p (1.5 B/px)
   // or, for WebP, bgra (4 B/px).
   if (source.format !== "gif") {
@@ -52,8 +52,13 @@ function reverseLoop(source: Source): Render {
 // The source is opened twice so each input is read in order and only the fade
 // is buffered (one input split would buffer most of the clip). Cut in frames,
 // not timestamps, so the pieces meet exactly.
-function crossfadeLoop(source: Source, fadeSeconds: number, startSeconds: number): Render {
-  const { duration, pixFmt } = source.profile;
+function crossfadeLoop(
+  source: Source,
+  duration: number,
+  fadeSeconds: number,
+  startSeconds: number,
+): Render {
+  const { pixFmt } = source.profile;
   if (fadeSeconds >= duration / 2) {
     throw new InputError(
       `Fade duration (${fadeSeconds}) must be less than half the video ` +
@@ -170,7 +175,8 @@ async function reorderCopy(
   { format, outputFile, startSeconds }: Copy,
 ): Promise<boolean> {
   const packets = await ff.videoPackets(source.path);
-  if (!packets) return false;
+  // Once cut, the pieces lose the edit list that hides these.
+  if (!packets || packets.some((p) => p.discard)) return false;
   const origin = Math.min(...packets.map((p) => p.time));
   const away = (i: number) => Math.abs(packets[i].time - origin - startSeconds);
   const index = [...packets.keys()]
@@ -260,10 +266,12 @@ export const loop: Tool = {
       return result(outputFile);
     }
 
+    const packets = await ff.videoPackets(source.path);
+    const duration = packets ? shownDuration(packets) : source.profile.duration;
     const render =
       technique === "crossfade"
-        ? crossfadeLoop(source, fadeDuration, startSeconds)
-        : reverseLoop(source);
+        ? crossfadeLoop(source, duration, fadeDuration, startSeconds)
+        : reverseLoop(source, duration);
     return result(await encodePreserved(job, render, { format, quality }));
   },
 };
