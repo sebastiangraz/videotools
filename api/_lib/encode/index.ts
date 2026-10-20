@@ -1,7 +1,6 @@
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
-import type { Source } from "../source.js";
 import type { ToolJob } from "../tools/types.js";
 import { codecFactor, rateCap, type RateCap } from "./rate.js";
 import type { Render } from "./render.js";
@@ -75,7 +74,7 @@ export async function encodeRender(
   const cap =
     codec && render.source
       ? rateCap(
-          await sourceVideoKbps(ff, render.source),
+          await ff.videoPackets(render.source.path),
           options.quality,
           render.duration,
           codecFactor(render.source.profile.codec, codec) * (render.pace ?? 1),
@@ -85,15 +84,4 @@ export async function encodeRender(
   const outputFile = path.join(workDir, `output.${target}`);
   await ENCODERS[target](ff, render, { ...options, outputFile, cap });
   return outputFile;
-}
-
-// The summary only has it for the mov family; else sum the packets.
-async function sourceVideoKbps(ff: FFmpeg, source: Source): Promise<number | null> {
-  const { videoKbps, duration } = source.profile;
-  if (videoKbps) return videoKbps;
-  if (!(duration > 0)) return null;
-  const packets = await ff.videoPackets(source.path);
-  if (!packets) return null;
-  const bytes = packets.reduce((sum, p) => sum + p.size, 0);
-  return Math.round((bytes * 8) / 1000 / duration);
 }
