@@ -17,7 +17,7 @@
     min-height: 1.5rem;
 
     .item {
-      font-size: 8.5px;
+      font-size: var(--font-sm);
     }
   }
 
@@ -36,7 +36,7 @@
   corner-shape: superellipse(1.45);
   background: none;
   font: inherit;
-  font-size: 10px;
+  font-size: var(--font-md);
   color: var(--fg-secondary);
   white-space: nowrap;
   cursor: pointer;

@@ -3,7 +3,7 @@
   display: flex;
   align-items: baseline;
   gap: 0.4em;
-  font-size: 8.5px;
+  font-size: var(--font-sm);
   letter-spacing: 0.05em;
   color: var(--fg-tertiary);
   text-decoration: none;

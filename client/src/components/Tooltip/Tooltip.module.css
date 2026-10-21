@@ -6,7 +6,7 @@
 .popup {
   box-sizing: border-box;
   max-width: 14rem;
-  font-size: 8.5px;
+  font-size: var(--font-sm);
   letter-spacing: 0.05em;
   text-wrap: balance;
   color: var(--fg-tertiary);

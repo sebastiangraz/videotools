@@ -10,7 +10,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
-  font-size: 8.5px;
+  font-size: var(--font-sm);
   letter-spacing: 0.05em;
   color: var(--fg);
   cursor: pointer;

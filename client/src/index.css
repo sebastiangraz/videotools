@@ -34,6 +34,8 @@
   --font-sans: "Styrene", system-ui, sans-serif;
   --font-logo: "GGX", "Styrene", system-ui, sans-serif;
   --font-mono: monospace, menlo, monaco;
+  --font-sm: 8.5px;
+  --font-md: 10px;
   --quantize: calc-size(auto, round(up, size, 1px));
 
   --bg: light-dark(hsl(156, 21%, 95%), hsl(150, 10%, 6%));
@@ -187,7 +189,7 @@ button {
   color: currentColor;
   font-family: inherit;
   text-transform: inherit;
-  font-size: 10px;
+  font-size: var(--font-md);
   min-height: var(--quantize);
   &:focus-visible {
     outline: 1px solid var(--border);
