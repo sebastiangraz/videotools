@@ -2,6 +2,7 @@
   composes: input from global;
   display: flex;
   align-items: stretch;
+  min-height: 2.5rem;
 }
 
 .input {

@@ -1,4 +1,5 @@
 .root {
+  composes: input from global;
   --track-w: 2.25rem;
   --track-h: 1.125rem;
   --pad: 3px;
@@ -6,16 +7,10 @@
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  box-sizing: border-box;
   width: var(--track-w);
   height: var(--track-h);
   padding: var(--pad);
-  border-color: color-mix(in srgb, var(--fg) 16%, transparent);
-  border-style: solid;
-  border-width: 1px;
   border-radius: calc(var(--track-h) / 2.2);
-  corner-shape: superellipse(1.45);
-  background-color: var(--bg-1);
   cursor: pointer;
   outline: 1px solid transparent;
   outline-offset: 2px;
@@ -27,11 +22,6 @@
   &[data-checked] {
     background-color: var(--fg);
     border-color: transparent;
-  }
-
-  &[data-disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
   }
 
   &:focus-visible,

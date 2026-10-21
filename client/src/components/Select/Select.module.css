@@ -4,6 +4,7 @@
   padding: 0.5em;
   padding-right: 2.5em;
   padding-left: 1em;
+  min-height: 2.5rem;
   text-align: left;
   cursor: pointer;
 }

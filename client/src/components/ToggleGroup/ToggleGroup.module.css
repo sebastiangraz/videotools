@@ -4,6 +4,7 @@
   --item-padding: 1em;
 
   display: flex;
+  min-height: 2.5rem;
   padding: var(--inset);
   gap: var(--inset);
 

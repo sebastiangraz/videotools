@@ -198,8 +198,8 @@ button {
 }
 
 .input {
-  min-height: 2.5rem;
-  border: 1px solid var(--border);
+  border: none;
+  box-shadow: 0 1.5px 0 -1px var(--border-subtle) inset;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   appearance: none;
