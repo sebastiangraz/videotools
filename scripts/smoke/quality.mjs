@@ -69,7 +69,7 @@ const CASES = {
     FORMATS.map(({ id }) => [`convert-${id}`, [["convert", { target: id, quality: 100 }]]]),
   ),
   ...Object.fromEntries(
-    FORMATS.filter(({ id }) => id !== "mp4").map(({ id }) => [
+    ["webm", "mov"].map((id) => [
       `${id}-and-back`,
       [
         ["convert", { target: id, quality: 100 }],
