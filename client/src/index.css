@@ -197,6 +197,20 @@ button {
   }
 }
 
+.input {
+  min-height: 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  appearance: none;
+  background-color: var(--bg-1);
+  &:disabled,
+  &[data-disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
 /* Captured elements and the overlay swallow clicks during a view transition, so the root opts out and the overlay passes clicks through. */
 :root {
   view-transition-name: none;

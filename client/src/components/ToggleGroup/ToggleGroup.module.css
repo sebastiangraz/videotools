@@ -1,16 +1,11 @@
 .root {
+  composes: input from global;
   --inset: 3px;
   --item-padding: 1em;
 
   display: flex;
-  box-sizing: border-box;
-  min-height: 2.5rem;
   padding: var(--inset);
   gap: var(--inset);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: var(--bg-1);
 
   &[data-size="small"] {
     --inset: 2px;
@@ -19,10 +14,6 @@
     .item {
       font-size: var(--font-sm);
     }
-  }
-
-  &[data-disabled] {
-    opacity: 0.4;
   }
 }
 

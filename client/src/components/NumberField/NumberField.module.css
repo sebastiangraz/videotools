@@ -1,16 +1,7 @@
 .group {
+  composes: input from global;
   display: flex;
   align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: var(--bg-1);
-  min-height: 2.5rem;
-  &:disabled,
-  &[data-disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
 }
 
 .input {
