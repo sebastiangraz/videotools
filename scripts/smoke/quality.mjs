@@ -7,9 +7,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ENCODERS } from "../../api/_lib/encode/index.ts";
+import { shownDuration } from "../../api/_lib/ffmpeg.ts";
 import { formatBytes } from "../../client/src/helpers.ts";
 import { graphArgs } from "../../api/_lib/encode/render.ts";
 import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
+import { LOOP_LIMITS } from "../../api/_lib/tools/loop.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
 // Worst frame of any step.
@@ -28,29 +30,46 @@ const VIDEOS = [
   "paint.mp4",
   "radial.mp4",
   "ui.mp4",
-  "video.mp4",
+  "colorrotate.mp4",
   "sweep.mp4",
   "gif.gif",
+  "hold.mp4",
+  "glow.mp4",
+  "caption.mp4",
+  "screen.mp4",
+  "discard.mp4",
 ];
 // Round trips run on one clip only.
 const ROUND_TRIP_VIDEOS = ["video.mp4"];
+// Conversions to every format run on a source the app reads but does not write.
+const FOREIGN_VIDEOS = ["mkv.mkv"];
 // Sequence runs on opaque stills only.
 const SEQUENCE_IMAGES = ["image1.png", "image2.png", "image3.png"];
 
 // Multi-step cases are round trips: the last output is also scored against the source.
+// A step's third entry is the length its output should have, given the source's and its fps.
 const CASES = {
   "speed-1x": [["speed", { speed: 0 }]],
   "speed-2x": [["speed", { speed: 1 }]],
-  "loop-copy": [["loop", { technique: "crossfade", fadeDuration: 0 }]],
-  "loop-reverse": [["loop", { technique: "reverse" }]],
-  "loop-crossfade": [["loop", { technique: "crossfade" }]],
+  "loop-copy": [["loop", { technique: "crossfade", fadeDuration: 0 }, (d) => d]],
+  "loop-reverse": [["loop", { technique: "reverse" }, (d) => 2 * d]],
+  "loop-crossfade": [
+    [
+      "loop",
+      { technique: "crossfade", fadeDuration: 0.5 },
+      (d, fps) => (Math.round(d * fps) - Math.round(0.5 * fps)) / fps,
+    ],
+  ],
   mark: [["mark", { filter: "plain", quality: 100 }]],
   "mark-glass": [["mark", { filter: "glass", size: "dev", position: "center", quality: 100 }]],
   ...Object.fromEntries(
     SEQUENCE_FORMATS.map((id) => [`sequence-${id}`, [["sequence", { format: id, quality: 100 }]]]),
   ),
   ...Object.fromEntries(
-    FORMATS.filter(({ id }) => id !== "mp4").map(({ id }) => [
+    FORMATS.map(({ id }) => [`convert-${id}`, [["convert", { target: id, quality: 100 }]]]),
+  ),
+  ...Object.fromEntries(
+    ["webm", "mov"].map((id) => [
       `${id}-and-back`,
       [
         ["convert", { target: id, quality: 100 }],
@@ -77,12 +96,17 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       return encode(ff, render, target);
     };
   }
+  // The reverse cap guards a 2GB function; locally it would only skip clips.
+  const limits = { ...LOOP_LIMITS };
+  LOOP_LIMITS.maxReverseBytes = Infinity;
   // Sequence takes all its stills at once, its source named after their folder.
   const runs = Object.entries(CASES).flatMap(([name, steps]) => {
-    const sources =
-      steps[0][0] === "sequence"
-        ? [path.dirname(stills[0])]
-        : videos(steps.length > 1 ? ROUND_TRIP_VIDEOS : VIDEOS);
+    const [tool] = steps[0];
+    let sources;
+    if (tool === "sequence") sources = [path.dirname(stills[0])];
+    else if (tool !== "convert") sources = videos(VIDEOS);
+    else if (steps.length > 1) sources = videos(ROUND_TRIP_VIDEOS);
+    else sources = videos(FOREIGN_VIDEOS);
     return sources.map((source) => ({ name, steps, source }));
   });
   const tick = progress(runs.reduce((n, { steps }) => n + steps.length, 0));
@@ -96,7 +120,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       const clip = path.parse(source).name;
       let input = source;
       const scores = [];
-      for (const [i, [tool, options]] of steps.entries()) {
+      for (const [i, [tool, options, length]] of steps.entries()) {
         const workDir = path.join(outDir, name, clip, String(i));
         const files = { mark: [input, vectors[0]], sequence: stills }[tool] ?? [input];
         const { outputPath } = await runTool(tool, files, options, workDir);
@@ -122,6 +146,15 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
           const { duration } = await ff.mediaInfo(reference);
           if (Math.abs(duration - asked.duration) > MAX_DRIFT * asked.duration) {
             problems.push(`rendered ${duration}s for ${asked.duration}s`);
+          }
+        }
+        if (length) {
+          const { fps } = await ff.mediaInfo(input);
+          const want = length(shownDuration(await ff.videoPackets(input)), fps);
+          const got = shownDuration(packets);
+          // Within half a frame: a whole one more or less is a frame too many or few.
+          if (Math.abs(got - want) > 0.5 / fps) {
+            problems.push(`lasts ${got.toFixed(3)}s for ${want.toFixed(3)}s`);
           }
         }
         const frames = packets?.length;
@@ -156,7 +189,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
           scores.push(
             [
               `${label} in`,
-              await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`),
+              await score(ff, outputPath, reference, `crop=${w}:${h}:${x1}:${y1}`, false),
               size,
               cap,
               problems,
@@ -171,7 +204,10 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       if (steps.length > 1) scores.push([`${name} src`, await score(ff, input, source)]);
       return scores.map(([label, { ssim, psnr, vmaf }, size = "", cap = "", problems = []]) => {
         const failed =
-          problems.length > 0 || ssim.min < MIN_SSIM || psnr.min < MIN_PSNR || vmaf.min < MIN_VMAF;
+          problems.length > 0 ||
+          ssim.min < MIN_SSIM ||
+          psnr.min < MIN_PSNR ||
+          (vmaf && vmaf.min < MIN_VMAF);
         const row = columns(
           failed ? "FAIL" : "ok",
           label,
@@ -179,7 +215,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
           [
             `${ssim.min.toFixed(2)}-${ssim.mean.toFixed(2)}`,
             `${decibels(psnr.min)}-${decibels(psnr.mean)}`,
-            `${vmaf.min.toFixed(1)}-${vmaf.mean.toFixed(1)}`,
+            vmaf ? `${vmaf.min.toFixed(1)}-${vmaf.mean.toFixed(1)}` : "-",
           ].join(" · "),
           size,
           cap,
@@ -191,6 +227,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
     });
   } finally {
     Object.assign(ENCODERS, encoders);
+    Object.assign(LOOP_LIMITS, limits);
   }
   rows = rows.flat();
   const report = path.join(outDir, "quality.txt");
@@ -218,11 +255,14 @@ const columns = (status, label, clip, scores, size, cap, problems) =>
     .join(" ")
     .trimEnd();
 
-// Per-frame scores over RGB (VMAF: luma only), paired by frame index, with the
-// reference fitted to the output's size and both then passed through `region`.
-// Unequal frame counts pair by time instead: gifski keeps a repeated frame as
-// one longer frame.
-async function score(ff, output, reference, region = "null") {
+// Per-frame scores (PSNR over RGB, SSIM over YUV, VMAF luma only), paired by
+// frame index, with the reference fitted to the output's size and both then
+// passed through `region`. Unequal frame counts pair by time instead: gifski
+// keeps a repeated frame as one longer frame. SSIM over RGB put a channel
+// resting at 0 (saturated colours) near 0.2 for a lossless yuv444p copy.
+// VMAF models whole frames: on a crop as small as a mark it stays near 90
+// for an identical copy, so `vmaf` false skips it.
+async function score(ff, output, reference, region = "null", vmaf = true) {
   const { width, height, videoIndex } = await ff.mediaInfo(output);
   const [count, referenceCount] = await Promise.all(
     [output, reference].map(async (file) => (await ff.videoPackets(file))?.length),
@@ -239,8 +279,9 @@ async function score(ff, output, reference, region = "null") {
       "-i",
       reference,
       "-filter_complex",
-      `[0:v:${videoIndex}]${fit}[a][b][c];[1:v]${fit}[d][e][f];[a][d]ssim=f=-;[b][e]psnr=f=-;` +
-        `[c][f]libvmaf=log_fmt=json:log_path=vmaf.json`,
+      `[0:v:${videoIndex}]${fit}[a][b][c];[1:v]${fit}[d][e][f];[b][e]psnr=f=-;` +
+        `[a]format=yuv444p[y];[d]format=yuv444p[z];[y][z]ssim=f=-;` +
+        (vmaf ? `[c][f]libvmaf=log_fmt=json:log_path=vmaf.json` : `[c]nullsink;[f]nullsink`),
       "-f",
       "null",
       "-",
@@ -258,10 +299,12 @@ async function score(ff, output, reference, region = "null") {
   return {
     ssim: summary(frames("All")),
     psnr: summary(frames("psnr_avg")),
-    vmaf: summary(
-      JSON.parse(fs.readFileSync(path.join(dir, "vmaf.json"), "utf8")).frames.map(
-        (frame) => frame.metrics.vmaf,
+    vmaf:
+      vmaf &&
+      summary(
+        JSON.parse(fs.readFileSync(path.join(dir, "vmaf.json"), "utf8")).frames.map(
+          (frame) => frame.metrics.vmaf,
+        ),
       ),
-    ),
   };
 }

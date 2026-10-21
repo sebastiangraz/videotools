@@ -96,7 +96,7 @@ export const sequence: Tool = {
       frameDuration,
       format,
     });
-    // Stills are pristine, so they alone get AVIF's lossless and 4:4:4 modes.
+    // Stills are pristine, so they alone get AVIF's lossless mode.
     const outputPath = await encodeRender(job, render, {
       format,
       quality,
@@ -104,7 +104,6 @@ export const sequence: Tool = {
       width: null,
       everyFrame: true,
       lossless: quality >= 100,
-      chroma444: quality >= 90,
     });
     return { outputPath, suffix: "video", ext: format };
   },

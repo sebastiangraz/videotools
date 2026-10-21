@@ -91,32 +91,21 @@ const profile = (kind: keyof typeof SUMMARIES): SourceProfile => {
 };
 
 describe("parseSourceProfile", () => {
-  it("reads what an mp4 spends, as a whole and on its video", () => {
+  it("reads an mp4's container, picture and audio", () => {
     expect(profile("mp4")).toMatchObject({
       formatNames: ["mov", "mp4", "m4a", "3gp", "3g2", "mj2"],
       majorBrand: "isom",
-      bitrateKbps: 3050,
-      videoKbps: 2723,
       pixFmt: "yuv420p",
-      audio: { codec: "aac", kbps: 317 },
+      audio: { codec: "aac" },
       codec: "h264",
       width: 1600,
       height: 1080,
     });
   });
 
-  it("has no video bitrate where ffmpeg prints none", () => {
-    expect(profile("webm")).toMatchObject({
-      bitrateKbps: 1334,
-      videoKbps: null,
-      audio: { codec: "opus", kbps: null },
-    });
-    expect(profile("gif")).toMatchObject({
-      bitrateKbps: 8629,
-      videoKbps: null,
-      pixFmt: "bgra",
-      audio: null,
-    });
+  it("reads the audio codec, or none", () => {
+    expect(profile("webm").audio).toEqual({ codec: "opus" });
+    expect(profile("gif")).toMatchObject({ pixFmt: "bgra", audio: null });
   });
 
   it("ignores a brand outside the mov family", () => {
@@ -128,9 +117,7 @@ describe("parseSourceProfile", () => {
     const windows = SUMMARIES.mp4.replace(/\n/g, "\r\n");
     expect(parseSourceProfile(windows)).toMatchObject({
       majorBrand: "isom",
-      bitrateKbps: 3050,
-      videoKbps: 2723,
-      audio: { codec: "aac", kbps: 317 },
+      audio: { codec: "aac" },
     });
   });
 
@@ -138,7 +125,6 @@ describe("parseSourceProfile", () => {
     expect(profile("avif")).toMatchObject({
       videoIndex: 1,
       fps: 30,
-      videoKbps: 491,
       codec: "av1",
     });
   });

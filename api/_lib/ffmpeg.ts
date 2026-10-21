@@ -102,7 +102,16 @@ type VideoPacket = {
   duration: number;
   size: number;
   key: boolean;
+  // Decoded but never shown: an edit list starts the video after it.
+  discard: boolean;
 };
+
+// From the first shown frame to the end of the last. The container's
+// duration can run past it, as when an edit list hides frames.
+export function shownDuration(packets: VideoPacket[]): number {
+  const shown = packets.filter((p) => !p.discard);
+  return Math.max(...shown.map((p) => p.time + p.duration)) - Math.min(...shown.map((p) => p.time));
+}
 
 export type SourceProfile = MediaInfo & {
   // `0:v:N` of the main stream; "the first video stream" can be a cover image.
@@ -111,11 +120,8 @@ export type SourceProfile = MediaInfo & {
   formatNames: string[];
   // mov family only; elsewhere it's a leftover (a webm from an mp4 keeps it).
   majorBrand: string | null;
-  // ffmpeg prints videoKbps for the mov family only.
-  bitrateKbps: number | null;
-  videoKbps: number | null;
   pixFmt: string;
-  audio: { codec: string; kbps: number | null } | null;
+  audio: { codec: string } | null;
 };
 
 export function parseSourceProfile(output: string): SourceProfile | null {
@@ -127,10 +133,6 @@ export function parseSourceProfile(output: string): SourceProfile | null {
   const brand = formatNames.includes("mov")
     ? /^\s*major_brand\s*:\s*(\S+)/m.exec(summary)?.[1]
     : undefined;
-  const kbps = (text: string | undefined) => {
-    const match = /(\d+) kb\/s/.exec(text ?? "");
-    return match ? Number(match[1]) : null;
-  };
   const main = mainVideo(summary);
   const video = main?.line ?? "";
   const audio = summary.split("\n").find((l) => /Stream #\d+:\d+.*: Audio: /.test(l));
@@ -139,16 +141,8 @@ export function parseSourceProfile(output: string): SourceProfile | null {
     videoIndex: main?.index ?? 0,
     formatNames,
     majorBrand: brand ?? null,
-    bitrateKbps: kbps(/Duration: .*bitrate: ([^\n]*)/.exec(summary)?.[1]),
-    // Past the WxH field, so the codec tag's digits never match.
-    videoKbps: kbps(/, \d+x\d+\b(.*)$/.exec(video)?.[1]),
     pixFmt: PIX_FMT.exec(video)?.[1] ?? "",
-    audio: audio
-      ? {
-          codec: /: Audio: (\w+)/.exec(audio)?.[1] ?? "",
-          kbps: kbps(audio),
-        }
-      : null,
+    audio: audio ? { codec: /: Audio: (\w+)/.exec(audio)?.[1] ?? "" } : null,
   };
 }
 
@@ -217,7 +211,7 @@ export class FFmpeg {
 
   // Stream copy to framecrc only demuxes (milliseconds). Lines are
   // "stream, dts, pts, duration, size, crc[, F=flags]" (flags = not a
-  // keyframe) under "#tb 0: 1/30000".
+  // keyframe; bit 4 = discard) under "#tb 0: 1/30000".
   async videoPackets(inputFile: string): Promise<VideoPacket[] | null> {
     const { videoIndex } = await this.mediaInfo(inputFile);
     return this.listPackets(inputFile, videoIndex);
@@ -246,11 +240,13 @@ export class FFmpeg {
       .filter((line) => /^\d/.test(line))
       .map((line) => {
         const fields = line.split(",").map((f) => f.trim());
+        const flags = fields.find((f) => f.startsWith("F="));
         return {
           time: Number(fields[2]) * timeBase,
           duration: Number(fields[3]) * timeBase,
           size: Number(fields[4]),
-          key: !fields.some((f) => f.startsWith("F=")),
+          key: !flags,
+          discard: flags !== undefined && (Number(flags.slice(2)) & 4) !== 0,
         };
       });
     const readable = packets.every(

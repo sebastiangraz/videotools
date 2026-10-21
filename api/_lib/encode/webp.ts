@@ -96,7 +96,9 @@ export const encodeWebp: Encoder = async (
 
   // "icon" disables spatial noise shaping, which starves flat regions
   // into a block grid; better PSNR everywhere (~12% larger on detail).
-  const lossy = (level: number) => ["-q:v", String(level), "-preset", "icon"];
+  // bgra: given yuv420p, libwebp keeps a BT.709 source's planes, which
+  // decode as BT.601 (saturated colours shift).
+  const lossy = (level: number) => ["-q:v", String(level), "-preset", "icon", "-pix_fmt", "bgra"];
   // No rate control: at the top, a lossy source's artifacts came to over 2×
   // its bytes a frame.
   await encodeWithinBudget(ff, {
