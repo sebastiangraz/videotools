@@ -32,15 +32,15 @@ export const SliderRotary = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
-  const drag = useRef<{ y: number; fill: number; rect?: DOMRect } | null>(null);
+  const drag = useRef<{ y: number; fill: number; sign: number; rect?: DOMRect } | null>(null);
   const fill = max === min ? 0 : (value - min) / (max - min);
   const start = centered ? Math.min(fill, 0.5) : 0;
   const end = centered ? Math.max(fill, 0.5) : fill;
 
   const turn = ({ clientX, clientY }: PointerEvent<HTMLElement>) => {
     if (!drag.current) return;
-    const { y, rect } = drag.current;
-    let next = drag.current.fill + (y - clientY) / DRAG_RANGE;
+    const { y, sign, rect } = drag.current;
+    let next = drag.current.fill + (sign * (y - clientY)) / DRAG_RANGE;
     if (rect) {
       const x = clientX - rect.left - rect.width / 2;
       const angle = Math.atan2(x, rect.top + rect.height / 2 - clientY);
@@ -96,8 +96,10 @@ export const SliderRotary = ({
             if (disabled || event.button !== 0) return;
             event.currentTarget.setPointerCapture(event.pointerId);
             const precise = hitAreaRef.current?.contains(event.target as Node);
-            const rect = precise ? event.currentTarget.getBoundingClientRect() : undefined;
-            drag.current = { y: event.clientY, fill, rect };
+            const rect = event.currentTarget.getBoundingClientRect();
+            // Like a real knob, pushing up on the right half turns it anticlockwise.
+            const sign = event.clientX > rect.left + rect.width / 2 ? -1 : 1;
+            drag.current = { y: event.clientY, fill, sign, rect: precise ? rect : undefined };
             if (precise) turn(event);
             // After the press has moved focus off the input.
             requestAnimationFrame(() =>
