@@ -12,6 +12,7 @@ import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
 import { qualityLabel, toList } from "@src/helpers";
 import form from "@src/form.module.css";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 
 const TOOL = toolById("loop");
 
@@ -93,7 +94,6 @@ export const Loop = () => {
               disabled={run.busy}
             />
           </div>
-
           <div className={form.formGroup}>
             <label htmlFor="startSecond" className={form.label}>
               Start at
@@ -117,7 +117,7 @@ export const Loop = () => {
       )}
 
       <div className={form.formGroup}>
-        <Slider
+        <SliderRotary
           label={qualityLabel(quality)}
           value={quality}
           onValueChange={setQuality}
@@ -125,8 +125,7 @@ export const Loop = () => {
           max={100}
           step={1}
           disabled={run.busy}
-          ticks
-          tickCount={2}
+          showArc={true}
         />
       </div>
     </ToolPanel>

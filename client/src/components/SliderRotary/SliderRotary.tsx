@@ -72,7 +72,7 @@ export const SliderRotary = ({
         <svg className={styles.marks} aria-hidden="true">
           {showArc && (
             <circle
-              className={styles.arc}
+              className={cx(styles.arc, centered && styles.arcCentered)}
               cx="50%"
               cy="50%"
               pathLength={360}
