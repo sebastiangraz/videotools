@@ -4,17 +4,13 @@ import { cx } from "@src/helpers";
 import styles from "./SliderRotary.module.css";
 
 // Base UI places the thumb along a linear track, centred on the cross axis;
-// pinning the inline start to 50% too parks it as the dial's indicator.
-const INDICATOR_STYLE: CSSProperties = { insetInlineStart: "50%" };
 
-// Degrees the indicator turns across the range, and px of vertical drag to cover it.
+const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
+
 const SWEEP = 270;
 const DRAG_RANGE = 200;
 const DOTS = [0, 0.5, 1];
 
-// Slider's cousin as a knob: drag up/down, grab the hit area by the pointer
-// line to turn it towards the cursor, or use the keys. `centered` anchors the
-// arc at the top (for signed ranges).
 export const SliderRotary = ({
   label,
   value,
@@ -93,8 +89,8 @@ export const SliderRotary = ({
           ))}
         </svg>
         <BaseSlider.Thumb
-          className={styles.indicator}
-          style={INDICATOR_STYLE}
+          className={styles.knob}
+          style={KNOB_STYLE}
           inputRef={inputRef}
           onPointerDown={(event) => {
             if (disabled || event.button !== 0) return;

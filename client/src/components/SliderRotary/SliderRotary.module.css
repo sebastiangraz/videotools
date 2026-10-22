@@ -44,7 +44,7 @@
   fill: var(--fg-tertiary);
 }
 
-.indicator {
+.knob {
   composes: input from global;
   width: 80%;
   aspect-ratio: 1;
@@ -62,24 +62,31 @@
     background-color: var(--fg-tertiary);
     transform-origin: 1px calc(100% - 1px);
     rotate: var(--angle);
+    transition: background-color 0.1s ease-in-out;
   }
 
   & .hitArea {
+    background-color: red;
     position: absolute;
     inset: 0;
     rotate: var(--angle);
     clip-path: inset(0% 35% 50% 35%);
+    cursor: grab;
+  }
+
+  &:has(.hitArea:hover)::after {
+    background-color: var(--fg-secondary);
   }
 
   &:has(:focus-visible) {
     outline: 1px solid var(--fg-tertiary);
-    outline-offset: 3px;
+    outline-offset: -3px;
   }
 }
 
 .slider[data-disabled] .dial {
   opacity: 0.4;
-  & .indicator {
+  & .knob {
     cursor: not-allowed;
   }
 }
