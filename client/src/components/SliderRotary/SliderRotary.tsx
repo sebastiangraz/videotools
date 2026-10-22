@@ -69,26 +69,23 @@ export const SliderRotary = ({
         className={styles.dial}
         style={{ "--angle": `${(fill - 0.5) * SWEEP}deg` } as CSSProperties}
       >
-        <svg className={styles.marks} viewBox="0 0 100 100" aria-hidden="true">
+        <svg className={styles.marks} aria-hidden="true">
           {showArc && (
             <circle
               className={styles.arc}
-              cx="50"
-              cy="50"
-              r="47"
+              cx="50%"
+              cy="50%"
               pathLength={360}
               strokeDasharray={`${(end - start) * SWEEP} 360`}
-              transform={`rotate(${(start - 0.5) * SWEEP - 90} 50 50)`}
+              style={{ rotate: `${(start - 0.5) * SWEEP - 90}deg` }}
             />
           )}
           {DOTS.map((pos) => (
             <circle
               key={pos}
               className={cx(styles.dot, pos >= start && pos <= end && styles.dotActive)}
-              cx="50"
-              cy="3"
-              r="3"
-              transform={`rotate(${(pos - 0.5) * SWEEP} 50 50)`}
+              cx="50%"
+              style={{ rotate: `${(pos - 0.5) * SWEEP}deg` }}
             />
           ))}
         </svg>

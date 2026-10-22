@@ -166,7 +166,7 @@ export const Test = () => {
 
       <div className={form.horizontal}>
         <SliderRotary
-          label={`Rotary (${slider})`}
+          label={`Rotary ${slider}`}
           value={slider}
           onValueChange={setSlider}
           min={0}
@@ -174,6 +174,15 @@ export const Test = () => {
           step={1}
           disabled={disabled}
           showArc={false}
+        />
+        <SliderRotary
+          label={`Rotary arc ${slider}`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
         />
         <SliderRotary
           label={`Centered rotary (${centered.toFixed(1)})`}

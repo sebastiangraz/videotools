@@ -19,25 +19,36 @@
   position: relative;
   width: 5rem;
   aspect-ratio: 1;
+  --knob: 80%;
+  --ring: calc(var(--knob) / 2 + 0.4rem);
 }
 
 .marks {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
+  & circle {
+    transform-box: view-box;
+    transform-origin: center;
+  }
 }
 
 .arc {
+  r: var(--ring);
   fill: none;
   stroke: var(--border);
-  stroke-width: 3;
+  stroke-width: 0.15rem;
   stroke-linecap: round;
 }
 
 .dot {
+  cy: calc(50% - var(--ring));
+  r: 0.15rem;
   fill: var(--border);
   stroke: var(--bg);
-  stroke-width: 2;
+  stroke-width: 0.1rem;
   stroke-linecap: round;
 }
 
@@ -47,7 +58,7 @@
 
 .knob {
   composes: input from global;
-  width: 80%;
+  width: var(--knob);
   aspect-ratio: 1;
   border-radius: 999em;
   corner-shape: round;
