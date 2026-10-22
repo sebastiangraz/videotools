@@ -20,7 +20,7 @@ export const SliderRotary = ({
   centered = false,
   showArc = true,
   size,
-  pipCount = 2,
+  pipCount = 3,
   pipActiveStyle = "default",
 }: {
   label: ReactNode;
