@@ -176,16 +176,29 @@ export const Test = () => {
           showArc={false}
         />
         <SliderRotary
-          label={`Rotary arc ${slider}`}
+          label={`With arc ${slider}`}
           value={slider}
           onValueChange={setSlider}
           min={0}
           max={100}
           step={1}
           disabled={disabled}
+          pipCount={6}
         />
         <SliderRotary
-          label={`Centered rotary (${centered.toFixed(1)})`}
+          label={`Single pip ${slider}`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          pipCount={10}
+          pipActiveStyle="single"
+          showArc={false}
+        />
+        <SliderRotary
+          label={`Centered ${centered.toFixed(1)}`}
           value={centered}
           onValueChange={setCentered}
           min={-3}
@@ -193,6 +206,18 @@ export const Test = () => {
           step={0.1}
           disabled={disabled}
           centered
+        />
+        <SliderRotary
+          label={`Centered ${centered.toFixed(1)}`}
+          value={centered}
+          onValueChange={setCentered}
+          min={-3}
+          max={3}
+          step={0.1}
+          disabled={disabled}
+          centered
+          pipCount={7}
+          pipActiveStyle="single"
         />
       </div>
 

@@ -7,6 +7,7 @@ const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
 
 const SWEEP = 270;
 const DRAG_RANGE = 200;
+const PIP_REACH = 6;
 
 export const SliderRotary = ({
   label,
@@ -20,6 +21,7 @@ export const SliderRotary = ({
   showArc = true,
   size,
   pipCount = 2,
+  pipActiveStyle = "default",
 }: {
   label: ReactNode;
   value: number;
@@ -32,6 +34,7 @@ export const SliderRotary = ({
   showArc?: boolean;
   size?: string;
   pipCount?: number;
+  pipActiveStyle?: "default" | "single";
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
@@ -83,10 +86,16 @@ export const SliderRotary = ({
           )}
           {Array.from({ length: pipCount }, (_, i) => {
             const pos = i / (pipCount - 1);
+            const active =
+              pipActiveStyle === "single"
+                ? i === Math.round(fill * (pipCount - 1)) &&
+                  // Sparse pips sit far apart, so only light one the indicator is near.
+                  (pipCount >= 4 || Math.abs(fill - pos) * SWEEP <= PIP_REACH)
+                : pos >= start && pos <= end;
             return (
               <circle
                 key={i}
-                className={cx(styles.pip, pos >= start && pos <= end && styles.pipActive)}
+                className={cx(styles.pip, active && styles.pipActive)}
                 cx="50%"
                 style={{ rotate: `${(pos - 0.5) * SWEEP}deg` }}
               />
