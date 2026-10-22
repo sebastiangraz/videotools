@@ -44,6 +44,7 @@
 }
 
 .main {
+  composes: eased from global;
   grid-area: main;
   display: flex;
   flex-direction: column;

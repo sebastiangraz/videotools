@@ -143,10 +143,9 @@ body {
   initial-value: 100%;
 }
 
-/* Declared on every element so the var()s resolve against that element's inputs */
-*,
-::before,
-::after {
+.eased,
+.eased::before,
+.eased::after {
   --_ease-span: calc(var(--ease-end) - var(--ease-start));
   --ease-in-out-stops:
     var(--ease-from) var(--ease-start),
