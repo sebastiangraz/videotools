@@ -110,15 +110,19 @@
   &::after {
     content: "";
     --period: calc(100% / 6 + var(--gap));
+    --line: 0.75px;
     width: 600%;
     height: 600%;
     background:
-      linear-gradient(to right, var(--fg) var(--gap), transparent 0) calc(50% - var(--gap) / 2) 0 /
-        var(--period) 100%,
-      linear-gradient(var(--fg) var(--gap), transparent 0) 0 calc(50% - var(--gap) / 2) / 100%
+      linear-gradient(to right, var(--fg) var(--line), transparent 0) calc(50% - var(--line) / 2) 0
+        / var(--period) 100%,
+      linear-gradient(var(--fg) var(--line), transparent 0) 0 calc(50% - var(--line) / 2) / 100%
         var(--period);
     opacity: 0.1;
     transition: opacity 500ms ease;
+    @media (resolution >= 2x) {
+      --line: 1px;
+    }
   }
 }
 
