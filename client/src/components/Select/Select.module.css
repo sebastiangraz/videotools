@@ -61,7 +61,7 @@
     color 0.125s ease,
     outline 0.2s ease;
   &[data-highlighted] {
-    outline: 1px solid var(--border);
+    color: var(--fg);
   }
   &[data-selected] {
     color: var(--fg);
