@@ -3,8 +3,6 @@ import { Slider as BaseSlider } from "@base-ui/react/slider";
 import { cx } from "@src/helpers";
 import styles from "./SliderRotary.module.css";
 
-// Base UI places the thumb along a linear track, centred on the cross axis;
-
 const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
 
 const SWEEP = 270;

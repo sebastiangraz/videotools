@@ -4,7 +4,7 @@ import { Upload } from "@src/components/Upload/Upload";
 import { FramePreview } from "@src/components/FramePreview/FramePreview";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
@@ -12,7 +12,6 @@ import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
 import { qualityLabel, toList } from "@src/helpers";
 import form from "@src/form.module.css";
-import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 
 const TOOL = toolById("loop");
 

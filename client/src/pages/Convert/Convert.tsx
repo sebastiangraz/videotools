@@ -3,7 +3,7 @@ import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
 import { Upload } from "@src/components/Upload/Upload";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
@@ -121,7 +121,7 @@ export const Convert = () => {
           )}
 
           <div className={form.formGroup}>
-            <Slider
+            <SliderRotary
               label={qualityLabel(quality, lossless)}
               value={quality}
               onValueChange={setQuality}

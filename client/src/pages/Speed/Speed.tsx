@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
 import { Upload } from "@src/components/Upload/Upload";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
@@ -54,7 +54,7 @@ export const Speed = () => {
       onSubmit={submit}
     >
       <div className={form.formGroup}>
-        <Slider
+        <SliderRotary
           label={
             <>
               Speed ({describeSpeed(speed)}
@@ -68,8 +68,6 @@ export const Speed = () => {
           step={0.1}
           disabled={run.busy}
           centered
-          ticks
-          tickCount={6}
         />
       </div>
     </ToolPanel>

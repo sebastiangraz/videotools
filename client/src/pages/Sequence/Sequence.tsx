@@ -5,7 +5,7 @@ import { FramePreview } from "@src/components/FramePreview/FramePreview";
 import preview from "@src/components/FramePreview/FramePreview.module.css";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
@@ -168,7 +168,7 @@ export const Sequence = () => {
       </div>
 
       <div className={form.formGroup}>
-        <Slider
+        <SliderRotary
           label={
             <>
               {qualityLabel(quality, lossless)}
