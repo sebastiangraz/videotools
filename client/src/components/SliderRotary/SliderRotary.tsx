@@ -87,7 +87,7 @@ export const SliderRotary = ({
               className={cx(styles.dot, pos >= start && pos <= end && styles.dotActive)}
               cx="50"
               cy="3"
-              r="1.75"
+              r="3"
               transform={`rotate(${(pos - 0.5) * SWEEP} 50 50)`}
             />
           ))}

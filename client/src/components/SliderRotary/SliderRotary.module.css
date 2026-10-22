@@ -35,6 +35,9 @@
 
 .dot {
   fill: var(--border);
+  stroke: var(--bg);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .dotActive {
