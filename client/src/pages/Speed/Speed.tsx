@@ -58,7 +58,9 @@ export const Speed = () => {
           label={
             <>
               Speed {describeSpeed(speed)}
-              {source.duration > 0 && ` ~${(source.duration / speedMultiplier).toFixed(1)}s`}
+              <span style={{ color: "var(--fg-tertiary)", marginLeft: "0.5em" }}>
+                {source.duration > 0 && ` ${(source.duration / speedMultiplier).toFixed(1)}s`}
+              </span>
             </>
           }
           value={speed}
