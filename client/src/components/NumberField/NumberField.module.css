@@ -17,12 +17,12 @@
   user-select: none;
   background-color: transparent;
   &:focus-visible {
-    outline-offset: -3px;
+    outline-offset: -4px;
     corner-shape: superellipse(1.45);
     border-radius: calc(var(--radius) - 1.5px);
     & + .steppers {
       border-left: 0;
-      margin-left: -2px;
+      margin-left: -3px;
     }
   }
 }
