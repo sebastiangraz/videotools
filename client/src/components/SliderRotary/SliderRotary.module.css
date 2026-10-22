@@ -66,12 +66,11 @@
   }
 
   & .hitArea {
-    background-color: red;
     position: absolute;
-    inset: 0;
+    inset: -10%;
     rotate: var(--angle);
-    clip-path: inset(0% 35% 50% 35%);
-    cursor: grab;
+    clip-path: inset(0% 37.5% 50% 37.5%);
+    cursor: pointer;
   }
 
   &:has(.hitArea:hover)::after {
@@ -79,8 +78,8 @@
   }
 
   &:has(:focus-visible) {
-    outline: 1px solid var(--fg-tertiary);
-    outline-offset: -3px;
+    outline: 1px solid var(--border);
+    outline-offset: -4px;
   }
 }
 
