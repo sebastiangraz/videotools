@@ -103,7 +103,7 @@
 
 .actions {
   display: flex;
-  align-items: center;
+  align-items: end;
   gap: 0.5em;
   margin-top: 1rem;
 }

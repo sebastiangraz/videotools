@@ -27,9 +27,9 @@
 
 .dial {
   position: relative;
-  width: 4rem;
+  width: var(--size, 3.5rem);
   aspect-ratio: 1;
-  --ring: calc(50%);
+  --ring: calc(50% + 0.2rem);
 }
 
 .marks {
