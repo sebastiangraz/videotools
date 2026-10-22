@@ -63,6 +63,18 @@ export const Loop = () => {
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        <SliderRotary
+          label={qualityLabel(quality)}
+          value={quality}
+          onValueChange={setQuality}
+          min={0}
+          max={100}
+          step={1}
+          disabled={run.busy}
+          showArc={true}
+        />
+      }
     >
       <div className={form.formGroup}>
         <label htmlFor="technique" className={form.label}>
@@ -114,19 +126,6 @@ export const Loop = () => {
           </div>
         </div>
       )}
-
-      <div className={form.formGroup}>
-        <SliderRotary
-          label={qualityLabel(quality)}
-          value={quality}
-          onValueChange={setQuality}
-          min={0}
-          max={100}
-          step={1}
-          disabled={run.busy}
-          showArc={true}
-        />
-      </div>
     </ToolPanel>
   );
 };

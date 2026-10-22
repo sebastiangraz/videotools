@@ -65,6 +65,17 @@ export const Convert = () => {
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        <SliderRotary
+          label={qualityLabel(quality, lossless)}
+          value={quality}
+          onValueChange={setQuality}
+          min={0}
+          max={100}
+          step={1}
+          disabled={run.busy}
+        />
+      }
     >
       {source.file && (
         <>
@@ -119,18 +130,6 @@ export const Convert = () => {
               </div>
             </div>
           )}
-
-          <div className={form.formGroup}>
-            <SliderRotary
-              label={qualityLabel(quality, lossless)}
-              value={quality}
-              onValueChange={setQuality}
-              min={0}
-              max={100}
-              step={1}
-              disabled={run.busy}
-            />
-          </div>
         </>
       )}
     </ToolPanel>

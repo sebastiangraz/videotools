@@ -134,6 +134,22 @@ export const Sequence = () => {
       blocker={files.length > 0 ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        <SliderRotary
+          label={
+            <>
+              {qualityLabel(quality, lossless)}
+              {sizeEstimate}
+            </>
+          }
+          value={quality}
+          onValueChange={setQuality}
+          min={0}
+          max={100}
+          step={1}
+          disabled={run.busy}
+        />
+      }
     >
       <div className={form.formGroup}>
         <label htmlFor="frameDuration" className={form.label}>
@@ -163,23 +179,6 @@ export const Sequence = () => {
           options={FORMATS}
           value={format}
           onValueChange={setFormat}
-          disabled={run.busy}
-        />
-      </div>
-
-      <div className={form.formGroup}>
-        <SliderRotary
-          label={
-            <>
-              {qualityLabel(quality, lossless)}
-              {sizeEstimate}
-            </>
-          }
-          value={quality}
-          onValueChange={setQuality}
-          min={0}
-          max={100}
-          step={1}
           disabled={run.busy}
         />
       </div>

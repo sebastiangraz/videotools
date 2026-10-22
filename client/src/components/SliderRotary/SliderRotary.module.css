@@ -6,13 +6,23 @@
   user-select: none;
 }
 
+/* Contained, so a longer label never widens the dial. It overflows to the
+   left: the spacer holds the text at the start while it fits. */
 .label {
+  contain: inline-size;
+  display: flex;
+  justify-content: center;
+  white-space: nowrap;
   font-size: var(--font-sm);
   padding-inline: 0.175em;
   min-height: var(--quantize);
   font-feature-settings: "tnum" on;
   letter-spacing: 0.05em;
   color: var(--fg-secondary);
+  &::after {
+    content: "";
+    flex: 1;
+  }
 }
 
 .dial {

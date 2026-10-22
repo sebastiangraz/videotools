@@ -12,9 +12,9 @@ import form from "@src/form.module.css";
 const TOOL = toolById("speed");
 
 function describeSpeed(speed: number): string {
-  if (speed === 0) return "unchanged";
-  if (speed > 0) return `${(1 + speed).toFixed(1)}x faster`;
-  return `${(1 - speed).toFixed(1)}x slower`;
+  if (speed === 0) return "0.0x";
+  if (speed > 0) return `+${(1 + speed).toFixed(1)}x`;
+  return `-${(1 - speed).toFixed(1)}x`;
 }
 
 export const Speed = () => {
@@ -57,8 +57,8 @@ export const Speed = () => {
         <SliderRotary
           label={
             <>
-              Speed ({describeSpeed(speed)}
-              {source.duration > 0 && ` ~${(source.duration / speedMultiplier).toFixed(1)}s`})
+              Speed {describeSpeed(speed)}
+              {source.duration > 0 && ` ~${(source.duration / speedMultiplier).toFixed(1)}s`}
             </>
           }
           value={speed}

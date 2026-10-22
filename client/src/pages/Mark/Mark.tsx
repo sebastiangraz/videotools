@@ -146,6 +146,19 @@ export const Mark = () => {
       blocker={source.file ? (formatBlocker ?? watermarkBlocker) : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        !lossless && (
+          <SliderRotary
+            label={qualityLabel(quality)}
+            value={quality}
+            onValueChange={setQuality}
+            min={0}
+            max={100}
+            step={1}
+            disabled={run.busy}
+          />
+        )
+      }
     >
       {source.file && hasFrames(source.file) && watermark && (
         <>
@@ -315,19 +328,6 @@ export const Mark = () => {
               disabled={run.busy}
             />
           </div>
-        </div>
-      )}
-      {!lossless && (
-        <div className={form.formGroup}>
-          <SliderRotary
-            label={qualityLabel(quality)}
-            value={quality}
-            onValueChange={setQuality}
-            min={0}
-            max={100}
-            step={1}
-            disabled={run.busy}
-          />
         </div>
       )}
     </ToolPanel>
