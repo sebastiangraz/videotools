@@ -1,0 +1,75 @@
+.slider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.label {
+  font-size: var(--font-sm);
+  padding-inline: 0.175em;
+  min-height: var(--quantize);
+  font-feature-settings: "tnum" on;
+  letter-spacing: 0.05em;
+  color: var(--fg-secondary);
+}
+
+.dial {
+  position: relative;
+  width: 5rem;
+  aspect-ratio: 1;
+}
+
+.marks {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.arc {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: var(--border);
+}
+
+.dotActive {
+  fill: var(--fg-tertiary);
+}
+
+.knob {
+  composes: input from global;
+  width: 80%;
+  aspect-ratio: 1;
+  border-radius: 999em;
+  corner-shape: round;
+  touch-action: none;
+  &::after {
+    content: "";
+    position: absolute;
+    left: calc(50% - 1px);
+    bottom: calc(50% - 1px);
+    width: 2px;
+    height: 40%;
+    border-radius: 999em;
+    background-color: var(--fg-tertiary);
+    transform-origin: 1px calc(100% - 1px);
+    rotate: var(--angle);
+  }
+
+  &:has(:focus-visible) {
+    outline: 1px solid var(--fg-tertiary);
+    outline-offset: 3px;
+  }
+}
+
+.slider[data-disabled] .dial {
+  opacity: 0.4;
+  & .knob {
+    cursor: not-allowed;
+  }
+}

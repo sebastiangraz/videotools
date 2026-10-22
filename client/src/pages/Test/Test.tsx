@@ -5,6 +5,7 @@ import { Message } from "@src/components/Message/Message";
 import { NumberField } from "@src/components/NumberField/NumberField";
 import { Select } from "@src/components/Select/Select";
 import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { Switch } from "@src/components/Switch/Switch";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
@@ -160,6 +161,28 @@ export const Test = () => {
           disabled={disabled}
           centered
           tickCount={6}
+        />
+      </div>
+
+      <div className={form.horizontal}>
+        <SliderRotary
+          label={`Rotary (${slider})`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+        />
+        <SliderRotary
+          label={`Centered rotary (${centered.toFixed(1)})`}
+          value={centered}
+          onValueChange={setCentered}
+          min={-3}
+          max={3}
+          step={0.1}
+          disabled={disabled}
+          centered
         />
       </div>
 
