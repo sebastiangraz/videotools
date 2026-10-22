@@ -198,7 +198,7 @@ button {
 .input {
   --input-bg: color-mix(in srgb, var(--bg) 60%, var(--bg-1));
   border: none;
-  box-shadow: 0 calc(var(--shadow-dir) * 1px) 0 0 var(--border-subtle) inset;
+  box-shadow: 0 calc(var(--shadow-dir) * 0.75px) 0 0 var(--border-subtle) inset;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   appearance: none;
@@ -206,6 +206,9 @@ button {
     radial-gradient(farthest-side at top center, var(--input-bg) -20%, var(--bg-1) 100%) top center
       / max(10rem, 160%) 100% no-repeat,
     var(--bg-1);
+  @media (resolution >= 2x) {
+    box-shadow: 0 calc(var(--shadow-dir) * 1px) 0 0 var(--border-subtle) inset;
+  }
   &:disabled,
   &[data-disabled] {
     opacity: 0.4;
