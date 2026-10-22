@@ -55,13 +55,16 @@
   &::after {
     content: "";
     position: absolute;
-    left: calc(50% - 1px);
-    bottom: calc(50% - 1px);
-    width: 2px;
+    left: calc(50% - 1.5px);
+    bottom: calc(50% - 1.5px);
+    width: 3px;
     height: 40%;
     border-radius: 999em;
     background-color: var(--fg-tertiary);
-    transform-origin: 1px calc(100% - 1px);
+    box-shadow:
+      calc(1px * sin(var(--angle))) calc(1px * cos(var(--angle))) 0 0 #fff2 inset,
+      calc(2px * sin(var(--angle))) calc(2px * cos(var(--angle))) 0 0 #f005;
+    transform-origin: 1.5px calc(100% - 1.5px);
     rotate: var(--angle);
     transition: background-color 0.1s ease-in-out;
   }
@@ -72,6 +75,7 @@
     rotate: var(--angle);
     clip-path: inset(0% 37.5% 50% 37.5%);
     cursor: pointer;
+    z-index: 1;
   }
 
   &:has(.hitArea:hover)::after {
