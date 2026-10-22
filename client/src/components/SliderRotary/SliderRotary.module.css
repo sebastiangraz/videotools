@@ -41,7 +41,7 @@
   fill: var(--fg-tertiary);
 }
 
-.knob {
+.indicator {
   composes: input from global;
   width: 80%;
   aspect-ratio: 1;
@@ -61,6 +61,13 @@
     rotate: var(--angle);
   }
 
+  & .hitArea {
+    position: absolute;
+    inset: 0;
+    rotate: var(--angle);
+    clip-path: inset(0% 35% 50% 35%);
+  }
+
   &:has(:focus-visible) {
     outline: 1px solid var(--fg-tertiary);
     outline-offset: 3px;
@@ -69,7 +76,7 @@
 
 .slider[data-disabled] .dial {
   opacity: 0.4;
-  & .knob {
+  & .indicator {
     cursor: not-allowed;
   }
 }

@@ -1,19 +1,20 @@
-import { CSSProperties, ReactNode, useRef } from "react";
+import { CSSProperties, PointerEvent, ReactNode, useRef } from "react";
 import { Slider as BaseSlider } from "@base-ui/react/slider";
 import { cx } from "@src/helpers";
 import styles from "./SliderRotary.module.css";
 
 // Base UI places the thumb along a linear track, centred on the cross axis;
-// pinning the inline start to 50% too parks it as the knob.
-const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
+// pinning the inline start to 50% too parks it as the dial's indicator.
+const INDICATOR_STYLE: CSSProperties = { insetInlineStart: "50%" };
 
-// Degrees the knob turns across the range, and px of vertical drag to cover it.
+// Degrees the indicator turns across the range, and px of vertical drag to cover it.
 const SWEEP = 270;
 const DRAG_RANGE = 200;
 const DOTS = [0, 0.5, 1];
 
-// Slider's cousin as a knob: drag up/down or use the keys. `centered`
-// anchors the arc at the top (for signed ranges).
+// Slider's cousin as a knob: drag up/down, grab the hit area by the pointer
+// line to turn it towards the cursor, or use the keys. `centered` anchors the
+// arc at the top (for signed ranges).
 export const SliderRotary = ({
   label,
   value,
@@ -34,10 +35,26 @@ export const SliderRotary = ({
   centered?: boolean;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
-  const drag = useRef<{ y: number; fill: number } | null>(null);
+  const hitAreaRef = useRef<HTMLSpanElement>(null);
+  const drag = useRef<{ y: number; fill: number; rect?: DOMRect } | null>(null);
   const fill = max === min ? 0 : (value - min) / (max - min);
   const start = centered ? Math.min(fill, 0.5) : 0;
   const end = centered ? Math.max(fill, 0.5) : fill;
+
+  const turn = ({ clientX, clientY }: PointerEvent<HTMLElement>) => {
+    if (!drag.current) return;
+    const { y, rect } = drag.current;
+    let next = drag.current.fill + (y - clientY) / DRAG_RANGE;
+    if (rect) {
+      const x = clientX - rect.left - rect.width / 2;
+      const angle = Math.atan2(x, rect.top + rect.height / 2 - clientY);
+      next = (angle * 180) / Math.PI / SWEEP + 0.5;
+      // In the gap below the dial, hold the end the value is nearer.
+      if (next < 0 || next > 1) next = Math.round(fill);
+    }
+    next = Math.min(1, Math.max(0, next));
+    onValueChange(Number((min + Math.round((next * (max - min)) / step) * step).toPrecision(12)));
+  };
 
   return (
     <BaseSlider.Root
@@ -76,30 +93,28 @@ export const SliderRotary = ({
           ))}
         </svg>
         <BaseSlider.Thumb
-          className={styles.knob}
-          style={KNOB_STYLE}
+          className={styles.indicator}
+          style={INDICATOR_STYLE}
           inputRef={inputRef}
           onPointerDown={(event) => {
             if (disabled || event.button !== 0) return;
             event.currentTarget.setPointerCapture(event.pointerId);
-            drag.current = { y: event.clientY, fill };
+            const precise = hitAreaRef.current?.contains(event.target as Node);
+            const rect = precise ? event.currentTarget.getBoundingClientRect() : undefined;
+            drag.current = { y: event.clientY, fill, rect };
+            if (precise) turn(event);
             // After the press has moved focus off the input.
             requestAnimationFrame(() =>
               inputRef.current?.focus({ preventScroll: true, focusVisible: false }),
             );
           }}
-          onPointerMove={(event) => {
-            if (!drag.current) return;
-            const moved = (drag.current.y - event.clientY) / DRAG_RANGE;
-            const next = Math.min(1, Math.max(0, drag.current.fill + moved));
-            onValueChange(
-              Number((min + Math.round((next * (max - min)) / step) * step).toPrecision(12)),
-            );
-          }}
+          onPointerMove={turn}
           onLostPointerCapture={() => {
             drag.current = null;
           }}
-        />
+        >
+          <span ref={hitAreaRef} className={styles.hitArea} />
+        </BaseSlider.Thumb>
       </div>
     </BaseSlider.Root>
   );
