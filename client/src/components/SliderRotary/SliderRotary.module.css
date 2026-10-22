@@ -19,8 +19,7 @@
   position: relative;
   width: 5rem;
   aspect-ratio: 1;
-  --knob: 80%;
-  --ring: calc(var(--knob) / 2 + 0.4rem);
+  --ring: calc(50% - 0.1rem);
 }
 
 .marks {
@@ -58,7 +57,7 @@
 
 .knob {
   composes: input from global;
-  width: var(--knob);
+  width: calc(2 * (var(--ring) - 0.4rem));
   aspect-ratio: 1;
   border-radius: 999em;
   corner-shape: round;
@@ -69,7 +68,7 @@
     left: calc(50% - 1.5px);
     bottom: calc(50% - 1.5px);
     width: 3px;
-    height: 40%;
+    height: calc(50% - 0.2rem);
     border-radius: 999em;
     background-color: var(--fg-tertiary);
     box-shadow:
