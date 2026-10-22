@@ -18,6 +18,7 @@
   position: relative;
   width: 5rem;
   aspect-ratio: 1;
+  user-select: none;
 }
 
 .marks {
