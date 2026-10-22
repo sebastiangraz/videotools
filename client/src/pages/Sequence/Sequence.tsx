@@ -6,6 +6,7 @@ import preview from "@src/components/FramePreview/FramePreview.module.css";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
 import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
+import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
@@ -143,9 +144,7 @@ export const Sequence = () => {
           }
           value={quality}
           onValueChange={setQuality}
-          min={0}
-          max={100}
-          step={1}
+          {...QUALITY_KNOB}
           disabled={run.busy}
         />
       }

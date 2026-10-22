@@ -3,6 +3,7 @@ import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
 import { Upload } from "@src/components/Upload/Upload";
 import { FramePreview } from "@src/components/FramePreview/FramePreview";
 import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
+import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { Spinner } from "@src/components/Spinner/Spinner";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
@@ -152,9 +153,7 @@ export const Mark = () => {
             label={`Quality ${quality}`}
             value={quality}
             onValueChange={setQuality}
-            min={0}
-            max={100}
-            step={1}
+            {...QUALITY_KNOB}
             disabled={run.busy}
           />
         )

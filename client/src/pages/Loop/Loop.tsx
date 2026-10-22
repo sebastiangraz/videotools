@@ -5,6 +5,7 @@ import { FramePreview } from "@src/components/FramePreview/FramePreview";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
 import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
+import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
@@ -68,11 +69,8 @@ export const Loop = () => {
           label={`Quality ${quality}`}
           value={quality}
           onValueChange={setQuality}
-          min={0}
-          max={100}
-          step={1}
+          {...QUALITY_KNOB}
           disabled={run.busy}
-          showArc={true}
         />
       }
     >
