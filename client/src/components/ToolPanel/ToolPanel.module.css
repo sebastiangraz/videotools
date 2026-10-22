@@ -9,9 +9,9 @@
   }
 }
 
-.container + .container {
+/* .container + .container {
   border-top: 1px solid var(--border-subtle);
-}
+} */
 
 /* Animate contents on nav change. */
 .container > * {

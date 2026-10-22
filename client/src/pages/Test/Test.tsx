@@ -60,7 +60,7 @@ export const Test = () => {
         <div className={form.switchRow}>
           <Switch id="error" checked={error} onCheckedChange={setError} disabled={disabled} />
           <label htmlFor="error" className={form.label}>
-            Error message
+            Error
           </label>
         </div>
       </div>

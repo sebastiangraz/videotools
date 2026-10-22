@@ -16,11 +16,11 @@
   outline-offset: 2px;
   transition:
     outline 150ms ease,
-    background-color 150ms ease,
+    background 150ms ease,
     border-color 150ms ease;
 
   &[data-checked] {
-    background-color: var(--fg);
+    background: var(--fg);
     border-color: transparent;
   }
 
@@ -31,7 +31,7 @@
 }
 
 :root[data-theme-invert] .root[data-checked] {
-  background-color: var(--fg-secondary);
+  background: var(--fg-secondary);
   border-color: color-mix(in srgb, var(--fg) 24%, transparent);
 }
 
