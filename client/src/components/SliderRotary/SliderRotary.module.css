@@ -63,7 +63,8 @@
     background-color: var(--fg-tertiary);
     box-shadow:
       calc(1px * sin(var(--angle))) calc(1px * cos(var(--angle))) 0 0 #fff2 inset,
-      calc(2px * sin(var(--angle))) calc(2px * cos(var(--angle))) 0 0 #f005;
+      calc(1px * sin(var(--angle))) calc(1px * cos(var(--angle))) 0.5px -0.5px #0001,
+      calc(3px * sin(var(--angle))) calc(3px * cos(var(--angle))) 2px -0.5px #0001;
     transform-origin: 1.5px calc(100% - 1.5px);
     rotate: var(--angle);
     transition: background-color 0.1s ease-in-out;
