@@ -7,7 +7,6 @@ const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
 
 const SWEEP = 270;
 const DRAG_RANGE = 200;
-const PIPS = [0, 0.5, 1];
 
 export const SliderRotary = ({
   label,
@@ -20,6 +19,7 @@ export const SliderRotary = ({
   centered = false,
   showArc = true,
   size,
+  pipCount = 2,
 }: {
   label: ReactNode;
   value: number;
@@ -31,6 +31,7 @@ export const SliderRotary = ({
   centered?: boolean;
   showArc?: boolean;
   size?: string;
+  pipCount?: number;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
@@ -80,14 +81,17 @@ export const SliderRotary = ({
               style={{ rotate: `${(start - 0.5) * SWEEP - 90}deg` }}
             />
           )}
-          {PIPS.map((pos) => (
-            <circle
-              key={pos}
-              className={cx(styles.pip, pos >= start && pos <= end && styles.pipActive)}
-              cx="50%"
-              style={{ rotate: `${(pos - 0.5) * SWEEP}deg` }}
-            />
-          ))}
+          {Array.from({ length: pipCount }, (_, i) => {
+            const pos = i / (pipCount - 1);
+            return (
+              <circle
+                key={i}
+                className={cx(styles.pip, pos >= start && pos <= end && styles.pipActive)}
+                cx="50%"
+                style={{ rotate: `${(pos - 0.5) * SWEEP}deg` }}
+              />
+            );
+          })}
         </svg>
         <BaseSlider.Thumb
           className={styles.knob}
