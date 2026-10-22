@@ -56,7 +56,7 @@
   stroke: var(--fg-tertiary);
 }
 
-.dot {
+.pip {
   cy: calc(50% - var(--ring));
   r: 0.15rem;
   fill: var(--border);
@@ -65,7 +65,7 @@
   stroke-linecap: round;
 }
 
-.dotActive {
+.pipActive {
   fill: var(--fg-tertiary);
 }
 

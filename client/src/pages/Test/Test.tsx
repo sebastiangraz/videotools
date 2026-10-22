@@ -160,7 +160,7 @@ export const Test = () => {
           step={0.1}
           disabled={disabled}
           centered
-          tickCount={6}
+          pipCount={6}
         />
       </div>
 

@@ -7,7 +7,7 @@ const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
 
 const SWEEP = 270;
 const DRAG_RANGE = 200;
-const DOTS = [0, 0.5, 1];
+const PIPS = [0, 0.5, 1];
 
 export const SliderRotary = ({
   label,
@@ -80,10 +80,10 @@ export const SliderRotary = ({
               style={{ rotate: `${(start - 0.5) * SWEEP - 90}deg` }}
             />
           )}
-          {DOTS.map((pos) => (
+          {PIPS.map((pos) => (
             <circle
               key={pos}
-              className={cx(styles.dot, pos >= start && pos <= end && styles.dotActive)}
+              className={cx(styles.pip, pos >= start && pos <= end && styles.pipActive)}
               cx="50%"
               style={{ rotate: `${(pos - 0.5) * SWEEP}deg` }}
             />
