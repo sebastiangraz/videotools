@@ -173,6 +173,7 @@ export const Test = () => {
           max={100}
           step={1}
           disabled={disabled}
+          showArc={false}
         />
         <SliderRotary
           label={`Centered rotary (${centered.toFixed(1)})`}

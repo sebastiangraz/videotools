@@ -20,6 +20,7 @@ export const SliderRotary = ({
   step,
   disabled,
   centered = false,
+  showArc = true,
 }: {
   label: ReactNode;
   value: number;
@@ -29,6 +30,7 @@ export const SliderRotary = ({
   step: number;
   disabled: boolean;
   centered?: boolean;
+  showArc?: boolean;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
@@ -68,15 +70,17 @@ export const SliderRotary = ({
         style={{ "--angle": `${(fill - 0.5) * SWEEP}deg` } as CSSProperties}
       >
         <svg className={styles.marks} viewBox="0 0 100 100" aria-hidden="true">
-          <circle
-            className={styles.arc}
-            cx="50"
-            cy="50"
-            r="47"
-            pathLength={360}
-            strokeDasharray={`${(end - start) * SWEEP} 360`}
-            transform={`rotate(${(start - 0.5) * SWEEP - 90} 50 50)`}
-          />
+          {showArc && (
+            <circle
+              className={styles.arc}
+              cx="50"
+              cy="50"
+              r="47"
+              pathLength={360}
+              strokeDasharray={`${(end - start) * SWEEP} 360`}
+              transform={`rotate(${(start - 0.5) * SWEEP - 90} 50 50)`}
+            />
+          )}
           {DOTS.map((pos) => (
             <circle
               key={pos}
