@@ -10,7 +10,7 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { qualityLabel, toList } from "@src/helpers";
+import { toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("loop");
@@ -65,7 +65,7 @@ export const Loop = () => {
       onSubmit={submit}
       control={
         <SliderRotary
-          label={qualityLabel(quality)}
+          label={`Quality ${quality}`}
           value={quality}
           onValueChange={setQuality}
           min={0}

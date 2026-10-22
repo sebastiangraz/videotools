@@ -7,9 +7,9 @@ import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
-import { fileFormat, targetsFor } from "@src/sourceFormat";
+import { targetsFor } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { qualityLabel, toList } from "@src/helpers";
+import { toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("convert");
@@ -32,11 +32,6 @@ export const Convert = () => {
   const effectiveTarget = targetOptions.some((t) => t.value === target)
     ? target
     : targetOptions[0].value;
-
-  // WebP at 100 is lossless only from a lossless source (encode/webp.ts); of
-  // those only a GIF shows by name.
-  const sourceFormat = source.file ? fileFormat(source.file) : null;
-  const lossless = effectiveTarget === "webp" && quality === 100 && sourceFormat?.id === "gif";
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -67,7 +62,7 @@ export const Convert = () => {
       onSubmit={submit}
       control={
         <SliderRotary
-          label={qualityLabel(quality, lossless)}
+          label={`Quality ${quality}`}
           value={quality}
           onValueChange={setQuality}
           min={0}

@@ -61,9 +61,6 @@ export const fitScale = (width: number, height: number, maxSide: number): number
 export const aspectRatioOf = (size: { w: number; h: number } | null): string =>
   size ? `${size.w} / ${size.h}` : "16 / 9";
 
-export const qualityLabel = (quality: number, lossless = quality === 100): string =>
-  `${lossless ? "Lossless" : "Quality"} ${quality}`;
-
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;

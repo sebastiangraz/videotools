@@ -12,7 +12,7 @@ import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
 import { SEQUENCE_FORMATS, formatById } from "@api/formats";
 import form from "@src/form.module.css";
-import { aspectRatioOf, byFilename, fitScale, formatBytes, qualityLabel } from "@src/helpers";
+import { aspectRatioOf, byFilename, fitScale, formatBytes } from "@src/helpers";
 
 const TOOL = toolById("sequence");
 
@@ -108,7 +108,6 @@ export const Sequence = () => {
     }
   };
 
-  const lossless = (format === "avif" || format === "webp") && quality === 100;
   const sizeEstimate =
     files.length > 0 && imageMeta
       ? ` ~${formatBytes(estimateOutputBytes(imageMeta.w, imageMeta.h, files.length, format, quality))}`
@@ -138,7 +137,7 @@ export const Sequence = () => {
         <SliderRotary
           label={
             <>
-              {qualityLabel(quality, lossless)}
+              Quality {quality}
               {sizeEstimate}
             </>
           }

@@ -11,7 +11,7 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { aspectRatioOf, cx, formatClock, qualityLabel, toList } from "@src/helpers";
+import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
 import {
   MARK_POSITIONS,
   shuffleRoute,
@@ -149,7 +149,7 @@ export const Mark = () => {
       control={
         !lossless && (
           <SliderRotary
-            label={qualityLabel(quality)}
+            label={`Quality ${quality}`}
             value={quality}
             onValueChange={setQuality}
             min={0}
