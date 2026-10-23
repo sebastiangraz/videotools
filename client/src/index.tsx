@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
-import { createAppRouter } from "./App";
 import "./index.css";
+import { createAppRouter } from "./App";
 
 const router = createAppRouter();
 

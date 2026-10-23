@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
 import { Upload } from "@src/components/Upload/Upload";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
@@ -12,9 +12,9 @@ import form from "@src/form.module.css";
 const TOOL = toolById("speed");
 
 function describeSpeed(speed: number): string {
-  if (speed === 0) return "unchanged";
-  if (speed > 0) return `${(1 + speed).toFixed(1)}x faster`;
-  return `${(1 - speed).toFixed(1)}x slower`;
+  if (speed === 0) return "0.0x";
+  if (speed > 0) return `+${(1 + speed).toFixed(1)}x`;
+  return `-${(1 - speed).toFixed(1)}x`;
 }
 
 export const Speed = () => {
@@ -54,11 +54,13 @@ export const Speed = () => {
       onSubmit={submit}
     >
       <div className={form.formGroup}>
-        <Slider
+        <SliderRotary
           label={
             <>
-              Speed ({describeSpeed(speed)}
-              {source.duration > 0 && ` ~${(source.duration / speedMultiplier).toFixed(1)}s`})
+              Speed {describeSpeed(speed)}
+              <span style={{ color: "var(--fg-tertiary)", marginLeft: "0.5em" }}>
+                {source.duration > 0 && ` ${(source.duration / speedMultiplier).toFixed(1)}s`}
+              </span>
             </>
           }
           value={speed}
@@ -68,8 +70,10 @@ export const Speed = () => {
           step={0.1}
           disabled={run.busy}
           centered
-          ticks
-          tickCount={6}
+          size="7rem"
+          pipActiveStyle="snake"
+          pipCount={13}
+          pipClickable
         />
       </div>
     </ToolPanel>

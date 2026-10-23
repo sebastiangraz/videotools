@@ -5,14 +5,15 @@ import { FramePreview } from "@src/components/FramePreview/FramePreview";
 import preview from "@src/components/FramePreview/FramePreview.module.css";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
+import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
 import { SEQUENCE_FORMATS, formatById } from "@api/formats";
 import form from "@src/form.module.css";
-import { aspectRatioOf, byFilename, fitScale, formatBytes, qualityLabel } from "@src/helpers";
+import { aspectRatioOf, byFilename, fitScale, formatBytes } from "@src/helpers";
 
 const TOOL = toolById("sequence");
 
@@ -108,7 +109,6 @@ export const Sequence = () => {
     }
   };
 
-  const lossless = (format === "avif" || format === "webp") && quality === 100;
   const sizeEstimate =
     files.length > 0 && imageMeta
       ? ` ~${formatBytes(estimateOutputBytes(imageMeta.w, imageMeta.h, files.length, format, quality))}`
@@ -134,6 +134,20 @@ export const Sequence = () => {
       blocker={files.length > 0 ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        <SliderRotary
+          label={
+            <>
+              Quality {quality}
+              {sizeEstimate}
+            </>
+          }
+          value={quality}
+          onValueChange={setQuality}
+          {...QUALITY_KNOB}
+          disabled={run.busy}
+        />
+      }
     >
       <div className={form.formGroup}>
         <label htmlFor="frameDuration" className={form.label}>
@@ -163,23 +177,6 @@ export const Sequence = () => {
           options={FORMATS}
           value={format}
           onValueChange={setFormat}
-          disabled={run.busy}
-        />
-      </div>
-
-      <div className={form.formGroup}>
-        <Slider
-          label={
-            <>
-              {qualityLabel(quality, lossless)}
-              {sizeEstimate}
-            </>
-          }
-          value={quality}
-          onValueChange={setQuality}
-          min={0}
-          max={100}
-          step={1}
           disabled={run.busy}
         />
       </div>

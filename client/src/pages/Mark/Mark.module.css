@@ -110,6 +110,7 @@
 }
 
 .markPreviewLoading {
+  composes: eased from global;
   --fade: 0.25s;
   position: relative;
   grid-area: 1 / 1;

@@ -1,22 +1,12 @@
 .trigger {
+  composes: input from global;
   position: relative;
   padding: 0.5em;
   padding-right: 2.5em;
   padding-left: 1em;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
   min-height: 2.5rem;
-  border: 1px solid var(--border);
-  appearance: none;
-  background-color: var(--bg-1);
   text-align: left;
   cursor: pointer;
-
-  &:disabled,
-  &[data-disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
 }
 
 .caret {
@@ -66,20 +56,29 @@
   cursor: default;
   color: var(--fg-secondary);
   outline: 1px solid transparent;
+  user-select: none;
   transition:
     color 0.125s ease,
     outline 0.2s ease;
   &[data-highlighted] {
-    outline: 1px solid var(--border);
+    color: var(--fg);
   }
   &[data-selected] {
     color: var(--fg);
+    background: var(--fg-secondary);
   }
   &:hover:not([data-selected]) {
     cursor: pointer;
     .itemIndicator::before {
       opacity: 0.2;
     }
+  }
+}
+
+:root[data-theme-invert] .item[data-selected] {
+  color: var(--bg);
+  .itemIndicator::before {
+    background-color: var(--bg);
   }
 }
 

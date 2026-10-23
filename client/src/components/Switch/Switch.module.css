@@ -1,37 +1,37 @@
 .root {
+  composes: input from global;
   --track-w: 2.25rem;
   --track-h: 1.125rem;
   --pad: 3px;
   --thumb: calc(var(--track-h) - 2px - 2 * var(--pad));
+  --fill: var(--fg);
+  position: relative;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  box-sizing: border-box;
   width: var(--track-w);
   height: var(--track-h);
   padding: var(--pad);
-  border-color: color-mix(in srgb, var(--fg) 16%, transparent);
-  border-style: solid;
-  border-width: 1px;
   border-radius: calc(var(--track-h) / 2.2);
-  corner-shape: superellipse(1.45);
-  background-color: var(--bg-1);
   cursor: pointer;
   outline: 1px solid transparent;
   outline-offset: 2px;
-  transition:
-    outline 150ms ease,
-    background-color 150ms ease,
-    border-color 150ms ease;
+  transition: outline 150ms ease;
 
-  &[data-checked] {
-    background-color: var(--fg);
-    border-color: transparent;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    corner-shape: inherit;
+    box-shadow: inherit;
+    background: var(--fill);
+    opacity: 0;
+    transition: opacity 150ms ease;
   }
 
-  &[data-disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
+  &[data-checked]::before {
+    opacity: 1;
   }
 
   &:focus-visible,
@@ -40,12 +40,12 @@
   }
 }
 
-:root[data-theme-invert] .root[data-checked] {
-  background-color: var(--fg-secondary);
-  border-color: color-mix(in srgb, var(--fg) 24%, transparent);
+:root[data-theme-invert] .root {
+  --fill: var(--fg-secondary);
 }
 
 .thumb {
+  position: relative;
   width: calc(var(--thumb) * 1.5);
   height: var(--thumb);
   border-radius: calc(var(--track-h) / 2.2 - var(--pad) - 1px);

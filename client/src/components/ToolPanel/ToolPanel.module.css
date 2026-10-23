@@ -9,9 +9,9 @@
   }
 }
 
-.container + .container {
+/* .container + .container {
   border-top: 1px solid var(--border-subtle);
-}
+} */
 
 /* Animate contents on nav change. */
 .container > * {
@@ -79,14 +79,13 @@
   }
 }
 
-.button {
+.submit {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0;
   padding: 0 2em;
-  min-height: 2.25rem;
-  align-self: flex-start;
+  min-height: 3rem;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--fg);
@@ -98,16 +97,19 @@
   }
 }
 
-/* Hover and focus still work */
-.button[aria-disabled="true"] {
+.submit[aria-disabled="true"] {
   cursor: not-allowed;
 }
 
 .actions {
   display: flex;
-  align-items: center;
+  align-items: end;
   gap: 0.5em;
-  align-self: flex-start;
+  margin-top: 1rem;
+}
+
+.actions > :not(.submit, .stopButton) {
+  margin-inline-start: auto;
 }
 
 .stopButton {
@@ -116,7 +118,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 1.5em;
-  min-height: 2.25rem;
+  min-height: 3rem;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: transparent;

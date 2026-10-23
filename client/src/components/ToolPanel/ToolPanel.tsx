@@ -7,8 +7,9 @@ import type { ToolRun } from "@src/hooks/useToolRun";
 import styles from "./ToolPanel.module.css";
 
 // The frame every tool page fills in: `inputs` (the drop zones) in the first
-// container, then the page's options (`children`), the action and Stop
-// buttons, the error box and the footer in the second. The options must
+// container, then the page's options (`children`), the action row (the action
+// and Stop buttons on the left, `control` on the right), the error box and
+// the footer in the second. The options must
 // land as direct children of their container — the tab-change transition
 // staggers them by position (see the stylesheet) — so pages pass a fragment,
 // not a wrapper.
@@ -20,6 +21,7 @@ export const ToolPanel = ({
   blocker,
   run,
   onSubmit,
+  control,
   children,
 }: {
   tool: Tool;
@@ -27,6 +29,7 @@ export const ToolPanel = ({
   blocker: string | null;
   run: ToolRun;
   onSubmit: () => void;
+  control?: ReactNode;
   children?: ReactNode;
 }) => {
   const submitRef = useRef<HTMLButtonElement>(null);
@@ -63,7 +66,7 @@ export const ToolPanel = ({
                 ref={submitRef}
                 onClick={submit}
                 aria-disabled={!ready || busy}
-                className={styles.button}
+                className={styles.submit}
               />
             }
           >
@@ -74,6 +77,7 @@ export const ToolPanel = ({
           <button type="button" onClick={stop} hidden={!busy} className={styles.stopButton}>
             Stop
           </button>
+          {control}
         </div>
 
         {errorDetail && (

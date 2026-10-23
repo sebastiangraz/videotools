@@ -2,7 +2,8 @@ import { useRef, useState, type CSSProperties } from "react";
 import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
 import { Upload } from "@src/components/Upload/Upload";
 import { FramePreview } from "@src/components/FramePreview/FramePreview";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
+import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { Spinner } from "@src/components/Spinner/Spinner";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
@@ -11,7 +12,7 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { aspectRatioOf, cx, formatClock, qualityLabel, toList } from "@src/helpers";
+import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
 import {
   MARK_POSITIONS,
   shuffleRoute,
@@ -146,6 +147,17 @@ export const Mark = () => {
       blocker={source.file ? (formatBlocker ?? watermarkBlocker) : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        !lossless && (
+          <SliderRotary
+            label={`Quality ${quality}`}
+            value={quality}
+            onValueChange={setQuality}
+            {...QUALITY_KNOB}
+            disabled={run.busy}
+          />
+        )
+      }
     >
       {source.file && hasFrames(source.file) && watermark && (
         <>
@@ -254,82 +266,67 @@ export const Mark = () => {
           </Popover>
         </>
       )}
-      <div className={form.horizontal}>
-        {watermark && (
-          <>
-            <div className={form.formGroup}>
-              <span id="markSize" className={form.label}>
-                Size
+      {watermark && (
+        <div className={form.horizontal}>
+          <div className={form.formGroup}>
+            <span id="markSize" className={form.label}>
+              Size
+            </span>
+            <ToggleGroup
+              labelledBy="markSize"
+              options={SIZE_OPTIONS}
+              value={size}
+              onValueChange={pickSize}
+              disabled={run.busy}
+            />
+          </div>
+          <div
+            className={cx(form.formGroup, styles.markPosition)}
+            data-shuffling={shuffling || undefined}
+          >
+            {/* Images can't be shuffled */}
+            {still ? (
+              <span id="markPosition" className={cx(form.label, styles.markPlace)}>
+                Place
               </span>
-              <ToggleGroup
-                labelledBy="markSize"
-                options={SIZE_OPTIONS}
-                value={size}
-                onValueChange={pickSize}
+            ) : (
+              <button
+                type="button"
+                className={cx(form.label, styles.markPlace)}
+                aria-label="Shuffle"
+                aria-pressed={shuffle !== null}
+                onClick={() => setShuffle((on) => (on ? null : shuffleRoute(position)))}
                 disabled={run.busy}
-              />
-            </div>
-            <div
-              className={cx(form.formGroup, styles.markPosition)}
-              data-shuffling={shuffling || undefined}
-            >
-              {/* Images can't be shuffled */}
-              {still ? (
-                <span id="markPosition" className={cx(form.label, styles.markPlace)}>
+              >
+                <span id="markPosition" className={styles.markPlaceIdle}>
                   Place
                 </span>
-              ) : (
-                <button
-                  type="button"
-                  className={cx(form.label, styles.markPlace)}
-                  aria-label="Shuffle"
-                  aria-pressed={shuffle !== null}
-                  onClick={() => setShuffle((on) => (on ? null : shuffleRoute(position)))}
-                  disabled={run.busy}
-                >
-                  <span id="markPosition" className={styles.markPlaceIdle}>
-                    Place
-                  </span>
-                  <span className={styles.markPlaceShuffle}>
-                    {shuffle ? "Shuffling" : "Shuffle?"}
-                  </span>
-                </button>
-              )}
-              <ToggleGrid
-                labelledBy="markPosition"
-                options={POSITION_OPTIONS}
-                value={position}
-                onValueChange={pickPosition}
-                disabled={run.busy}
-                shuffling={shuffling}
-              />
-            </div>
-            <div className={form.formGroup}>
-              <span id="markFilter" className={form.label}>
-                Filter
-              </span>
-              <ToggleGroup
-                labelledBy="markFilter"
-                options={FILTER_OPTIONS}
-                value={filterMode}
-                onValueChange={setFilterMode}
-                disabled={run.busy}
-              />
-            </div>
-          </>
-        )}
-      </div>
-      {!lossless && (
-        <div className={form.formGroup}>
-          <Slider
-            label={qualityLabel(quality)}
-            value={quality}
-            onValueChange={setQuality}
-            min={0}
-            max={100}
-            step={1}
-            disabled={run.busy}
-          />
+                <span className={styles.markPlaceShuffle}>
+                  {shuffle ? "Shuffling" : "Shuffle?"}
+                </span>
+              </button>
+            )}
+            <ToggleGrid
+              labelledBy="markPosition"
+              options={POSITION_OPTIONS}
+              value={position}
+              onValueChange={pickPosition}
+              disabled={run.busy}
+              shuffling={shuffling}
+            />
+          </div>
+          <div className={form.formGroup}>
+            <span id="markFilter" className={form.label}>
+              Filter
+            </span>
+            <ToggleGroup
+              labelledBy="markFilter"
+              options={FILTER_OPTIONS}
+              value={filterMode}
+              onValueChange={setFilterMode}
+              disabled={run.busy}
+            />
+          </div>
         </div>
       )}
     </ToolPanel>

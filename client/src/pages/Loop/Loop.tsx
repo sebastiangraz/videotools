@@ -4,13 +4,14 @@ import { Upload } from "@src/components/Upload/Upload";
 import { FramePreview } from "@src/components/FramePreview/FramePreview";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
+import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { qualityLabel, toList } from "@src/helpers";
+import { toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("loop");
@@ -63,6 +64,15 @@ export const Loop = () => {
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        <SliderRotary
+          label={`Quality ${quality}`}
+          value={quality}
+          onValueChange={setQuality}
+          {...QUALITY_KNOB}
+          disabled={run.busy}
+        />
+      }
     >
       <div className={form.formGroup}>
         <label htmlFor="technique" className={form.label}>
@@ -93,7 +103,6 @@ export const Loop = () => {
               disabled={run.busy}
             />
           </div>
-
           <div className={form.formGroup}>
             <label htmlFor="startSecond" className={form.label}>
               Start at
@@ -115,20 +124,6 @@ export const Loop = () => {
           </div>
         </div>
       )}
-
-      <div className={form.formGroup}>
-        <Slider
-          label={qualityLabel(quality)}
-          value={quality}
-          onValueChange={setQuality}
-          min={0}
-          max={100}
-          step={1}
-          disabled={run.busy}
-          ticks
-          tickCount={2}
-        />
-      </div>
     </ToolPanel>
   );
 };

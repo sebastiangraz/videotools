@@ -12,11 +12,11 @@ const CENTERED_INDICATOR: CSSProperties = {
   width: "max(calc(var(--start-position) - 50%), calc(50% - var(--start-position)))",
 };
 
-const MINOR_TICKS = 61;
+const MINOR_PIPS = 61;
 
 // `centered` anchors the fill at the track centre (for signed ranges),
-// `ticks` draws detent marks under the track, and `tickCount` is the number
-// of major-tick intervals (tickCount + 1 marks).
+// `pips` draws detent marks under the track, and `pipCount` is the number
+// of major-pip intervals (pipCount + 1 major pips).
 export const Slider = ({
   label,
   value,
@@ -26,8 +26,8 @@ export const Slider = ({
   step,
   disabled,
   centered = false,
-  ticks = true,
-  tickCount = 2,
+  pips = true,
+  pipCount = 2,
 }: {
   label: ReactNode;
   value: number;
@@ -37,13 +37,13 @@ export const Slider = ({
   step: number;
   disabled: boolean;
   centered?: boolean;
-  ticks?: boolean;
-  tickCount?: number;
+  pips?: boolean;
+  pipCount?: number;
 }) => {
   const fillRatio = max === min ? 0 : (value - min) / (max - min);
-  const minorSteps = MINOR_TICKS - 1;
-  const majorTickActive = (index: number) => {
-    const pos = index / tickCount;
+  const minorSteps = MINOR_PIPS - 1;
+  const majorPipActive = (index: number) => {
+    const pos = index / pipCount;
     if (!centered) return index === 0 || pos <= fillRatio;
     const start = Math.min(fillRatio, 0.5);
     const end = Math.max(fillRatio, 0.5);
@@ -71,12 +71,12 @@ export const Slider = ({
       step={step}
       disabled={disabled}
       thumbAlignment="edge"
-      className={cx(styles.slider, ticks && styles.withTicks)}
+      className={cx(styles.slider, pips && styles.withPips)}
     >
       <BaseSlider.Label className={styles.label}>{label}</BaseSlider.Label>
-      {ticks ? (
+      {pips ? (
         <div
-          className={cx(styles.ticks, centered && styles.centeredTicks)}
+          className={cx(styles.pips, centered && styles.centeredPips)}
           style={
             {
               "--fill-ratio": fillRatio,
@@ -84,27 +84,27 @@ export const Slider = ({
           }
         >
           {control}
-          <div className={styles.minorTicks} aria-hidden="true">
-            {Array.from({ length: MINOR_TICKS }, (_, i) => {
-              if (tickCount > 0 && (i * tickCount) % minorSteps === 0) {
+          <div className={styles.minorPips} aria-hidden="true">
+            {Array.from({ length: MINOR_PIPS }, (_, i) => {
+              if (pipCount > 0 && (i * pipCount) % minorSteps === 0) {
                 return null;
               }
               const pos = i / minorSteps;
               return (
                 <span
                   key={i}
-                  className={styles.minorTick}
+                  className={styles.minorPip}
                   style={{ "--pos": pos } as CSSProperties}
                 />
               );
             })}
           </div>
-          <div className={styles.majorTicks} aria-hidden="true">
-            {Array.from({ length: tickCount + 1 }, (_, i) => (
+          <div className={styles.majorPips} aria-hidden="true">
+            {Array.from({ length: pipCount + 1 }, (_, i) => (
               <span
                 key={i}
-                className={cx(styles.majorTick, majorTickActive(i) && styles.majorTickActive)}
-                style={{ "--pos": i / tickCount } as CSSProperties}
+                className={cx(styles.majorPip, majorPipActive(i) && styles.majorPipActive)}
+                style={{ "--pos": i / pipCount } as CSSProperties}
               />
             ))}
           </div>
