@@ -70,7 +70,7 @@ export const Speed = () => {
           step={0.1}
           disabled={run.busy}
           centered
-          size="10rem"
+          size="7rem"
           pipCount={13}
         />
       </div>

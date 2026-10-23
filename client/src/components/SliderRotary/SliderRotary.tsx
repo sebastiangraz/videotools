@@ -6,7 +6,7 @@ import styles from "./SliderRotary.module.css";
 const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
 
 const SWEEP = 270;
-const DRAG_RANGE = 200;
+const DRAG_RANGE = 4; // Knob widths per full sweep, so bigger dials turn finer.
 const PIP_REACH = 6;
 
 export const SliderRotary = ({
@@ -38,15 +38,21 @@ export const SliderRotary = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
-  const drag = useRef<{ y: number; fill: number; sign: number; rect?: DOMRect } | null>(null);
+  const drag = useRef<{
+    y: number;
+    fill: number;
+    sign: number;
+    range: number;
+    rect?: DOMRect;
+  } | null>(null);
   const fill = max === min ? 0 : (value - min) / (max - min);
   const start = centered ? Math.min(fill, 0.5) : 0;
   const end = centered ? Math.max(fill, 0.5) : fill;
 
   const turn = ({ clientX, clientY }: PointerEvent<HTMLElement>) => {
     if (!drag.current) return;
-    const { y, sign, rect } = drag.current;
-    let next = drag.current.fill + (sign * (y - clientY)) / DRAG_RANGE;
+    const { y, sign, range, rect } = drag.current;
+    let next = drag.current.fill + (sign * (y - clientY)) / range;
     if (rect) {
       const x = clientX - rect.left - rect.width / 2;
       const angle = Math.atan2(x, rect.top + rect.height / 2 - clientY);
@@ -113,7 +119,13 @@ export const SliderRotary = ({
             const rect = event.currentTarget.getBoundingClientRect();
             // Like a real knob, pushing up on the right half turns it anticlockwise.
             const sign = event.clientX > rect.left + rect.width / 2 ? -1 : 1;
-            drag.current = { y: event.clientY, fill, sign, rect: precise ? rect : undefined };
+            drag.current = {
+              y: event.clientY,
+              fill,
+              sign,
+              range: rect.width * DRAG_RANGE,
+              rect: precise ? rect : undefined,
+            };
             if (precise) turn(event);
             // After the press has moved focus off the input.
             requestAnimationFrame(() =>
