@@ -4,12 +4,7 @@ import styles from "./ToggleGroup.module.css";
 
 type Option<T> = { value: T; label: string };
 
-// Segmented single-choice control with text labels. Base UI works in arrays
-// and lets the pressed item be toggled off; here the value is a single string
-// and one item always stays pressed. The group is a div, not a form control,
-// so it is named by `labelledBy` (the id of a visible label) rather than a
-// <label htmlFor>. With `toggle`, pressing the pressed item flips to the other
-// one, so it takes exactly two options.
+// Single-choice segmented control that always keeps one item pressed; with `toggle` (exactly two options), pressing the active item selects the other.
 export const ToggleGroup = <T extends string>({
   options,
   toggle,
