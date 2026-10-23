@@ -33,7 +33,7 @@ export const SliderRotary = ({
   pipCount = 3,
   pipActiveStyle = "default",
   pipClickable = false,
-  wheelSteps = Math.max(1, pipCount - 1),
+  wheelSteps = pipCount >= 5 ? pipCount - 1 : 20,
 }: {
   label: ReactNode;
   value: number;
@@ -48,7 +48,7 @@ export const SliderRotary = ({
   pipCount?: number;
   pipActiveStyle?: "default" | "single" | "snake";
   pipClickable?: boolean;
-  /** Wheel notches per full sweep. Defaults to landing on each pip. */
+  /** Wheel notches per full sweep. Defaults to landing on each pip, or twentieths with under 5 pips. */
   wheelSteps?: number;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);

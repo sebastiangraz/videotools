@@ -83,6 +83,15 @@ describe("SliderRotary wheel", () => {
     expect(screen.getByText("Value 80")).toBeDefined();
   });
 
+  it("steps in twentieths when there are too few pips", () => {
+    renderFocused({ pipCount: 3 });
+    fireEvent.wheel(slider(), { deltaY: -100 });
+    expect(screen.getByText("Value 55")).toBeDefined();
+    fireEvent.wheel(slider(), { deltaY: 100 });
+    fireEvent.wheel(slider(), { deltaY: 100 });
+    expect(screen.getByText("Value 45")).toBeDefined();
+  });
+
   it("can step finer than the pips", () => {
     renderFocused({ wheelSteps: 100 });
     fireEvent.wheel(slider(), { deltaY: -100 });
