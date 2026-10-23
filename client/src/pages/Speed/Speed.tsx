@@ -71,6 +71,7 @@ export const Speed = () => {
           disabled={run.busy}
           centered
           size="7rem"
+          pipActiveStyle="snake"
           pipCount={13}
         />
       </div>

@@ -57,6 +57,10 @@
     color-mix(in srgb, var(--fg) 16%, transparent),
     color-mix(in srgb, var(--fg) 8%, transparent)
   );
+  --border-solid: light-dark(
+    color-mix(in srgb, var(--fg) 16%, var(--bg)),
+    color-mix(in srgb, var(--fg) 8%, var(--bg))
+  );
   --border-subtle: light-dark(
     color-mix(in srgb, var(--fg) 8%, transparent),
     color-mix(in srgb, var(--fg) 4%, transparent)

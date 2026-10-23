@@ -198,6 +198,17 @@ export const Test = () => {
           showArc={false}
         />
         <SliderRotary
+          label={`Snake ${slider}`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          pipCount={10}
+          pipActiveStyle="snake"
+        />
+        <SliderRotary
           label={`Centered ${centered.toFixed(1)}`}
           value={centered}
           onValueChange={setCentered}

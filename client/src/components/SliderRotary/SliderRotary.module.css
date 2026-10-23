@@ -57,14 +57,21 @@
 .pip {
   cy: calc(50% - var(--ring));
   r: 0.15rem;
-  fill: var(--border);
+  fill: var(--border-solid);
   stroke: var(--bg);
   stroke-width: 0.1rem;
   stroke-linecap: round;
 }
 
 .pipActive {
-  fill: var(--fg-tertiary);
+  fill: light-dark(
+    color-mix(in srgb, var(--fg) 40%, var(--bg)),
+    color-mix(in srgb, var(--fg) 32%, var(--bg))
+  );
+}
+
+.pipEaten {
+  opacity: 0;
 }
 
 .knob {

@@ -34,7 +34,7 @@ export const SliderRotary = ({
   showArc?: boolean;
   size?: string;
   pipCount?: number;
-  pipActiveStyle?: "default" | "single";
+  pipActiveStyle?: "default" | "single" | "snake";
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
@@ -92,16 +92,22 @@ export const SliderRotary = ({
           )}
           {Array.from({ length: pipCount }, (_, i) => {
             const pos = i / (pipCount - 1);
+            const inRange = pos >= start && pos <= end;
+            // Every pip in range has been passed, unless the indicator sits right on it.
+            const eaten =
+              pipActiveStyle === "snake" &&
+              inRange &&
+              Math.abs(fill - pos) * (pipCount - 1) > 1e-9;
             const active =
               pipActiveStyle === "single"
                 ? i === Math.round(fill * (pipCount - 1)) &&
                   // Sparse pips sit far apart, so only light one the indicator is near.
                   (pipCount >= 4 || Math.abs(fill - pos) * SWEEP <= PIP_REACH)
-                : pos >= start && pos <= end;
+                : inRange && !eaten;
             return (
               <circle
                 key={i}
-                className={cx(styles.pip, active && styles.pipActive)}
+                className={cx(styles.pip, active && styles.pipActive, eaten && styles.pipEaten)}
                 cx="50%"
                 style={{ rotate: `${(pos - 0.5) * SWEEP}deg` }}
               />
