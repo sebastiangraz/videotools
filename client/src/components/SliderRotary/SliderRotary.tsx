@@ -1,4 +1,12 @@
-import { CSSProperties, Fragment, PointerEvent, ReactNode, useRef } from "react";
+import {
+  CSSProperties,
+  Fragment,
+  PointerEvent,
+  ReactNode,
+  useEffect,
+  useEffectEvent,
+  useRef,
+} from "react";
 import { Slider as BaseSlider } from "@base-ui/react/slider";
 import { cx } from "@src/helpers";
 import styles from "./SliderRotary.module.css";
@@ -8,6 +16,8 @@ const KNOB_STYLE: CSSProperties = { insetInlineStart: "50%" };
 const SWEEP = 270;
 const DRAG_RANGE = 4; // Knob widths per full sweep, so bigger dials turn finer.
 const PIP_REACH = 6;
+const WHEEL_NOTCH = 100; // Pixels per wheel step, as Chrome reports one notch at 3 lines.
+const WHEEL_LINE = 33; // Pixels per line, so Firefox's line deltas match Chrome's.
 
 export const SliderRotary = ({
   label,
@@ -23,6 +33,7 @@ export const SliderRotary = ({
   pipCount = 3,
   pipActiveStyle = "default",
   pipClickable = false,
+  wheelSteps = Math.max(1, pipCount - 1),
 }: {
   label: ReactNode;
   value: number;
@@ -37,9 +48,15 @@ export const SliderRotary = ({
   pipCount?: number;
   pipActiveStyle?: "default" | "single" | "snake";
   pipClickable?: boolean;
+  /** Wheel notches per full sweep. Defaults to landing on each pip. */
+  wheelSteps?: number;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
+  const dialRef = useRef<HTMLDivElement>(null);
+  // The exact wheel stop, since committed values are rounded to the step,
+  // and the pixels short of the next one, so touchpad deltas add up.
+  const wheel = useRef<{ fill: number; value: number; pixels: number } | null>(null);
   const drag = useRef<{
     y: number;
     fill: number;
@@ -53,8 +70,51 @@ export const SliderRotary = ({
 
   const commit = (next: number) => {
     next = Math.min(1, Math.max(0, next));
-    onValueChange(Number((min + Math.round((next * (max - min)) / step) * step).toPrecision(12)));
+    const committed = Number(
+      (min + Math.round((next * (max - min)) / step) * step).toPrecision(12),
+    );
+    onValueChange(committed);
+    return committed;
   };
+
+  useEffect(() => {
+    if (wheel.current?.value !== value) wheel.current = null;
+  }, [value]);
+
+  const onWheel = useEffectEvent((event: WheelEvent) => {
+    const input = inputRef.current;
+    if (!input || input.ownerDocument.activeElement !== input) return;
+    // Some browsers deliver shift + wheel on the horizontal axis.
+    const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+    const delta = event.shiftKey && horizontal ? event.deltaX : event.deltaY;
+    // Leave pinch-zoom and horizontal scrolling to the page.
+    if (event.ctrlKey || delta === 0 || (horizontal && !event.shiftKey)) return;
+    event.preventDefault();
+    const state = (wheel.current ??= { fill, value, pixels: 0 });
+    const pixels = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? delta * WHEEL_LINE : delta;
+    // The OS scroll speed scales a mouse notch, so cap each event at one.
+    state.pixels += Math.max(-WHEEL_NOTCH, Math.min(WHEEL_NOTCH, pixels));
+    const notches = Math.trunc(state.pixels / WHEEL_NOTCH);
+    if (notches === 0) return;
+    state.pixels -= notches * WHEEL_NOTCH;
+    const pos = state.fill * wheelSteps;
+    // A value rounded off a stop still counts as on it.
+    const slack = (step / (max - min)) * wheelSteps * 0.5;
+    // Wheeling up (negative delta) turns clockwise.
+    const target =
+      notches < 0 ? Math.floor(pos + slack) - notches : Math.ceil(pos - slack) - notches;
+    state.fill = Math.min(wheelSteps, Math.max(0, target)) / wheelSteps;
+    state.value = commit(state.fill);
+  });
+
+  // React's onWheel is passive, so it can't stop the page from scrolling.
+  useEffect(() => {
+    const dial = dialRef.current;
+    if (disabled || !dial) return;
+    const listener = (event: WheelEvent) => onWheel(event);
+    dial.addEventListener("wheel", listener, { passive: false });
+    return () => dial.removeEventListener("wheel", listener);
+  }, [disabled]);
 
   // After the press has moved focus off the input.
   const refocus = () =>
@@ -88,6 +148,7 @@ export const SliderRotary = ({
     >
       <BaseSlider.Label className={styles.label}>{label}</BaseSlider.Label>
       <div
+        ref={dialRef}
         className={styles.dial}
         style={{ "--angle": `${(fill - 0.5) * SWEEP}deg`, "--size": size } as CSSProperties}
       >
@@ -107,9 +168,7 @@ export const SliderRotary = ({
             const inRange = pos >= start && pos <= end;
             // Every pip in range has been passed, unless the indicator sits right on it.
             const eaten =
-              pipActiveStyle === "snake" &&
-              inRange &&
-              Math.abs(fill - pos) * (pipCount - 1) > 1e-9;
+              pipActiveStyle === "snake" && inRange && Math.abs(fill - pos) * (pipCount - 1) > 1e-9;
             const active =
               pipActiveStyle === "single"
                 ? i === Math.round(fill * (pipCount - 1)) &&
