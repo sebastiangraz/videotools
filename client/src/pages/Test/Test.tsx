@@ -207,6 +207,7 @@ export const Test = () => {
           disabled={disabled}
           pipCount={10}
           pipActiveStyle="snake"
+          pipClickable
         />
         <SliderRotary
           label={`Centered ${centered.toFixed(1)}`}

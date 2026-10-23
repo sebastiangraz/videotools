@@ -1,4 +1,4 @@
-import { CSSProperties, PointerEvent, ReactNode, useRef } from "react";
+import { CSSProperties, Fragment, PointerEvent, ReactNode, useRef } from "react";
 import { Slider as BaseSlider } from "@base-ui/react/slider";
 import { cx } from "@src/helpers";
 import styles from "./SliderRotary.module.css";
@@ -22,6 +22,7 @@ export const SliderRotary = ({
   size,
   pipCount = 3,
   pipActiveStyle = "default",
+  pipClickable = false,
 }: {
   label: ReactNode;
   value: number;
@@ -35,6 +36,7 @@ export const SliderRotary = ({
   size?: string;
   pipCount?: number;
   pipActiveStyle?: "default" | "single" | "snake";
+  pipClickable?: boolean;
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const hitAreaRef = useRef<HTMLSpanElement>(null);
@@ -49,6 +51,17 @@ export const SliderRotary = ({
   const start = centered ? Math.min(fill, 0.5) : 0;
   const end = centered ? Math.max(fill, 0.5) : fill;
 
+  const commit = (next: number) => {
+    next = Math.min(1, Math.max(0, next));
+    onValueChange(Number((min + Math.round((next * (max - min)) / step) * step).toPrecision(12)));
+  };
+
+  // After the press has moved focus off the input.
+  const refocus = () =>
+    requestAnimationFrame(() =>
+      inputRef.current?.focus({ preventScroll: true, focusVisible: false }),
+    );
+
   const turn = ({ clientX, clientY }: PointerEvent<HTMLElement>) => {
     if (!drag.current) return;
     const { y, sign, range, rect } = drag.current;
@@ -60,8 +73,7 @@ export const SliderRotary = ({
       // In the gap below the dial, hold the end the value is nearer.
       if (next < 0 || next > 1) next = Math.round(fill);
     }
-    next = Math.min(1, Math.max(0, next));
-    onValueChange(Number((min + Math.round((next * (max - min)) / step) * step).toPrecision(12)));
+    commit(next);
   };
 
   return (
@@ -104,13 +116,27 @@ export const SliderRotary = ({
                   // Sparse pips sit far apart, so only light one the indicator is near.
                   (pipCount >= 4 || Math.abs(fill - pos) * SWEEP <= PIP_REACH)
                 : inRange && !eaten;
+            const rotate = { rotate: `${(pos - 0.5) * SWEEP}deg` };
             return (
-              <circle
-                key={i}
-                className={cx(styles.pip, active && styles.pipActive, eaten && styles.pipEaten)}
-                cx="50%"
-                style={{ rotate: `${(pos - 0.5) * SWEEP}deg` }}
-              />
+              <Fragment key={i}>
+                {pipClickable && (
+                  <circle
+                    className={styles.pipHit}
+                    cx="50%"
+                    style={rotate}
+                    onPointerDown={(event) => {
+                      if (disabled || event.button !== 0) return;
+                      commit(pos);
+                      refocus();
+                    }}
+                  />
+                )}
+                <circle
+                  className={cx(styles.pip, active && styles.pipActive, eaten && styles.pipEaten)}
+                  cx="50%"
+                  style={rotate}
+                />
+              </Fragment>
             );
           })}
         </svg>
@@ -133,10 +159,7 @@ export const SliderRotary = ({
               rect: precise ? rect : undefined,
             };
             if (precise) turn(event);
-            // After the press has moved focus off the input.
-            requestAnimationFrame(() =>
-              inputRef.current?.focus({ preventScroll: true, focusVisible: false }),
-            );
+            refocus();
           }}
           onPointerMove={turn}
           onLostPointerCapture={() => {

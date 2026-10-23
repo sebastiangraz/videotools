@@ -74,6 +74,21 @@
   opacity: 0;
 }
 
+.pipHit {
+  cy: calc(50% - var(--ring));
+  r: 0.4rem;
+  fill: transparent;
+  pointer-events: all;
+  cursor: pointer;
+  & + .pip {
+    pointer-events: none;
+    transition: fill 0.1s ease-in-out;
+  }
+  .slider:not([data-disabled]) &:hover + .pip {
+    fill: var(--fg-secondary);
+  }
+}
+
 .knob {
   composes: input from global;
   width: calc(2 * (var(--ring) - 0.4rem));
@@ -120,7 +135,8 @@
 
 .slider[data-disabled] .dial {
   opacity: 0.4;
-  & .knob {
+  & .knob,
+  & .pipHit {
     cursor: not-allowed;
   }
 }

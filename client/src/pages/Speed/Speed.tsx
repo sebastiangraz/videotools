@@ -73,6 +73,7 @@ export const Speed = () => {
           size="7rem"
           pipActiveStyle="snake"
           pipCount={13}
+          pipClickable
         />
       </div>
     </ToolPanel>
