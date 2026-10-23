@@ -29,7 +29,7 @@
   background: none;
   font: inherit;
   font-size: var(--font-md);
-  color: var(--fg-secondary);
+  color: var(--fg-tertiary);
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
@@ -42,12 +42,30 @@
   }
 
   &[data-pressed] {
-    background-color: var(--fg-tertiary);
+    box-shadow:
+      inset 1px 0.75px 0 0 var(--border-subtle),
+      inset -1px -0.75px 1px -0.5px var(--border);
+
+    background-color: var(--bg-1);
+    background-image:
+      radial-gradient(farthest-side at 30% 10%, var(--bg-1) 40%, var(--border-solid) 130%),
+      radial-gradient(farthest-corner at 70% 60%, var(--bg-1) 55%, var(--border-solid) 110%);
+    background-blend-mode: lighten;
+    background-position: 50% 20%;
+    background-size:
+      max(8rem, 100%) 100%,
+      max(5rem, 100%) 100%;
+    background-repeat: no-repeat;
     color: var(--fg);
   }
 
   :root[data-theme-invert] &[data-pressed] {
-    background-color: var(--fg-secondary);
+    background-blend-mode: unset;
+    background-image: radial-gradient(
+      farthest-side at 50% 0%,
+      var(--fg-secondary) -100%,
+      var(--fg-tertiary) 100%
+    );
     color: var(--bg);
   }
 
