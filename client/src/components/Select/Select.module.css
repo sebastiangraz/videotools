@@ -7,6 +7,9 @@
   min-height: 2.5rem;
   text-align: left;
   cursor: pointer;
+  &:hover .caret {
+    color: var(--fg-secondary);
+  }
 }
 
 .caret {
@@ -16,7 +19,7 @@
   translate: 0 -50%;
   width: 0.7em;
   height: auto;
-  color: var(--fg-secondary);
+  color: var(--fg-tertiary);
   pointer-events: none;
 }
 
