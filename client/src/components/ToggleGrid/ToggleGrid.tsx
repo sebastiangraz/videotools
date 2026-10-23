@@ -37,8 +37,5 @@ export const ToggleGrid = <T extends string>({
       />
     ))}
     <span aria-hidden="true" className={styles.active} />
-    <span aria-hidden="true" className={styles.field}>
-      <span className={styles.lattice} />
-    </span>
   </BaseToggleGroup>
 );
