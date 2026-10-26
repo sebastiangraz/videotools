@@ -5,6 +5,7 @@ import { Message } from "@src/components/Message/Message";
 import { NumberField } from "@src/components/NumberField/NumberField";
 import { Select } from "@src/components/Select/Select";
 import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { Switch } from "@src/components/Switch/Switch";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
@@ -60,7 +61,7 @@ export const Test = () => {
         <div className={form.switchRow}>
           <Switch id="error" checked={error} onCheckedChange={setError} disabled={disabled} />
           <label htmlFor="error" className={form.label}>
-            Error message
+            Error
           </label>
         </div>
       </div>
@@ -159,7 +160,76 @@ export const Test = () => {
           step={0.1}
           disabled={disabled}
           centered
-          tickCount={6}
+          pipCount={6}
+        />
+      </div>
+
+      <div className={form.horizontal}>
+        <SliderRotary
+          label={`Rotary ${slider}`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          showArc={false}
+        />
+        <SliderRotary
+          label={`With arc ${slider}`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          pipCount={6}
+        />
+        <SliderRotary
+          label={`Single pip ${slider}`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          pipCount={10}
+          pipActiveStyle="single"
+          showArc={false}
+        />
+        <SliderRotary
+          label={`Snake ${slider}`}
+          value={slider}
+          onValueChange={setSlider}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          pipCount={10}
+          pipActiveStyle="snake"
+          pipClickable
+        />
+        <SliderRotary
+          label={`Centered ${centered.toFixed(1)}`}
+          value={centered}
+          onValueChange={setCentered}
+          min={-3}
+          max={3}
+          step={0.1}
+          disabled={disabled}
+          centered
+        />
+        <SliderRotary
+          label={`Centered ${centered.toFixed(1)}`}
+          value={centered}
+          onValueChange={setCentered}
+          min={-3}
+          max={3}
+          step={0.1}
+          disabled={disabled}
+          centered
+          pipCount={7}
+          pipActiveStyle="single"
         />
       </div>
 

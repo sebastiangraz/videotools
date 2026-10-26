@@ -3,13 +3,14 @@ import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
 import { Upload } from "@src/components/Upload/Upload";
 import { Select } from "@src/components/Select/Select";
 import { NumberField } from "@src/components/NumberField/NumberField";
-import { Slider } from "@src/components/Slider/Slider";
+import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
+import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
-import { fileFormat, targetsFor } from "@src/sourceFormat";
+import { targetsFor } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { qualityLabel, toList } from "@src/helpers";
+import { toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("convert");
@@ -32,11 +33,6 @@ export const Convert = () => {
   const effectiveTarget = targetOptions.some((t) => t.value === target)
     ? target
     : targetOptions[0].value;
-
-  // WebP at 100 is lossless only from a lossless source (encode/webp.ts); of
-  // those only a GIF shows by name.
-  const sourceFormat = source.file ? fileFormat(source.file) : null;
-  const lossless = effectiveTarget === "webp" && quality === 100 && sourceFormat?.id === "gif";
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -65,6 +61,15 @@ export const Convert = () => {
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      control={
+        <SliderRotary
+          label={`Quality ${quality}`}
+          value={quality}
+          onValueChange={setQuality}
+          {...QUALITY_KNOB}
+          disabled={run.busy}
+        />
+      }
     >
       {source.file && (
         <>
@@ -119,18 +124,6 @@ export const Convert = () => {
               </div>
             </div>
           )}
-
-          <div className={form.formGroup}>
-            <Slider
-              label={qualityLabel(quality, lossless)}
-              value={quality}
-              onValueChange={setQuality}
-              min={0}
-              max={100}
-              step={1}
-              disabled={run.busy}
-            />
-          </div>
         </>
       )}
     </ToolPanel>

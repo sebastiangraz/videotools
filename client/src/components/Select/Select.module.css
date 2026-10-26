@@ -1,21 +1,14 @@
 .trigger {
+  composes: input from global;
   position: relative;
   padding: 0.5em;
   padding-right: 2.5em;
   padding-left: 1em;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
   min-height: 2.5rem;
-  border: 1px solid var(--border);
-  appearance: none;
-  background-color: var(--bg-1);
   text-align: left;
   cursor: pointer;
-
-  &:disabled,
-  &[data-disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
+  &:hover .caret {
+    color: var(--fg-secondary);
   }
 }
 
@@ -26,7 +19,7 @@
   translate: 0 -50%;
   width: 0.7em;
   height: auto;
-  color: var(--fg-secondary);
+  color: var(--fg-tertiary);
   pointer-events: none;
 }
 
@@ -36,15 +29,12 @@
 }
 
 .popup {
+  composes: input from global;
   box-sizing: border-box;
   min-width: var(--anchor-width);
   padding: calc(3px + 1px);
   font-size: var(--font-md);
   color: currentColor;
-  background-color: var(--bg-1);
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  box-shadow: var(--raised);
   outline: none;
   /* When the Select overlaps the trigger to align the selected item's text
      with the trigger's ([data-side="none"]), the whole popup shifts left by
@@ -56,6 +46,7 @@
 }
 
 .item {
+  composes: inputAccent from global;
   display: flex;
   align-items: center;
   gap: 0.25em;
@@ -66,13 +57,11 @@
   cursor: default;
   color: var(--fg-secondary);
   outline: 1px solid transparent;
+  user-select: none;
   transition:
     color 0.125s ease,
     outline 0.2s ease;
   &[data-highlighted] {
-    outline: 1px solid var(--border);
-  }
-  &[data-selected] {
     color: var(--fg);
   }
   &:hover:not([data-selected]) {
@@ -80,6 +69,12 @@
     .itemIndicator::before {
       opacity: 0.2;
     }
+  }
+}
+
+:root[data-theme-invert] .item[data-selected] {
+  .itemIndicator::before {
+    background-color: var(--bg);
   }
 }
 

@@ -90,11 +90,11 @@
   opacity: 0;
 }
 
-.withTicks {
+.withPips {
   gap: 1.75em;
 }
 
-.ticks {
+.pips {
   position: relative;
   width: 100%;
   --major-h: 6;
@@ -102,32 +102,32 @@
   --minor-h: 4;
   --minor-peak: 8;
   --hill: 0.1;
-  --tick-inset: calc(9px / 2);
+  --pip-inset: calc(9px / 2);
 }
 
 .slider[data-disabled] {
-  & .minorTicks,
-  & .majorTicks {
+  & .minorPips,
+  & .majorPips {
     opacity: 0.4;
   }
 }
 
-.minorTicks,
-.majorTicks {
+.minorPips,
+.majorPips {
   position: absolute;
-  left: var(--tick-inset);
-  right: var(--tick-inset);
+  left: var(--pip-inset);
+  right: var(--pip-inset);
   bottom: calc(100% + 7px);
   height: calc(var(--major-h-active) * 1px);
   pointer-events: none;
 }
 
-.majorTicks {
+.majorPips {
   z-index: 1;
 }
 
-.minorTick,
-.majorTick {
+.minorPip,
+.majorPip {
   position: absolute;
   left: calc(var(--pos) * (100% - 1px));
   width: 1px;
@@ -135,13 +135,13 @@
   transform-origin: bottom;
 }
 
-.minorTick {
+.minorPip {
   will-change: transform;
   --dist: abs(calc(var(--pos) - var(--fill-ratio)));
   --t: clamp(0, calc(1 - var(--dist) / var(--hill)), 1);
   --s: calc((1 - cos(var(--t) * 180deg)) / 2);
   --h: calc(var(--minor-h) + (var(--minor-peak) - var(--minor-h)) * var(--s));
-  /* 1 when this tick is in the filled span, else 0 */
+  /* 1 when this pip is in the filled span, else 0 */
   --on: clamp(0, calc((var(--fill-ratio) - var(--pos)) * 1000 + 1), 1);
   background-color: color-mix(in srgb, var(--fg-tertiary) calc(var(--on) * 100%), var(--border));
   transform: scaleY(calc(var(--h) / var(--major-h-active)));
@@ -150,7 +150,7 @@
     background-color 200ms ease;
 }
 
-.centeredTicks .minorTick {
+.centeredPips .minorPip {
   --start: min(var(--fill-ratio), 0.5);
   --end: max(var(--fill-ratio), 0.5);
   --on: calc(
@@ -159,7 +159,7 @@
   );
 }
 
-.majorTick {
+.majorPip {
   will-change: transform;
   background-color: var(--fg-tertiary);
   transform: scaleY(calc(var(--major-h) / var(--major-h-active)));
@@ -168,14 +168,14 @@
     background-color 150ms ease;
 }
 
-.majorTickActive {
+.majorPipActive {
   background-color: var(--fg);
   transform: scaleY(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .minorTick,
-  .majorTick {
+  .minorPip,
+  .majorPip {
     transition: none;
   }
 }

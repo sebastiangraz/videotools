@@ -38,16 +38,12 @@
   --font-md: 10px;
   --quantize: calc-size(auto, round(up, size, 1px));
 
-  --bg: light-dark(hsl(156, 21%, 95%), hsl(150, 10%, 6%));
+  --bg: light-dark(hsl(156, 20%, 94%), hsl(150, 10%, 6%));
   --fg: light-dark(hsl(152, 74%, 5%), hsl(150, 28%, 85%));
-  /* Elevated surfaces need a gentler lift on a dark base */
+
   --bg-1: light-dark(
-    color-mix(in srgb, var(--bg), #fff 20%),
-    color-mix(in srgb, var(--bg), var(--fg) 3%)
-  );
-  --bg-2: light-dark(
-    color-mix(in srgb, var(--bg), #fff 40%),
-    color-mix(in srgb, var(--bg), var(--fg) 8%)
+    color-mix(in srgb, var(--bg), var(--fg) 4%),
+    color-mix(in srgb, var(--bg), var(--fg) 4%)
   );
   --fg-secondary: light-dark(
     color-mix(in srgb, var(--fg) 60%, transparent),
@@ -61,14 +57,19 @@
     color-mix(in srgb, var(--fg) 16%, transparent),
     color-mix(in srgb, var(--fg) 8%, transparent)
   );
+  --border-solid: light-dark(
+    color-mix(in srgb, var(--fg) 16%, var(--bg)),
+    color-mix(in srgb, var(--fg) 8%, var(--bg))
+  );
   --border-subtle: light-dark(
     color-mix(in srgb, var(--fg) 8%, transparent),
     color-mix(in srgb, var(--fg) 4%, transparent)
   );
   --error: light-dark(hsl(4, 55%, 40%), hsl(4, 65%, 74%));
   --width: 32em;
-  /* Light fg-tinted shadows glow on dark; drop with black instead */
+
   --shadow: color-mix(in srgb, #000 30%, transparent);
+  --shadow-dir: 1;
   --raised:
     0 10px 20px 0px var(--shadow), 0 4px 6px -1px var(--shadow), 0 2px 4px -1px var(--shadow),
     0 0 0 1px var(--border-subtle) inset;
@@ -86,6 +87,7 @@
 @media (prefers-color-scheme: dark) {
   :root[data-theme-invert] {
     --shadow: color-mix(in srgb, var(--fg) 4%, transparent);
+    --shadow-dir: -1;
     color-scheme: light;
     --raised:
       0 10px 20px 0px var(--shadow), 0 4px 6px -1px var(--shadow), 0 2px 4px -1px var(--shadow),
@@ -145,10 +147,9 @@ body {
   initial-value: 100%;
 }
 
-/* Declared on every element so the var()s resolve against that element's inputs */
-*,
-::before,
-::after {
+.eased,
+.eased::before,
+.eased::after {
   --_ease-span: calc(var(--ease-end) - var(--ease-start));
   --ease-in-out-stops:
     var(--ease-from) var(--ease-start),
@@ -195,6 +196,64 @@ button {
     outline: 1px solid var(--border);
     outline-offset: 2px;
   }
+}
+
+.input {
+  --input-bg: color-mix(in srgb, var(--bg) 60%, var(--bg-1));
+  border: none;
+  box-shadow: 0 calc(var(--shadow-dir) * 0.75px) 0 0 var(--border-subtle) inset;
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  appearance: none;
+  background:
+    radial-gradient(farthest-side at top center, var(--input-bg) -20%, var(--bg-1) 100%) top center
+      / max(10rem, 160%) 100% no-repeat,
+    var(--bg-1);
+  @media (resolution >= 2x) {
+    box-shadow: 0 calc(var(--shadow-dir) * 1px) 0 0 var(--border-subtle) inset;
+  }
+  &:disabled,
+  &[data-disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+:root[data-theme-invert] .input {
+  --input-bg: color-mix(in srgb, var(--fg) 8%, var(--bg));
+  background:
+    radial-gradient(farthest-side at top center, var(--input-bg) -20%, var(--bg-1) 100%) top center
+      / max(10rem, 160%) 100% no-repeat,
+    var(--bg-1);
+}
+
+/* composes can't be state-scoped, so the active-state gating lives here */
+.inputAccent:is([data-pressed], [data-selected]) {
+  box-shadow:
+    inset 1px 0.75px 0 0 var(--border-subtle),
+    inset -1px -0.75px 1px -0.5px var(--border);
+
+  background-color: var(--bg-1);
+  background-image:
+    radial-gradient(farthest-side at 30% 10%, var(--bg-1) 40%, var(--border-solid) 130%),
+    radial-gradient(farthest-corner at 70% 60%, var(--bg-1) 55%, var(--border-solid) 110%);
+  background-blend-mode: lighten;
+  background-position: 50% 20%;
+  background-size:
+    max(8rem, 100%) 100%,
+    max(5rem, 100%) 100%;
+  background-repeat: no-repeat;
+  color: var(--fg);
+}
+
+:root[data-theme-invert] .inputAccent:is([data-pressed], [data-selected]) {
+  background-blend-mode: unset;
+  background-image: radial-gradient(
+    farthest-side at 50% 0%,
+    var(--fg-secondary) -100%,
+    var(--fg-tertiary) 100%
+  );
+  color: var(--bg);
 }
 
 /* Captured elements and the overlay swallow clicks during a view transition, so the root opts out and the overlay passes clicks through. */
