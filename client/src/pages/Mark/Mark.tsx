@@ -56,6 +56,9 @@ const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   { value: "rim", label: "Rim only" },
 ];
 
+// Mirrors the API's MARK.coreGain and the range it's clamped to.
+const CORE_GAIN = { initial: 14, min: 1, max: 40 };
+
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
@@ -72,6 +75,7 @@ export const Mark = () => {
   const [debugView, setDebugView] = useState<MarkView>("render");
   const [devSize, setDevSize] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
+  const [coreGain, setCoreGain] = useState(CORE_GAIN.initial);
   const pickSize = (picked: MarkSize) => {
     if (picked === "dev") return;
     setPickedSize(picked);
@@ -89,6 +93,7 @@ export const Mark = () => {
     position,
     route,
     debug ? debugView : "render",
+    debug ? coreGain : CORE_GAIN.initial,
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
 
@@ -123,7 +128,14 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, position, route, quality },
+        options: {
+          filter: filterMode,
+          size,
+          position,
+          route,
+          quality,
+          coreGain: debug ? coreGain : null,
+        },
       }),
       onDone: () => route && setShuffle(shuffleRoute(position)),
     });
@@ -263,6 +275,15 @@ export const Mark = () => {
                 Dev size
               </label>
             </div>
+            <SliderRotary
+              label={`Core gain ${coreGain}`}
+              value={coreGain}
+              onValueChange={setCoreGain}
+              min={CORE_GAIN.min}
+              max={CORE_GAIN.max}
+              step={1}
+              disabled={false}
+            />
           </Popover>
         </>
       )}

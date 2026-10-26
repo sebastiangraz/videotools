@@ -240,6 +240,7 @@ const saturate = (s: number) => {
 // `base` rgba keeps a GIF's transparency and odd sizes (yuv420p would lose both).
 // `light` aims the glass's light at the picture's (mark-light.ts) rather than
 // MARK.lightAngle; its write() must follow before ffmpeg runs the graph.
+// `coreGain` overrides MARK.coreGain, for tuning it from debug mode.
 export function watermarkGraph(
   video: MediaInfo,
   logo: MediaInfo,
@@ -253,6 +254,7 @@ export function watermarkGraph(
     view = "render",
     route = [],
     light,
+    coreGain = MARK.coreGain,
   }: {
     filter: MarkFilter;
     bounds?: Bounds;
@@ -263,9 +265,10 @@ export function watermarkGraph(
     view?: MarkView;
     route?: MarkPosition[];
     light?: MarkLight | null;
+    coreGain?: number;
   },
 ): string {
-  const M = { ...MARK, ...MARK_BY_VIEW[view] };
+  const M = { ...MARK, ...MARK_BY_VIEW[view], coreGain };
   const layout = watermarkLayout(video, bounds, size, position);
   const { VW, VH, LW, LH, margin } = layout;
   // Given a route, the mark stops at each of its positions in turn, looping

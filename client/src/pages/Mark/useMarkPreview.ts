@@ -77,7 +77,8 @@ export function useMarkPreview(
   size: MarkSize,
   position: MarkPosition,
   route: MarkPosition[] | null,
-  view: MarkView = "render",
+  view: MarkView,
+  coreGain: number,
 ) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
   const [duration, setDuration] = useState(0);
@@ -94,6 +95,7 @@ export function useMarkPreview(
     route: MarkPosition[] | null;
     stays: number;
     view: MarkView;
+    coreGain: number;
   } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
 
@@ -133,6 +135,7 @@ export function useMarkPreview(
               size,
               position: stopAt(route ?? [position], stays, n / frameBlobs.length),
               view,
+              coreGain,
             },
             controller.signal,
           );
@@ -150,10 +153,20 @@ export function useMarkPreview(
       })
       .finally(() => {
         if (controller.signal.aborted) return;
-        setSettled({ frameBlobs, watermark, filterMode, size, position, route, stays, view });
+        setSettled({
+          frameBlobs,
+          watermark,
+          filterMode,
+          size,
+          position,
+          route,
+          stays,
+          view,
+          coreGain,
+        });
       });
     return () => controller.abort();
-  }, [frameBlobs, watermark, filterMode, size, position, route, stays, view]);
+  }, [frameBlobs, watermark, filterMode, size, position, route, stays, view, coreGain]);
 
   // Its own frame source, so its seeking never shows in the bare frame.
   useEffect(() => {
@@ -206,7 +219,8 @@ export function useMarkPreview(
       settled.position === position &&
       settled.route === route &&
       settled.stays === stays &&
-      settled.view === view
+      settled.view === view &&
+      settled.coreGain === coreGain
     );
 
   return {

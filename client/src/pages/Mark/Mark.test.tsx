@@ -232,6 +232,32 @@ describe("Mark", () => {
     expect(view(4)).toBe("render");
   });
 
+  it("previews with the core gain turned from debug mode, and the tuned one once debug mode is left", async () => {
+    const user = userEvent.setup();
+    stubVideo();
+    const fetchMock = stubPreviewFetch();
+    const coreGain = (nth: number) => postedBody(fetchMock, nth).coreGain;
+
+    await renderApp("/mark");
+    await pickSource(user, file("clip.mp4", "video/mp4"));
+    await pickLogo(user);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(coreGain(0)).toBe(14);
+
+    await user.click(document.body);
+    await user.keyboard("{Shift>}D{/Shift}");
+    const knob = await screen.findByRole("slider", { name: /core gain/i });
+    knob.focus();
+    await user.keyboard("{ArrowUp}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(coreGain(1)).toBe(15);
+
+    await user.click(document.body);
+    await user.keyboard("{Shift>}D{/Shift}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(coreGain(2)).toBe(14);
+  });
+
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {
     const user = userEvent.setup();
     stubMediaLoading("fails");
@@ -371,6 +397,7 @@ describe("Mark", () => {
         position: "bottom-right",
         route: expect.any(Array),
         quality: 100,
+        coreGain: null,
       },
     });
   });
