@@ -286,16 +286,21 @@ export const Mark = () => {
                 Dev size
               </label>
             </div>
-            {TUNING_KNOBS.map(({ key, label, ...range }) => (
-              <SliderRotary
-                key={key}
-                label={`${label} ${tuning[key]}`}
-                value={tuning[key]}
-                onValueChange={(value) => setTuning((tuned) => ({ ...tuned, [key]: value }))}
-                {...range}
-                disabled={false}
-              />
-            ))}
+            <div className={styles.rotaryRow}>
+              {TUNING_KNOBS.map(({ key, label, ...range }) => (
+                <SliderRotary
+                  key={key}
+                  label={`${label} ${tuning[key]}`}
+                  value={tuning[key]}
+                  onValueChange={(value) => setTuning((tuned) => ({ ...tuned, [key]: value }))}
+                  {...range}
+                  disabled={false}
+                  showArc={false}
+                  pipCount={0}
+                  wheelSteps={Math.round(range.max / range.step)}
+                />
+              ))}
+            </div>
           </Popover>
         </>
       )}
