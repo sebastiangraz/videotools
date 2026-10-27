@@ -162,7 +162,7 @@ export const MARK_TUNING = {
 } satisfies Partial<Record<keyof typeof MARK, [number, number]>>;
 export type MarkTuning = Partial<Record<keyof typeof MARK_TUNING, number>>;
 
-const DEBUG_BACKDROP = "0xD9D9D9";
+const DEBUG_BACKDROP = "0x808000";
 const RIM_VIEW_DIM = 0.48;
 
 const HD_HEIGHT = 720;

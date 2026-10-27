@@ -391,14 +391,14 @@ describe("watermarkGraph", () => {
     return { rim: Number(rim), glint: Number(glint) };
   };
 
-  it("shows the displacement map over a light-gray frame, whatever the filter", () => {
+  it("shows the displacement map over an olive frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, {
         filter,
         view: "displacement",
       });
-      // The frame painted over, the maps' red x and green y laid on it
+      // The frame painted no-shift olive, the maps' red x and green y laid on it
       expect(graph).toMatch(/^\[0:v\][^;]*,drawbox=w=iw:h=ih:[^;]*:t=fill/);
       expect(graph).toContain("mergeplanes=");
       expect(graph).toMatch(/,format=yuv420p\[out\]$/);
