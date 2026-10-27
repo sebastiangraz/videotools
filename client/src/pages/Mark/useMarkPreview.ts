@@ -19,7 +19,7 @@ export const MARK_POSITIONS = {
 };
 export type MarkPosition = keyof typeof MARK_POSITIONS;
 export type MarkView = "render" | "displacement" | "clear" | "rim";
-export type MarkTuning = Record<"coreGain" | "tubeRefractRatio", number>;
+export type MarkTuning = Record<"coreGain" | "thinRefract", number>;
 const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 // Mirrors the API's MARK.rotateCadence and watermarkGraph's rotation: the clip
 // in equal stays (as many as the cadence fits, two at least), each at the

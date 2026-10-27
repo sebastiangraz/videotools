@@ -27,13 +27,12 @@ export const MARK = {
   // Bevel width fraction of the logo width and height minimum.
   bevelRatio: 0.1,
   // Gain on a shape's blurred core; higher keeps thinner strokes refracting.
-  coreGain: 14,
+  coreGain: 5,
   // Steep bevel backdrop shift fraction of the logo width and height minimum.
   refractRatio: 1,
-  // Steep tube backdrop shift fraction of the logo width and height minimum:
-  // the lens of a stroke too thin for a bevel, rounded like a rod; past the
-  // stroke's width, the backdrop turns over inside it.
-  tubeRefractRatio: 0.44,
+  // Refraction share kept where the core gain fades, on a stroke too thin
+  // for a bevel.
+  thinRefract: 0.46,
   // Red and blue edge shift split around green.
   chroma: 0.02,
   // Light direction in degrees clockwise from the top.
@@ -65,7 +64,7 @@ export const MARK = {
     { bevelRatio: 0.02, opacity: 0.09, core: true, ignoreBlend: true },
     { bevelRatio: 0.025, opacity: 0.24, core: true },
     { bevelRatio: 0.12, opacity: 0.06, core: true, ignoreBlend: true },
-    { bevelRatio: 0.225, opacity: 0.12, core: true },
+    { bevelRatio: 0.225, opacity: 0.12 },
   ] as AmbientGlow[],
   // Ambient shift towards the light in each glow's bevels: more leaves the
   // near edge darker against the far one.
@@ -159,7 +158,7 @@ const MARK_BY_VIEW: Partial<Record<MarkView, Partial<typeof MARK>>> = {
 // The MARK values debug mode turns, each kept to its [min, max].
 export const MARK_TUNING = {
   coreGain: [1, 40],
-  tubeRefractRatio: [0, 1],
+  thinRefract: [0, 1],
 } satisfies Partial<Record<keyof typeof MARK, [number, number]>>;
 export type MarkTuning = Partial<Record<keyof typeof MARK_TUNING, number>>;
 
@@ -408,29 +407,26 @@ export function watermarkGraph(
   // a stroke too thin to hold a bevel. It scales the slopes, not the field:
   // a gain falling along a taper would add a slope of its own.
   const thick = `${stretch},gblur=sigma=${bevel.toFixed(2)}:steps=2,lut=c0='st(0,clip(val*${(M.coreGain / FULL).toPrecision(6)},0,1));${FULL}*ld(0)*ld(0)*(3-2*ld(0))'`;
-  // Reads [mk1] and [mk2]; the narrow blur alone is the tube field, [t1] (x)
-  // and [t2] (y); one gain per slope (and core glow), from [k1] on.
+  // Reads [mk1] and [mk2]; one gain per slope (and core glow), from [k1] on.
   const heightfield = (out: string, slopes: number) => [
     `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2[hw]`,
-    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,split=4[hn][hc][t1][t2]`,
+    `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,split[hn][hc]`,
     `[hw][hn]blend=all_mode=average${out}`,
     `[hc]${thick},split=${slopes}${Array.from({ length: slopes }, (_, i) => `[k${i + 1}]`).join("")}`,
   ];
   const lensMask = (n: number) =>
     `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,format=gray16le,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
-  // Sobel sums 8× the slope, so this scale gives `shift` at the steepest edge
-  // of the bevel's two blurs, or `steep`× that.
+  // Sobel sums 8× the slope, so this scale gives `shift` at the steepest edge.
   // convolution applies rdiv after summing, so the scale costs no precision.
   const refractPx = Math.min(LW, LH) * M.refractRatio * SS;
-  const tubePx = Math.min(LW, LH) * M.tubeRefractRatio * SS;
-  const sobel = (axis: "x" | "y", shift: number, steep = 1) => {
-    const scale = shift / (8 * steep * edgeSlope);
+  const sobel = (axis: "x" | "y", shift: number) => {
+    const scale = shift / (8 * edgeSlope);
     return `convolution=0m='${SOBEL[axis].join(" ")}':0rdiv=${scale.toPrecision(6)}:0bias=${MID}`;
   };
-  // Field [<field>]'s slope on `axis` where the core gain [k<n>] holds, the
-  // tube's [t<n>] where it fades: the narrow blur alone is 1.5× as steep.
-  const lensSlope = (axis: "x" | "y", n: number, field: string, shift: number, tubeShift: number) =>
-    `[${field}]${sobel(axis, shift)}[s${axis}];[t${n}]${sobel(axis, tubeShift, 1.5)}[ts${axis}];[ts${axis}][s${axis}][k${n}]maskedmerge`;
+  // Field [<field>]'s slope on `axis`, down to thinRefract of it as the core
+  // gain [k<n>] fades.
+  const lensSlope = (axis: "x" | "y", n: number, field: string, shift: number) =>
+    `[${field}]${sobel(axis, shift)}[s${axis}];[s${axis}][k${n}]blend=all_expr='${MID}+(A-${MID})*(${M.thinRefract}+B*${((1 - M.thinRefract) / FULL).toPrecision(6)})'`;
   // Offsets in 1/SUB px so the chroma split scales them before rounding.
   const SUB = 8;
   // remap coordinates, mirrored back in at the cell's edges.
@@ -441,14 +437,14 @@ export function watermarkGraph(
   };
 
   // Red = x, green = y, so no shift reads olive; full swing at the steepest
-  // edge whatever the refract ratios are.
+  // edge whatever refractRatio is.
   if (view === "displacement") {
     return [
       `${pad}${open},drawbox=w=iw:h=ih:color=${DEBUG_BACKDROP}:t=fill[base]`,
       `[1:v]format=rgba${trim},${lensMask(3)}`,
       ...heightfield(",split=3[hx][hy][hz]", 2),
-      `${lensSlope("x", 1, "hx", MID - 1, MID - 1)},format=gray[mx]`,
-      `${lensSlope("y", 2, "hy", MID - 1, MID - 1)},format=gray[my]`,
+      `${lensSlope("x", 1, "hx", MID - 1)},format=gray[mx]`,
+      `${lensSlope("y", 2, "hy", MID - 1)},format=gray[my]`,
       `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
       `[map][mk3]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
@@ -613,11 +609,11 @@ export function watermarkGraph(
     `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m5][m6]`,
     `[l2]${lensMask(2)}`,
     ...heightfield(",split=4[h1][h2][h3][h4]", cores ? 5 : 4),
-    `${lensSlope("x", 1, "h1", refractPx * SUB, tubePx * SUB)},split=3[hx1][hx2][hx3]`,
+    `${lensSlope("x", 1, "h1", refractPx * SUB)},split=3[hx1][hx2][hx3]`,
     `[hx1]${sampleAt("x", chroma.r)}[xr]`,
     `[hx2]${sampleAt("x", chroma.g)}[xg]`,
     `[hx3]${sampleAt("x", chroma.b)}[xb]`,
-    `${lensSlope("y", 2, "h2", refractPx * SUB, tubePx * SUB)},split=3[hy1][hy2][hy3]`,
+    `${lensSlope("y", 2, "h2", refractPx * SUB)},split=3[hy1][hy2][hy3]`,
     `[hy1]${sampleAt("y", chroma.r)}[yr]`,
     `[hy2]${sampleAt("y", chroma.g)}[yg]`,
     `[hy3]${sampleAt("y", chroma.b)}[yb]`,
