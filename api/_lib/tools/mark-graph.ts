@@ -33,7 +33,7 @@ export const MARK = {
   // Steep tube backdrop shift fraction of the logo width and height minimum:
   // the lens of a stroke too thin for a bevel, rounded like a rod; past the
   // stroke's width, the backdrop turns over inside it.
-  tubeRefractRatio: 0.4,
+  tubeRefractRatio: 0.44,
   // Red and blue edge shift split around green.
   chroma: 0.02,
   // Light direction in degrees clockwise from the top.
