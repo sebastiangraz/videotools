@@ -13,6 +13,7 @@ import { useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
 import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
+import { MARK, MARK_TUNING } from "@api/tools/mark-config";
 import {
   MARK_POSITIONS,
   shuffleRoute,
@@ -57,18 +58,16 @@ const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   { value: "rim", label: "Rim only" },
 ];
 
-// Mirror the API's MARK values for MARK_TUNING and the ranges they're clamped to.
-const TUNED: MarkTuning = { coreGain: 14, thinRefract: 0.55 };
-const TUNING_KNOBS: {
-  key: keyof MarkTuning;
-  label: string;
-  step: number;
-  min: number;
-  max: number;
-}[] = [
-  { key: "coreGain", label: "Core gain", step: 1, min: 1, max: 40 },
-  { key: "thinRefract", label: "Thin refract", step: 0.01, min: 0, max: 1 },
-];
+const TUNED: MarkTuning = { coreGain: MARK.coreGain, thinRefract: MARK.thinRefract };
+const TUNING_KNOBS = (
+  [
+    { key: "coreGain", label: "Core gain", step: 1 },
+    { key: "thinRefract", label: "Thin refract", step: 0.01 },
+  ] as const
+).map(({ key, ...knob }) => {
+  const [min, max] = MARK_TUNING[key];
+  return { key, ...knob, min, max };
+});
 
 export const Mark = () => {
   const run = useToolRun(TOOL.value);

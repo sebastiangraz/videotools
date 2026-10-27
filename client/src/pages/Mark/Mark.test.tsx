@@ -21,6 +21,7 @@ import {
   stubMediaLoading,
   stubProperties,
 } from "@src/test/media";
+import { MARK } from "@api/tools/mark-config";
 import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -242,7 +243,7 @@ describe("Mark", () => {
     await pickSource(user, file("clip.mp4", "video/mp4"));
     await pickLogo(user);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const tuned = { coreGain: 14, thinRefract: 0.55 };
+    const tuned = { coreGain: MARK.coreGain, thinRefract: MARK.thinRefract };
     expect(tuning(0)).toEqual(tuned);
 
     await user.click(document.body);
@@ -251,7 +252,7 @@ describe("Mark", () => {
     knob.focus();
     await user.keyboard("{ArrowUp}");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(tuning(1)).toEqual({ ...tuned, coreGain: 15 });
+    expect(tuning(1)).toEqual({ ...tuned, coreGain: MARK.coreGain + 1 });
 
     await user.click(document.body);
     await user.keyboard("{Shift>}D{/Shift}");

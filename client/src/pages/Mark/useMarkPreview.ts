@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { sendJson, toDataUrl } from "@src/helpers";
+import type { MARK_TUNING } from "@api/tools/mark-config";
 
-// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS / MARK_TUNING.
+// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
 export type MarkSize = "small" | "medium" | "large" | "dev";
 export type MarkFilter = "plain" | "glass" | "blur";
 // Where along the frame's width and height the logo sits, 0 to 1.
@@ -19,7 +20,7 @@ export const MARK_POSITIONS = {
 };
 export type MarkPosition = keyof typeof MARK_POSITIONS;
 export type MarkView = "render" | "displacement" | "clear" | "rim";
-export type MarkTuning = Record<"coreGain" | "thinRefract", number>;
+export type MarkTuning = Record<keyof typeof MARK_TUNING, number>;
 const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 // Mirrors the API's MARK.rotateCadence and watermarkGraph's rotation: the clip
 // in equal stays (as many as the cadence fits, two at least), each at the
