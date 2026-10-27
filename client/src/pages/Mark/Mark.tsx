@@ -85,6 +85,8 @@ export const Mark = () => {
   const [devSize, setDevSize] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
   const [tuning, setTuning] = useState(TUNED);
+  const setTuneValue = (key: keyof MarkTuning, value: number) =>
+    setTuning((tuned) => ({ ...tuned, [key]: value }));
   const pickSize = (picked: MarkSize) => {
     if (picked === "dev") return;
     setPickedSize(picked);
@@ -286,17 +288,18 @@ export const Mark = () => {
             </div>
             <div className={styles.rotaryRow}>
               {TUNING_KNOBS.map(({ key, label, ...range }) => (
-                <SliderRotary
-                  key={key}
-                  label={`${label} ${tuning[key]}`}
-                  value={tuning[key]}
-                  onValueChange={(value) => setTuning((tuned) => ({ ...tuned, [key]: value }))}
-                  {...range}
-                  disabled={false}
-                  showArc={false}
-                  pipCount={0}
-                  wheelSteps={Math.round(range.max / range.step)}
-                />
+                <div key={key} onDoubleClick={() => setTuneValue(key, TUNED[key])}>
+                  <SliderRotary
+                    label={`${label} ${tuning[key]}`}
+                    value={tuning[key]}
+                    onValueChange={(value) => setTuneValue(key, value)}
+                    {...range}
+                    disabled={false}
+                    showArc={false}
+                    pipCount={0}
+                    wheelSteps={Math.round(range.max / range.step)}
+                  />
+                </div>
               ))}
             </div>
           </Popover>

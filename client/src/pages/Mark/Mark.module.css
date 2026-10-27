@@ -207,7 +207,7 @@
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 1rem;
-    & > * {
+    & > * > * {
       flex-direction: row;
       gap: 0.5em;
       & > [data-part="label"] {
