@@ -242,7 +242,7 @@ describe("Mark", () => {
     await pickSource(user, file("clip.mp4", "video/mp4"));
     await pickLogo(user);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const tuned = { coreGain: 14, tubeRatio: 0.015, tubeRefractRatio: 0.2, tubeGlint: 0.15 };
+    const tuned = { coreGain: 14, tubeRefractRatio: 0.4 };
     expect(tuning(0)).toEqual(tuned);
 
     await user.click(document.body);

@@ -58,12 +58,7 @@ const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
 ];
 
 // Mirror the API's MARK values for MARK_TUNING and the ranges they're clamped to.
-const TUNED: MarkTuning = {
-  coreGain: 14,
-  tubeRatio: 0.015,
-  tubeRefractRatio: 0.2,
-  tubeGlint: 0.15,
-};
+const TUNED: MarkTuning = { coreGain: 14, tubeRefractRatio: 0.4 };
 const TUNING_KNOBS: {
   key: keyof MarkTuning;
   label: string;
@@ -72,9 +67,7 @@ const TUNING_KNOBS: {
   max: number;
 }[] = [
   { key: "coreGain", label: "Core gain", step: 1, min: 1, max: 40 },
-  { key: "tubeRatio", label: "Tube width", step: 0.001, min: 0, max: 0.05 },
   { key: "tubeRefractRatio", label: "Tube refract", step: 0.01, min: 0, max: 1 },
-  { key: "tubeGlint", label: "Tube glint", step: 0.01, min: 0, max: 1 },
 ];
 
 export const Mark = () => {
