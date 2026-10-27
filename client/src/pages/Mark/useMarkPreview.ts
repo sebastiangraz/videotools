@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { sendJson, toDataUrl } from "@src/helpers";
 
-// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
+// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS / MARK_TUNING.
 export type MarkSize = "small" | "medium" | "large" | "dev";
 export type MarkFilter = "plain" | "glass" | "blur";
 // Where along the frame's width and height the logo sits, 0 to 1.
@@ -19,6 +19,10 @@ export const MARK_POSITIONS = {
 };
 export type MarkPosition = keyof typeof MARK_POSITIONS;
 export type MarkView = "render" | "displacement" | "clear" | "rim";
+export type MarkTuning = Record<
+  "coreGain" | "tubeRatio" | "tubeRefractRatio" | "tubeGlint",
+  number
+>;
 const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 // Mirrors the API's MARK.rotateCadence and watermarkGraph's rotation: the clip
 // in equal stays (as many as the cadence fits, two at least), each at the
@@ -78,7 +82,7 @@ export function useMarkPreview(
   position: MarkPosition,
   route: MarkPosition[] | null,
   view: MarkView,
-  coreGain: number,
+  tuning: MarkTuning,
 ) {
   const [frameBlobs, setFrameBlobs] = useState<Blob[]>([]);
   const [duration, setDuration] = useState(0);
@@ -95,7 +99,7 @@ export function useMarkPreview(
     route: MarkPosition[] | null;
     stays: number;
     view: MarkView;
-    coreGain: number;
+    tuning: MarkTuning;
   } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
 
@@ -135,7 +139,7 @@ export function useMarkPreview(
               size,
               position: stopAt(route ?? [position], stays, n / frameBlobs.length),
               view,
-              coreGain,
+              tuning,
             },
             controller.signal,
           );
@@ -162,11 +166,11 @@ export function useMarkPreview(
           route,
           stays,
           view,
-          coreGain,
+          tuning,
         });
       });
     return () => controller.abort();
-  }, [frameBlobs, watermark, filterMode, size, position, route, stays, view, coreGain]);
+  }, [frameBlobs, watermark, filterMode, size, position, route, stays, view, tuning]);
 
   // Its own frame source, so its seeking never shows in the bare frame.
   useEffect(() => {
@@ -220,7 +224,7 @@ export function useMarkPreview(
       settled.route === route &&
       settled.stays === stays &&
       settled.view === view &&
-      settled.coreGain === coreGain
+      settled.tuning === tuning
     );
 
   return {

@@ -452,9 +452,9 @@ describe("watermarkGraph", () => {
     const coreLut = (graph: string) => /clip\(val\*([\d.e-]+),0,1\)/.exec(graph)?.[1];
     const tuned = watermarkGraph(video, logo, { filter: "glass" });
     expect(coreLut(tuned)).toBe((MARK.coreGain / 65535).toPrecision(6));
-    expect(coreLut(watermarkGraph(video, logo, { filter: "glass", coreGain: 20 }))).toBe(
-      (20 / 65535).toPrecision(6),
-    );
+    expect(
+      coreLut(watermarkGraph(video, logo, { filter: "glass", tuning: { coreGain: 20 } })),
+    ).toBe((20 / 65535).toPrecision(6));
   });
 
   it("renders the mark by default", () => {

@@ -20,6 +20,7 @@ import {
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
+  type MarkTuning,
   type MarkView,
 } from "./useMarkPreview";
 import form from "@src/form.module.css";
@@ -56,8 +57,25 @@ const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   { value: "rim", label: "Rim only" },
 ];
 
-// Mirrors the API's MARK.coreGain and the range it's clamped to.
-const CORE_GAIN = { initial: 14, min: 1, max: 40 };
+// Mirror the API's MARK values for MARK_TUNING and the ranges they're clamped to.
+const TUNED: MarkTuning = {
+  coreGain: 14,
+  tubeRatio: 0.015,
+  tubeRefractRatio: 0.2,
+  tubeGlint: 0.15,
+};
+const TUNING_KNOBS: {
+  key: keyof MarkTuning;
+  label: string;
+  step: number;
+  min: number;
+  max: number;
+}[] = [
+  { key: "coreGain", label: "Core gain", step: 1, min: 1, max: 40 },
+  { key: "tubeRatio", label: "Tube width", step: 0.001, min: 0, max: 0.05 },
+  { key: "tubeRefractRatio", label: "Tube refract", step: 0.01, min: 0, max: 1 },
+  { key: "tubeGlint", label: "Tube glint", step: 0.01, min: 0, max: 1 },
+];
 
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
@@ -75,7 +93,7 @@ export const Mark = () => {
   const [debugView, setDebugView] = useState<MarkView>("render");
   const [devSize, setDevSize] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
-  const [coreGain, setCoreGain] = useState(CORE_GAIN.initial);
+  const [tuning, setTuning] = useState(TUNED);
   const pickSize = (picked: MarkSize) => {
     if (picked === "dev") return;
     setPickedSize(picked);
@@ -93,7 +111,7 @@ export const Mark = () => {
     position,
     route,
     debug ? debugView : "render",
-    debug ? coreGain : CORE_GAIN.initial,
+    debug ? tuning : TUNED,
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
 
@@ -134,7 +152,7 @@ export const Mark = () => {
           position,
           route,
           quality,
-          coreGain: debug ? coreGain : null,
+          tuning: debug ? tuning : null,
         },
       }),
       onDone: () => route && setShuffle(shuffleRoute(position)),
@@ -275,15 +293,16 @@ export const Mark = () => {
                 Dev size
               </label>
             </div>
-            <SliderRotary
-              label={`Core gain ${coreGain}`}
-              value={coreGain}
-              onValueChange={setCoreGain}
-              min={CORE_GAIN.min}
-              max={CORE_GAIN.max}
-              step={1}
-              disabled={false}
-            />
+            {TUNING_KNOBS.map(({ key, label, ...range }) => (
+              <SliderRotary
+                key={key}
+                label={`${label} ${tuning[key]}`}
+                value={tuning[key]}
+                onValueChange={(value) => setTuning((tuned) => ({ ...tuned, [key]: value }))}
+                {...range}
+                disabled={false}
+              />
+            ))}
           </Popover>
         </>
       )}

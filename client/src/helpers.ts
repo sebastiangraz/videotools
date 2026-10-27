@@ -93,7 +93,7 @@ export function timeAgo(iso: string) {
 }
 
 // 6 characters of the source, the extras' names, then each option as key
-// initials + value (fadeDuration 0.7 → fd0.7, true or a list → Y, false or null
+// initials + value (fadeDuration 0.7 → fd0.7, true, a list or a group → Y, false or null
 // left out), with the extension of the server's name.
 export function verboseName(
   base: string,
@@ -110,9 +110,9 @@ export function verboseName(
         .map(
           ([key, value]) =>
             key.replace(/\B[a-z]+/g, "").toLowerCase() +
-            (value === true || Array.isArray(value)
-              ? "Y"
-              : String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())),
+            (typeof value === "string" || typeof value === "number"
+              ? String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())
+              : "Y"),
         ),
     ].join("_") + splitExtension(resultName)[1]
   );

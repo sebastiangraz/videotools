@@ -232,17 +232,18 @@ describe("Mark", () => {
     expect(view(4)).toBe("render");
   });
 
-  it("previews with the core gain turned from debug mode, and the tuned one once debug mode is left", async () => {
+  it("previews with the tuning turned from debug mode, and the tuned one once debug mode is left", async () => {
     const user = userEvent.setup();
     stubVideo();
     const fetchMock = stubPreviewFetch();
-    const coreGain = (nth: number) => postedBody(fetchMock, nth).coreGain;
+    const tuning = (nth: number) => postedBody(fetchMock, nth).tuning;
 
     await renderApp("/mark");
     await pickSource(user, file("clip.mp4", "video/mp4"));
     await pickLogo(user);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(coreGain(0)).toBe(14);
+    const tuned = { coreGain: 14, tubeRatio: 0.015, tubeRefractRatio: 0.2, tubeGlint: 0.15 };
+    expect(tuning(0)).toEqual(tuned);
 
     await user.click(document.body);
     await user.keyboard("{Shift>}D{/Shift}");
@@ -250,12 +251,12 @@ describe("Mark", () => {
     knob.focus();
     await user.keyboard("{ArrowUp}");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(coreGain(1)).toBe(15);
+    expect(tuning(1)).toEqual({ ...tuned, coreGain: 15 });
 
     await user.click(document.body);
     await user.keyboard("{Shift>}D{/Shift}");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(coreGain(2)).toBe(14);
+    expect(tuning(2)).toEqual(tuned);
   });
 
   it("shows the frame's own note, and asks the server for nothing, when the browser can't decode the source", async () => {
@@ -397,7 +398,7 @@ describe("Mark", () => {
         position: "bottom-right",
         route: expect.any(Array),
         quality: 100,
-        coreGain: null,
+        tuning: null,
       },
     });
   });
