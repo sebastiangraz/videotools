@@ -1,31 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { sendJson, toDataUrl } from "@src/helpers";
-import type { MARK_TUNING } from "@api/tools/mark-config";
+import {
+  MARK,
+  MARK_POSITIONS,
+  type MARK_TUNING,
+  type MarkFilter,
+  type MarkPosition,
+  type MarkSize,
+  type MarkView,
+} from "@api/tools/mark-config";
 
-// Mirror the API's MARK_SIZES / MARK_FILTERS / MARK_POSITIONS / MARK_VIEWS.
-export type MarkSize = "small" | "medium" | "large" | "dev";
-export type MarkFilter = "plain" | "glass" | "blur";
-// Where along the frame's width and height the logo sits, 0 to 1.
-export const MARK_POSITIONS = {
-  "top-left": [0, 0],
-  top: [0.5, 0],
-  "top-right": [1, 0],
-  left: [0, 0.5],
-  center: [0.5, 0.5],
-  right: [1, 0.5],
-  "bottom-left": [0, 1],
-  bottom: [0.5, 1],
-  "bottom-right": [1, 1],
-};
-export type MarkPosition = keyof typeof MARK_POSITIONS;
-export type MarkView = "render" | "displacement" | "clear" | "rim";
 export type MarkTuning = Record<keyof typeof MARK_TUNING, number>;
 const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
-// Mirrors the API's MARK.rotateCadence and watermarkGraph's rotation: the clip
-// in equal stays (as many as the cadence fits, two at least), each at the
-// route's next stop, looping it.
-const ROTATE_CADENCE = 2;
 // Where the mark is `progress` (0 to 1) through a clip of `stays`.
 const stopAt = (route: MarkPosition[], stays: number, progress: number) =>
   route[Math.floor(progress * stays) % route.length];
@@ -101,7 +88,9 @@ export function useMarkPreview(
   } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
 
-  const stays = route ? Math.max(2, Math.floor(duration / ROTATE_CADENCE)) : 1;
+  // Mirrors watermarkGraph's rotation: the clip in equal stays (as many as the
+  // cadence fits, two at least), each at the route's next stop, looping it.
+  const stays = route ? Math.max(2, Math.floor(duration / MARK.rotateCadence)) : 1;
 
   const liveUrls = useRef<string[]>([]);
   useEffect(() => {

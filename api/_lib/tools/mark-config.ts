@@ -96,6 +96,45 @@ export const MARK = {
   fadeSeconds: 0.25,
 };
 
+// `uncapped` lifts the maxSpan cap, the logo kept only inside the frame.
+export type MarkSizeSpec = { scale: number; gap: number; rim: number; uncapped?: boolean };
+
+export const MARK_SIZES = {
+  small: { scale: 0.66, gap: 1.2, rim: 0.66 },
+  medium: { scale: 1, gap: 1, rim: 1 },
+  large: { scale: 2, gap: 1, rim: 1 },
+  dev: { scale: 3, gap: 1, rim: 1.33 },
+};
+export type MarkSize = keyof typeof MARK_SIZES;
+export const isMarkSize = (value: unknown): value is MarkSize =>
+  typeof value === "string" && Object.hasOwn(MARK_SIZES, value);
+
+// Where along the frame's width and height the logo sits, 0 to 1.
+export const MARK_POSITIONS = {
+  "top-left": [0, 0],
+  top: [0.5, 0],
+  "top-right": [1, 0],
+  left: [0, 0.5],
+  center: [0.5, 0.5],
+  right: [1, 0.5],
+  "bottom-left": [0, 1],
+  bottom: [0.5, 1],
+  "bottom-right": [1, 1],
+};
+export type MarkPosition = keyof typeof MARK_POSITIONS;
+export const isMarkPosition = (value: unknown): value is MarkPosition =>
+  typeof value === "string" && Object.hasOwn(MARK_POSITIONS, value);
+
+export const MARK_FILTERS = ["plain", "glass", "blur"] as const;
+export type MarkFilter = (typeof MARK_FILTERS)[number];
+export const isMarkFilter = (value: unknown): value is MarkFilter =>
+  MARK_FILTERS.includes(value as MarkFilter);
+
+export const MARK_VIEWS = ["render", "displacement", "clear", "rim"] as const;
+export type MarkView = (typeof MARK_VIEWS)[number];
+export const isMarkView = (value: unknown): value is MarkView =>
+  MARK_VIEWS.includes(value as MarkView);
+
 // The MARK values debug mode turns, each kept to its [min, max].
 export const MARK_TUNING = {
   coreGain: [1, 40],

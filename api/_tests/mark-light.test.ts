@@ -3,7 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { LightPoint } from "../_lib/light-track.js";
-import { MARK, watermarkGraph, watermarkLayout } from "../_lib/tools/mark-graph.js";
+import { MARK } from "../_lib/tools/mark-config.js";
+import { watermarkGraph, watermarkLayout } from "../_lib/tools/mark-graph.js";
 import {
   LIGHT,
   LightRig,

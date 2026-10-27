@@ -14,15 +14,13 @@ import {
   isMarkPosition,
   isMarkSize,
   isMarkView,
-  parseBounds,
-  watermarkGraph,
-  type Bounds,
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
   type MarkTuning,
   type MarkView,
-} from "./mark-graph.js";
+} from "./mark-config.js";
+import { parseBounds, watermarkGraph, type Bounds } from "./mark-graph.js";
 import { followLight } from "./mark-light.js";
 import type { Tool, ToolJob } from "./types.js";
 

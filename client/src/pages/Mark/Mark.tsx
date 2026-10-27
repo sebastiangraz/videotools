@@ -13,17 +13,16 @@ import { useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
 import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
-import { MARK, MARK_TUNING } from "@api/tools/mark-config";
 import {
+  MARK,
   MARK_POSITIONS,
-  shuffleRoute,
-  useMarkPreview,
+  MARK_TUNING,
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
-  type MarkTuning,
   type MarkView,
-} from "./useMarkPreview";
+} from "@api/tools/mark-config";
+import { shuffleRoute, useMarkPreview, type MarkTuning } from "./useMarkPreview";
 import form from "@src/form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
