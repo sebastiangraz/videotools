@@ -72,10 +72,13 @@ export const BINARIES: Record<Tool, { version: string; platforms: Record<string,
 
 const hostPlatform = `${process.platform}-${process.arch}`;
 
-// Under the working directory: the repo, or the engine's install folder.
+// A `bun build --compile` executable runs its code from Bun's embedded fs.
+export const compiled = /^(B:\/~BUN|\/\$bunfs)\//.test(Bun.main);
+
+// Next to the compiled engine, or under the working directory (the repo).
 export const binaryPath = (tool: Tool, key = hostPlatform): string =>
   path.join(
-    process.cwd(),
+    compiled ? path.dirname(process.execPath) : process.cwd(),
     "api",
     "_bin",
     tool,

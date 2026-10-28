@@ -311,6 +311,8 @@ export class FFmpeg {
         signal,
         killSignal: "SIGKILL",
         maxBuffer: Infinity,
+        // The engine has no console on Windows, so each run would open one.
+        windowsHide: true,
       });
       // Immediate EOF, like an ignored stdin.
       running.child.stdin?.end();

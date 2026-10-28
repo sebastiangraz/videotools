@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "bun --filter client dev",
     "engine": "bun api/_lib/serve.ts",
-    "build:engine": "bun build api/_lib/serve.ts --compile --target=bun-windows-x64 --outfile dist/engine/videotools-engine-win32-x64.exe && bun build api/_lib/serve.ts --compile --target=bun-darwin-arm64 --outfile dist/engine/videotools-engine-darwin-arm64 && bun build api/_lib/serve.ts --compile --target=bun-darwin-x64 --outfile dist/engine/videotools-engine-darwin-x64 && bun build api/_lib/serve.ts --compile --target=bun-linux-x64 --outfile dist/engine/videotools-engine-linux-x64",
+    "build:engine": "bun build api/_lib/serve.ts --compile --target=bun-windows-x64 --windows-hide-console --windows-description=\"videotools engine\" --outfile dist/engine/videotools-engine-win32-x64.exe && bun build api/_lib/serve.ts --compile --target=bun-darwin-arm64 --outfile dist/engine/videotools-engine-darwin-arm64 && bun build api/_lib/serve.ts --compile --target=bun-darwin-x64 --outfile dist/engine/videotools-engine-darwin-x64 && bun build api/_lib/serve.ts --compile --target=bun-linux-x64 --outfile dist/engine/videotools-engine-linux-x64",
     "build": "bun --filter client build",
     "test": "bun --filter client test",
     "smoke": "bun scripts/smoke/index.mjs",

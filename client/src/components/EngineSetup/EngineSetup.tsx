@@ -11,14 +11,15 @@ const RETRY_MS = 2000;
 // Safari never lets an https page reach loopback.
 const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
+const isWindows = navigator.userAgent.includes("Windows");
+
+// Opened once, the engine installs itself (api/_lib/serve.ts).
+const DOWNLOAD =
+  "https://github.com/sebastiangraz/videotools/releases/download/engine/videotools-engine-win32-x64.exe";
+
 // From GitHub at the commit this deployment was built from, so the script
 // matches the site; a protected preview would answer with its login page.
-const INSTALL = `https://raw.githubusercontent.com/sebastiangraz/videotools/${__GIT_SHA__ || "main"}/scripts/install`;
-
-const installCommand = () =>
-  navigator.userAgent.includes("Windows")
-    ? `irm ${INSTALL}.ps1 | iex`
-    : `curl -fsSL ${INSTALL}.sh | sh`;
+const INSTALL = `curl -fsSL https://raw.githubusercontent.com/sebastiangraz/videotools/${__GIT_SHA__ || "main"}/scripts/install.sh | sh`;
 
 // Jobs run in the engine on the visitor's machine; until it answers, this
 // says how to get it, and keeps asking.
@@ -52,6 +53,21 @@ export const EngineSetup = () => {
           Videos are processed on your computer by the videotools engine, which Safari can't reach.
           Open this page in Chrome, Edge or Firefox.
         </p>
+      ) : isWindows ? (
+        <>
+          <p>
+            {state === "outdated"
+              ? "Your videotools engine is out of date. Download it again and open it."
+              : "Videos are processed on your computer by the videotools engine. Download it and open it once; it starts with Windows from then on."}
+          </p>
+          <a className={styles.download} href={DOWNLOAD}>
+            Download the videotools engine
+          </a>
+          <p className={form.label}>
+            If Windows says it protected your PC, choose More info, then Run anyway. If the browser
+            asks to access apps on this device, allow it.
+          </p>
+        </>
       ) : (
         <>
           <p>
@@ -59,7 +75,7 @@ export const EngineSetup = () => {
               ? "Your videotools engine is out of date. Run the install command again:"
               : "Videos are processed on your computer by the videotools engine. Install it once and keep it running:"}
           </p>
-          <code className={styles.command}>{installCommand()}</code>
+          <code className={styles.command}>{INSTALL}</code>
           <p className={form.label}>If the browser asks to access apps on this device, allow it.</p>
         </>
       )}
