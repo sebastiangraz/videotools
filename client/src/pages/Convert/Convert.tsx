@@ -48,7 +48,7 @@ export const Convert = () => {
     }
     run.start({
       files: [source.file],
-      payload: ({ blobUrls }) => ({ blobUrl: blobUrls[0], options }),
+      payload: ({ uploads }) => ({ upload: uploads[0], options }),
     });
   };
 

@@ -1,14 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { upload } from "@vercel/blob/client";
 import { expect, vi, type Mock } from "vitest";
 import { createAppRouter } from "@src/App";
+import { ENGINE_URL } from "@src/helpers";
 
-// Loosely typed: tests resolve it with just the fields the app reads ({ url }).
-export const uploadMock = upload as unknown as Mock;
-
-export const blobUrl = (name: string) => `https://store.public.blob.vercel-storage.com/${name}`;
+export const engineUrl = (path: string) => `${ENGINE_URL}${path}`;
 
 export const renderApp = async (initialPath = "/loop") => {
   const router = createAppRouter(createMemoryHistory({ initialEntries: [initialPath] }));
@@ -22,16 +19,16 @@ export type FetchMock = Mock<typeof fetch>;
 export const unexpectedFetch = (input: RequestInfo | URL) =>
   new Error(`Unexpected fetch: ${input instanceof Request ? input.url : input.toString()}`);
 
-// A run that succeeds: /api/process answers with `resultUrl`, the result
-// downloads, and the cleanup DELETE goes through.
-export const stubProcessFetch = (resultUrl = blobUrl("results/out-xyz")) => {
+const isUpload = (input: RequestInfo | URL, init?: RequestInit) =>
+  typeof input === "string" && input.startsWith(engineUrl("/upload/")) && init?.method === "PUT";
+
+// A run that succeeds: the engine takes the uploads and answers /process
+// with the result, named out.mp4.
+export const stubProcessFetch = () => {
   const fetchMock: FetchMock = vi.fn(async (input, init) => {
-    if (input === "/api/process" && init?.method === "POST") {
-      return Response.json({ url: resultUrl, filename: "out.mp4" });
-    }
-    if (input === resultUrl) return new Response(new Blob(["result"]));
-    if (input === "/api/process" && init?.method === "DELETE") {
-      return new Response(null, { status: 204 });
+    if (isUpload(input, init)) return new Response(null, { status: 204 });
+    if (input === engineUrl("/process") && init?.method === "POST") {
+      return new Response(new Blob(["result"]), { headers: { "X-Filename": "out.mp4" } });
     }
     throw unexpectedFetch(input);
   });
@@ -39,14 +36,14 @@ export const stubProcessFetch = (resultUrl = blobUrl("results/out-xyz")) => {
   return fetchMock;
 };
 
-// The cleanup DELETE is the last request a run makes.
-export const runFinished = (fetchMock: FetchMock) =>
-  waitFor(() =>
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/process",
-      expect.objectContaining({ method: "DELETE" }),
-    ),
-  );
+// Each upload in order: the id it went under and the file sent.
+export const uploads = (fetchMock: FetchMock) =>
+  fetchMock.mock.calls
+    .filter(([input, init]) => isUpload(input, init))
+    .map(([input, init]) => ({ id: (input as string).split("/").at(-1), file: init?.body }));
+
+// The download is the last thing a run does.
+export const runFinished = () => waitFor(() => expect(downloadedName()).toBeDefined());
 
 export const enableVerboseNames = async (user: UserEvent) => {
   await user.click(screen.getByRole("button", { name: "Settings" }));

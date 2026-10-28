@@ -2,13 +2,12 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import {
-  blobUrl,
   decimal,
   postedBody,
   renderApp,
   runFinished,
   stubProcessFetch,
-  uploadMock,
+  uploads,
 } from "@src/test/renderApp";
 import { file, imageFile, stubCanvas, stubImageDecoder } from "@src/test/media";
 
@@ -17,9 +16,6 @@ const createButton = () => screen.getByRole("button", { name: /create video/i })
 describe("Sequence", () => {
   it("uploads the images and requests an image sequence", async () => {
     const user = userEvent.setup();
-    uploadMock.mockImplementation(async (name: string) => ({
-      url: blobUrl(name),
-    }));
     const fetchMock = stubProcessFetch();
 
     await renderApp("/sequence");
@@ -31,12 +27,12 @@ describe("Sequence", () => {
     await user.click(await screen.findByRole("option", { name: /gif/i }));
     await user.click(createButton());
 
-    await runFinished(fetchMock);
-    expect(uploadMock).toHaveBeenCalledTimes(2);
+    await runFinished();
+    expect(uploads(fetchMock)).toHaveLength(2);
     expect(postedBody(fetchMock)).toMatchObject({
       tool: "sequence",
       filename: "a.png",
-      blobUrls: [blobUrl("a.png"), blobUrl("b.png")],
+      uploads: uploads(fetchMock).map(({ id }) => id),
       options: { frameDuration: 1, format: "gif", quality: 100 },
     });
   });

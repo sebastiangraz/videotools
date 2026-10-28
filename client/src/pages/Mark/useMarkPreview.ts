@@ -107,7 +107,7 @@ export function useMarkPreview(
   );
 
   // Swap in all renders at once so scrubbing never mixes old and new. Aborting
-  // disconnects, which makes the function stop encoding.
+  // disconnects, which makes the engine stop encoding.
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
     const controller = new AbortController();
@@ -117,7 +117,7 @@ export function useMarkPreview(
       const renders = await Promise.all(
         frameBlobs.map(async (blob, n) => {
           const res = await sendJson(
-            "/api/preview",
+            "/preview",
             "POST",
             {
               frame: await toDataUrl(blob),

@@ -5,7 +5,7 @@ import type { FFmpeg, MediaInfo, SourceProfile } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { encodeStill } from "../encode/still.js";
 import { sourceRender, videoPad, type Render } from "../encode/render.js";
-import { blobExt, clamp, clampInt, isBlobUrl } from "../request.js";
+import { uploadExt, clamp, clampInt, isUploadId } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import {
   MARK,
@@ -218,14 +218,14 @@ async function logoBounds(ff: FFmpeg, logoFile: string, logo: MediaInfo): Promis
 }
 
 export const mark: Tool = {
-  inputs({ blobUrl, watermarkUrl }) {
-    if (!isBlobUrl(blobUrl) || !isBlobUrl(watermarkUrl)) {
-      return { error: "Expected a video and a watermark blob URL" };
+  inputs({ upload, watermark }) {
+    if (!isUploadId(upload) || !isUploadId(watermark)) {
+      return { error: "Expected a video and a watermark upload" };
     }
-    return [blobUrl, watermarkUrl];
+    return [upload, watermark];
   },
   async run(job) {
-    const { workDir, inputs, options, download } = job;
+    const { workDir, inputs, options, take } = job;
     const { filter, size, position, view, tuning } = markLook(options);
     const route =
       Array.isArray(options.route) && options.route.every(isMarkPosition) ? options.route : [];
@@ -235,8 +235,8 @@ export const mark: Tool = {
     // mark is the only tool that takes stills.
     const { still } = source;
     const format = still ?? preservedFormat(source);
-    const logoPath = path.join(workDir, `logo${blobExt(inputs[1], ".png")}`);
-    await download(inputs[1], logoPath);
+    const logoPath = path.join(workDir, `logo${uploadExt(inputs[1], ".png")}`);
+    await take(inputs[1], logoPath);
     console.log(
       `Adding watermark to ${format} (${size}, ${filter}, ${position}${route.length > 1 ? " shuffled" : ""}, quality ${quality})...`,
     );

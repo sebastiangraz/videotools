@@ -1,3 +1,5 @@
+import { ENGINE } from "@api/formats";
+
 // Class names, falsy ones left out: cx(styles.a, on && styles.b).
 export const cx = (...names: (string | false | null | undefined)[]): string =>
   names.filter(Boolean).join(" ");
@@ -6,14 +8,21 @@ export const cx = (...names: (string | false | null | undefined)[]): string =>
 export const toList = <T>(value: T | T[] | null): T[] =>
   value === null ? [] : Array.isArray(value) ? value : [value];
 
-// A JSON request; the response is the caller's to read.
+// The engine on the visitor's machine (api/_lib/serve.ts). `targetAddressSpace`
+// lets a public page reach loopback once the visitor allows it (Chrome asks).
+export const ENGINE_URL = `http://127.0.0.1:${ENGINE.port}`;
+
+export const engineFetch = (path: string, init: RequestInit = {}): Promise<Response> =>
+  fetch(`${ENGINE_URL}${path}`, { ...init, targetAddressSpace: "loopback" } as RequestInit);
+
+// A JSON request to the engine; the response is the caller's to read.
 export const sendJson = (
-  url: string,
+  path: string,
   method: "POST" | "DELETE",
   body: unknown,
   signal?: AbortSignal,
 ): Promise<Response> =>
-  fetch(url, {
+  engineFetch(path, {
     method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

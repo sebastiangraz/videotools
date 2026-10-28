@@ -2,13 +2,12 @@ import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import {
-  blobUrl,
   decimal,
   postedBody,
   renderApp,
   runFinished,
   stubProcessFetch,
-  uploadMock,
+  uploads,
 } from "@src/test/renderApp";
 import {
   file,
@@ -26,7 +25,6 @@ const loopButton = () => screen.getByRole("button", { name: /^loop$/i });
 describe("Loop", () => {
   it("accepts decimal values in number fields", async () => {
     const user = userEvent.setup();
-    uploadMock.mockResolvedValue({ url: blobUrl("tiny-abc.mp4") });
     const fetchMock = stubProcessFetch();
 
     await renderApp();
@@ -39,7 +37,7 @@ describe("Loop", () => {
     });
     await user.click(loopButton());
 
-    await runFinished(fetchMock);
+    await runFinished();
     expect(postedBody(fetchMock).options).toMatchObject({
       fadeDuration: 0.7,
       startSecond: 1.5,
@@ -122,13 +120,14 @@ describe("Loop", () => {
     });
     stubVideoFrame(1710, 1080);
     const user = userEvent.setup();
+    const fetchMock = stubProcessFetch();
     await renderApp();
     await pick(user, file("clip.mp4", "video/mp4"));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(loopButton()).toHaveAttribute("aria-disabled", "true");
     await user.click(loopButton());
-    expect(uploadMock).not.toHaveBeenCalled();
+    expect(uploads(fetchMock)).toEqual([]);
 
     stubVideoFrame(1710, 1710);
     await pick(user, file("square.mp4", "video/mp4"));
@@ -138,6 +137,7 @@ describe("Loop", () => {
 
   it("sends a format the app doesn't write through convert, before any upload", async () => {
     const user = userEvent.setup();
+    const fetchMock = stubProcessFetch();
     await renderApp();
     await pick(user, file("clip.avi", "video/x-msvideo"));
 
@@ -150,7 +150,7 @@ describe("Loop", () => {
 
     expect(loopButton()).toHaveAttribute("aria-disabled", "true");
     await user.click(loopButton());
-    expect(uploadMock).not.toHaveBeenCalled();
+    expect(uploads(fetchMock)).toEqual([]);
   });
 
   // A .webp may be either kind; a still one is refused once its header says so.

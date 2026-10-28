@@ -1,10 +1,10 @@
 {
-  // Used by @vercel/node at deploy (it forces noEmit off) and by typecheck.
+  // Used by typecheck.
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": ["node"],
+    "types": ["bun"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": true,

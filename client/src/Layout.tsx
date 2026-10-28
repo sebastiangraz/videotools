@@ -2,6 +2,7 @@ import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
+import { EngineSetup } from "./components/EngineSetup/EngineSetup";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
@@ -149,6 +150,7 @@ export const Layout = () => {
           </Popover>
         </Tabs>
         <main className={styles.main}>
+          <EngineSetup />
           <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>
