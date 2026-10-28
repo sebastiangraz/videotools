@@ -16,7 +16,7 @@ bun run lint                    # oxlint (type-aware on api/)
 bun run format                  # oxfmt
 bun run typecheck               # api + client
 
-# bun run smoke <name> [mark[:glass,debug,depthmap]|light|quality]
+                                # bun run smoke <name> [mark[:glass,debug,depthmap]|light|quality]
 bun run smoke name              # run smoke test for name .smoke/name
 bun run smoke name quality      # run smoke test only for quality in .smoke/name/quality
 bun run smoke name mark:debug   # run debug view for mark smoke tests .smoke/name/mark/debug
