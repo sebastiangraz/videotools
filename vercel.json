@@ -2,12 +2,6 @@
   "buildCommand": "bun run build",
   "devCommand": "bun --filter client dev --port $PORT",
   "outputDirectory": "client/dist",
-  "headers": [
-    {
-      "source": "/install.(ps1|sh)",
-      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
-    }
-  ],
   "rewrites": [
     {
       "source": "/((?!@)[^.]*)",

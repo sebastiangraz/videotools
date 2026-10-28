@@ -2,7 +2,9 @@
 # Installs the videotools engine into ~/.videotools and starts it; on macOS it
 # also starts at login from then on. Run again to update.
 #
-#   curl -fsSL https://videotools-client.vercel.app/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/sebastiangraz/videotools/main/scripts/install.sh | sh
+#
+# The site shows this with the commit it was built from in place of main.
 set -eu
 
 case "$(uname -s)-$(uname -m)" in

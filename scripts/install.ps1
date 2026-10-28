@@ -1,7 +1,9 @@
 # Installs the videotools engine into ~\.videotools, starts it, and starts it
 # with Windows from then on. Run again to update.
 #
-#   irm https://videotools-client.vercel.app/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/sebastiangraz/videotools/main/scripts/install.ps1 | iex
+#
+# The site shows this with the commit it was built from in place of main.
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 

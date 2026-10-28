@@ -11,10 +11,14 @@ const RETRY_MS = 2000;
 // Safari never lets an https page reach loopback.
 const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
+// From GitHub at the commit this deployment was built from, so the script
+// matches the site; a protected preview would answer with its login page.
+const INSTALL = `https://raw.githubusercontent.com/sebastiangraz/videotools/${__GIT_SHA__ || "main"}/scripts/install`;
+
 const installCommand = () =>
   navigator.userAgent.includes("Windows")
-    ? `irm ${location.origin}/install.ps1 | iex`
-    : `curl -fsSL ${location.origin}/install.sh | sh`;
+    ? `irm ${INSTALL}.ps1 | iex`
+    : `curl -fsSL ${INSTALL}.sh | sh`;
 
 // Jobs run in the engine on the visitor's machine; until it answers, this
 // says how to get it, and keeps asking.

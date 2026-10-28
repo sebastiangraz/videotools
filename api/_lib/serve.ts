@@ -1,6 +1,6 @@
 // The engine: runs the tools on the user's machine for the site's pages.
 // `bun api/_lib/serve.ts` from the repo; `bun run build:engine` compiles it
-// for the install scripts in client/public/. Listens on loopback only.
+// for the install scripts in scripts/. Listens on loopback only.
 import fsp from "node:fs/promises";
 
 import { ENGINE } from "./formats.js";
