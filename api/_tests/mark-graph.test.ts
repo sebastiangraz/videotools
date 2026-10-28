@@ -5,10 +5,8 @@ import {
   MARK_POSITIONS,
   MARK_SIZES,
   MARK_VIEWS,
-  parseBounds,
-  watermarkGraph,
-  watermarkLayout,
-} from "../_lib/tools/mark-graph.js";
+} from "../_lib/tools/mark-config.js";
+import { parseBounds, watermarkGraph, watermarkLayout } from "../_lib/tools/mark-graph.js";
 
 // Expectations derive from MARK, so the tuned constants can change freely.
 const HD = { width: 1920, height: 1080 };
@@ -391,14 +389,14 @@ describe("watermarkGraph", () => {
     return { rim: Number(rim), glint: Number(glint) };
   };
 
-  it("shows the displacement map over a light-gray frame, whatever the filter", () => {
+  it("shows the displacement map over an olive frame, whatever the filter", () => {
     const glass = watermarkGraph(video, logo, { filter: "glass" });
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, {
         filter,
         view: "displacement",
       });
-      // The frame painted over, the maps' red x and green y laid on it
+      // The frame painted no-shift olive, the maps' red x and green y laid on it
       expect(graph).toMatch(/^\[0:v\][^;]*,drawbox=w=iw:h=ih:[^;]*:t=fill/);
       expect(graph).toContain("mergeplanes=");
       expect(graph).toMatch(/,format=yuv420p\[out\]$/);
@@ -446,6 +444,15 @@ describe("watermarkGraph", () => {
       expect(rimLight(graph)).toBe(rimLight(glass));
       expect(lens(graph)).toBe(lens(glass));
     }
+  });
+
+  it("boosts the cores by the core gain given, else the tuned one", () => {
+    const coreLut = (graph: string) => /clip\(val\*([\d.e-]+),0,1\)/.exec(graph)?.[1];
+    const tuned = watermarkGraph(video, logo, { filter: "glass" });
+    expect(coreLut(tuned)).toBe((MARK.coreGain / 65535).toPrecision(6));
+    expect(
+      coreLut(watermarkGraph(video, logo, { filter: "glass", tuning: { coreGain: 20 } })),
+    ).toBe((20 / 65535).toPrecision(6));
   });
 
   it("renders the mark by default", () => {

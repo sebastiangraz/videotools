@@ -5,26 +5,30 @@ Browser video tools: seamless loops, image sequences to video, speed changes, fo
 Bun 1.4: package manager, script runner and the functions' runtime (`bunVersion` in `vercel.json`; keep `engines.node` out of `package.json`, it overrides that). The static linux ffmpeg (~164 MB) is over the Bun runtime's 150 MB function limit, so the project sets `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` (Production and Preview). Setup: `bun install`, `vercel link`, connect a Blob store in the Vercel dashboard (`BLOB_READ_WRITE_TOKEN` is the only env var), `vercel env pull .env.local`.
 
 ```bash
-bun install                  # deps + pinned ffmpeg/gifski (postinstall)
-bun add -g vercel            # Vercel CLI
-vercel link                  # link to the Vercel project (with a Blob store connected)
-vercel env pull .env.local   # BLOB_READ_WRITE_TOKEN
-bun run dev                  # vercel dev: client + api on one origin
+bun install                     # deps + pinned ffmpeg/gifski (postinstall)
+bun add -g vercel               # Vercel CLI
+vercel link                     # link to the Vercel project (with a Blob store connected)
+vercel env pull .env.local      # BLOB_READ_WRITE_TOKEN
+bun run dev                     # vercel dev: client + api on one origin
 
-bun run test                 # vitest (client tests + api unit tests)
-bun run lint                 # oxlint (type-aware on api/)
-bun run format               # oxfmt
-bun run typecheck            # api + client
-bun run smoke name           # run smoke test for name .smoke/name
-bun run smoke name quality   # run smoke test only for quality in .smoke/name/quality
-vercel --prod                # production deploy
+bun run test                    # vitest (client tests + api unit tests)
+bun run lint                    # oxlint (type-aware on api/)
+bun run format                  # oxfmt
+bun run typecheck               # api + client
+
+                                # bun run smoke <name> [mark[:glass,debug,depthmap]|light|quality]
+bun run smoke name              # run smoke test for name .smoke/name
+bun run smoke name quality      # run smoke test only for quality in .smoke/name/quality
+bun run smoke name mark:debug   # run debug view for mark smoke tests .smoke/name/mark/debug
+
+vercel --prod                   # production deploy
 
 git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
 Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the real tool handlers on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `vectors/`, and `videos/`, where each suite lists the clips it uses by file name). `mark` lays its videos out as cropped tiles of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the light-tracking clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip. `quality` runs each tool over its videos at quality 100 and scores each result's SSIM, PSNR and VMAF against a lossless render of the same pictures (or against its input where the tool copies), failing when any frame falls below the floors in `quality.mjs`; round trips are also scored against the source.
 
-Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size). Dev servers also serve a `/test` scratch page for the shared components.
+Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size, a core gain knob). Dev servers also serve a `/test` scratch page for the shared components.
 
 ## Architecture
 

@@ -146,10 +146,13 @@ export const SliderRotary = ({
       disabled={disabled}
       className={styles.slider}
     >
-      <BaseSlider.Label className={styles.label}>{label}</BaseSlider.Label>
+      <BaseSlider.Label className={styles.label} data-part="label">
+        {label}
+      </BaseSlider.Label>
       <div
         ref={dialRef}
         className={styles.dial}
+        data-part="dial"
         style={{ "--angle": `${(fill - 0.5) * SWEEP}deg`, "--size": size } as CSSProperties}
       >
         <svg className={styles.marks} aria-hidden="true">

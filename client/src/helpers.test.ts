@@ -58,6 +58,7 @@ describe("verboseName", () => {
     [{ position: "bottom-right" }, "pBottomRight"],
     [{ shuffle: true }, "sY"],
     [{ route: ["top", "left"] }, "rY"],
+    [{ tuning: { coreGain: 3 } }, "tY"],
   ])("writes %o as %s", (options, part) => {
     expect(verboseName("clip", [], options, "out.mp4")).toBe(`clip_${part}.mp4`);
   });

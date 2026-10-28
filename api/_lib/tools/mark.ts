@@ -5,21 +5,22 @@ import type { FFmpeg, MediaInfo, SourceProfile } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { encodeStill } from "../encode/still.js";
 import { sourceRender, videoPad, type Render } from "../encode/render.js";
-import { blobExt, clampInt, isBlobUrl } from "../request.js";
+import { blobExt, clamp, clampInt, isBlobUrl } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import {
+  MARK,
+  MARK_TUNING,
   isMarkFilter,
   isMarkPosition,
   isMarkSize,
   isMarkView,
-  parseBounds,
-  watermarkGraph,
-  type Bounds,
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
+  type MarkTuning,
   type MarkView,
-} from "./mark-graph.js";
+} from "./mark-config.js";
+import { parseBounds, watermarkGraph, type Bounds } from "./mark-graph.js";
 import { followLight } from "./mark-light.js";
 import type { Tool, ToolJob } from "./types.js";
 
@@ -39,6 +40,7 @@ type MarkLook = {
   position?: MarkPosition;
   view?: MarkView;
   route?: MarkPosition[];
+  tuning?: MarkTuning;
 };
 
 export function markLook(options: Record<string, unknown>): Required<Omit<MarkLook, "route">> {
@@ -47,6 +49,12 @@ export function markLook(options: Record<string, unknown>): Required<Omit<MarkLo
     size: isMarkSize(options.size) ? options.size : "medium",
     position: isMarkPosition(options.position) ? options.position : "bottom-right",
     view: isMarkView(options.view) ? options.view : "render",
+    tuning: Object.fromEntries(
+      Object.entries(MARK_TUNING).map(([key, [min, max]]) => [
+        key,
+        clamp(Object(options.tuning)[key], min, max, MARK[key as keyof MarkTuning]),
+      ]),
+    ),
   };
 }
 
@@ -106,6 +114,7 @@ export async function renderWatermarkFrame(
     size = "medium",
     position = "bottom-right",
     view = "render",
+    tuning,
   }: MarkLook & { frameFile: string; logoFile: string },
 ): Promise<string> {
   const { ff, workDir } = job;
@@ -115,6 +124,7 @@ export async function renderWatermarkFrame(
     size,
     position,
     view,
+    tuning,
   });
 
   const outputFile = path.join(workDir, "preview.jpg");
@@ -216,7 +226,7 @@ export const mark: Tool = {
   },
   async run(job) {
     const { workDir, inputs, options, download } = job;
-    const { filter, size, position, view } = markLook(options);
+    const { filter, size, position, view, tuning } = markLook(options);
     const route =
       Array.isArray(options.route) && options.route.every(isMarkPosition) ? options.route : [];
     const quality = clampInt(options.quality, 1, 100, 90);
@@ -238,6 +248,7 @@ export const mark: Tool = {
       position,
       view,
       route,
+      tuning,
     });
     const outputPath = still
       ? await encodeStill(job, render, { format: still, quality })

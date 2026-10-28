@@ -1,11 +1,11 @@
 // Mark's grids: every clip becomes one tile of a grid, cropped to a region up
 // to ZOOM_OUT× the tile's size, scaled down into it and looped to the grid's
 // length. That length is split into equal slots, each slot of each tile marked
-// by its own Mark run: each logo in turn, through each size in turn.
+// by its own Mark run: each logo in turn, through each look in turn.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { MARK_SIZES } from "../../api/_lib/tools/mark-graph.ts";
+import { MARK_SIZES } from "../../api/_lib/tools/mark-config.ts";
 
 const ZOOM_OUT = 2;
 const FPS = 30;
@@ -17,6 +17,13 @@ const SIZES = SCALES.map((scale) => {
   MARK_SIZES[size] = { ...MARK_SIZES.dev, scale, uncapped: true };
   return size;
 });
+const LOGO_SECONDS = 2;
+// Each grid's options per slot, one grid per subfolder; a logo's looks share its seconds.
+const MARK_LOOKS = {
+  glass: SIZES.map((size) => ({ size })),
+  debug: ["clear", "rim"].map((view) => ({ size: SIZES[0], view })),
+  depthmap: SIZES.map((size) => ({ size, view: "displacement" })),
+};
 const OPTIONS = { filter: "glass", position: "center", quality: 100 };
 const MARK_VIDEOS = [
   "abstract.mp4",
@@ -37,9 +44,18 @@ const LIGHT_VIDEOS = ["accel.mp4", "pair.mp4", "pulse.mp4", "sweep.mp4"];
 // Mark runs at once; each ffmpeg is multithreaded already.
 export const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
 
-export function markGrid({ assets, ...suite }) {
+export const MARK_GRIDS = Object.keys(MARK_LOOKS);
+
+export async function markGrid({ assets, outDir, parts = MARK_GRIDS, ...suite }) {
   const { videos, vectors } = assets;
-  return grid(suite, { name: "mark", videos: videos(MARK_VIDEOS), vectors, sizes: SIZES, slot: 1 });
+  for (const dir of parts) {
+    const looks = MARK_LOOKS[dir];
+    await grid(
+      { ...suite, outDir: path.join(outDir, dir) },
+      { name: "mark", videos: videos(MARK_VIDEOS), vectors, looks, slot: LOGO_SECONDS / looks.length },
+    );
+  }
+  return outDir;
 }
 
 export function lightGrid({ assets, ...suite }) {
@@ -48,7 +64,7 @@ export function lightGrid({ assets, ...suite }) {
     name: "light",
     videos: videos(LIGHT_VIDEOS),
     vectors: vectors.slice(0, 1),
-    sizes: ["dev"],
+    looks: [{ size: "dev" }],
   });
 }
 
@@ -103,7 +119,7 @@ export async function pool(items, limit, run) {
 // `slot` in seconds; without one, a single slot as long as the longest clip.
 async function grid(
   { ff, outDir, runTool, say, progress },
-  { name, videos, vectors, sizes, slot },
+  { name, videos, vectors, looks, slot },
 ) {
   if (!videos.length || !vectors.length) throw new Error("needs clips and vectors");
   const infos = await Promise.all(videos.map((file) => ff.mediaInfo(file)));
@@ -113,7 +129,7 @@ async function grid(
   };
   const { width, height, tiles } = gridTiles(videos.length, smallest);
   slot ??= Math.max(...infos.map((i) => i.duration));
-  const slots = vectors.length * sizes.length;
+  const slots = vectors.length * looks.length;
   const duration = slots * slot;
   say(
     `${name}: ${videos.length} videos × ${vectors.length} vectors → ${width}x${height} at up to ${ZOOM_OUT}× out, ${duration}s`,
@@ -169,15 +185,15 @@ async function grid(
       video,
       t,
       k,
-      vector: vectors[Math.floor(k / sizes.length)],
-      size: sizes[k % sizes.length],
+      vector: vectors[Math.floor(k / looks.length)],
+      look: looks[k % looks.length],
     })),
   );
-  const marked = await pool(runs, CONCURRENCY, async ({ video, t, k, vector, size }) => {
+  const marked = await pool(runs, CONCURRENCY, async ({ video, t, k, vector, look }) => {
     const part = path.join(tileDirs[t], `part${k}.mp4`);
     const workDir = path.join(tileDirs[t], String(k));
     try {
-      const { outputPath } = await runTool("mark", [part, vector], { ...OPTIONS, size }, workDir);
+      const { outputPath } = await runTool("mark", [part, vector], { ...OPTIONS, ...look }, workDir);
       tick();
       return outputPath;
     } catch (err) {

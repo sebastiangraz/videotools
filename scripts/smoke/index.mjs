@@ -7,24 +7,37 @@
 //
 //   bun run smoke before          every suite
 //   bun run smoke before mark     only these
+//   bun run smoke before mark:depthmap,glass   only these parts, the rest kept
 import fs from "node:fs";
 import path from "node:path";
 import { FFmpeg } from "../../api/_lib/ffmpeg.ts";
 import { TOOLS } from "../../api/_lib/tools/index.ts";
 import { binaryPath, root } from "../binaries.mjs";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
-import { lightGrid, markGrid } from "./mark.mjs";
+import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
 import { encodeLoss } from "./quality.mjs";
 
 const SUITES = { mark: markGrid, light: lightGrid, quality: encodeLoss };
+// Subfolders a suite can run on their own.
+const PARTS = { mark: MARK_GRIDS };
 
 const assetsDir = path.join(root, "scripts", "smoke", "assets");
 const smokeDir = path.join(root, ".smoke");
 
 const [label, ...names] = process.argv.slice(2);
-const unknown = names.filter((name) => !Object.hasOwn(SUITES, name));
+const runs = (names.length ? names : Object.keys(SUITES)).map((arg) => {
+  const [name, parts] = arg.split(":");
+  return { name, parts: parts?.split(",") };
+});
+const unknown = runs.filter(
+  ({ name, parts }) =>
+    !Object.hasOwn(SUITES, name) || parts?.some((part) => !PARTS[name]?.includes(part)),
+);
 if (!label || unknown.length) {
-  console.error(`usage: bun run smoke <name> [${Object.keys(SUITES).join("|")}...]`);
+  const suites = Object.keys(SUITES).map((name) =>
+    PARTS[name] ? `${name}[:${PARTS[name].join(",")}]` : name,
+  );
+  console.error(`usage: bun run smoke <name> [${suites.join("|")}...]`);
   process.exit(2);
 }
 
@@ -94,15 +107,17 @@ const progressFor = (name) => (total) => {
 };
 
 let failed = false;
-for (const name of names.length ? names : Object.keys(SUITES)) {
+for (const { name, parts } of runs) {
   const outDir = path.join(smokeDir, label, name);
-  fs.rmSync(outDir, { recursive: true, force: true });
+  for (const dir of parts?.map((part) => path.join(outDir, part)) ?? [outDir]) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
   fs.mkdirSync(outDir, { recursive: true });
   const started = Date.now();
   let result;
   try {
     const progress = progressFor(name);
-    const output = await SUITES[name]({ ff, assets, outDir, runTool, say, progress });
+    const output = await SUITES[name]({ ff, assets, outDir, parts, runTool, say, progress });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
     result = `${name}: ${path.relative(root, output)} (${seconds}s)`;
   } catch (err) {

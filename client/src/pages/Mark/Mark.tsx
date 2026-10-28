@@ -14,14 +14,15 @@ import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
 import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
 import {
+  MARK,
   MARK_POSITIONS,
-  shuffleRoute,
-  useMarkPreview,
+  MARK_TUNING,
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
   type MarkView,
-} from "./useMarkPreview";
+} from "@api/tools/mark-config";
+import { shuffleRoute, useMarkPreview, type MarkTuning } from "./useMarkPreview";
 import form from "@src/form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
@@ -56,6 +57,17 @@ const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   { value: "rim", label: "Rim only" },
 ];
 
+const TUNED: MarkTuning = { coreGain: MARK.coreGain, thinRefract: MARK.thinRefract };
+const TUNING_KNOBS = (
+  [
+    { key: "coreGain", label: "Core gain", step: 1 },
+    { key: "thinRefract", label: "Thin refract", step: 0.01 },
+  ] as const
+).map(({ key, ...knob }) => {
+  const [min, max] = MARK_TUNING[key];
+  return { key, ...knob, min, max };
+});
+
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
@@ -72,6 +84,9 @@ export const Mark = () => {
   const [debugView, setDebugView] = useState<MarkView>("render");
   const [devSize, setDevSize] = useState(false);
   const size: MarkSize = debug && devSize ? "dev" : pickedSize;
+  const [tuning, setTuning] = useState(TUNED);
+  const setTuneValue = (key: keyof MarkTuning, value: number) =>
+    setTuning((tuned) => ({ ...tuned, [key]: value }));
   const pickSize = (picked: MarkSize) => {
     if (picked === "dev") return;
     setPickedSize(picked);
@@ -89,6 +104,7 @@ export const Mark = () => {
     position,
     route,
     debug ? debugView : "render",
+    debug ? tuning : TUNED,
   );
   const previewRef = useRef<HTMLDivElement | null>(null);
 
@@ -123,7 +139,14 @@ export const Mark = () => {
       payload: ({ blobUrls, extraUrls }) => ({
         blobUrl: blobUrls[0],
         watermarkUrl: extraUrls[0],
-        options: { filter: filterMode, size, position, route, quality },
+        options: {
+          filter: filterMode,
+          size,
+          position,
+          route,
+          quality,
+          tuning: debug ? tuning : null,
+        },
       }),
       onDone: () => route && setShuffle(shuffleRoute(position)),
     });
@@ -262,6 +285,22 @@ export const Mark = () => {
               <label htmlFor="markDebug-devSize" className={form.label}>
                 Dev size
               </label>
+            </div>
+            <div className={styles.rotaryRow}>
+              {TUNING_KNOBS.map(({ key, label, ...range }) => (
+                <div key={key} onDoubleClick={() => setTuneValue(key, TUNED[key])}>
+                  <SliderRotary
+                    label={`${label} ${tuning[key]}`}
+                    value={tuning[key]}
+                    onValueChange={(value) => setTuneValue(key, value)}
+                    {...range}
+                    disabled={false}
+                    showArc={false}
+                    pipCount={0}
+                    wheelSteps={Math.round(range.max / range.step)}
+                  />
+                </div>
+              ))}
             </div>
           </Popover>
         </>

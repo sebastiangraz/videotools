@@ -16,6 +16,7 @@ type PreviewBody = {
   size?: unknown;
   position?: unknown;
   view?: unknown;
+  tuning?: unknown;
 };
 
 function decodeDataUrl(value: unknown): Uint8Array | null {

@@ -202,6 +202,26 @@
     padding: 0 1rem;
     min-height: 2rem;
   }
+  .rotaryRow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    & > * > * {
+      flex-direction: row;
+      gap: 0.5em;
+      & > [data-part="label"] {
+        contain: unset;
+        flex-shrink: 0;
+      }
+      & > [data-part="dial"] {
+        --size: 2.25rem;
+        --ring: calc(50% + 0.35rem);
+        flex-shrink: 0;
+        order: -1;
+      }
+    }
+  }
 }
 
 .markPlace {
