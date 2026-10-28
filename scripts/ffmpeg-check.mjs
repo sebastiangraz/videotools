@@ -65,7 +65,7 @@ const NEEDS = {
   ],
 };
 
-// `ffmpeg -version`'s first line, e.g. "ffmpeg version n8.1.3-20260922 …".
+// `ffmpeg -version`'s first line, e.g. "ffmpeg version n9.0.2-20260919 …".
 function ffmpegVersion(ffmpeg) {
   const r = spawnSync(ffmpeg, ["-hide_banner", "-version"], {
     encoding: "utf8",
@@ -80,7 +80,7 @@ export function requireFfmpeg(ffmpeg, { pinned }) {
   const problems = [];
   const found = ffmpegVersion(ffmpeg);
   const { version } = BINARIES.ffmpeg;
-  // BtbN builds say "n8.1.3-20260922", a branch head "n9.0.2-3-ga5923073bf-…".
+  // BtbN builds say "n9.0.2-20260919", a branch head "n9.0.2-3-ga5923073bf-…".
   const bare = found.replace(/^n/, "");
   if (pinned && !(bare === version || bare.startsWith(`${version}-`))) {
     problems.push(`version ${found}, BINARIES pins ${version}`);
