@@ -50,33 +50,36 @@ export const EngineSetup = () => {
     <section className={styles.panel} aria-label="Engine setup">
       {isSafari ? (
         <p>
-          Videos are processed on your computer by the videotools engine, which Safari can't reach.
-          Open this page in Chrome, Edge or Firefox.
+          Your videos are processed locally. Safari is not supported yet. Use Chrome or Firefox.
         </p>
       ) : isWindows ? (
         <>
           <p>
             {state === "outdated"
-              ? "Your videotools engine is out of date. Download it again and open it."
-              : "Videos are processed on your computer by the videotools engine. Download it and open it once; it starts with Windows from then on."}
+              ? "The helper is out of date. Download it again."
+              : "Your videos are processed locally. Run the one-time helper to get started."}
           </p>
-          <a className={styles.download} href={DOWNLOAD}>
-            Download the videotools engine
-          </a>
-          <p className={form.label}>
-            If Windows says it protected your PC, choose More info, then Run anyway. If the browser
-            asks to access apps on this device, allow it.
-          </p>
+          <div className={styles.downloadContainer}>
+            <a className={styles.download} href={DOWNLOAD}>
+              Download
+            </a>
+            <p className={form.label}>
+              May become blocked by Windows, click Run Anyway to proceed.{" "}
+              <a href="https://www.howtogeek.com/721722/how-to-run-a-program-on-windows-11-that-has-been-blocked-by-windows-smart-screen/">
+                Learn more
+              </a>
+            </p>
+          </div>
         </>
       ) : (
         <>
           <p>
             {state === "outdated"
-              ? "Your videotools engine is out of date. Run the install command again:"
-              : "Videos are processed on your computer by the videotools engine. Install it once and keep it running:"}
+              ? "The helper is out of date. Run the install command again:"
+              : "Your videos are processed locally. Run the one-time helper to get started."}
           </p>
           <code className={styles.command}>{INSTALL}</code>
-          <p className={form.label}>If the browser asks to access apps on this device, allow it.</p>
+          <p className={form.label}>If prompted, allow access to apps on this device.</p>
         </>
       )}
     </section>

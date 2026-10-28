@@ -1,27 +1,41 @@
 .panel {
+  composes: input from global;
   display: flex;
   flex-direction: column;
-  gap: 0.75em;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  /* border-radius: calc(var(--radius) * 2); */
+  margin-inline: 1rem;
   padding: 1rem;
   font-size: var(--font-md);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
+  line-height: 1.5;
+  text-wrap: balance;
+  text-transform: none;
 
   p {
+    cursor: default;
+    max-width: 40ch;
+    letter-spacing: 0.02em;
     margin: 0;
   }
 }
 
+.downloadContainer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
 .download {
   align-self: start;
-  padding: 0.75em 1.5em;
+  padding: 1.25em 1.5em;
+  white-space: nowrap;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--fg);
   color: var(--bg);
   text-decoration: none;
+  text-transform: uppercase;
 }
 
 .command {
