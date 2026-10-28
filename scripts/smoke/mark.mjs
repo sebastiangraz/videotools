@@ -12,7 +12,8 @@ const FPS = 30;
 const MAX_CANVAS = { width: 1920, height: 1200 };
 
 const SCALES = [6, 3];
-// Each grid's options per slot, one grid per subfolder.
+const LOGO_SECONDS = 2;
+// Each grid's options per slot, one grid per subfolder; a logo's looks share its seconds.
 const MARK_LOOKS = {
   glass: SCALES.map((scale) => {
     const size = `smoke${scale}`;
@@ -20,6 +21,7 @@ const MARK_LOOKS = {
     return { size };
   }),
   debug: ["clear", "rim"].map((view) => ({ size: `smoke${SCALES[0]}`, view })),
+  depthmap: [{ size: `smoke${SCALES[0]}`, view: "displacement" }],
 };
 const OPTIONS = { filter: "glass", position: "center", quality: 100 };
 const MARK_VIDEOS = [
@@ -46,7 +48,7 @@ export async function markGrid({ assets, outDir, ...suite }) {
   for (const [dir, looks] of Object.entries(MARK_LOOKS)) {
     await grid(
       { ...suite, outDir: path.join(outDir, dir) },
-      { name: "mark", videos: videos(MARK_VIDEOS), vectors, looks, slot: 1 },
+      { name: "mark", videos: videos(MARK_VIDEOS), vectors, looks, slot: LOGO_SECONDS / looks.length },
     );
   }
   return outDir;
