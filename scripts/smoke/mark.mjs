@@ -12,16 +12,17 @@ const FPS = 30;
 const MAX_CANVAS = { width: 1920, height: 1200 };
 
 const SCALES = [6, 3];
+const SIZES = SCALES.map((scale) => {
+  const size = `smoke${scale}`;
+  MARK_SIZES[size] = { ...MARK_SIZES.dev, scale, uncapped: true };
+  return size;
+});
 const LOGO_SECONDS = 2;
 // Each grid's options per slot, one grid per subfolder; a logo's looks share its seconds.
 const MARK_LOOKS = {
-  glass: SCALES.map((scale) => {
-    const size = `smoke${scale}`;
-    MARK_SIZES[size] = { ...MARK_SIZES.dev, scale, uncapped: true };
-    return { size };
-  }),
-  debug: ["clear", "rim"].map((view) => ({ size: `smoke${SCALES[0]}`, view })),
-  depthmap: [{ size: `smoke${SCALES[0]}`, view: "displacement" }],
+  glass: SIZES.map((size) => ({ size })),
+  debug: ["clear", "rim"].map((view) => ({ size: SIZES[0], view })),
+  depthmap: SIZES.map((size) => ({ size, view: "displacement" })),
 };
 const OPTIONS = { filter: "glass", position: "center", quality: 100 };
 const MARK_VIDEOS = [
@@ -43,9 +44,12 @@ const LIGHT_VIDEOS = ["accel.mp4", "pair.mp4", "pulse.mp4", "sweep.mp4"];
 // Mark runs at once; each ffmpeg is multithreaded already.
 export const CONCURRENCY = Math.max(1, Math.floor(os.availableParallelism() / 4));
 
-export async function markGrid({ assets, outDir, ...suite }) {
+export const MARK_GRIDS = Object.keys(MARK_LOOKS);
+
+export async function markGrid({ assets, outDir, parts = MARK_GRIDS, ...suite }) {
   const { videos, vectors } = assets;
-  for (const [dir, looks] of Object.entries(MARK_LOOKS)) {
+  for (const dir of parts) {
+    const looks = MARK_LOOKS[dir];
     await grid(
       { ...suite, outDir: path.join(outDir, dir) },
       { name: "mark", videos: videos(MARK_VIDEOS), vectors, looks, slot: LOGO_SECONDS / looks.length },
