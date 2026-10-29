@@ -28,7 +28,7 @@ export const stubProcessFetch = () => {
   const fetchMock: FetchMock = vi.fn(async (input, init) => {
     if (isUpload(input, init)) return new Response(null, { status: 204 });
     if (input === engineUrl("/process") && init?.method === "POST") {
-      return new Response(new Blob(["result"]), { headers: { "X-Filename": "out.mp4" } });
+      return new Response("result", { headers: { "X-Filename": "out.mp4" } });
     }
     throw unexpectedFetch(input);
   });

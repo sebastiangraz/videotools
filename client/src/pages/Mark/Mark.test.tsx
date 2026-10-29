@@ -31,10 +31,13 @@ const pickSource = (user: User, picked: File) =>
 const pickLogo = (user: User, picked = file("logo.png", "image/png")) =>
   user.upload(screen.getByLabelText(/choose watermark/i), picked);
 
+// A string body: Node's Response can't stream jsdom's Blob.
+const JPEG = { headers: { "Content-Type": "image/jpeg" } };
+
 const stubPreviewFetch = () => {
   const fetchMock: FetchMock = vi.fn(async (input, init) => {
     if (input === engineUrl("/preview") && init?.method === "POST") {
-      return new Response(new Blob(["jpg"], { type: "image/jpeg" }));
+      return new Response("jpg", JPEG);
     }
     throw unexpectedFetch(input);
   });
@@ -323,7 +326,7 @@ describe("Mark", () => {
       vi.fn(async (input: RequestInfo | URL) => {
         if (input !== engineUrl("/preview")) throw unexpectedFetch(input);
         return new Promise<Response>((resolve) =>
-          answers.push(() => resolve(new Response(new Blob(["jpg"], { type: "image/jpeg" })))),
+          answers.push(() => resolve(new Response("jpg", JPEG))),
         );
       }),
     );

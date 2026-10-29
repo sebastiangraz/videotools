@@ -11,7 +11,8 @@ export const toList = <T>(value: T | T[] | null): T[] =>
 // This repo, at the commit this deployment was built from (on Vercel) or the
 // branch tip (locally), so links show the code the visitor is running.
 export const REPO = "sebastiangraz/videotools";
-export const REF = __GIT_SHA__ || "main";
+// typeof: outside Vite (the smoke runs import this) nothing defines it.
+export const REF = (typeof __GIT_SHA__ === "string" && __GIT_SHA__) || "main";
 
 // "README.md#the-engine" → that file on GitHub, at REF.
 export const repoFile = (path: string) => `https://github.com/${REPO}/blob/${REF}/${path}`;
