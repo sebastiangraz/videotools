@@ -2,14 +2,14 @@
 // WebAssembly ffmpeg and gifski (exec.ts) instead of native binaries.
 import { InputError } from "@api/errors";
 import { FFmpeg } from "@api/ffmpeg";
-import { STILLS, formatById, type FormatId, type ToolId } from "@api/formats";
+import { resultFile, type ToolId } from "@api/formats";
 import { TOOLS } from "@api/tools/index";
 import { markLook, renderWatermarkFrame } from "@api/tools/mark";
-import { exec, modules } from "./exec";
+import { exec, ROOT as workDir } from "./exec";
 import fs from "./fs";
 import path from "./path";
 
-// What /api/process and /api/preview take, with the uploads as files.
+// What /api/process takes, with the uploads as files, or a Mark preview.
 export type EngineRequest =
   | {
       tool: ToolId;
@@ -21,14 +21,11 @@ export type EngineRequest =
 
 type EngineJob = EngineRequest & { modules: Record<string, WebAssembly.Module> };
 
-export type EngineResult = { file: File } | { error: string; code?: string };
-
-const workDir = "/work";
+export type EngineResult = { file: File } | { error: string };
 
 async function run(job: EngineJob): Promise<File> {
-  Object.assign(modules, job.modules);
   await fs.mkdir(workDir);
-  const ff = new FFmpeg("ffmpeg", "gifski", exec);
+  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules));
   const write = async (file: string, blob: Blob) =>
     fs.writeFile(file, new Uint8Array(await blob.arrayBuffer()));
 
@@ -57,21 +54,17 @@ async function run(job: EngineJob): Promise<File> {
     options: body.options,
     download: (url, destPath) => write(destPath, uploads[url]),
   });
-  const base = filename.replace(/\.[^.]+$/, "").replace(/[^\w.-]/g, "_");
-  const type = (STILLS.find((s) => s.id === ext) ?? formatById(ext as FormatId)).mime;
-  return new File([await fs.readFile(outputPath)], `${base}_${suffix}.${ext}`, { type });
+  const { name, mime } = resultFile(filename, suffix, ext);
+  return new File([await fs.readFile(outputPath)], name, { type: mime });
 }
 
 self.onmessage = async ({ data }: MessageEvent<EngineJob>) => {
-  let result: EngineResult;
   try {
-    result = { file: await run(data) };
+    postMessage({ file: await run(data) } satisfies EngineResult);
   } catch (err) {
     console.error(err);
-    result =
-      err instanceof InputError
-        ? { error: err.message, code: err.code }
-        : { error: "Processing failed" };
+    postMessage({
+      error: err instanceof InputError ? err.message : "Processing failed",
+    } satisfies EngineResult);
   }
-  postMessage(result);
 };

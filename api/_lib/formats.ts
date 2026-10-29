@@ -90,3 +90,10 @@ export const STILLS: readonly Still[] = [
   { id: "jpg", label: "JPEG", extensions: ["jpg", "jpeg"], mime: "image/jpeg" },
   { id: "webp", label: "WebP", extensions: ["webp"], mime: "image/webp" },
 ];
+
+// A result's download name, `<source name>_<suffix>.<ext>`, and its type.
+export function resultFile(source: string, suffix: string, ext: FormatId | StillId) {
+  const base = source.replace(/\.[^.]+$/, "").replace(/[^\w.-]/g, "_");
+  const mime = (STILLS.find((s) => s.id === ext) ?? formatById(ext as FormatId)).mime;
+  return { name: `${base}_${suffix}.${ext}`, mime };
+}

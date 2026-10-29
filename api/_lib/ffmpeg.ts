@@ -312,14 +312,10 @@ export class FFmpeg {
       console.log(`Working directory: ${options.cwd}`);
     }
     const signal = this.signal ?? undefined;
-    const cancelled = () => new Error("Cancelled");
-    try {
-      const result = await this.exec(command, args, { ...options, signal });
-      if (signal?.aborted) throw cancelled();
-      return result;
-    } catch (error) {
-      if (signal?.aborted) throw cancelled();
-      throw error;
-    }
+    const running = this.exec(command, args, { ...options, signal });
+    // Ended or failed, a cancelled run is "Cancelled".
+    await running.catch(() => {});
+    if (signal?.aborted) throw new Error("Cancelled");
+    return running;
   }
 }

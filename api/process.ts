@@ -5,7 +5,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 
-import { STILLS, formatById, isToolId, type FormatId } from "./_lib/formats.js";
+import { isToolId, resultFile } from "./_lib/formats.js";
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
@@ -56,10 +56,6 @@ export default {
       return reject(inputBlobUrls.error);
     }
 
-    const base = String(filename)
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^\w.-]/g, "_");
-
     const response = await runJob(request, "Processing", async (workDir, signal) => {
       const { outputPath, suffix, ext } = await run({
         ff: new FFmpeg(ffmpegPath, gifskiPath, execBinary, signal),
@@ -68,11 +64,11 @@ export default {
         options,
         download: (url, destPath) => downloadBlob(url, destPath, signal),
       });
-      const outputName = `${base}_${suffix}.${ext}`;
+      const { name: outputName, mime } = resultFile(String(filename), suffix, ext);
 
       const result = await put(`results/${outputName}`, fs.createReadStream(outputPath), {
         access: "public",
-        contentType: (STILLS.find((s) => s.id === ext) ?? formatById(ext as FormatId)).mime,
+        contentType: mime,
         addRandomSuffix: true,
         abortSignal: signal,
       });

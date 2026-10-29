@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
+import { svgToPng } from "../svg.js";
 import type { FFmpeg, MediaInfo, SourceProfile } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { encodeStill } from "../encode/still.js";
@@ -179,14 +180,9 @@ async function rasterizeSvg(
   const { min, max, fallback } = SVG_SIDE;
   const side = clampInt(Math.max(frame.width, frame.height), min, max, fallback);
   const pngFile = path.join(path.dirname(svgFile), "logo-svg.png");
-  // Loaded on first use, so importing mark doesn't load the WebAssembly.
-  const { svgToPng } = await import("../svg.js");
-  let png: Uint8Array;
-  try {
-    png = await svgToPng(await fs.readFile(svgFile), side);
-  } catch {
+  const png = await svgToPng(await fs.readFile(svgFile), side).catch(() => {
     throw new InputError("Watermark SVG could not be rendered", "invalid-watermark");
-  }
+  });
   await fs.writeFile(pngFile, png);
   return pngFile;
 }

@@ -4,18 +4,15 @@
 import path from "./path";
 
 export const files = new Map<string, Uint8Array<ArrayBuffer>>();
-export const dirs = new Set<string>(["/"]);
-
-const missing = (file: string) =>
-  Object.assign(new Error(`ENOENT: no such file, '${file}'`), { code: "ENOENT" });
+export const dirs = new Set<string>();
 
 const read = (file: string): Uint8Array<ArrayBuffer> => {
   const data = files.get(file);
-  if (!data) throw missing(file);
+  if (!data) {
+    throw Object.assign(new Error(`ENOENT: no such file, '${file}'`), { code: "ENOENT" });
+  }
   return data;
 };
-
-const under = (dir: string) => (file: string) => file.startsWith(`${dir}/`);
 
 export default {
   async mkdir(dir: string) {
@@ -42,11 +39,14 @@ export default {
       .filter((entry) => entry !== dir && path.dirname(entry) === dir)
       .map(path.basename);
   },
-  async rm(target: string, { force = false } = {}) {
-    const found = files.delete(target) || dirs.delete(target);
-    for (const entry of [...files.keys()].filter(under(target))) files.delete(entry);
-    for (const entry of [...dirs].filter(under(target))) dirs.delete(entry);
-    if (!found && !force) throw missing(target);
+  // Every caller forces, so a missing target is fine.
+  async rm(target: string) {
+    for (const entry of [...files.keys(), ...dirs]) {
+      if (entry === target || entry.startsWith(`${target}/`)) {
+        files.delete(entry);
+        dirs.delete(entry);
+      }
+    }
   },
   async open(file: string) {
     const data = read(file);

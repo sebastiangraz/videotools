@@ -24,11 +24,6 @@
       "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**,node_modules/@resvg/resvg-wasm/index_bg.wasm}",
       "supportsCancellation": true
     },
-    "api/preview.ts": {
-      "maxDuration": 60,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**,node_modules/@resvg/resvg-wasm/index_bg.wasm}",
-      "supportsCancellation": true
-    },
     "api/upload.ts": {
       "maxDuration": 30
     }
