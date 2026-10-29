@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
-import { timeAgo } from "@src/helpers";
+import { REF, REPO, timeAgo } from "@src/helpers";
 import styles from "./VersionLabel.module.css";
 
-const REPO = "sebastiangraz/videotools";
-// On Vercel the label is pinned to the commit this deployment was built from;
-// locally there is no build SHA, so it tracks the branch tip instead
-const REF = __GIT_SHA__ || "main";
 const CACHE_KEY = `version-label-${REF}`;
 const CACHE_TTL = 5 * 60 * 1000;
 

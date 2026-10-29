@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ENGINE } from "@api/formats";
-import { engineFetch } from "@src/helpers";
+import { engineFetch, repoFile, repoRaw, repoRelease } from "@src/helpers";
 import form from "@src/form.module.css";
 import styles from "./EngineSetup.module.css";
 
@@ -14,12 +14,11 @@ const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.use
 const isWindows = navigator.userAgent.includes("Windows");
 
 // Opened once, the engine installs itself (api/_lib/serve.ts).
-const DOWNLOAD =
-  "https://github.com/sebastiangraz/videotools/releases/download/engine/videotools-engine-win32-x64.exe";
+const DOWNLOAD = repoRelease("engine", "videotools-engine-win32-x64.exe");
 
-// From GitHub at the commit this deployment was built from, so the script
-// matches the site; a protected preview would answer with its login page.
-const INSTALL = `curl -fsSL https://raw.githubusercontent.com/sebastiangraz/videotools/${__GIT_SHA__ || "main"}/scripts/install.sh | sh`;
+// From GitHub rather than this deployment: a protected preview would answer
+// with its login page.
+const INSTALL = `curl -fsSL ${repoRaw("scripts/install.sh")} | sh`;
 
 // Jobs run in the engine on the visitor's machine; until it answers, this
 // says how to get it, and keeps asking.
@@ -65,7 +64,7 @@ export const EngineSetup = () => {
             </a>
             <p className={form.label}>
               May become blocked by Windows, click Run Anyway to proceed.{" "}
-              <a href="https://www.howtogeek.com/721722/how-to-run-a-program-on-windows-11-that-has-been-blocked-by-windows-smart-screen/">
+              <a href={repoFile("README.md#the-engine")} target="_blank" rel="noreferrer">
                 Learn more
               </a>
             </p>

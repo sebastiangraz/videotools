@@ -8,6 +8,17 @@ export const cx = (...names: (string | false | null | undefined)[]): string =>
 export const toList = <T>(value: T | T[] | null): T[] =>
   value === null ? [] : Array.isArray(value) ? value : [value];
 
+// This repo, at the commit this deployment was built from (on Vercel) or the
+// branch tip (locally), so links show the code the visitor is running.
+export const REPO = "sebastiangraz/videotools";
+export const REF = __GIT_SHA__ || "main";
+
+// "README.md#the-engine" → that file on GitHub, at REF.
+export const repoFile = (path: string) => `https://github.com/${REPO}/blob/${REF}/${path}`;
+export const repoRaw = (path: string) => `https://raw.githubusercontent.com/${REPO}/${REF}/${path}`;
+export const repoRelease = (tag: string, file: string) =>
+  `https://github.com/${REPO}/releases/download/${tag}/${file}`;
+
 // The engine on the visitor's machine (api/_lib/serve.ts). `targetAddressSpace`
 // lets a public page reach loopback once the visitor allows it (Chrome asks).
 export const ENGINE_URL = `http://127.0.0.1:${ENGINE.port}`;
