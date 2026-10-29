@@ -1,12 +1,8 @@
-import { useEffect, useState } from "react";
 import { ENGINE } from "@api/formats";
-import { engineFetch, repoFile, repoRaw, repoRelease } from "@src/helpers";
+import { repoFile, repoRaw, repoRelease } from "@src/helpers";
+import type { Health } from "@src/hooks/useEngine";
 import form from "@src/form.module.css";
 import styles from "./EngineSetup.module.css";
-
-type State = "checking" | "ready" | "missing" | "outdated";
-
-const RETRY_MS = 2000;
 
 // Safari never lets an https page reach loopback.
 const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -21,30 +17,10 @@ const DOWNLOAD = repoRelease("engine", "videotools-engine-win32-x64.exe");
 const INSTALL = `curl -fsSL ${repoRaw("scripts/install.sh")} | sh`;
 
 // Jobs run in the engine on the visitor's machine; until it answers, this
-// says how to get it, and keeps asking.
-export const EngineSetup = () => {
-  const [state, setState] = useState<State>("checking");
-
-  useEffect(() => {
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const probe = async () => {
-      const health = await engineFetch("/health")
-        .then((res) => res.json())
-        .catch(() => null);
-      if (!live) return;
-      const next = !health ? "missing" : health.version === ENGINE.version ? "ready" : "outdated";
-      setState(next);
-      if (next !== "ready") timer = setTimeout(probe, RETRY_MS);
-    };
-    void probe();
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, []);
-
-  if (state === "checking" || state === "ready") return null;
+// says how to get it.
+export const EngineSetup = ({ health }: { health: Health }) => {
+  if (health === undefined || health?.version === ENGINE.version) return null;
+  const outdated = health !== null;
   return (
     <section className={styles.panel} aria-label="Engine setup">
       {isSafari ? (
@@ -54,7 +30,7 @@ export const EngineSetup = () => {
       ) : isWindows ? (
         <>
           <p>
-            {state === "outdated"
+            {outdated
               ? "The helper is out of date. Download it again."
               : "Your videos are processed locally. Run the one-time helper to get started."}
           </p>
@@ -73,7 +49,7 @@ export const EngineSetup = () => {
       ) : (
         <>
           <p>
-            {state === "outdated"
+            {outdated
               ? "The helper is out of date. Run the install command again:"
               : "Your videos are processed locally. Run the one-time helper to get started."}
           </p>

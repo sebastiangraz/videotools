@@ -8,6 +8,7 @@ import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
 import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
+import { useEngine } from "./hooks/useEngine";
 import { VerboseNames } from "./hooks/useToolRun";
 import { cx } from "./helpers";
 import form from "./form.module.css";
@@ -53,6 +54,7 @@ export const Layout = () => {
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   const debug = useDebugMode();
+  const engine = useEngine();
   const [settings, setSettings] = useState<typeof DEFAULT_SETTINGS>(() => ({
     ...DEFAULT_SETTINGS,
     ...JSON.parse(localStorage.getItem("settings") ?? "{}"),
@@ -147,10 +149,23 @@ export const Layout = () => {
                 size="small"
               />
             </div>
+            <div className={styles.settingsRow}>
+              <span className={form.label}>Helper</span>
+              {engine.health ? (
+                <div className={styles.helper}>
+                  <span className={form.label}>Version {engine.health.version}</span>
+                  <button type="button" className={styles.uninstall} onClick={engine.uninstall}>
+                    Uninstall
+                  </button>
+                </div>
+              ) : (
+                <span className={form.label}>Not installed</span>
+              )}
+            </div>
           </Popover>
         </Tabs>
         <main className={styles.main}>
-          <EngineSetup />
+          <EngineSetup health={engine.health} />
           <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>

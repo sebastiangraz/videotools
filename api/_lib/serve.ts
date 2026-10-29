@@ -34,12 +34,17 @@ const route = (request: Request): Promise<Response> | Response => {
   if (upload && request.method === "PUT") return receive(request, upload[1]);
   if (pathname === "/process") return processing.fetch(request);
   if (pathname === "/preview") return preview.fetch(request);
+  if (pathname === "/uninstall" && request.method === "POST") return moveOut();
   return errorResponse("Not found", 404);
 };
 
 // The installed engine. One opened from anywhere else (the download) takes
 // the running engine's place there, so the site only has to offer a file.
 const HOME = path.join(os.homedir(), ".videotools");
+const RUN = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+const RUN_VALUE = "videotools engine";
+const LABEL = "io.graz.videotools-engine";
+const PLIST = path.join(os.homedir(), "Library", "LaunchAgents", `${LABEL}.plist`);
 
 async function moveIn(): Promise<void> {
   const exe = path.join(HOME, `videotools-engine${process.platform === "win32" ? ".exe" : ""}`);
@@ -63,21 +68,15 @@ async function moveIn(): Promise<void> {
   }
 
   if (process.platform === "darwin") {
-    const plist = path.join(
-      os.homedir(),
-      "Library",
-      "LaunchAgents",
-      "io.graz.videotools-engine.plist",
-    );
     const log = path.join(HOME, "engine.log");
-    await fsp.mkdir(path.dirname(plist), { recursive: true });
+    await fsp.mkdir(path.dirname(PLIST), { recursive: true });
     await fsp.writeFile(
-      plist,
+      PLIST,
       `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>io.graz.videotools-engine</string>
+  <key>Label</key><string>${LABEL}</string>
   <key>ProgramArguments</key><array><string>${exe}</string></array>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>${log}</string>
@@ -87,16 +86,42 @@ async function moveIn(): Promise<void> {
 `,
     );
     const domain = `gui/${process.getuid?.()}`;
-    Bun.spawnSync(["launchctl", "bootout", domain, plist]);
-    Bun.spawnSync(["launchctl", "bootstrap", domain, plist]);
+    Bun.spawnSync(["launchctl", "bootout", domain, PLIST]);
+    Bun.spawnSync(["launchctl", "bootstrap", domain, PLIST]);
     return;
   }
   if (process.platform === "win32") {
-    const run = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-    Bun.spawnSync(["reg", "add", run, "/v", "videotools engine", "/d", `"${exe}"`, "/f"]);
+    Bun.spawnSync(["reg", "add", RUN, "/v", RUN_VALUE, "/d", `"${exe}"`, "/f"]);
   }
   // Linux has no start at login.
   spawn(exe, { detached: true, stdio: "ignore" }).unref();
+}
+
+// POST /uninstall: undoes moveIn and empties the temp folder, answers, then
+// quits. It stops listening first, so the site's next /health finds nothing.
+async function moveOut(): Promise<Response> {
+  await fsp.rm(UPLOADS, { recursive: true, force: true });
+  await fsp.rm(PLIST, { force: true });
+  if (process.platform === "win32") {
+    Bun.spawnSync(["reg", "delete", RUN, "/v", RUN_VALUE, "/f"]);
+    // A running exe can't be deleted, so a hidden cmd does it once this one has quit.
+    spawn("cmd", ["/c", `ping -n 3 127.0.0.1 >nul & rmdir /s /q "${HOME}"`], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+      windowsVerbatimArguments: true,
+    }).unref();
+  } else {
+    await fsp.rm(HOME, { recursive: true, force: true });
+  }
+  void server.stop().then(() => {
+    // Ends this process too when launchd started it.
+    if (process.platform === "darwin") {
+      Bun.spawnSync(["launchctl", "bootout", `gui/${process.getuid?.()}/${LABEL}`]);
+    }
+    process.exit(0);
+  });
+  return new Response(null, { status: 204 });
 }
 
 if (compiled && path.dirname(process.execPath) !== HOME) {
@@ -110,7 +135,7 @@ await install("gifski");
 await fsp.rm(UPLOADS, { recursive: true, force: true });
 await fsp.mkdir(UPLOADS, { recursive: true });
 
-Bun.serve({
+const server = Bun.serve({
   hostname: "127.0.0.1",
   port: ENGINE.port,
   // Uploads are whole videos, and a job sends nothing until it is done.

@@ -191,6 +191,31 @@
   }
 }
 
+.helper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.uninstall {
+  composes: input from global;
+  min-height: 1.5rem;
+  padding: 0 1em;
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--fg-tertiary);
+  cursor: pointer;
+  transition: color 150ms ease;
+  &:hover {
+    color: var(--fg);
+  }
+  &:focus-visible {
+    outline: 1px solid var(--border);
+    outline-offset: 3px;
+  }
+}
+
 /* Mask on open settings */
 @property --settings-mask {
   syntax: "<number>";
