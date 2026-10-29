@@ -85,6 +85,8 @@ async function moveIn(): Promise<void> {
 </plist>
 `,
     );
+    // The copy keeps the download's quarantine mark, which would stop launchd starting it.
+    Bun.spawnSync(["xattr", "-d", "com.apple.quarantine", exe]);
     const domain = `gui/${process.getuid?.()}`;
     Bun.spawnSync(["launchctl", "bootout", domain, PLIST]);
     Bun.spawnSync(["launchctl", "bootstrap", domain, PLIST]);

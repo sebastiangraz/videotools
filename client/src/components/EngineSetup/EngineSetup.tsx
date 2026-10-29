@@ -8,9 +8,13 @@ import styles from "./EngineSetup.module.css";
 const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
 const isWindows = navigator.userAgent.includes("Windows");
+const isMac = navigator.userAgent.includes("Macintosh");
 
 // Opened once, the engine installs itself (api/_lib/serve.ts).
-const DOWNLOAD = repoRelease("engine", "videotools-engine-win32-x64.exe");
+const DOWNLOAD = repoRelease(
+  "engine",
+  isWindows ? "videotools-engine-win32-x64.exe" : "videotools-engine-darwin.zip",
+);
 
 // From GitHub rather than this deployment: a protected preview would answer
 // with its login page.
@@ -27,7 +31,7 @@ export const EngineSetup = ({ health }: { health: Health }) => {
         <p>
           Your videos are processed locally. Safari is not supported yet. Use Chrome or Firefox.
         </p>
-      ) : isWindows ? (
+      ) : isWindows || isMac ? (
         <>
           <p>
             {outdated
@@ -39,7 +43,9 @@ export const EngineSetup = ({ health }: { health: Health }) => {
               Download
             </a>
             <p className={form.label}>
-              May become blocked by Windows, click Run Anyway to proceed.{" "}
+              {isWindows
+                ? "May become blocked by Windows, click Run Anyway to proceed."
+                : "May become blocked by macOS, click Open Anyway in Privacy & Security."}{" "}
               <a href={repoFile("README.md#the-engine")} target="_blank" rel="noreferrer">
                 Learn more
               </a>
