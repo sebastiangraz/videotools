@@ -1,12 +1,17 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { InputError } from "./errors.js";
-
-const execFileAsync = promisify(execFile);
 
 type RunOptions = { cwd?: string };
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
+
+// Runs a binary to its end: native (binaries.ts) or WebAssembly (client/src/engine).
+// Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
+// only when not started or cancelled.
+export type Exec = (
+  command: string,
+  args: string[],
+  options: RunOptions & { signal?: AbortSignal },
+) => Promise<RunResult>;
 
 export const DEFAULT_FPS = 30;
 
@@ -150,14 +155,21 @@ export function parseSourceProfile(output: string): SourceProfile | null {
 export class FFmpeg {
   ffmpeg: string;
   gifski: string;
+  exec: Exec;
   signal: AbortSignal | null;
   // Time left in the function limit decides optional second passes (gif.ts).
   startedAt = Date.now();
   private infoCache = new Map<string, SourceProfile>();
 
-  constructor(ffmpegPath: string, gifskiPath: string, signal: AbortSignal | null = null) {
+  constructor(
+    ffmpegPath: string,
+    gifskiPath: string,
+    exec: Exec,
+    signal: AbortSignal | null = null,
+  ) {
     this.ffmpeg = ffmpegPath;
     this.gifski = gifskiPath;
+    this.exec = exec;
     this.signal = signal;
   }
 
@@ -294,49 +306,20 @@ export class FFmpeg {
     throw new Error(`Command failed: ${stderr || `Exit code ${code}`}`);
   }
 
-  // Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
-  // only when not started or cancelled.
   async run(command: string, args: string[], options: RunOptions = {}): Promise<RunResult> {
     console.log(`Running: ${command} ${args.join(" ")}`);
     if (options.cwd) {
       console.log(`Working directory: ${options.cwd}`);
     }
-
-    // SIGKILL: partial output is discarded anyway.
     const signal = this.signal ?? undefined;
     const cancelled = () => new Error("Cancelled");
     try {
-      const running = execFileAsync(command, args, {
-        cwd: options.cwd,
-        signal,
-        killSignal: "SIGKILL",
-        maxBuffer: Infinity,
-      });
-      // Immediate EOF, like an ignored stdin.
-      running.child.stdin?.end();
-      const { stdout, stderr } = await running;
+      const result = await this.exec(command, args, { ...options, signal });
       if (signal?.aborted) throw cancelled();
-      return { code: 0, stdout, stderr };
+      return result;
     } catch (error) {
       if (signal?.aborted) throw cancelled();
-      const failure = error as NodeJS.ErrnoException & {
-        code?: number | string | null;
-        stdout?: string;
-        stderr?: string;
-      };
-      // A child that never started has a syscall ("spawn ...").
-      if (failure.syscall === undefined && typeof failure.stderr === "string") {
-        return {
-          code: typeof failure.code === "number" ? failure.code : null,
-          stdout: failure.stdout ?? "",
-          stderr: failure.stderr,
-        };
-      }
-      console.error(`Failed to start command: ${command} ${args.join(" ")}`);
-      console.error(`Error: ${failure.message}`);
-      throw new Error(`Failed to start command: ${failure.message}`, {
-        cause: error,
-      });
+      throw error;
     }
   }
 }

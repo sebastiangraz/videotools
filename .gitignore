@@ -8,3 +8,5 @@ api/_bin/gifski/*/
 
 .vercel
 .env*
+# Built by wasm/Dockerfile
+client/public/engine/

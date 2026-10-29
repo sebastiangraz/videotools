@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { FFmpeg } from "./_lib/ffmpeg.js";
 import { markLook, renderWatermarkFrame } from "./_lib/tools/mark.js";
-import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
+import { execBinary, ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 import { errorResponse, jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
 
 // Frame and logo travel inline as data URLs (both small), skipping Blob storage.
@@ -48,7 +48,7 @@ export default {
       await fsp.writeFile(logoPath, logoImage);
 
       const outputPath = await renderWatermarkFrame(
-        { ff: new FFmpeg(ffmpegPath, gifskiPath, signal), workDir },
+        { ff: new FFmpeg(ffmpegPath, gifskiPath, execBinary, signal), workDir },
         { frameFile: framePath, logoFile: logoPath, ...markLook(body) },
       );
 

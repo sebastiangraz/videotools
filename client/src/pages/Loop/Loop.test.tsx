@@ -1,15 +1,8 @@
 import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { it, expect, describe } from "vitest";
-import {
-  blobUrl,
-  decimal,
-  postedBody,
-  renderApp,
-  runFinished,
-  stubProcessFetch,
-  uploadMock,
-} from "@src/test/renderApp";
+import { vi, it, expect, describe } from "vitest";
+import { runEngine } from "@src/engine";
+import { decimal, downloadedName, renderApp, uploadMock } from "@src/test/renderApp";
 import {
   file,
   stubCanvas,
@@ -19,15 +12,19 @@ import {
   webpFile,
 } from "@src/test/media";
 
+vi.mock("@src/engine", async (original) => ({
+  ...(await original<typeof import("@src/engine")>()),
+  runEngine: vi.fn(),
+}));
+
 const pick = (user: ReturnType<typeof userEvent.setup>, picked: File) =>
   user.upload(screen.getByLabelText(/choose video/i), picked);
 const loopButton = () => screen.getByRole("button", { name: /^loop$/i });
 
 describe("Loop", () => {
-  it("accepts decimal values in number fields", async () => {
+  it("accepts decimal values in number fields, and runs in the engine with no upload", async () => {
     const user = userEvent.setup();
-    uploadMock.mockResolvedValue({ url: blobUrl("tiny-abc.mp4") });
-    const fetchMock = stubProcessFetch();
+    vi.mocked(runEngine).mockResolvedValue(new File(["mp4"], "tiny_loop.mp4"));
 
     await renderApp();
     await pick(user, file("tiny.mp4", "video/mp4"));
@@ -39,10 +36,10 @@ describe("Loop", () => {
     });
     await user.click(loopButton());
 
-    await runFinished(fetchMock);
-    expect(postedBody(fetchMock).options).toMatchObject({
-      fadeDuration: 0.7,
-      startSecond: 1.5,
+    await waitFor(() => expect(downloadedName()).toBe("tiny_loop.mp4"));
+    expect(vi.mocked(runEngine).mock.calls[0][0]).toMatchObject({
+      tool: "loop",
+      body: { options: { fadeDuration: 0.7, startSecond: 1.5 } },
     });
   });
 

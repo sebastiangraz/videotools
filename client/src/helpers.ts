@@ -45,14 +45,6 @@ export function matchesAccept(file: File, accept: string): boolean {
   });
 }
 
-export const toDataUrl = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-
 // Shrinks a width×height to fit `maxSide`, never enlarges.
 export const fitScale = (width: number, height: number, maxSide: number): number =>
   Math.min(1, maxSide / Math.max(width, height));

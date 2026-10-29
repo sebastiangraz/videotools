@@ -14,6 +14,12 @@ import {
 } from "./test/renderApp";
 import { file } from "./test/media";
 
+// The run flow through the server, which the tools the engine runs skip.
+vi.mock("@src/engine", async (original) => ({
+  ...(await original<typeof import("@src/engine")>()),
+  ENGINE_TOOLS: [],
+}));
+
 const mp4 = (name = "tiny.mp4") => file(name, "video/mp4");
 const loopButton = () => screen.getByRole("button", { name: /^loop$/i });
 

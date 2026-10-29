@@ -21,9 +21,10 @@ if (positionals.length !== 1) {
 const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
 const { FFmpeg } = await load("api/_lib/ffmpeg.ts");
 const { trackLight } = await load("api/_lib/light-track.ts");
+const { execBinary } = await load("api/_lib/binaries.ts");
 
 const input = path.resolve(positionals[0]);
-const ff = new FFmpeg(values.ffmpeg ?? binaryPath("ffmpeg"), "");
+const ff = new FFmpeg(values.ffmpeg ?? binaryPath("ffmpeg"), "", execBinary);
 // The runner logs every command; only the result matters here.
 console.log = () => {};
 const print = (line) => process.stdout.write(`${line}\n`);

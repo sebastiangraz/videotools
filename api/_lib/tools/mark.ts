@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
@@ -27,7 +28,7 @@ import type { Tool, ToolJob } from "./types.js";
 // mjpeg -q:v: 1 finest – 31 coarsest.
 const PREVIEW_JPEG_Q = "3";
 
-// SVG raster square side: the frame's long side, clamped.
+// SVG raster long side: the frame's long side, clamped.
 const SVG_SIDE = { min: 512, max: 4096, fallback: 1920 };
 
 // Only the glass has a light to aim; the depth map shows none.
@@ -155,10 +156,10 @@ async function openLogo(
   logoFile: string,
   frame: { width: number; height: number },
 ): Promise<{ logoPng: string; logo: MediaInfo }> {
-  // Sniff the demuxer first: an SVG with a size librsvg won't render probes empty.
+  // Sniff the demuxer first: ffmpeg recognizes an SVG but may not decode it.
   const summary = await ff.summary(logoFile);
   const svg = /^Input #0, svg_pipe,/m.test(summary);
-  const logoPng = svg ? await rasterizeSvg(ff, logoFile, frame) : logoFile;
+  const logoPng = svg ? await rasterizeSvg(logoFile, frame) : logoFile;
   const logo = await ff.mediaInfo(logoPng, svg ? undefined : summary);
   if (logo.codec !== "png") {
     throw new InputError(
@@ -169,35 +170,24 @@ async function openLogo(
   return { logoPng, logo };
 }
 
-// A square canvas of the frame's long side fits any SVG (size, viewBox only,
-// huge) at its aspect; logoBounds trims the sides. librsvg outputs premultiplied
-// pixels labelled straight, so unpremultiply or edges darken.
+// At the frame's long side, so it scales down like a PNG would; logoBounds
+// trims any margins the SVG carries.
 async function rasterizeSvg(
-  ff: FFmpeg,
   svgFile: string,
   frame: { width: number; height: number },
 ): Promise<string> {
   const { min, max, fallback } = SVG_SIDE;
-  const side = String(clampInt(Math.max(frame.width, frame.height), min, max, fallback));
+  const side = clampInt(Math.max(frame.width, frame.height), min, max, fallback);
   const pngFile = path.join(path.dirname(svgFile), "logo-svg.png");
-  await ff.runFFmpeg([
-    "-y",
-    "-width",
-    side,
-    "-height",
-    side,
-    "-keep_ar",
-    "0",
-    "-i",
-    svgFile,
-    "-vf",
-    "format=rgba,unpremultiply=inplace=1",
-    "-frames:v",
-    "1",
-    "-update",
-    "1",
-    pngFile,
-  ]);
+  // Loaded on first use, so importing mark doesn't load the WebAssembly.
+  const { svgToPng } = await import("../svg.js");
+  let png: Uint8Array;
+  try {
+    png = await svgToPng(await fs.readFile(svgFile), side);
+  } catch {
+    throw new InputError("Watermark SVG could not be rendered", "invalid-watermark");
+  }
+  await fs.writeFile(pngFile, png);
   return pngFile;
 }
 

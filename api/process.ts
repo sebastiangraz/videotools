@@ -10,7 +10,7 @@ import { FFmpeg } from "./_lib/ffmpeg.js";
 import { TOOLS } from "./_lib/tools/index.js";
 import type { ToolRequest } from "./_lib/tools/types.js";
 import { errorResponse, isBlobUrl, jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
-import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
+import { execBinary, ffmpegPath, gifskiPath } from "./_lib/binaries.js";
 
 type ProcessBody = Partial<ToolRequest> & {
   tool?: unknown;
@@ -62,7 +62,7 @@ export default {
 
     const response = await runJob(request, "Processing", async (workDir, signal) => {
       const { outputPath, suffix, ext } = await run({
-        ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
+        ff: new FFmpeg(ffmpegPath, gifskiPath, execBinary, signal),
         workDir,
         inputs: inputBlobUrls,
         options,

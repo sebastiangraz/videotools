@@ -3,6 +3,15 @@
   "buildCommand": "bun run build",
   "devCommand": "bun --filter client dev --port $PORT",
   "outputDirectory": "client/dist",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/|@)[^.]*)",
@@ -12,12 +21,12 @@
   "functions": {
     "api/process.ts": {
       "maxDuration": 300,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}",
+      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**,node_modules/@resvg/resvg-wasm/index_bg.wasm}",
       "supportsCancellation": true
     },
     "api/preview.ts": {
       "maxDuration": 60,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}",
+      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**,node_modules/@resvg/resvg-wasm/index_bg.wasm}",
       "supportsCancellation": true
     },
     "api/upload.ts": {

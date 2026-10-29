@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
-import { sendJson, toDataUrl } from "@src/helpers";
+import { runEngine } from "@src/engine";
 import {
   MARK,
   MARK_POSITIONS,
@@ -34,7 +34,7 @@ export const shuffleRoute = (start: MarkPosition): MarkPosition[] => {
   return route;
 };
 
-// The server renders the preview with the real ffmpeg graph. Mark geometry is
+// The engine renders the preview with the real ffmpeg graph. Mark geometry is
 // relative to the frame, so a downscaled frame previews the same.
 const PREVIEW_MAX_WIDTH = 1280;
 
@@ -107,32 +107,29 @@ export function useMarkPreview(
   );
 
   // Swap in all renders at once so scrubbing never mixes old and new. Aborting
-  // disconnects, which makes the function stop encoding.
+  // ends the renders' workers.
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
     const controller = new AbortController();
     (async () => {
       setPreviewError(false);
-      const logo = await toDataUrl(watermark);
       const renders = await Promise.all(
-        frameBlobs.map(async (blob, n) => {
-          const res = await sendJson(
-            "/api/preview",
-            "POST",
+        frameBlobs.map((frame, n) =>
+          runEngine(
             {
-              frame: await toDataUrl(blob),
-              logo,
-              filter: filterMode,
-              size,
-              position: stopAt(route ?? [position], stays, n / frameBlobs.length),
-              view,
-              tuning,
+              preview: {
+                frame,
+                logo: watermark,
+                filter: filterMode,
+                size,
+                position: stopAt(route ?? [position], stays, n / frameBlobs.length),
+                view,
+                tuning,
+              },
             },
             controller.signal,
-          );
-          if (!res.ok) throw new Error(`Preview failed (${res.status})`);
-          return res.blob();
-        }),
+          ),
+        ),
       );
       if (controller.signal.aborted) return;
       setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
