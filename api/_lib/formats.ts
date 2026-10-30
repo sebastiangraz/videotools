@@ -93,4 +93,4 @@ export const STILLS: readonly Still[] = [
 
 // The engine (serve.ts) the site sends its jobs to, on the user's machine.
 // Bump `version` when the site and engine have to update together.
-export const ENGINE = { port: 47823, version: 1.3 } as const;
+export const ENGINE = { port: 47823, version: 1.4 } as const;
