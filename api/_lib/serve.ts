@@ -92,8 +92,13 @@ async function moveOut(): Promise<void> {
   await fsp.rm(UPLOADS, { recursive: true, force: true });
   reg("delete", RUN, "/v", RUN_VALUE);
   reg("delete", ARP);
-  // A running exe can't be deleted, so a hidden cmd does it once this one has quit.
-  spawn("cmd", ["/c", `ping -n 3 127.0.0.1 >nul & rmdir /s /q "${HOME}"`], {
+  // A running exe can't be deleted, so a hidden cmd does it once this one has
+  // quit, retrying while a scanner still holds the deleted exe (the folder
+  // isn't empty until it lets go). winget starts this one inside HOME, which
+  // cmd must not inherit.
+  const remove = `rmdir /s /q "${HOME}" 2>nul & if not exist "${HOME}" (exit) else ping -n 2 127.0.0.1 >nul`;
+  spawn("cmd", ["/c", `ping -n 3 127.0.0.1 >nul & for /l %i in (1,1,20) do @${remove}`], {
+    cwd: os.homedir(),
     detached: true,
     stdio: "ignore",
     windowsHide: true,
