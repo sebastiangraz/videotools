@@ -16,9 +16,6 @@ export const REF = (typeof __GIT_REF__ === "string" && __GIT_REF__) || "main";
 
 // "README.md#the-engine" → that file on GitHub, at REF.
 export const repoFile = (path: string) => `https://github.com/${REPO}/blob/${REF}/${path}`;
-export const repoRaw = (path: string) => `https://raw.githubusercontent.com/${REPO}/${REF}/${path}`;
-export const repoRelease = (tag: string, file: string) =>
-  `https://github.com/${REPO}/releases/download/${tag}/${file}`;
 
 // The engine on the visitor's machine (api/_lib/serve.ts). `targetAddressSpace`
 // lets a public page reach loopback once the visitor allows it (Chrome asks).

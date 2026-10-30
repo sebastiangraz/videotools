@@ -19,25 +19,6 @@
   }
 }
 
-.downloadContainer {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 1rem;
-}
-
-.download {
-  align-self: start;
-  padding: 1.25em 1.5em;
-  white-space: nowrap;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: var(--fg);
-  color: var(--bg);
-  text-decoration: none;
-  text-transform: uppercase;
-}
-
 .command {
   padding: 0.6em 0.8em;
   font-family: var(--font-mono);
@@ -45,4 +26,13 @@
   border-radius: calc(var(--radius) / 2);
   user-select: all;
   overflow-wrap: anywhere;
+}
+
+.uninstall {
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  color: var(--fg-tertiary);
+  user-select: all;
+  overflow-wrap: anywhere;
+  text-transform: none;
 }

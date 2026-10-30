@@ -2,7 +2,7 @@ import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
-import { EngineSetup } from "./components/EngineSetup/EngineSetup";
+import { EngineSetup, Uninstall } from "./components/EngineSetup/EngineSetup";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
@@ -54,7 +54,7 @@ export const Layout = () => {
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   const debug = useDebugMode();
-  const engine = useEngine();
+  const health = useEngine();
   const [settings, setSettings] = useState<typeof DEFAULT_SETTINGS>(() => ({
     ...DEFAULT_SETTINGS,
     ...JSON.parse(localStorage.getItem("settings") ?? "{}"),
@@ -151,12 +151,10 @@ export const Layout = () => {
             </div>
             <div className={styles.settingsRow}>
               <span className={form.label}>Helper</span>
-              {engine.health ? (
+              {health ? (
                 <div className={styles.helper}>
-                  <span className={form.label}>Version {engine.health.version}</span>
-                  <button type="button" className={styles.uninstall} onClick={engine.uninstall}>
-                    Uninstall
-                  </button>
+                  <span className={form.label}>Version {health.version}</span>
+                  <Uninstall />
                 </div>
               ) : (
                 <span className={form.label}>Not installed</span>
@@ -165,7 +163,7 @@ export const Layout = () => {
           </Popover>
         </Tabs>
         <main className={styles.main}>
-          <EngineSetup health={engine.health} />
+          <EngineSetup health={health} />
           <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>
