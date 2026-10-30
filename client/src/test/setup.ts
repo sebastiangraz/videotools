@@ -1,14 +1,15 @@
 import { vi, beforeEach } from "vitest";
-import { upload } from "@vercel/blob/client";
 import "@testing-library/jest-dom/vitest";
-
-// Tests reach this as `uploadMock` (renderApp.tsx).
-vi.mock("@vercel/blob/client", () => ({ upload: vi.fn() }));
 
 // VersionLabel's GitHub fetch on mount would show up in tests' fetch counts, depending
 // on network and a sessionStorage cache.
 vi.mock("@src/components/VersionLabel/VersionLabel", () => ({
   VersionLabel: () => null,
+}));
+
+// Likewise the engine's health probe, which retries until the engine answers.
+vi.mock("@src/hooks/useEngine", () => ({
+  useEngine: () => undefined,
 }));
 
 // jsdom has no PointerEvent; Base UI's Switch dispatches one on click.
@@ -21,7 +22,6 @@ window.matchMedia ??= (query) => ({ matches: false, media: query }) as MediaQuer
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  vi.mocked(upload).mockReset();
   localStorage.clear();
   // jsdom implements neither of these
   URL.createObjectURL = vi.fn(() => "blob:mock");

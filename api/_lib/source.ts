@@ -3,7 +3,7 @@ import { formatById, type FormatId, type StillId } from "./formats.js";
 import { InputError } from "./errors.js";
 import { sizeLabel } from "./helpers.js";
 import type { SourceProfile } from "./ffmpeg.js";
-import { blobExt } from "./request.js";
+import { uploadExt } from "./request.js";
 import type { ToolJob } from "./tools/types.js";
 
 export type Source = {
@@ -66,12 +66,12 @@ export function checkSquarePixels({ format, still, profile }: Source): void {
 }
 
 export async function openSource(
-  { ff, workDir, download }: Pick<ToolJob, "ff" | "workDir" | "download">,
-  url: string,
+  { ff, workDir, take }: Pick<ToolJob, "ff" | "workDir" | "take">,
+  upload: string,
   name = "input",
 ): Promise<Source> {
-  const file = path.join(workDir, `${name}${blobExt(url, ".mp4")}`);
-  await download(url, file);
+  const file = path.join(workDir, `${name}${uploadExt(upload, ".mp4")}`);
+  await take(upload, file);
   const profile = await ff.mediaInfo(file);
   const source = {
     path: file,

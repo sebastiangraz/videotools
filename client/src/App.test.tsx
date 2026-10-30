@@ -1,16 +1,15 @@
 import { cleanup, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, it, expect, describe } from "vitest";
+import { it, expect, describe } from "vitest";
 import {
-  blobUrl,
   downloadedName,
   enableVerboseNames,
+  engineUrl,
   postedBody,
   renderApp,
   runFinished,
   stubProcessFetch,
-  unexpectedFetch,
-  uploadMock,
+  uploads,
 } from "./test/renderApp";
 import { file } from "./test/media";
 
@@ -106,24 +105,19 @@ describe("App", () => {
     expect(router.state.location.pathname).toBe("/loop");
   });
 
-  it("uploads to blob storage, requests processing, and downloads the result", async () => {
+  it("uploads to the engine, requests processing, and downloads the result", async () => {
     const user = userEvent.setup();
     const video = mp4();
-    uploadMock.mockResolvedValue({ url: blobUrl("tiny-abc.mp4") });
     const fetchMock = stubProcessFetch();
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), video);
     await user.click(loopButton());
 
-    await runFinished(fetchMock);
-    expect(uploadMock).toHaveBeenCalledWith(
-      "tiny.mp4",
-      video,
-      expect.objectContaining({ handleUploadUrl: "/api/upload" }),
-    );
+    await runFinished();
+    expect(uploads(fetchMock)).toEqual([{ id: expect.stringMatching(/\.mp4$/), file: video }]);
     expect(postedBody(fetchMock)).toMatchObject({
-      blobUrl: blobUrl("tiny-abc.mp4"),
+      upload: uploads(fetchMock)[0].id,
       tool: "loop",
       filename: "tiny.mp4",
       options: {
@@ -138,15 +132,14 @@ describe("App", () => {
 
   it("names the download after the source and settings once verbose names are on", async () => {
     const user = userEvent.setup();
-    uploadMock.mockResolvedValue({ url: blobUrl("holiday-abc.mp4") });
-    const fetchMock = stubProcessFetch();
+    stubProcessFetch();
 
     await renderApp();
     await enableVerboseNames(user);
     await user.upload(screen.getByLabelText(/choose video/i), mp4("holiday-clip.mp4"));
     await user.click(loopButton());
 
-    await runFinished(fetchMock);
+    await runFinished();
     expect(downloadedName()).toBe("holida_tCrossfade_fd0.5_ss0_q100.mp4");
   });
 
@@ -166,11 +159,12 @@ describe("App", () => {
 
   it("shows an error box when processing fails, until a run succeeds", async () => {
     const user = userEvent.setup();
-    uploadMock.mockResolvedValue({ url: blobUrl("anim-abc.gif") });
-    const fetchMock = vi.fn(async () =>
-      Response.json({ error: "ffmpeg exited with 1" }, { status: 500 }),
+    const fetchMock = stubProcessFetch();
+    fetchMock.mockImplementation(async (_input, init) =>
+      init?.method === "PUT"
+        ? new Response(null, { status: 204 })
+        : Response.json({ error: "ffmpeg exited with 1" }, { status: 500 }),
     );
-    vi.stubGlobal("fetch", fetchMock);
 
     await renderApp("/sequence");
     await user.upload(screen.getByLabelText(/choose images/i), file("anim.gif", "image/gif"));
@@ -178,10 +172,10 @@ describe("App", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/process",
+      engineUrl("/process"),
       expect.objectContaining({
         method: "DELETE",
-        body: JSON.stringify({ urls: [blobUrl("anim-abc.gif")] }),
+        body: JSON.stringify({ uploads: [uploads(fetchMock)[0].id] }),
       }),
     );
 
@@ -199,18 +193,12 @@ describe("App", () => {
 
   it("fades in a Stop button while a run is in flight and cancels it on click", async () => {
     const user = userEvent.setup();
-    const uploadedUrl = blobUrl("tiny-abc.mp4");
-    uploadMock.mockResolvedValue({ url: uploadedUrl });
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (input === "/api/process" && init?.method === "POST") {
-        return hangUntilAborted<Response>(init.signal);
-      }
-      if (input === "/api/process" && init?.method === "DELETE") {
-        return new Response(null, { status: 204 });
-      }
-      throw unexpectedFetch(input);
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = stubProcessFetch();
+    fetchMock.mockImplementation(async (_input, init) =>
+      init?.method === "POST"
+        ? hangUntilAborted<Response>(init.signal)
+        : new Response(null, { status: 204 }),
+    );
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
@@ -233,10 +221,10 @@ describe("App", () => {
     expect(postInit?.signal?.aborted).toBe(true);
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/process",
+        engineUrl("/process"),
         expect.objectContaining({
           method: "DELETE",
-          body: JSON.stringify({ urls: [uploadedUrl] }),
+          body: JSON.stringify({ uploads: [uploads(fetchMock)[0].id] }),
         }),
       ),
     );
@@ -244,22 +232,23 @@ describe("App", () => {
 
   it("aborts an in-flight upload when the tool is switched", async () => {
     const user = userEvent.setup();
-    let uploadSignal: AbortSignal | undefined;
-    uploadMock.mockImplementation(
-      (_name: string, _file: File, opts: { abortSignal?: AbortSignal }) => {
-        uploadSignal = opts.abortSignal;
-        return hangUntilAborted(opts.abortSignal);
-      },
+    const fetchMock = stubProcessFetch();
+    fetchMock.mockImplementation(async (_input, init) =>
+      init?.method === "PUT"
+        ? hangUntilAborted<Response>(init.signal)
+        : new Response(null, { status: 204 }),
     );
+    const uploadSignal = () =>
+      fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")?.[1]?.signal;
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
     await user.click(loopButton());
-    expect(uploadSignal?.aborted).toBe(false);
+    expect(uploadSignal()?.aborted).toBe(false);
 
     // A tab change unmounts the uploader; the request must not keep running
     await user.click(screen.getByRole("tab", { name: /sequence/i }));
     await screen.findByRole("button", { name: /create video/i });
-    expect(uploadSignal?.aborted).toBe(true);
+    expect(uploadSignal()?.aborted).toBe(true);
   });
 });

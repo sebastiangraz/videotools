@@ -4,7 +4,7 @@
 //   bun scripts/ffmpeg-check.mjs [<ffmpeg path>]    default: the pinned one
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { BINARIES, binaryPath } from "./binaries.mjs";
+import { BINARIES, binaryPath } from "../api/_lib/binaries.ts";
 
 const NEEDS = {
   encoders: [
@@ -19,9 +19,9 @@ const NEEDS = {
     "png",
   ],
   muxers: ["mp4", "webm", "avif", "webp", "image2", "framecrc", "null"],
-  demuxers: ["concat", "image2", "webp_anim"],
-  // Animated WebP has its own decoder (source.ts); SVG logos need librsvg.
-  decoders: ["webp", "webp_anim", "librsvg"],
+  demuxers: ["concat", "image2", "webp_anim", "svg_pipe"],
+  // Animated WebP has its own decoder (source.ts). SVG logos go through resvg (svg.ts).
+  decoders: ["webp", "webp_anim"],
   // lavfi (smoke-run inputs) is a device.
   devices: ["lavfi"],
   filters: [
@@ -65,7 +65,7 @@ const NEEDS = {
   ],
 };
 
-// `ffmpeg -version`'s first line, e.g. "ffmpeg version n8.1.3-20260922 …".
+// `ffmpeg -version`'s first line, e.g. "ffmpeg version n9.0.2-20260919 …".
 function ffmpegVersion(ffmpeg) {
   const r = spawnSync(ffmpeg, ["-hide_banner", "-version"], {
     encoding: "utf8",
@@ -75,15 +75,15 @@ function ffmpegVersion(ffmpeg) {
 }
 
 // Exits listing what `ffmpeg` lacks; `pinned` also holds it to the version
-// binaries.mjs pins (off for another build). Returns the version it reports.
+// BINARIES pins (off for another build). Returns the version it reports.
 export function requireFfmpeg(ffmpeg, { pinned }) {
   const problems = [];
   const found = ffmpegVersion(ffmpeg);
   const { version } = BINARIES.ffmpeg;
-  // BtbN builds say "n8.1.3-20260922", a branch head "n9.0.2-3-ga5923073bf-…".
+  // BtbN builds say "n9.0.2-20260919", a branch head "n9.0.2-3-ga5923073bf-…".
   const bare = found.replace(/^n/, "");
   if (pinned && !(bare === version || bare.startsWith(`${version}-`))) {
-    problems.push(`version ${found}, binaries.mjs pins ${version}`);
+    problems.push(`version ${found}, BINARIES pins ${version}`);
   }
   for (const [kind, names] of Object.entries(NEEDS)) {
     const r = spawnSync(ffmpeg, ["-hide_banner", `-${kind}`], {

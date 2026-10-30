@@ -3,10 +3,10 @@ import type { FFmpeg } from "../ffmpeg.js";
 
 // Untyped JSON: every tool validates what it reads.
 export type ToolRequest = {
-  blobUrl?: unknown;
-  blobUrls?: unknown;
+  upload?: unknown;
+  uploads?: unknown;
   // mark only: the logo (PNG or SVG).
-  watermarkUrl?: unknown;
+  watermark?: unknown;
   options: Record<string, unknown>;
 };
 
@@ -16,7 +16,7 @@ export type ToolJob = {
   workDir: string;
   inputs: string[];
   options: Record<string, unknown>;
-  download: (url: string, destPath: string) => Promise<void>;
+  take: (upload: string, destPath: string) => Promise<void>;
 };
 
 // Download is named `<source name>_<suffix>.<ext>`; ext also sets the content type.
@@ -26,7 +26,7 @@ type ToolResult = {
   ext: FormatId | StillId;
 };
 
-// `inputs` returns the blob URLs to use, or an error (a 400).
+// `inputs` returns the upload ids to use, or an error (a 400).
 export type Tool = {
   inputs: (request: ToolRequest) => string[] | { error: string };
   run: (job: ToolJob) => Promise<ToolResult>;

@@ -1,12 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { upload } from "@vercel/blob/client";
 import type { ToolId } from "@src/tools";
-import { sendJson, shortenFilename, splitExtension, verboseName } from "@src/helpers";
+import { engineFetch, sendJson, shortenFilename, splitExtension, verboseName } from "@src/helpers";
 
-// Best effort: the server sweeps leftovers anyway.
-function deleteBlobs(urls: string[]) {
-  if (!urls.length) return;
-  sendJson("/api/process", "DELETE", { urls }).catch(() => {});
+// Best effort: the engine clears leftovers when it starts.
+function deleteUploads(uploads: string[]) {
+  if (!uploads.length) return;
+  sendJson("/process", "DELETE", { uploads }).catch(() => {});
 }
 
 // `extras`: further uploads with their own status line (mark's logo).
@@ -14,7 +13,7 @@ function deleteBlobs(urls: string[]) {
 interface RunRequest {
   files: File[];
   extras?: { file: File; status: string }[];
-  payload: (urls: { blobUrls: string[]; extraUrls: string[] }) => {
+  payload: (uploads: { uploads: string[]; extraUploads: string[] }) => {
     options: Record<string, unknown>;
   } & Record<string, unknown>;
   onDone?: () => void;
@@ -41,45 +40,43 @@ export function useToolRun(tool: ToolId) {
     const controller = new AbortController();
     abortRef.current = controller;
     const { signal } = controller;
-    const blobUrls: string[] = [];
-    const extraUrls: string[] = [];
-    let resultUrl: string | null = null;
+    const uploads: string[] = [];
+    const extraUploads: string[] = [];
 
     try {
-      const send = (file: File) =>
-        upload(file.name, file, {
-          access: "public",
-          handleUploadUrl: "/api/upload",
-          // Some systems report no type for .avi/.mkv; an empty one gets the
-          // upload token refused.
-          contentType: file.type || "application/octet-stream",
-          abortSignal: signal,
-        });
+      // The engine names the file by its id; the extension tells ffmpeg nothing
+      // it can't sniff, but keeps the work files readable.
+      const send = async (file: File) => {
+        const [, ext] = splitExtension(file.name);
+        const id = `${crypto.randomUUID()}${/^\.\w{1,10}$/.test(ext) ? ext.toLowerCase() : ""}`;
+        const res = await engineFetch(`/upload/${id}`, { method: "PUT", body: file, signal });
+        if (!res.ok) throw new Error(`Engine error (${res.status}): Unable to read the file`);
+        return id;
+      };
 
       for (let i = 0; i < files.length; i++) {
         setStatus(files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading");
-        blobUrls.push((await send(files[i])).url);
+        uploads.push(await send(files[i]));
       }
 
       for (const extra of extras) {
         setStatus(extra.status);
-        extraUrls.push((await send(extra.file)).url);
+        extraUploads.push(await send(extra.file));
       }
 
       setStatus("Processing");
-      const body = payload({ blobUrls, extraUrls });
+      const body = payload({ uploads, extraUploads });
       const res = await sendJson(
-        "/api/process",
+        "/process",
         "POST",
         { tool, filename: files[0].name, ...body },
         signal,
       );
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.error || `Server error (${res.status}): Unable to process`);
+        throw new Error(errorData?.error || `Engine error (${res.status}): Unable to process`);
       }
-      const { url, filename: resultName } = await res.json();
-      resultUrl = url;
+      const resultName = decodeURIComponent(res.headers.get("X-Filename") ?? "");
       const [base, ext] = splitExtension(files[0].name);
       const downloadName = verbose
         ? verboseName(
@@ -91,10 +88,7 @@ export function useToolRun(tool: ToolId) {
         : resultName || `${base}_${tool}${ext}`;
 
       setStatus(`Downloading ${shortenFilename(files[0])}`);
-      // Blob storage is cross-origin, where `download` is ignored.
-      const fileRes = await fetch(url, { signal });
-      if (!fileRes.ok) throw new Error(`Failed to download result (${fileRes.status})`);
-      const objectUrl = URL.createObjectURL(await fileRes.blob());
+      const objectUrl = URL.createObjectURL(await res.blob());
       const a = Object.assign(document.createElement("a"), {
         href: objectUrl,
         download: downloadName,
@@ -102,16 +96,20 @@ export function useToolRun(tool: ToolId) {
       a.click();
       URL.revokeObjectURL(objectUrl);
 
-      deleteBlobs([url]);
       onDone?.();
     } catch (err: unknown) {
-      // The server only deletes inputs once it runs; double deletes are harmless.
-      const uploaded = [...blobUrls, ...extraUrls];
-      deleteBlobs(resultUrl ? [...uploaded, resultUrl] : uploaded);
+      // The engine deletes what a job was given; double deletes are harmless.
+      deleteUploads([...uploads, ...extraUploads]);
       // Aborted = stopped on purpose: no error box.
       if (!signal.aborted) {
         console.error(err);
-        setErrorDetail(err instanceof Error ? err.message : String(err));
+        setErrorDetail(
+          err instanceof TypeError
+            ? "Can't reach the videotools engine. Is it still running?"
+            : err instanceof Error
+              ? err.message
+              : String(err),
+        );
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
