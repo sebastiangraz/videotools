@@ -8,7 +8,9 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { binaryPath, root } from "./binaries.mjs";
+import { binaryPath } from "../api/_lib/binaries.ts";
+
+const root = path.resolve(import.meta.dirname, "..");
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,

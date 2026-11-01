@@ -136,9 +136,9 @@ export const Mark = () => {
     run.start({
       files: [source.file],
       extras: [{ file: watermark, status: "Uploading watermark" }],
-      payload: ({ blobUrls, extraUrls }) => ({
-        blobUrl: blobUrls[0],
-        watermarkUrl: extraUrls[0],
+      payload: ({ uploads, extraUploads }) => ({
+        upload: uploads[0],
+        watermark: extraUploads[0],
         options: {
           filter: filterMode,
           size,

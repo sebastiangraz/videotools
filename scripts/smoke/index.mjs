@@ -1,4 +1,4 @@
-// Smoke runs: the real tool handlers, called as /api/process would call them,
+// Smoke runs: the real tool handlers, called as the engine's /process would,
 // against the pinned ffmpeg and the assets in scripts/smoke/assets/:
 //   images/   stills, which each suite picks by file name
 //   vectors/  SVG logos, listed in natural filename order
@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { FFmpeg } from "../../api/_lib/ffmpeg.ts";
 import { TOOLS } from "../../api/_lib/tools/index.ts";
-import { binaryPath, root } from "../binaries.mjs";
+import { binaryPath } from "../../api/_lib/binaries.ts";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
 import { encodeLoss } from "./quality.mjs";
@@ -21,6 +21,7 @@ const SUITES = { mark: markGrid, light: lightGrid, quality: encodeLoss };
 // Subfolders a suite can run on their own.
 const PARTS = { mark: MARK_GRIDS };
 
+const root = path.resolve(import.meta.dirname, "..", "..");
 const assetsDir = path.join(root, "scripts", "smoke", "assets");
 const smokeDir = path.join(root, ".smoke");
 
@@ -57,27 +58,27 @@ const assets = {
   videos: picked("videos"),
 };
 
-// Files stand in for uploads: each gets its own blob URL, which `download` copies back.
+// Files stand in for uploads: each gets its own upload id, which `take` copies back.
 const uploads = new Map();
 const upload = (file) => {
-  const url = `https://smoke.public.blob.vercel-storage.com/${uploads.size}/${encodeURIComponent(path.basename(file))}`;
-  uploads.set(url, file);
-  return url;
+  const id = `${uploads.size}${path.extname(file)}`;
+  uploads.set(id, file);
+  return id;
 };
-const download = async (url, destPath) => fs.copyFileSync(uploads.get(url), destPath);
+const take = async (id, destPath) => fs.copyFileSync(uploads.get(id), destPath);
 
-// One /api/process request: `files` in upload order, results in `workDir`.
+// One /process request: `files` in upload order, results in `workDir`.
 async function runTool(tool, files, options, workDir) {
-  const urls = files.map(upload);
+  const ids = files.map(upload);
   const inputs = TOOLS[tool].inputs({
-    blobUrl: urls[0],
-    blobUrls: urls,
-    watermarkUrl: urls[1],
+    upload: ids[0],
+    uploads: ids,
+    watermark: ids[1],
     options,
   });
   if (!Array.isArray(inputs)) throw new Error(inputs.error);
   fs.mkdirSync(workDir, { recursive: true });
-  return TOOLS[tool].run({ ff, workDir, inputs, options, download });
+  return TOOLS[tool].run({ ff, workDir, inputs, options, take });
 }
 
 // Progress bar

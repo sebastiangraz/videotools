@@ -5,22 +5,13 @@ import { InputError } from "./errors.js";
 import { removeDir } from "./helpers.js";
 import type { ToolRequest } from "./tools/types.js";
 
-const BLOB_HOST_RE = /\.public\.blob\.vercel-storage\.com$/;
+// The client names each upload: a random id plus the file's extension. Being
+// a bare file name, it can't point outside the uploads folder.
+export const isUploadId = (id: unknown): id is string =>
+  typeof id === "string" && /^[\w-]{1,64}(\.\w{1,10})?$/.test(id);
 
 // Cosmetic only: ffmpeg sniffs the container from content.
-export function blobExt(url: string, fallback: string): string {
-  const urlExt = path.posix.extname(new URL(url).pathname);
-  return /^\.\w+$/.test(urlExt) ? urlExt : fallback;
-}
-
-export function isBlobUrl(url: unknown): url is string {
-  if (typeof url !== "string") return false;
-  try {
-    return BLOB_HOST_RE.test(new URL(url).hostname);
-  } catch {
-    return false;
-  }
-}
+export const uploadExt = (id: string, fallback: string): string => path.extname(id) || fallback;
 
 export function pick<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
@@ -35,8 +26,8 @@ export function clamp(value: unknown, min: number, max: number, fallback: number
 export const clampInt = (value: unknown, min: number, max: number, fallback: number): number =>
   Math.round(clamp(value, min, max, fallback));
 
-export function singleVideo({ blobUrl }: ToolRequest): string[] | { error: string } {
-  return isBlobUrl(blobUrl) ? [blobUrl] : { error: "Invalid blob URL" };
+export function singleVideo({ upload }: ToolRequest): string[] | { error: string } {
+  return isUploadId(upload) ? [upload] : { error: "Invalid upload" };
 }
 
 // `extra` joins the body, e.g. an InputError's code.
@@ -54,8 +45,8 @@ export async function jsonBody(request: Request): Promise<object> {
   return body && typeof body === "object" ? body : {};
 }
 
-// `request.signal` fires when the client disconnects (supportsCancellation in
-// vercel.json). InputError → 400 with code; anything else → generic 500.
+// `request.signal` fires when the client disconnects, which kills ffmpeg.
+// InputError → 400 with code; anything else → generic 500.
 export async function runJob(
   request: Request,
   name: string,

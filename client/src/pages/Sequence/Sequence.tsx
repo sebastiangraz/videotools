@@ -117,8 +117,8 @@ export const Sequence = () => {
   const submit = () =>
     run.start({
       files,
-      payload: ({ blobUrls }) => ({
-        blobUrls,
+      payload: ({ uploads }) => ({
+        uploads,
         options: {
           frameDuration: frameDuration ?? 1,
           format,

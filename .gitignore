@@ -2,7 +2,7 @@ node_modules/
 dist/
 tmp/
 .smoke/
-# Fetched by the postinstall (scripts/binaries.mjs pins them)
+# Fetched by the postinstall (BINARIES in api/_lib/binaries.ts pins them)
 api/_bin/ffmpeg/
 api/_bin/gifski/*/
 

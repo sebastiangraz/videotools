@@ -2,11 +2,13 @@ import { Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
+import { EngineSetup, Uninstall } from "./components/EngineSetup/EngineSetup";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
 import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
+import { useEngine } from "./hooks/useEngine";
 import { VerboseNames } from "./hooks/useToolRun";
 import { cx } from "./helpers";
 import form from "./form.module.css";
@@ -52,6 +54,7 @@ export const Layout = () => {
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   const debug = useDebugMode();
+  const health = useEngine();
   const [settings, setSettings] = useState<typeof DEFAULT_SETTINGS>(() => ({
     ...DEFAULT_SETTINGS,
     ...JSON.parse(localStorage.getItem("settings") ?? "{}"),
@@ -146,9 +149,21 @@ export const Layout = () => {
                 size="small"
               />
             </div>
+            <div className={styles.settingsRow}>
+              <span className={form.label}>Helper</span>
+              {health ? (
+                <div className={styles.helper}>
+                  <span className={form.label}>Version {health.version}</span>
+                  <Uninstall />
+                </div>
+              ) : (
+                <span className={form.label}>Not installed</span>
+              )}
+            </div>
           </Popover>
         </Tabs>
         <main className={styles.main}>
+          <EngineSetup health={health} />
           <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>

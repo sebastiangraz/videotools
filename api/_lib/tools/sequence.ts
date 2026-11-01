@@ -4,7 +4,7 @@ import { SEQUENCE_FORMATS, type FormatId } from "../formats.js";
 import { encodeRender } from "../encode/index.js";
 import { floorEven } from "../helpers.js";
 import type { Render } from "../encode/render.js";
-import { blobExt, clamp, clampInt, isBlobUrl, pick } from "../request.js";
+import { uploadExt, clamp, clampInt, isUploadId, pick } from "../request.js";
 import type { Tool, ToolJob } from "./types.js";
 
 const MAX_IMAGES = 100;
@@ -64,19 +64,19 @@ async function imageSequence(
 }
 
 export const sequence: Tool = {
-  inputs({ blobUrls }) {
+  inputs({ uploads }) {
     if (
-      !Array.isArray(blobUrls) ||
-      blobUrls.length < 1 ||
-      blobUrls.length > MAX_IMAGES ||
-      !blobUrls.every(isBlobUrl)
+      !Array.isArray(uploads) ||
+      uploads.length < 1 ||
+      uploads.length > MAX_IMAGES ||
+      !uploads.every(isUploadId)
     ) {
-      return { error: `Expected 1–${MAX_IMAGES} valid blob URLs` };
+      return { error: `Expected 1–${MAX_IMAGES} valid uploads` };
     }
-    return blobUrls;
+    return uploads;
   },
   async run(job) {
-    const { workDir, inputs, options, download } = job;
+    const { workDir, inputs, options, take } = job;
     const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
     const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
     const quality = clampInt(options.quality, 1, 100, 100);
@@ -85,9 +85,9 @@ export const sequence: Tool = {
     for (let i = 0; i < inputs.length; i++) {
       const imagePath = path.join(
         workDir,
-        `src_${String(i + 1).padStart(4, "0")}${blobExt(inputs[i], ".png")}`,
+        `src_${String(i + 1).padStart(4, "0")}${uploadExt(inputs[i], ".png")}`,
       );
-      await download(inputs[i], imagePath);
+      await take(inputs[i], imagePath);
       imagePaths.push(imagePath);
     }
     console.log(`Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`);

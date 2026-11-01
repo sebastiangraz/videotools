@@ -10,12 +10,6 @@
   background-color: var(--bg);
 }
 
-.message a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-}
-
 .error {
   color: var(--error);
 }

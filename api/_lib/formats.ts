@@ -90,3 +90,7 @@ export const STILLS: readonly Still[] = [
   { id: "jpg", label: "JPEG", extensions: ["jpg", "jpeg"], mime: "image/jpeg" },
   { id: "webp", label: "WebP", extensions: ["webp"], mime: "image/webp" },
 ];
+
+// The engine (serve.ts) the site sends its jobs to, on the user's machine.
+// Bump `version` when the site and engine have to update together.
+export const ENGINE = { port: 47823, version: 1.5 } as const;

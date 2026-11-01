@@ -2,14 +2,14 @@ import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import {
-  blobUrl,
   downloadedName,
   enableVerboseNames,
+  engineUrl,
   postedBody,
   renderApp,
   runFinished,
   stubProcessFetch,
-  uploadMock,
+  uploads,
   unexpectedFetch,
   type FetchMock,
 } from "@src/test/renderApp";
@@ -31,10 +31,13 @@ const pickSource = (user: User, picked: File) =>
 const pickLogo = (user: User, picked = file("logo.png", "image/png")) =>
   user.upload(screen.getByLabelText(/choose watermark/i), picked);
 
+// A string body: Node's Response can't stream jsdom's Blob.
+const JPEG = { headers: { "Content-Type": "image/jpeg" } };
+
 const stubPreviewFetch = () => {
   const fetchMock: FetchMock = vi.fn(async (input, init) => {
-    if (input === "/api/preview" && init?.method === "POST") {
-      return new Response(new Blob(["jpg"], { type: "image/jpeg" }));
+    if (input === engineUrl("/preview") && init?.method === "POST") {
+      return new Response("jpg", JPEG);
     }
     throw unexpectedFetch(input);
   });
@@ -119,9 +122,6 @@ describe("Mark", () => {
 
   it("asks no quality of a PNG, which comes back lossless, and sends it like any source", async () => {
     const user = userEvent.setup();
-    uploadMock.mockImplementation(async (name: string) => ({
-      url: blobUrl(name),
-    }));
     const fetchMock = stubProcessFetch();
 
     await renderApp("/mark");
@@ -131,12 +131,12 @@ describe("Mark", () => {
 
     await pickLogo(user);
     await user.click(markButton());
-    await runFinished(fetchMock);
+    await runFinished();
     expect(postedBody(fetchMock)).toMatchObject({
       tool: "mark",
       filename: "shot.png",
-      blobUrl: blobUrl("shot.png"),
-      watermarkUrl: blobUrl("logo.png"),
+      upload: uploads(fetchMock)[0].id,
+      watermark: uploads(fetchMock)[1].id,
     });
   });
 
@@ -163,7 +163,7 @@ describe("Mark", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/preview",
+      engineUrl("/preview"),
       expect.objectContaining({ method: "POST" }),
     );
     const body = postedBody(fetchMock);
@@ -324,9 +324,9 @@ describe("Mark", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
-        if (input !== "/api/preview") throw unexpectedFetch(input);
+        if (input !== engineUrl("/preview")) throw unexpectedFetch(input);
         return new Promise<Response>((resolve) =>
-          answers.push(() => resolve(new Response(new Blob(["jpg"], { type: "image/jpeg" })))),
+          answers.push(() => resolve(new Response("jpg", JPEG))),
         );
       }),
     );
@@ -372,9 +372,6 @@ describe("Mark", () => {
     const user = userEvent.setup();
     const video = file("clip.mp4", "video/mp4");
     const logo = file("logo.png", "image/png");
-    uploadMock.mockImplementation(async (name: string) => ({
-      url: blobUrl(name),
-    }));
     const fetchMock = stubProcessFetch();
 
     await renderApp("/mark");
@@ -385,14 +382,13 @@ describe("Mark", () => {
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await user.click(markButton());
 
-    await runFinished(fetchMock);
-    expect(uploadMock).toHaveBeenNthCalledWith(1, "clip.mp4", video, expect.anything());
-    expect(uploadMock).toHaveBeenNthCalledWith(2, "logo.png", logo, expect.anything());
+    await runFinished();
+    expect(uploads(fetchMock).map(({ file }) => file)).toEqual([video, logo]);
     expect(postedBody(fetchMock)).toEqual({
       tool: "mark",
       filename: "clip.mp4",
-      blobUrl: blobUrl("clip.mp4"),
-      watermarkUrl: blobUrl("logo.png"),
+      upload: uploads(fetchMock)[0].id,
+      watermark: uploads(fetchMock)[1].id,
       options: {
         filter: "blur",
         size: "small",
@@ -406,8 +402,7 @@ describe("Mark", () => {
 
   it("names a verbose download after the watermark too, leaving out an unshuffled route", async () => {
     const user = userEvent.setup();
-    uploadMock.mockImplementation(async (name: string) => ({ url: blobUrl(name) }));
-    const fetchMock = stubProcessFetch();
+    stubProcessFetch();
 
     await renderApp("/mark");
     await enableVerboseNames(user);
@@ -415,7 +410,7 @@ describe("Mark", () => {
     await pickLogo(user);
     await user.click(markButton());
 
-    await runFinished(fetchMock);
+    await runFinished();
     expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
   });
 });

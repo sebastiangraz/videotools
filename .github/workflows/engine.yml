@@ -1,0 +1,44 @@
+# Pushing tag engine-v<ENGINE.version> releases the engine: the builds go to
+# that GitHub release, the formula to sebastiangraz/homebrew-tap, and a new
+# version to winget-pkgs (a PR from RELEASE_TOKEN's fork, merged after review).
+name: engine
+
+on:
+  push:
+    tags: ["engine-v*"]
+
+jobs:
+  release:
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.x
+      - run: bun install --ignore-scripts
+      - name: Version
+        run: |
+          VERSION=$(bun -e 'import { ENGINE } from "./api/_lib/formats.ts"; console.log(ENGINE.version)')
+          [ "$GITHUB_REF_NAME" = "engine-v$VERSION" ] || { echo "$GITHUB_REF_NAME, but ENGINE.version is $VERSION"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - run: bun run build:engine
+      - run: gh release create "$GITHUB_REF_NAME" dist/engine/* --title "engine $VERSION"
+      - name: Homebrew
+        run: |
+          git clone "https://x-access-token:$GH_TOKEN@github.com/sebastiangraz/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp dist/videotools.rb tap/Formula/videotools.rb
+          cd tap
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add Formula/videotools.rb
+          git commit -m "videotools $VERSION"
+          git push
+      - name: winget
+        run: |
+          brew install komac
+          komac update SebastianGraz.videotools --version "$VERSION" --submit \
+            --urls "https://github.com/sebastiangraz/videotools/releases/download/$GITHUB_REF_NAME/videotools-engine-win32-x64.exe"

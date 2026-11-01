@@ -198,6 +198,18 @@ button {
   }
 }
 
+a {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in srgb, currentColor 32%, transparent);
+  transition: text-decoration-color 0.2s ease;
+  &:hover {
+    text-decoration-color: color-mix(in srgb, currentColor 100%, transparent);
+  }
+}
+
 .input {
   --input-bg: color-mix(in srgb, var(--bg) 60%, var(--bg-1));
   border: none;

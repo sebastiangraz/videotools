@@ -1,12 +1,12 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 
-import { FFmpeg } from "./_lib/ffmpeg.js";
-import { markLook, renderWatermarkFrame } from "./_lib/tools/mark.js";
-import { ffmpegPath, gifskiPath } from "./_lib/binaries.js";
-import { errorResponse, jsonBody, methodNotAllowed, runJob } from "./_lib/request.js";
+import { FFmpeg } from "./ffmpeg.js";
+import { markLook, renderWatermarkFrame } from "./tools/mark.js";
+import { ffmpegPath, gifskiPath } from "./binaries.js";
+import { errorResponse, jsonBody, methodNotAllowed, runJob } from "./request.js";
 
-// Frame and logo travel inline as data URLs (both small), skipping Blob storage.
+// Frame and logo travel inline as data URLs (both small), skipping the uploads.
 const MAX_BYTES = 8 * 1024 * 1024;
 
 type PreviewBody = {
