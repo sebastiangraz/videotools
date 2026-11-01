@@ -1,0 +1,76 @@
+videotools License
+
+Copyright (c) 2026 Sebastian Graz. All rights reserved.
+
+videotools (the website, the engine, their source code and the builds
+published from this repository, together the "Software") is proprietary
+software. It is licensed, not sold. Its source code is public so that it can be
+read and reviewed; that does not make it open source.
+
+1. Permitted use
+
+   You may use the unmodified Software, as published by the licensor, for your
+   personal purposes and for the internal purposes of your business. You may
+   read its source code, and you may view and fork this repository on GitHub as
+   GitHub's Terms of Service allow.
+
+2. Paid features
+
+   Parts of the Software, such as a Pro mode, may require a paid license. You
+   may use those parts only under the terms you accept when you buy that
+   license, and you may not bypass any check that limits access to them.
+
+3. Restrictions
+
+   Except as section 1 allows, or with the licensor's prior written permission,
+   you may not:
+
+   a. copy, modify, or create derivative works of the Software;
+   b. distribute, sublicense, sell, rent, or lease the Software;
+   c. offer the Software, or a service built substantially on it, to others,
+      whether hosted or otherwise;
+   d. use the Software or its source code to build a competing product;
+   e. reverse engineer the builds, except where the law does not allow this
+      restriction; or
+   f. remove or alter any copyright or license notice.
+
+4. Third-party components
+
+   The Software uses third-party components that are licensed separately,
+   including FFmpeg (GPL) and gifski (AGPL-3.0), which the engine downloads and
+   runs as separate programs. Those components stay under their own licenses,
+   and nothing here limits the rights those licenses give you.
+
+5. Contributions
+
+   Unless agreed otherwise in writing, by submitting a contribution to this
+   repository you grant the licensor a perpetual, irrevocable, worldwide,
+   royalty-free, sublicensable license to use, modify, and distribute it as part
+   of the Software, under any terms. You confirm that you have the right to
+   grant this license.
+
+6. Ownership
+
+   The licensor and its licensors keep all rights not expressly granted here.
+   You keep your rights in the files you process with the Software.
+
+7. Termination
+
+   This license ends automatically if you break its terms. When it ends, you must
+   stop using the Software and delete your copies. Sections 6, 8, and 9 continue
+   after termination.
+
+8. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+   PURPOSE, AND NONINFRINGEMENT.
+
+9. Limitation of liability
+
+   TO THE EXTENT THE LAW ALLOWS, THE LICENSOR IS NOT LIABLE FOR ANY CLAIM, DAMAGES,
+   OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE, INCLUDING LOSS OF DATA
+   OR FILES AND ANY INDIRECT OR CONSEQUENTIAL DAMAGES.
+
+For other licensing, including commercial and redistribution rights, contact the
+licensor through https://github.com/sebastiangraz/videotools.
