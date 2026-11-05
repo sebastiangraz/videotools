@@ -46,13 +46,18 @@ export const BINARIES: Record<Tool, { version: string; platforms: Record<string,
     },
   },
   // AGPL-3.0, from https://github.com/ImageOptim/gifski/releases/tag/1.34.0
-  // (gifski-1.34.0.tar.xz); the macOS binary is universal.
+  // (gifski-1.34.0.tar.xz); the macOS binary is universal. Windows is built from
+  // that tag, as the release's exe needs the VC++ runtime. Only vcruntime is static:
+  // a static UCRT doubles the encode time. In rust:1-slim-bookworm with clang, lld,
+  // llvm and cargo-xwin, RUSTFLAGS="-C target-feature=+crt-static" cargo xwin rustc
+  // --release --locked --target x86_64-pc-windows-msvc --bin gifski --
+  // -C link-arg=/NODEFAULTLIB:libucrt.lib -C link-arg=ucrt.lib
   gifski: {
     version: "1.34.0",
     platforms: {
       "win32-x64": {
-        url: release("gifski-1.34.0", "gifski-win32-x64.gz"),
-        sha256: "9da8553cbe71c0facf544634b4e377262ea30d34becdc0ca077306342e776295",
+        url: release("gifski-1.34.0", "gifski-win32-x64-hybrid.gz"),
+        sha256: "92848333da77d4a00f61b141451b0ee1426d70ca6b61e5e71d4acf3a76ec1bfd",
       },
       "linux-x64": {
         url: release("gifski-1.34.0", "gifski-linux-x64.gz"),
