@@ -13,7 +13,10 @@ async function compile(url: string): Promise<WebAssembly.Module> {
   let response = await cache.match(url);
   if (!response) {
     response = await fetch(url);
-    if (!response.ok) throw new Error(`Engine download failed (${response.status})`);
+    // A missing file can come back as the app's index page, with a 200.
+    const type = response.headers.get("content-type");
+    if (!response.ok || type !== "application/wasm")
+      throw new Error(`Engine download failed (${response.status} ${type})`);
     await cache.put(url, response.clone());
   }
   return WebAssembly.compileStreaming(response);
