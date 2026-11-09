@@ -172,9 +172,9 @@ describe("App", () => {
   const hangEngine = () => {
     vi.mocked(runEngine).mockImplementation(
       (_, signal) =>
-        new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason))),
+        new Promise((_, reject) => signal!.addEventListener("abort", () => reject(signal!.reason))),
     );
-    return () => vi.mocked(runEngine).mock.calls[0][1];
+    return () => vi.mocked(runEngine).mock.calls[0][1]!;
   };
 
   it("fades in a Stop button while a run is in flight and cancels it on click", async () => {

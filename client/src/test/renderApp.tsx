@@ -25,7 +25,7 @@ export const downloadedName = () =>
 
 // The engine (mocked in setup.ts) answers with a file called `name`.
 export const stubEngine = (name = "out.mp4") =>
-  vi.mocked(runEngine).mockResolvedValue(new File(["result"], name));
+  vi.mocked(runEngine).mockResolvedValue([new File(["result"], name)]);
 
 // The tool run the engine got, once its result is saved (Mark's previews go
 // through the engine too).

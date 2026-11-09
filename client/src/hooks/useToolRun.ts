@@ -34,7 +34,7 @@ export function useToolRun(tool: ToolId) {
     const { signal } = controller;
 
     try {
-      const result = await runEngine({ tool, files: [...files, ...extras], options }, signal);
+      const [result] = await runEngine({ tool, files: [...files, ...extras], options }, signal);
       const objectUrl = URL.createObjectURL(result);
       const a = Object.assign(document.createElement("a"), {
         href: objectUrl,

@@ -60,22 +60,20 @@ export function markLook(options: Record<string, unknown>): Required<Omit<MarkLo
   };
 }
 
+type Logo = { logoPng: string; logo: MediaInfo; bounds: Bounds };
+
 async function markGraph(
   { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
   file: string,
   frame: SourceProfile,
-  logoFile: string,
+  opening: Promise<Logo>,
   options: Omit<Parameters<typeof watermarkGraph>[2], "bounds" | "light">,
 ): Promise<{ graph: string; logoPng: string }> {
-  const [{ logoPng, logo }, light] = await Promise.all([
-    openLogo(ff, logoFile, frame),
+  const [{ logoPng, logo, bounds }, light] = await Promise.all([
+    opening,
     lit(options.filter, options.view) ? followLight(ff, file, frame, workDir) : null,
   ]);
-  const graph = watermarkGraph(frame, logo, {
-    ...options,
-    bounds: await logoBounds(ff, logoPng, logo),
-    light,
-  });
+  const graph = watermarkGraph(frame, logo, { ...options, bounds, light });
   await light?.write();
   return { graph, logoPng };
 }
@@ -89,13 +87,20 @@ async function addWatermark(
   const frame = source.still
     ? { ...source.profile, ...(await job.ff.shownSize(source.path)) }
     : source.profile;
-  const { graph, logoPng } = await markGraph(job, source.path, frame, logoFile, {
-    ...look,
-    filter,
-    // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
-    base: source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p",
-    pad: videoPad(source),
-  });
+  const { graph, logoPng } = await markGraph(
+    job,
+    source.path,
+    frame,
+    openLogo(job.ff, logoFile, frame),
+    {
+      ...look,
+      filter,
+      // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
+      base:
+        source.format === "gif" || source.format === "webp" || source.still ? "rgba" : "yuv420p",
+      pad: videoPad(source),
+    },
+  );
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
     inputArgs: ["-i", source.path, "-i", logoPng],
@@ -106,48 +111,57 @@ async function addWatermark(
   });
 }
 
-// Same graph as addWatermark, so the preview matches the output. Returns a JPEG.
-export async function renderWatermarkFrame(
-  job: Pick<ToolJob, "ff" | "workDir">,
+// Same graph as addWatermark, so the previews match the output. A JPEG per
+// frame: frames of one source, so one size, sharing the opened logo.
+export async function renderWatermarkFrames(
+  { ff, workDir }: Pick<ToolJob, "ff" | "workDir">,
   {
-    frameFile,
+    frames,
     logoFile,
     filter = "glass",
     size = "medium",
-    position = "bottom-right",
     view = "render",
     tuning,
-  }: MarkLook & { frameFile: string; logoFile: string },
-): Promise<string> {
-  const { ff, workDir } = job;
-  const frame = await ff.mediaInfo(frameFile);
-  const { graph, logoPng } = await markGraph(job, frameFile, frame, logoFile, {
-    filter,
-    size,
-    position,
-    view,
-    tuning,
-  });
+  }: Omit<MarkLook, "position" | "route"> & {
+    frames: { file: string; position: MarkPosition }[];
+    logoFile: string;
+  },
+): Promise<string[]> {
+  const frame = await ff.mediaInfo(frames[0].file);
+  const opening = openLogo(ff, logoFile, frame);
+  return Promise.all(
+    frames.map(async ({ file, position }, n) => {
+      // Each frame tracks its own light.
+      const frameDir = path.join(workDir, String(n));
+      await fs.mkdir(frameDir, { recursive: true });
+      const { graph, logoPng } = await markGraph({ ff, workDir: frameDir }, file, frame, opening, {
+        filter,
+        size,
+        position,
+        view,
+        tuning,
+      });
 
-  const outputFile = path.join(workDir, "preview.jpg");
-  await ff.runFFmpeg([
-    "-y",
-    "-i",
-    frameFile,
-    "-i",
-    logoPng,
-    "-filter_complex",
-    graph,
-    "-map",
-    "[out]",
-    "-frames:v",
-    "1",
-    "-q:v",
-    PREVIEW_JPEG_Q,
-    outputFile,
-  ]);
-
-  return outputFile;
+      const outputFile = path.join(frameDir, "preview.jpg");
+      await ff.runFFmpeg([
+        "-y",
+        "-i",
+        file,
+        "-i",
+        logoPng,
+        "-filter_complex",
+        graph,
+        "-map",
+        "[out]",
+        "-frames:v",
+        "1",
+        "-q:v",
+        PREVIEW_JPEG_Q,
+        outputFile,
+      ]);
+      return outputFile;
+    }),
+  );
 }
 
 // PNG or SVG only (a GIF logo would play once and freeze); checking the codec
@@ -156,7 +170,7 @@ async function openLogo(
   ff: FFmpeg,
   logoFile: string,
   frame: { width: number; height: number },
-): Promise<{ logoPng: string; logo: MediaInfo }> {
+): Promise<Logo> {
   // Sniff the demuxer first: ffmpeg recognizes an SVG but may not decode it.
   const summary = await ff.summary(logoFile);
   const svg = /^Input #0, svg_pipe,/m.test(summary);
@@ -168,7 +182,7 @@ async function openLogo(
       "invalid-watermark",
     );
   }
-  return { logoPng, logo };
+  return { logoPng, logo, bounds: await logoBounds(ff, logoPng, logo) };
 }
 
 // At the frame's long side, so it scales down like a PNG would; logoBounds

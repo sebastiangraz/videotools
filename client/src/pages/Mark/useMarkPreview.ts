@@ -106,54 +106,52 @@ export function useMarkPreview(
     [],
   );
 
-  // Swap in all renders at once so scrubbing never mixes old and new. Aborting
-  // ends the renders' workers.
+  // Swap in all renders at once so scrubbing never mixes old and new. Rounds
+  // run one at a time and to their end, the latest inputs next: a turned dial
+  // would otherwise start rounds faster than stopped ones give their memory back.
+  const rounds = useRef(Promise.resolve());
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
-    const controller = new AbortController();
-    (async () => {
+    let stale = false;
+    rounds.current = rounds.current.then(async () => {
+      if (stale) return;
       setPreviewError(false);
-      const renders = await Promise.all(
-        frameBlobs.map((frame, n) =>
-          runEngine(
-            {
-              preview: {
-                frame,
-                logo: watermark,
-                filter: filterMode,
-                size,
-                position: stopAt(route ?? [position], stays, n / frameBlobs.length),
-                view,
-                tuning,
-              },
-            },
-            controller.signal,
-          ),
-        ),
-      );
-      if (controller.signal.aborted) return;
-      setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
-    })()
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
+      try {
+        const renders = await runEngine({
+          preview: {
+            frames: frameBlobs.map((image, n) => ({
+              image,
+              position: stopAt(route ?? [position], stays, n / frameBlobs.length),
+            })),
+            logo: watermark,
+            filter: filterMode,
+            size,
+            view,
+            tuning,
+          },
+        });
+        if (stale) return;
+        setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
+      } catch (err: unknown) {
+        if (stale) return;
         console.error(err);
         setPreviewError(true);
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return;
-        setSettled({
-          frameBlobs,
-          watermark,
-          filterMode,
-          size,
-          position,
-          route,
-          stays,
-          view,
-          tuning,
-        });
+      }
+      setSettled({
+        frameBlobs,
+        watermark,
+        filterMode,
+        size,
+        position,
+        route,
+        stays,
+        view,
+        tuning,
       });
-    return () => controller.abort();
+    });
+    return () => {
+      stale = true;
+    };
   }, [frameBlobs, watermark, filterMode, size, position, route, stays, view, tuning]);
 
   // Its own frame source, so its seeking never shows in the bare frame.

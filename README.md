@@ -42,7 +42,7 @@ There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
 
 Nothing leaves the browser.
 
-1. The page hands the picked files and the options to `runEngine` (`client/src/engine/index.ts`), which starts a worker for the job. The WebAssembly modules are compiled once per page and kept across visits by the Cache API.
+1. The page hands the picked files and the options to `runEngine` (`client/src/engine/index.ts`), which starts a worker for the job. Jobs take turns: a browser grants a page only so many WebAssembly memories, each command takes one, and a worker returns them when it ends. A round of Mark previews is one job. The WebAssembly modules are compiled once per page and kept across visits by the Cache API.
 2. The worker writes the files into the job's in-memory directory and runs the tool (one ffmpeg pass, plus gifski for GIF). Each command is a fresh WebAssembly instance, as each native run is a fresh process.
 3. The worker posts the result back and the page saves it as a download.
 
