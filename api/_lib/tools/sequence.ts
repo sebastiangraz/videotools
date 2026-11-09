@@ -1,10 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { SEQUENCE_FORMATS, type FormatId } from "../formats.js";
+import { InputError } from "../errors.js";
 import { encodeRender } from "../encode/index.js";
-import { floorEven } from "../helpers.js";
+import { clamp, clampInt, fileExt, floorEven, pick } from "../helpers.js";
 import type { Render } from "../encode/render.js";
-import { blobExt, clamp, clampInt, isBlobUrl, pick } from "../request.js";
 import type { Tool, ToolJob } from "./types.js";
 
 const MAX_IMAGES = 100;
@@ -63,48 +63,38 @@ async function imageSequence(
   };
 }
 
-export const sequence: Tool = {
-  inputs({ blobUrls }) {
-    if (
-      !Array.isArray(blobUrls) ||
-      blobUrls.length < 1 ||
-      blobUrls.length > MAX_IMAGES ||
-      !blobUrls.every(isBlobUrl)
-    ) {
-      return { error: `Expected 1–${MAX_IMAGES} valid blob URLs` };
-    }
-    return blobUrls;
-  },
-  async run(job) {
-    const { workDir, inputs, options, download } = job;
-    const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
-    const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
-    const quality = clampInt(options.quality, 1, 100, 100);
+export const sequence: Tool = async (job) => {
+  const { workDir, inputs, options } = job;
+  if (inputs.length > MAX_IMAGES) {
+    throw new InputError(`A sequence takes at most ${MAX_IMAGES} images.`, "too-large");
+  }
+  const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
+  const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
+  const quality = clampInt(options.quality, 1, 100, 100);
 
-    const imagePaths: string[] = [];
-    for (let i = 0; i < inputs.length; i++) {
-      const imagePath = path.join(
-        workDir,
-        `src_${String(i + 1).padStart(4, "0")}${blobExt(inputs[i], ".png")}`,
-      );
-      await download(inputs[i], imagePath);
-      imagePaths.push(imagePath);
-    }
-    console.log(`Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`);
+  const imagePaths: string[] = [];
+  for (let i = 0; i < inputs.length; i++) {
+    const imagePath = path.join(
+      workDir,
+      `src_${String(i + 1).padStart(4, "0")}${fileExt(inputs[i].name, ".png")}`,
+    );
+    await inputs[i].save(imagePath);
+    imagePaths.push(imagePath);
+  }
+  console.log(`Assembling ${imagePaths.length} images into ${format} (quality ${quality})...`);
 
-    const render = await imageSequence(job, imagePaths, {
-      frameDuration,
-      format,
-    });
-    // Stills are pristine, so they alone get AVIF's lossless mode.
-    const outputPath = await encodeRender(job, render, {
-      format,
-      quality,
-      fps: render.fps,
-      width: null,
-      everyFrame: true,
-      lossless: quality >= 100,
-    });
-    return { outputPath, suffix: "video", ext: format };
-  },
+  const render = await imageSequence(job, imagePaths, {
+    frameDuration,
+    format,
+  });
+  // Stills are pristine, so they alone get AVIF's lossless mode.
+  const outputPath = await encodeRender(job, render, {
+    format,
+    quality,
+    fps: render.fps,
+    width: null,
+    everyFrame: true,
+    lossless: quality >= 100,
+  });
+  return { outputPath, suffix: "video", ext: format };
 };

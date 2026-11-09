@@ -33,7 +33,7 @@ export const useFormatBlocker = (
           if (is || cancelled) return;
           setStillWebps((seen) => (seen.includes(file) ? seen : [...seen, file]));
         },
-        // Unreadable here: the server has the last word anyway.
+        // Unreadable here: the tool has the last word anyway.
         () => {},
       );
     }

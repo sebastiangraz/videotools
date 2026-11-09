@@ -1,11 +1,7 @@
 // The browser engine: a tool run or a Mark preview in a worker of its own
 // (worker.ts), so stopping a job is terminating its worker.
-import type { ToolId } from "@api/formats";
 import { PROGRAMS, WASM_URL } from "./exec";
 import type { EngineRequest, EngineResult } from "./worker";
-
-// Tools the browser runs; the rest still go to /api/process.
-export const ENGINE_TOOLS: readonly ToolId[] = ["loop", "sequence", "speed", "convert", "mark"];
 
 // Kept across visits by the Cache API; a new build gets a new URL.
 async function compile(url: string): Promise<WebAssembly.Module> {
@@ -23,10 +19,6 @@ async function compile(url: string): Promise<WebAssembly.Module> {
 }
 
 let compiled: Promise<Record<string, WebAssembly.Module>> | undefined;
-
-// Stands in for an upload's Blob URL: the tools take their inputs by URL.
-export const uploadUrl = (file: File, index: number) =>
-  `https://engine.public.blob.vercel-storage.com/${index}/${encodeURIComponent(file.name)}`;
 
 export async function runEngine(request: EngineRequest, signal: AbortSignal): Promise<File> {
   const modules = await (compiled ??= Promise.all(

@@ -33,7 +33,7 @@ export const ToolPanel = ({
   children?: ReactNode;
 }) => {
   const submitRef = useRef<HTMLButtonElement>(null);
-  const { busy, status, errorDetail } = run;
+  const { busy, errorDetail } = run;
   const ready = blocker === null;
 
   const submit = () => {
@@ -70,7 +70,7 @@ export const ToolPanel = ({
               />
             }
           >
-            {busy ? status : tool.actionLabel}
+            {busy ? "Processing" : tool.actionLabel}
             {busy && <Spinner className={styles.spinner} />}
           </Tooltip>
 

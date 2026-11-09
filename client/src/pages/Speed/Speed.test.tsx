@@ -1,13 +1,8 @@
 import { screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, it, expect, describe } from "vitest";
+import { it, expect, describe } from "vitest";
 import { engineRun, renderApp, stubEngine } from "@src/test/renderApp";
 import { file } from "@src/test/media";
-
-vi.mock("@src/engine", async (original) => ({
-  ...(await original<typeof import("@src/engine")>()),
-  runEngine: vi.fn(),
-}));
 
 describe("Speed", () => {
   it("requests a speed change with the slider value", async () => {
@@ -25,8 +20,7 @@ describe("Speed", () => {
 
     expect(await engineRun()).toMatchObject({
       tool: "speed",
-      filename: "clip.mp4",
-      body: { options: { speed: 1 } },
+      options: { speed: 1 },
     });
   });
 });

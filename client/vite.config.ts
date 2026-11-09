@@ -21,8 +21,8 @@ const engine = (file: string) => fileURLToPath(new URL(`src/engine/${file}`, imp
 
 export default defineConfig(({ mode }) => ({
   plugins: [react(), isolated],
-  // Aliases live in tsconfig.json paths; these two let the server's tools run
-  // in the engine worker, and stay out of tests, which run the tools on Node.
+  // Aliases live in tsconfig.json paths; these two let the tools (api/_lib)
+  // run in the engine worker, and stay out of tests, which run them on Node.
   resolve: {
     tsconfigPaths: true,
     alias:

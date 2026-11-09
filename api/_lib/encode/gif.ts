@@ -13,8 +13,8 @@ import {
   sourceBytesBudget,
 } from "./render.js";
 
-// Frames go on gifski's command line (Windows: 32k chars); pixels land on the
-// function's ~500MB ephemeral disk.
+// Frames go on gifski's command line (Windows: 32k chars); pixels land in
+// the job's files, which the engine keeps in memory.
 const MAX_GIF_FRAMES = 1500;
 const MAX_GIF_PIXELS = 600 * 800 * 800;
 

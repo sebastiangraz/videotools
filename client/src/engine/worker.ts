@@ -1,5 +1,5 @@
-// One engine job: the server's own tools (api/_lib), run here against
-// WebAssembly ffmpeg and gifski (exec.ts) instead of native binaries.
+// One engine job: a tool (api/_lib), run against WebAssembly ffmpeg and
+// gifski (exec.ts).
 import { InputError } from "@api/errors";
 import { FFmpeg } from "@api/ffmpeg";
 import { resultFile, type ToolId } from "@api/formats";
@@ -9,14 +9,10 @@ import { exec, HEAP, ROOT as workDir } from "./exec";
 import fs from "./fs";
 import path from "./path";
 
-// What /api/process takes, with the uploads as files, or a Mark preview.
+// A tool run on the picked files, in the order the tool takes them, or a
+// Mark preview.
 export type EngineRequest =
-  | {
-      tool: ToolId;
-      filename: string;
-      body: Record<string, unknown> & { options: Record<string, unknown> };
-      uploads: Record<string, File>;
-    }
+  | { tool: ToolId; files: File[]; options: Record<string, unknown> }
   | { preview: Record<string, unknown> & { frame: Blob; logo: Blob } };
 
 type EngineJob = EngineRequest & { modules: Record<string, WebAssembly.Module> };
@@ -25,7 +21,7 @@ export type EngineResult = { file: File } | { error: string };
 
 async function run(job: EngineJob): Promise<File> {
   await fs.mkdir(workDir);
-  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules), null, HEAP);
+  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules), HEAP);
   const write = async (file: string, blob: Blob) =>
     fs.writeFile(file, new Uint8Array(await blob.arrayBuffer()));
 
@@ -43,18 +39,14 @@ async function run(job: EngineJob): Promise<File> {
     return new File([await fs.readFile(output)], "preview.jpg", { type: "image/jpeg" });
   }
 
-  const { tool, filename, body, uploads } = job;
-  const { inputs, run } = TOOLS[tool];
-  const urls = inputs(body);
-  if (!Array.isArray(urls)) throw new Error(urls.error);
-  const { outputPath, suffix, ext } = await run({
+  const { tool, files, options } = job;
+  const { outputPath, suffix, ext } = await TOOLS[tool]({
     ff,
     workDir,
-    inputs: urls,
-    options: body.options,
-    download: (url, destPath) => write(destPath, uploads[url]),
+    inputs: files.map((file) => ({ name: file.name, save: (destPath) => write(destPath, file) })),
+    options,
   });
-  const { name, mime } = resultFile(filename, suffix, ext);
+  const { name, mime } = resultFile(files[0].name, suffix, ext);
   return new File([await fs.readFile(outputPath)], name, { type: mime });
 }
 

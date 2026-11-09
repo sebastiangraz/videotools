@@ -1,9 +1,9 @@
 import { vi, beforeEach } from "vitest";
-import { upload } from "@vercel/blob/client";
+import { runEngine } from "@src/engine";
 import "@testing-library/jest-dom/vitest";
 
-// Tests reach this as `uploadMock` (renderApp.tsx).
-vi.mock("@vercel/blob/client", () => ({ upload: vi.fn() }));
+// jsdom has no workers: tests answer for the engine (renderApp.tsx).
+vi.mock("@src/engine", () => ({ runEngine: vi.fn() }));
 
 // VersionLabel's GitHub fetch on mount would show up in tests' fetch counts, depending
 // on network and a sessionStorage cache.
@@ -21,7 +21,7 @@ window.matchMedia ??= (query) => ({ matches: false, media: query }) as MediaQuer
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  vi.mocked(upload).mockReset();
+  vi.mocked(runEngine).mockReset();
   localStorage.clear();
   // jsdom implements neither of these
   URL.createObjectURL = vi.fn(() => "blob:mock");

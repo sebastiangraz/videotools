@@ -6,12 +6,8 @@ type RunResult = { code: number | null; stdout: string; stderr: string };
 
 // Runs a binary to its end: native (binaries.ts) or WebAssembly (client/src/engine).
 // Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
-// only when not started or cancelled.
-export type Exec = (
-  command: string,
-  args: string[],
-  options: RunOptions & { signal?: AbortSignal },
-) => Promise<RunResult>;
+// only when not started.
+export type Exec = (command: string, args: string[], options: RunOptions) => Promise<RunResult>;
 
 export const DEFAULT_FPS = 30;
 
@@ -156,25 +152,17 @@ export class FFmpeg {
   ffmpeg: string;
   gifski: string;
   exec: Exec;
-  signal: AbortSignal | null;
   // Bytes a run can allocate where that is fixed: the browser engine's
   // WebAssembly heap. Null for a native run.
   heap: number | null;
-  // Time left in the function limit decides optional second passes (gif.ts).
+  // Time spent so far decides optional further passes (render.ts).
   startedAt = Date.now();
   private infoCache = new Map<string, SourceProfile>();
 
-  constructor(
-    ffmpegPath: string,
-    gifskiPath: string,
-    exec: Exec,
-    signal: AbortSignal | null = null,
-    heap: number | null = null,
-  ) {
+  constructor(ffmpegPath: string, gifskiPath: string, exec: Exec, heap: number | null = null) {
     this.ffmpeg = ffmpegPath;
     this.gifski = gifskiPath;
     this.exec = exec;
-    this.signal = signal;
     this.heap = heap;
   }
 
@@ -316,11 +304,6 @@ export class FFmpeg {
     if (options.cwd) {
       console.log(`Working directory: ${options.cwd}`);
     }
-    const signal = this.signal ?? undefined;
-    const running = this.exec(command, args, { ...options, signal });
-    // Ended or failed, a cancelled run is "Cancelled".
-    await running.catch(() => {});
-    if (signal?.aborted) throw new Error("Cancelled");
-    return running;
+    return this.exec(command, args, options);
   }
 }

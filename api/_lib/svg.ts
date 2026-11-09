@@ -1,10 +1,10 @@
 // SVG logos rasterize here rather than through ffmpeg: the WebAssembly ffmpeg
 // has no librsvg. resvg is WebAssembly itself, so it renders the same in the
-// browser engine and on the server.
+// browser engine and in a native run.
 import fs from "node:fs/promises";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 
-// The browser build turns this into an asset URL; on the server it's a file.
+// The browser build turns this into an asset URL; natively it's a file.
 const wasm = new URL("../../node_modules/@resvg/resvg-wasm/index_bg.wasm", import.meta.url);
 
 let ready: Promise<void> | undefined;

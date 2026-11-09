@@ -1,14 +1,9 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, it, expect, describe } from "vitest";
+import { it, expect, describe } from "vitest";
 import { engineRun, renderApp, stubEngine } from "@src/test/renderApp";
 import { file } from "@src/test/media";
 import { targetsFor } from "@src/sourceFormat";
-
-vi.mock("@src/engine", async (original) => ({
-  ...(await original<typeof import("@src/engine")>()),
-  runEngine: vi.fn(),
-}));
 
 const convertButton = () => screen.getByRole("button", { name: /^convert$/i });
 
@@ -28,11 +23,11 @@ describe("Convert", () => {
     expect(screen.getByLabelText(/width/i)).toBeInTheDocument();
     await user.click(convertButton());
 
-    const { tool, filename, body, uploads } = await engineRun();
-    expect({ tool, filename }).toEqual({ tool: "convert", filename: "clip.mov" });
-    expect(uploads[body.blobUrl as string]).toBe(video);
+    const { tool, files, options } = await engineRun();
+    expect(tool).toBe("convert");
+    expect(files[0]).toBe(video);
     // Empty fps is omitted: the tool matches the source framerate
-    expect(body.options).toEqual({ target: "gif", quality: 100, width: 640 });
+    expect(options).toEqual({ target: "gif", quality: 100, width: 640 });
   });
 
   it("falls to the first other target when the source claims the default", async () => {
@@ -44,7 +39,7 @@ describe("Convert", () => {
     await user.upload(screen.getByLabelText(/choose video/i), mp4);
     await user.click(convertButton());
 
-    expect((await engineRun()).body.options).toEqual({
+    expect((await engineRun()).options).toEqual({
       target: targetsFor(mp4)[0].value,
       quality: 100,
     });

@@ -5,6 +5,8 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    // The tools (@api) are written against node:fs/promises and node:path.
+    "types": ["node"],
 
     "moduleResolution": "bundler",
     "resolveJsonModule": true,

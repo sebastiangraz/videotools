@@ -1,7 +1,5 @@
 {
-  "bunVersion": "1.4.x",
   "buildCommand": "bun run build",
-  "devCommand": "bun --filter client dev --port $PORT",
   "outputDirectory": "client/dist",
   "headers": [
     {
@@ -14,18 +12,8 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api/|@)[^.]*)",
+      "source": "/([^.]*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/process.ts": {
-      "maxDuration": 300,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**,node_modules/@resvg/resvg-wasm/index_bg.wasm}",
-      "supportsCancellation": true
-    },
-    "api/upload.ts": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }

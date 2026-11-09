@@ -2,14 +2,12 @@ Browser video tools: seamless loops, image sequences to video, speed changes, fo
 
 ## Installation
 
-Bun 1.4: package manager, script runner and the functions' runtime (`bunVersion` in `vercel.json`; keep `engines.node` out of `package.json`, it overrides that). The static linux ffmpeg (~164 MB) is over the Bun runtime's 150 MB function limit, so the project sets `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` (Production and Preview). Setup: `bun install`, `vercel link`, connect a Blob store in the Vercel dashboard (`BLOB_READ_WRITE_TOKEN` is the only env var), `vercel env pull .env.local`.
+Bun 1.4: package manager and script runner. The app is a static site: every tool runs in the browser, on ffmpeg and gifski built as WebAssembly. That build (`wasm/Dockerfile`, needs Docker) goes to `client/public/engine/`, which is gitignored, so a fresh checkout builds it once.
 
 ```bash
-bun install                     # deps + pinned ffmpeg/gifski (postinstall)
-bun add -g vercel               # Vercel CLI
-vercel link                     # link to the Vercel project (with a Blob store connected)
-vercel env pull .env.local      # BLOB_READ_WRITE_TOKEN
-bun run dev                     # vercel dev: client + api on one origin
+bun install                     # deps + pinned native ffmpeg/gifski for the smoke runs (postinstall)
+docker build -f wasm/Dockerfile --output client/public/engine wasm   # the engine
+bun run dev                     # Vite dev server
 
 bun run test                    # vitest (client tests + api unit tests)
 bun run lint                    # oxlint (type-aware on api/)
@@ -21,30 +19,36 @@ bun run smoke name              # run smoke test for name .smoke/name
 bun run smoke name quality      # run smoke test only for quality in .smoke/name/quality
 bun run smoke name mark:debug   # run debug view for mark smoke tests .smoke/name/mark/debug
 
+bun add -g vercel               # Vercel CLI
 vercel --prod                   # production deploy
 
 git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
-Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the real tool handlers on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `vectors/`, and `videos/`, where each suite lists the clips it uses by file name). `mark` lays its videos out as cropped tiles of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the light-tracking clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip. `quality` runs each tool over its videos at quality 100 and scores each result's SSIM, PSNR and VMAF against a lossless render of the same pictures (or against its input where the tool copies), failing when any frame falls below the floors in `quality.mjs`; round trips are also scored against the source.
+Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the tools themselves, natively on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `vectors/`, and `videos/`, where each suite lists the clips it uses by file name). `mark` lays its videos out as cropped tiles of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the light-tracking clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip. `quality` runs each tool over its videos at quality 100 and scores each result's SSIM, PSNR and VMAF against a lossless render of the same pictures (or against its input where the tool copies), failing when any frame falls below the floors in `quality.mjs`; round trips are also scored against the source.
 
 Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size, a core gain knob). Dev servers also serve a `/test` scratch page for the shared components.
 
 ## Architecture
 
-A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool) and Vercel functions in `api/` (`upload.ts`, `process.ts`). Their private code lives in `api/_lib/` (the leading underscore keeps Vercel from deploying it as functions): `tools/` holds one module per tool, `encode/` one encoder per output format. `_lib/formats.ts` (tool ids, formats) has no imports, so the client compiles it too. ffmpeg and gifski are real, pinned binaries: `bun install`'s postinstall fetches the host's builds pinned in `scripts/binaries.mjs` into `api/_bin/` (gitignored, sha256-checked); `vercel.json` ships the linux-x64 ones with the functions. There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
+A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool), deployed as a static site; there is no backend. The tools live in `api/_lib/`, which the client imports as `@api/*`: `tools/` holds one module per tool, `encode/` one encoder per output format. They are written against `node:fs/promises`, `node:path` and a command runner they are handed, so the same code runs in two places:
 
-## Request flow
+- In the browser, where Vite swaps the two modules for the engine's in-memory ones (`client/src/engine/`) and a command runs ffmpeg or gifski as WebAssembly.
+- Natively under Bun, for the smoke suites and scripts, against real binaries: `bun install`'s postinstall fetches the host's builds pinned in `scripts/binaries.mjs` into `api/_bin/` (gitignored, sha256-checked).
 
-The tools in `ENGINE_TOOLS` (`client/src/engine/index.ts`), currently all of them, never leave the browser: a worker runs the same tool code from `api/_lib/` against ffmpeg and gifski built as WebAssembly (`wasm/Dockerfile`), reading the picked files and handing back the result. Nothing is uploaded, so neither the upload limit nor the function time applies. A tool taken off that list goes through the server instead:
+There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
 
-1. The browser uploads the file(s) straight to Vercel Blob (token from `/api/upload`), bypassing the function body limit.
-2. It POSTs the tool id, blob URL(s) and options to `/api/process`, which downloads the inputs to a temp dir, runs the tool (one ffmpeg pass, plus gifski for GIF), uploads the result to Blob and returns its URL.
-3. The browser downloads the result and asks `DELETE /api/process` to remove it. Input blobs are deleted by the function once it is done.
+## Run flow
 
-Stop (or leaving the tab) aborts the whole chain client-side; server-side a client disconnect fires `request.signal` (`supportsCancellation` in `vercel.json`), which kills ffmpeg: on Node; the Bun runtime does not support cancellation yet, so there a stopped job runs to the end. A hard kill skips cleanup, so every job ends with a sweep of stale blobs (uploads after 1 h, results after 24 h).
+Nothing leaves the browser.
 
-Handlers are web-standard (`export default { fetch(request) }`, returning a `Response`) and go through `runJob` (`api/_lib/request.ts`): an `InputError` becomes a 400 with its message and `code`, anything else a generic 500.
+1. The page hands the picked files and the options to `runEngine` (`client/src/engine/index.ts`), which starts a worker for the job. The WebAssembly modules are compiled once per page and kept across visits by the Cache API.
+2. The worker writes the files into the job's in-memory directory and runs the tool (one ffmpeg pass, plus gifski for GIF). Each command is a fresh WebAssembly instance, as each native run is a fresh process.
+3. The worker posts the result back and the page saves it as a download.
+
+Stop (or leaving the tab) terminates the worker. An `InputError` reaches the user with its message; anything else shows as a generic failure, with the detail in the console.
+
+ffmpeg's threads share memory, which needs cross-origin isolation: every response carries the COOP and COEP headers (`vercel.json`, and a middleware in `client/vite.config.ts` for the dev server).
 
 ## Principles
 
@@ -55,13 +59,13 @@ Handlers are web-standard (`export default { fetch(request) }`, returning a `Res
 
 ## ffmpeg
 
-One pinned ffmpeg (currently 9.0.2, in `scripts/binaries.mjs`), the same build locally and on Vercel, with no version workarounds in code. Upgrades are rare and manual: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `bun install`, then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
+One pinned ffmpeg (currently 9.0.2), built twice from the same tag with no version workarounds in code: as WebAssembly for the app (`wasm/Dockerfile`) and natively for the smoke suites (`scripts/binaries.mjs`). Upgrades are rare and manual. Native: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `bun install`. WebAssembly: move the tag and library commits in `wasm/Dockerfile` and rebuild. Then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `api/_bin/gifski/README.md`).
 
 ## Adding a tool
 
 1. Add its id to `TOOL_IDS` in `api/_lib/formats.ts` (this also sets the tab order).
 2. Add its entry to `TOOL_META` in `client/src/tools.ts` (label, description, input accept, action label).
-3. Write the handler in `api/_lib/tools/<tool>.ts` and register it in `TOOLS` in `api/_lib/tools/index.ts`.
+3. Write the tool in `api/_lib/tools/<tool>.ts` and register it in `TOOLS` in `api/_lib/tools/index.ts`.
 4. Add a page under `client/src/pages/<Tool>/` and register it in `PAGES` in `client/src/pages/index.ts`.
 5. Add a smoke suite in `scripts/smoke/` and register it in `SUITES` in `scripts/smoke/index.mjs`.
 
@@ -69,9 +73,8 @@ Steps 1–4 are type-checked against each other, so a missing registration fails
 
 ## Limits
 
-- Browser engine: a run's inputs and result are held in memory, and its ffmpeg in a WebAssembly heap of fixed size. x264 gets as many threads as fit there beside what the tool's graph buffers, so large frames encode on fewer threads, and frames no thread count fits are refused.
-- Server only: uploads of 200 MB per file; function time `process` 300 s (encoders budget 240 s), `upload` 30 s.
+- A run's inputs and result are held in memory, and its ffmpeg in a WebAssembly heap of fixed size. x264 gets as many threads as fit there beside what the tool's graph buffers, so large frames encode on fewer threads, and frames no thread count fits are refused.
+- Encoders that try again for a better fit stop once a job has run long.
 - GIF: at most 1500 frames or 384 M frame pixels. AVIF: at most 60 s or 648 M frame pixels. Convert caps animated-image width at 800 px.
 - Reverse loop: decoded frames must fit in 1.2 GB (GIF is exempt). Crossfade streams.
 - Sequence: 1–100 images, scaled to the first one, longest side at most 1920 px.
-- Processing is synchronous: one request is held open for the whole job.

@@ -1,22 +1,19 @@
 import type { FormatId, StillId } from "../formats.js";
 import type { FFmpeg } from "../ffmpeg.js";
 
-// Untyped JSON: every tool validates what it reads.
-export type ToolRequest = {
-  blobUrl?: unknown;
-  blobUrls?: unknown;
-  // mark only: the logo (PNG or SVG).
-  watermarkUrl?: unknown;
-  options: Record<string, unknown>;
+// A picked file: `save` writes it where the tool wants it.
+export type ToolInput = {
+  name: string;
+  save: (destPath: string) => Promise<void>;
 };
 
 export type ToolJob = {
   ff: FFmpeg;
-  // Removed once the request is answered.
+  // The job's own directory.
   workDir: string;
-  inputs: string[];
+  inputs: ToolInput[];
+  // Untyped: every tool validates what it reads.
   options: Record<string, unknown>;
-  download: (url: string, destPath: string) => Promise<void>;
 };
 
 // Download is named `<source name>_<suffix>.<ext>`; ext also sets the content type.
@@ -26,8 +23,4 @@ type ToolResult = {
   ext: FormatId | StillId;
 };
 
-// `inputs` returns the blob URLs to use, or an error (a 400).
-export type Tool = {
-  inputs: (request: ToolRequest) => string[] | { error: string };
-  run: (job: ToolJob) => Promise<ToolResult>;
-};
+export type Tool = (job: ToolJob) => Promise<ToolResult>;

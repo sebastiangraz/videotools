@@ -20,11 +20,6 @@ import { MARK } from "@api/tools/mark-config";
 import { runEngine } from "@src/engine";
 import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
 
-vi.mock("@src/engine", async (original) => ({
-  ...(await original<typeof import("@src/engine")>()),
-  runEngine: vi.fn(),
-}));
-
 type User = ReturnType<typeof userEvent.setup>;
 const markButton = () => screen.getByRole("button", { name: /^mark$/i });
 const pickSource = (user: User, picked: File) =>
@@ -128,9 +123,9 @@ describe("Mark", () => {
 
     await pickLogo(user);
     await user.click(markButton());
-    const { tool, filename, body, uploads } = await engineRun();
-    expect({ tool, filename }).toEqual({ tool: "mark", filename: "shot.png" });
-    expect(uploads[body.blobUrl as string]).toBe(shot);
+    const { tool, files } = await engineRun();
+    expect(tool).toBe("mark");
+    expect(files[0]).toBe(shot);
   });
 
   it("offers no shuffle for a still", async () => {
@@ -364,11 +359,10 @@ describe("Mark", () => {
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await user.click(markButton());
 
-    const { tool, filename, body, uploads } = await engineRun();
-    expect({ tool, filename }).toEqual({ tool: "mark", filename: "clip.mp4" });
-    expect(uploads[body.blobUrl as string]).toBe(video);
-    expect(uploads[body.watermarkUrl as string]).toBe(logo);
-    expect(body.options).toEqual({
+    const { tool, files, options } = await engineRun();
+    expect(tool).toBe("mark");
+    expect(files.map((file) => [video, logo].indexOf(file))).toEqual([0, 1]);
+    expect(options).toEqual({
       filter: "blur",
       size: "small",
       position: "bottom-right",

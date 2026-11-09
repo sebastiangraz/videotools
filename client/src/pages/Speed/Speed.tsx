@@ -36,10 +36,7 @@ export const Speed = () => {
     if (!source.file) return;
     run.start({
       files: [source.file],
-      payload: ({ blobUrls }) => ({
-        blobUrl: blobUrls[0],
-        options: { speed },
-      }),
+      options: { speed },
     });
   };
 

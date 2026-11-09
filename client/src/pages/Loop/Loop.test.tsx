@@ -1,8 +1,8 @@
 import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, it, expect, describe } from "vitest";
+import { it, expect, describe } from "vitest";
 import { runEngine } from "@src/engine";
-import { decimal, downloadedName, renderApp, uploadMock } from "@src/test/renderApp";
+import { decimal, engineRun, renderApp, stubEngine } from "@src/test/renderApp";
 import {
   file,
   stubCanvas,
@@ -12,19 +12,14 @@ import {
   webpFile,
 } from "@src/test/media";
 
-vi.mock("@src/engine", async (original) => ({
-  ...(await original<typeof import("@src/engine")>()),
-  runEngine: vi.fn(),
-}));
-
 const pick = (user: ReturnType<typeof userEvent.setup>, picked: File) =>
   user.upload(screen.getByLabelText(/choose video/i), picked);
 const loopButton = () => screen.getByRole("button", { name: /^loop$/i });
 
 describe("Loop", () => {
-  it("accepts decimal values in number fields, and runs in the engine with no upload", async () => {
+  it("accepts decimal values in number fields", async () => {
     const user = userEvent.setup();
-    vi.mocked(runEngine).mockResolvedValue(new File(["mp4"], "tiny_loop.mp4"));
+    stubEngine();
 
     await renderApp();
     await pick(user, file("tiny.mp4", "video/mp4"));
@@ -36,10 +31,9 @@ describe("Loop", () => {
     });
     await user.click(loopButton());
 
-    await waitFor(() => expect(downloadedName()).toBe("tiny_loop.mp4"));
-    expect(vi.mocked(runEngine).mock.calls[0][0]).toMatchObject({
+    expect(await engineRun()).toMatchObject({
       tool: "loop",
-      body: { options: { fadeDuration: 0.7, startSecond: 1.5 } },
+      options: { fadeDuration: 0.7, startSecond: 1.5 },
     });
   });
 
@@ -110,7 +104,7 @@ describe("Loop", () => {
     expect(screen.queryByLabelText(/start frame preview/i)).not.toBeInTheDocument();
   });
 
-  it("refuses a video with non-square pixels before any upload, and takes a square one", async () => {
+  it("refuses a video with non-square pixels before any run, and takes a square one", async () => {
     stubMediaLoading("decodes");
     // Played at 1710×1710, stored at whatever VideoFrame says
     stubProperties(HTMLVideoElement.prototype, {
@@ -125,7 +119,7 @@ describe("Loop", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(loopButton()).toHaveAttribute("aria-disabled", "true");
     await user.click(loopButton());
-    expect(uploadMock).not.toHaveBeenCalled();
+    expect(runEngine).not.toHaveBeenCalled();
 
     stubVideoFrame(1710, 1710);
     await pick(user, file("square.mp4", "video/mp4"));
@@ -133,7 +127,7 @@ describe("Loop", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("sends a format the app doesn't write through convert, before any upload", async () => {
+  it("sends a format the app doesn't write through convert, before any run", async () => {
     const user = userEvent.setup();
     await renderApp();
     await pick(user, file("clip.avi", "video/x-msvideo"));
@@ -147,7 +141,7 @@ describe("Loop", () => {
 
     expect(loopButton()).toHaveAttribute("aria-disabled", "true");
     await user.click(loopButton());
-    expect(uploadMock).not.toHaveBeenCalled();
+    expect(runEngine).not.toHaveBeenCalled();
   });
 
   // A .webp may be either kind; a still one is refused once its header says so.
