@@ -36,6 +36,8 @@ A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per t
 
 ## Request flow
 
+The tools in `ENGINE_TOOLS` (`client/src/engine/index.ts`), currently all of them, never leave the browser: a worker runs the same tool code from `api/_lib/` against ffmpeg and gifski built as WebAssembly (`wasm/Dockerfile`), reading the picked files and handing back the result. Nothing is uploaded, so neither the upload limit nor the function time applies. A tool taken off that list goes through the server instead:
+
 1. The browser uploads the file(s) straight to Vercel Blob (token from `/api/upload`), bypassing the function body limit.
 2. It POSTs the tool id, blob URL(s) and options to `/api/process`, which downloads the inputs to a temp dir, runs the tool (one ffmpeg pass, plus gifski for GIF), uploads the result to Blob and returns its URL.
 3. The browser downloads the result and asks `DELETE /api/process` to remove it. Input blobs are deleted by the function once it is done.
@@ -67,8 +69,8 @@ Steps 1–4 are type-checked against each other, so a missing registration fails
 
 ## Limits
 
-- Uploads: 200 MB per file.
-- Function time: `process` 300 s (encoders budget 240 s), `upload` 30 s.
+- Browser engine: a run's inputs and result are held in memory, and its ffmpeg in a WebAssembly heap of fixed size. x264 gets as many threads as fit there beside what the tool's graph buffers, so large frames encode on fewer threads, and frames no thread count fits are refused.
+- Server only: uploads of 200 MB per file; function time `process` 300 s (encoders budget 240 s), `upload` 30 s.
 - GIF: at most 1500 frames or 384 M frame pixels. AVIF: at most 60 s or 648 M frame pixels. Convert caps animated-image width at 800 px.
 - Reverse loop: decoded frames must fit in 1.2 GB (GIF is exempt). Crossfade streams.
 - Sequence: 1–100 images, scaled to the first one, longest side at most 1920 px.

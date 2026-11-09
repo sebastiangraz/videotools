@@ -4,6 +4,8 @@ import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { upload } from "@vercel/blob/client";
 import { expect, vi, type Mock } from "vitest";
 import { createAppRouter } from "@src/App";
+import { runEngine } from "@src/engine";
+import type { EngineRequest } from "@src/engine/worker";
 
 // Loosely typed: tests resolve it with just the fields the app reads ({ url }).
 export const uploadMock = upload as unknown as Mock;
@@ -62,6 +64,22 @@ export const downloadedName = () =>
 export const postedBody = (fetchMock: FetchMock, nth = 0) => {
   const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
   return JSON.parse(posts[nth][1]!.body as string);
+};
+
+// A run in the engine, which the test file mocks: it answers with a file
+// called `name`.
+export const stubEngine = (name = "out.mp4") =>
+  vi
+    .mocked(runEngine)
+    .mockReset()
+    .mockResolvedValue(new File(["result"], name));
+
+// The tool run the engine got, once its result is saved (Mark's previews go
+// through the engine too).
+export const engineRun = async () => {
+  await waitFor(() => expect(downloadedName()).toBeTruthy());
+  const requests = vi.mocked(runEngine).mock.calls.map(([request]) => request);
+  return requests.find((request) => "tool" in request) as Extract<EngineRequest, { tool: unknown }>;
 };
 
 // NumberField parses with the runtime locale: type its decimal separator

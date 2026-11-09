@@ -72,6 +72,9 @@ export type Render = {
   // Before any encoder scaling.
   width: number;
   height: number;
+  // Bytes the graph buffers beyond decoding one input; the encoder's threads
+  // fit in what a fixed heap has left (video.ts).
+  held?: number;
   // PNG frames `inputArgs` already reads (stills), for frame-file encoders.
   frames?: string[];
 };

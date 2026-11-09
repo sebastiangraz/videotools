@@ -157,6 +157,9 @@ export class FFmpeg {
   gifski: string;
   exec: Exec;
   signal: AbortSignal | null;
+  // Bytes a run can allocate where that is fixed: the browser engine's
+  // WebAssembly heap. Null for a native run.
+  heap: number | null;
   // Time left in the function limit decides optional second passes (gif.ts).
   startedAt = Date.now();
   private infoCache = new Map<string, SourceProfile>();
@@ -166,11 +169,13 @@ export class FFmpeg {
     gifskiPath: string,
     exec: Exec,
     signal: AbortSignal | null = null,
+    heap: number | null = null,
   ) {
     this.ffmpeg = ffmpegPath;
     this.gifski = gifskiPath;
     this.exec = exec;
     this.signal = signal;
+    this.heap = heap;
   }
 
   // Saves shipping ffprobe. `ffmpeg -i` with no output exits non-zero by design.

@@ -19,6 +19,10 @@ const FFMPEG_FIRST = ["-filter_threads", "1", "-filter_complex_threads", "1"];
 // The job's own directory; everything it writes is under here.
 export const ROOT = "/work";
 
+// MAXIMUM_MEMORY in wasm/Dockerfile, less the share kept for what a run's
+// filters hold.
+export const HEAP = 0.85 * 4 * 2 ** 30;
+
 type Node = { mode: number; contents: Uint8Array<ArrayBuffer> | null; usedBytes: number };
 type Instance = {
   FS: {

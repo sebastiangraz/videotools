@@ -5,7 +5,7 @@ import { FFmpeg } from "@api/ffmpeg";
 import { resultFile, type ToolId } from "@api/formats";
 import { TOOLS } from "@api/tools/index";
 import { markLook, renderWatermarkFrame } from "@api/tools/mark";
-import { exec, ROOT as workDir } from "./exec";
+import { exec, HEAP, ROOT as workDir } from "./exec";
 import fs from "./fs";
 import path from "./path";
 
@@ -25,7 +25,7 @@ export type EngineResult = { file: File } | { error: string };
 
 async function run(job: EngineJob): Promise<File> {
   await fs.mkdir(workDir);
-  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules));
+  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules), null, HEAP);
   const write = async (file: string, blob: Blob) =>
     fs.writeFile(file, new Uint8Array(await blob.arrayBuffer()));
 

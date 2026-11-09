@@ -5,7 +5,7 @@ import { PROGRAMS, WASM_URL } from "./exec";
 import type { EngineRequest, EngineResult } from "./worker";
 
 // Tools the browser runs; the rest still go to /api/process.
-export const ENGINE_TOOLS: readonly ToolId[] = ["loop"];
+export const ENGINE_TOOLS: readonly ToolId[] = ["loop", "sequence", "speed", "convert", "mark"];
 
 // Kept across visits by the Cache API; a new build gets a new URL.
 async function compile(url: string): Promise<WebAssembly.Module> {

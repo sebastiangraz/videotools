@@ -2,14 +2,11 @@ import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import {
-  blobUrl,
   downloadedName,
   enableVerboseNames,
-  postedBody,
+  engineRun,
   renderApp,
-  runFinished,
-  stubProcessFetch,
-  uploadMock,
+  stubEngine,
 } from "@src/test/renderApp";
 import {
   file,
@@ -121,25 +118,19 @@ describe("Mark", () => {
 
   it("asks no quality of a PNG, which comes back lossless, and sends it like any source", async () => {
     const user = userEvent.setup();
-    uploadMock.mockImplementation(async (name: string) => ({
-      url: blobUrl(name),
-    }));
-    const fetchMock = stubProcessFetch();
+    const shot = file("shot.png", "image/png");
+    stubEngine("shot_marked.png");
 
     await renderApp("/mark");
     expect(screen.getByRole("slider", { hidden: true })).toBeInTheDocument();
-    await pickSource(user, file("shot.png", "image/png"));
+    await pickSource(user, shot);
     expect(screen.queryByRole("slider", { hidden: true })).not.toBeInTheDocument();
 
     await pickLogo(user);
     await user.click(markButton());
-    await runFinished(fetchMock);
-    expect(postedBody(fetchMock)).toMatchObject({
-      tool: "mark",
-      filename: "shot.png",
-      blobUrl: blobUrl("shot.png"),
-      watermarkUrl: blobUrl("logo.png"),
-    });
+    const { tool, filename, body, uploads } = await engineRun();
+    expect({ tool, filename }).toEqual({ tool: "mark", filename: "shot.png" });
+    expect(uploads[body.blobUrl as string]).toBe(shot);
   });
 
   it("offers no shuffle for a still", async () => {
@@ -359,14 +350,11 @@ describe("Mark", () => {
     expect(secondSet.filter((src) => firstSet.includes(src))).toEqual([]);
   });
 
-  it("uploads the video then the watermark and requests a blurred, rotating watermark", async () => {
+  it("hands the engine the video and the watermark and requests a blurred, rotating watermark", async () => {
     const user = userEvent.setup();
     const video = file("clip.mp4", "video/mp4");
     const logo = file("logo.png", "image/png");
-    uploadMock.mockImplementation(async (name: string) => ({
-      url: blobUrl(name),
-    }));
-    const fetchMock = stubProcessFetch();
+    stubEngine();
 
     await renderApp("/mark");
     await pickSource(user, video);
@@ -376,29 +364,23 @@ describe("Mark", () => {
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await user.click(markButton());
 
-    await runFinished(fetchMock);
-    expect(uploadMock).toHaveBeenNthCalledWith(1, "clip.mp4", video, expect.anything());
-    expect(uploadMock).toHaveBeenNthCalledWith(2, "logo.png", logo, expect.anything());
-    expect(postedBody(fetchMock)).toEqual({
-      tool: "mark",
-      filename: "clip.mp4",
-      blobUrl: blobUrl("clip.mp4"),
-      watermarkUrl: blobUrl("logo.png"),
-      options: {
-        filter: "blur",
-        size: "small",
-        position: "bottom-right",
-        route: expect.any(Array),
-        quality: 100,
-        tuning: null,
-      },
+    const { tool, filename, body, uploads } = await engineRun();
+    expect({ tool, filename }).toEqual({ tool: "mark", filename: "clip.mp4" });
+    expect(uploads[body.blobUrl as string]).toBe(video);
+    expect(uploads[body.watermarkUrl as string]).toBe(logo);
+    expect(body.options).toEqual({
+      filter: "blur",
+      size: "small",
+      position: "bottom-right",
+      route: expect.any(Array),
+      quality: 100,
+      tuning: null,
     });
   });
 
   it("names a verbose download after the watermark too, leaving out an unshuffled route", async () => {
     const user = userEvent.setup();
-    uploadMock.mockImplementation(async (name: string) => ({ url: blobUrl(name) }));
-    const fetchMock = stubProcessFetch();
+    stubEngine();
 
     await renderApp("/mark");
     await enableVerboseNames(user);
@@ -406,7 +388,7 @@ describe("Mark", () => {
     await pickLogo(user);
     await user.click(markButton());
 
-    await runFinished(fetchMock);
+    await engineRun();
     expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
   });
 });

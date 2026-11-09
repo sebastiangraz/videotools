@@ -25,27 +25,29 @@ const KEYFRAME_SNAP_SECONDS = 0.5;
 // smoke quality suite can lift it locally.
 export const LOOP_LIMITS = { maxReverseBytes: 1.2e9 };
 
+// A decoder's frame threads hold about two frames each (measured at 4K).
+const DECODER_FRAMES = 32;
+
 // The output stage does the reversing (encode/render.ts), cheapest per format.
 function reverseLoop(source: Source, duration: number): Render {
   const { fps, width, height, pixFmt } = source.profile;
   // GIF frames are files gifski reads twice; others buffer yuv420p (1.5 B/px)
   // or, for WebP, bgra (4 B/px).
-  if (source.format !== "gif") {
-    const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
-    const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
-    if (bytes > LOOP_LIMITS.maxReverseBytes) {
-      throw new InputError(
-        `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
-          `${sizeLabel(width, height)} (${pixFmt}) doesn't fit in memory. Use a ` +
-          `shorter or smaller clip, or the crossfade technique.`,
-        "too-long",
-      );
-    }
+  const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
+  const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
+  if (source.format !== "gif" && bytes > LOOP_LIMITS.maxReverseBytes) {
+    throw new InputError(
+      `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
+        `${sizeLabel(width, height)} (${pixFmt}) doesn't fit in memory. Use a ` +
+        `shorter or smaller clip, or the crossfade technique.`,
+      "too-long",
+    );
   }
   return sourceRender(source, {
     keepAudio: false,
     palindrome: true,
     duration: duration * 2,
+    held: bytes,
   });
 }
 
@@ -119,12 +121,15 @@ function crossfadeLoop(
       : `${order[0]}null[out]`,
   );
 
+  const { width, height } = source.profile;
   return sourceRender(source, {
     inputArgs: ["-i", source.path, "-i", source.path],
     filter: graph.join(";"),
     keepAudio: false,
     duration: (frames - fade) / fps,
     fps,
+    // The second decoder, and the fade-in xfade queues until the fade-out arrives.
+    held: (fade + DECODER_FRAMES) * width * height * (/p1\d/.test(pixFmt) ? 3 : 1.5),
   });
 }
 
