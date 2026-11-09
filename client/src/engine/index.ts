@@ -3,7 +3,8 @@
 import { PROGRAMS, WASM_URL } from "./exec";
 import type { EngineRequest, EngineResult } from "./worker";
 
-// Kept across visits by the Cache API; a new build gets a new URL.
+// Kept across visits by the Cache API; a new build gets a new URL, and
+// replaces the build it follows.
 async function compile(url: string): Promise<WebAssembly.Module> {
   const cache = await caches.open("engine");
   let response = await cache.match(url);
@@ -13,6 +14,8 @@ async function compile(url: string): Promise<WebAssembly.Module> {
     const type = response.headers.get("content-type");
     if (!response.ok || type !== "application/wasm")
       throw new Error(`Engine download failed (${response.status} ${type})`);
+    const name = url.slice(url.lastIndexOf("/"));
+    for (const old of await cache.keys()) if (old.url.endsWith(name)) await cache.delete(old);
     await cache.put(url, response.clone());
   }
   return WebAssembly.compileStreaming(response);

@@ -2,11 +2,11 @@ Browser video tools: seamless loops, image sequences to video, speed changes, fo
 
 ## Installation
 
-Bun 1.4: package manager and script runner. The app is a static site: every tool runs in the browser, on ffmpeg and gifski built as WebAssembly. That build is committed in `client/public/engine/`; rebuild it (`wasm/Dockerfile`, needs Docker) only when the engine changes.
+Bun 1.4: package manager and script runner. The app is a static site: every tool runs in the browser, on ffmpeg and gifski built as WebAssembly. That build is committed in `client/public/engine/`; rebuild it (`wasm/Dockerfile`, needs Docker) only when the engine changes, into a new numbered folder that `GLUE_URL` (`client/src/engine/exec.ts`) then points at: browsers keep an engine for good under its address.
 
 ```bash
 bun install                     # deps + pinned native ffmpeg/gifski for the smoke runs (postinstall)
-docker build -f wasm/Dockerfile --output client/public/engine wasm   # rebuild the engine
+docker build -f wasm/Dockerfile --output client/public/engine/<n> wasm   # rebuild the engine
 bun run dev                     # Vite dev server
 
 bun run test                    # vitest (client tests + api unit tests)

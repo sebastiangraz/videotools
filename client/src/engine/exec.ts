@@ -7,7 +7,9 @@ import { dirs, files } from "./fs";
 
 // The glue must be same-origin: each of a run's threads loads it as its
 // worker script. The .wasm can come from any host that sends CORS headers.
-const GLUE_URL = "/engine";
+// Browsers keep both for good (vercel.json, index.ts), so a rebuilt engine
+// goes in a new folder.
+const GLUE_URL = "/engine/1";
 export const WASM_URL: string = import.meta.env.VITE_ENGINE_WASM || GLUE_URL;
 export const PROGRAMS = ["ffmpeg", "gifski"] as const;
 

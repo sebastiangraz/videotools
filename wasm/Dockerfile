@@ -2,7 +2,7 @@
 # (client/src/engine). Library commits are BtbN's for the native 9.0.2 build
 # (scripts/binaries.mjs), so both engines encode with the same code.
 #
-#   docker build -f wasm/Dockerfile --output client/public/engine wasm
+#   docker build -f wasm/Dockerfile --output client/public/engine/<n> wasm
 FROM emscripten/emsdk:6.0.13 AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \
       pkg-config autoconf automake libtool cmake meson ninja-build
