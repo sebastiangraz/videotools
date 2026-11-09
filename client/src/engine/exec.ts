@@ -16,6 +16,11 @@ export const PROGRAMS = ["ffmpeg", "gifski"] as const;
 // Codec threads (x264, decoders, PNG) still pay off, so they stay automatic.
 const FFMPEG_FIRST = ["-filter_threads", "1", "-filter_complex_threads", "1"];
 
+// Codec threads are workers to start, which a run on single images never
+// earns back: a Mark preview's runs, seven frames at once, spend most of
+// their time contending to start them.
+const ONE_CPU = ["-cpucount", "1"];
+
 // The job's own directory; everything it writes is under here.
 export const ROOT = "/work";
 
@@ -66,7 +71,7 @@ function takeBack(FS: Instance["FS"], lent: Map<string, Uint8Array>, dir = ROOT)
 
 // `modules`: compiled once by the page (index.ts) and handed to each job's worker.
 export const exec =
-  (modules: Record<string, WebAssembly.Module>): Exec =>
+  (modules: Record<string, WebAssembly.Module>, oneCpu = false): Exec =>
   async (command, args, { cwd = ROOT }) => {
     const { default: factory }: { default: Factory } = await import(
       /* @vite-ignore */ `${GLUE_URL}/${command}.mjs`
@@ -100,7 +105,9 @@ export const exec =
     });
     const lent = lend(instance);
     instance.FS.chdir(cwd);
-    instance.callMain(command === "ffmpeg" ? [...FFMPEG_FIRST, ...args] : args);
+    instance.callMain(
+      command === "ffmpeg" ? [...(oneCpu ? ONE_CPU : []), ...FFMPEG_FIRST, ...args] : args,
+    );
     const code = await exited;
     takeBack(instance.FS, lent);
     for (const [file, data] of lent) if (files.get(file) === data) files.delete(file);

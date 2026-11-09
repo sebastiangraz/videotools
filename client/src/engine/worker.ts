@@ -21,7 +21,7 @@ export type EngineResult = { file: File } | { error: string };
 
 async function run(job: EngineJob): Promise<File> {
   await fs.mkdir(workDir);
-  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules), HEAP);
+  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules, "preview" in job), HEAP);
   const write = async (file: string, blob: Blob) =>
     fs.writeFile(file, new Uint8Array(await blob.arrayBuffer()));
 
