@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { runEngine } from "@src/engine";
 import {
@@ -73,52 +73,28 @@ export function useMarkPreview(
   const [duration, setDuration] = useState(0);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
-  const [previewError, setPreviewError] = useState(false);
-  // Inputs of the last finished round (landed or failed); drives `loading`.
-  const [settled, setSettled] = useState<{
-    frameBlobs: Blob[];
-    watermark: File;
-    filterMode: MarkFilter;
-    size: MarkSize;
-    position: MarkPosition;
-    route: MarkPosition[] | null;
-    stays: number;
-    view: MarkView;
-    tuning: MarkTuning;
-  } | null>(null);
+  // The last round to finish, landed or failed.
+  const [settled, setSettled] = useState<{ request: object; failed: boolean } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
+
+  // A new source starts over: none of the last one's frames or renders.
+  const [shownSource, setShownSource] = useState(source);
+  if (shownSource !== source) {
+    setShownSource(source);
+    setFrameBlobs([]);
+    setPreviewUrls([]);
+    setScrubIndex(0);
+  }
 
   // Mirrors watermarkGraph's rotation: the clip in equal stays (as many as the
   // cadence fits, two at least), each at the route's next stop, looping it.
   const stays = route ? Math.max(2, Math.floor(duration / MARK.rotateCadence)) : 1;
 
-  const liveUrls = useRef<string[]>([]);
-  useEffect(() => {
-    for (const url of liveUrls.current) {
-      if (url && !previewUrls.includes(url)) URL.revokeObjectURL(url);
-    }
-    liveUrls.current = previewUrls;
-  }, [previewUrls]);
-  useEffect(
-    () => () => {
-      for (const url of liveUrls.current) if (url) URL.revokeObjectURL(url);
-    },
-    [],
-  );
-
-  // Swap in all renders at once so scrubbing never mixes old and new. Rounds
-  // run one at a time and to their end, the latest inputs next: a turned dial
-  // would otherwise start rounds faster than stopped ones give their memory back.
-  const rounds = useRef(Promise.resolve());
-  useEffect(() => {
-    if (frameBlobs.length === 0 || !watermark) return;
-    let stale = false;
-    rounds.current = rounds.current.then(async () => {
-      if (stale) return;
-      setPreviewError(false);
-      try {
-        const renders = await runEngine({
-          preview: {
+  // New whenever an input changes: loading until a round for it settles.
+  const request = useMemo(
+    () =>
+      frameBlobs.length > 0 && watermark
+        ? {
             frames: frameBlobs.map((image, n) => ({
               image,
               position: stopAt(route ?? [position], stays, n / frameBlobs.length),
@@ -128,31 +104,37 @@ export function useMarkPreview(
             size,
             view,
             tuning,
-          },
-        });
+          }
+        : null,
+    [frameBlobs, watermark, filterMode, size, position, route, stays, view, tuning],
+  );
+
+  useEffect(() => () => previewUrls.forEach((url) => URL.revokeObjectURL(url)), [previewUrls]);
+
+  // Swap in all renders at once so scrubbing never mixes old and new. Rounds
+  // run one at a time and to their end, the latest inputs next: a turned dial
+  // would otherwise start rounds faster than stopped ones give their memory back.
+  const rounds = useRef(Promise.resolve());
+  useEffect(() => {
+    if (!request) return;
+    let stale = false;
+    rounds.current = rounds.current.then(async () => {
+      if (stale) return;
+      try {
+        const renders = await runEngine({ preview: request });
         if (stale) return;
         setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
+        setSettled({ request, failed: false });
       } catch (err: unknown) {
         if (stale) return;
         console.error(err);
-        setPreviewError(true);
+        setSettled({ request, failed: true });
       }
-      setSettled({
-        frameBlobs,
-        watermark,
-        filterMode,
-        size,
-        position,
-        route,
-        stays,
-        view,
-        tuning,
-      });
     });
     return () => {
       stale = true;
     };
-  }, [frameBlobs, watermark, filterMode, size, position, route, stays, view, tuning]);
+  }, [request]);
 
   // Its own frame source, so its seeking never shows in the bare frame.
   useEffect(() => {
@@ -184,30 +166,8 @@ export function useMarkPreview(
     };
   }, [source]);
 
-  const reset = () => {
-    setFrameBlobs([]);
-    setPreviewUrls([]);
-    setScrubIndex(0);
-  };
-
   // -1 = no set yet (the bare frame shows).
   const shownRender = previewUrls[scrubIndex] ? scrubIndex : previewUrls.findIndex(Boolean);
-
-  const loading =
-    source !== null &&
-    watermark !== null &&
-    failedSource !== source &&
-    !(
-      settled?.frameBlobs === frameBlobs &&
-      settled.watermark === watermark &&
-      settled.filterMode === filterMode &&
-      settled.size === size &&
-      settled.position === position &&
-      settled.route === route &&
-      settled.stays === stays &&
-      settled.view === view &&
-      settled.tuning === tuning
-    );
 
   return {
     frameCount: frameBlobs.length,
@@ -219,9 +179,13 @@ export function useMarkPreview(
       shownRender < 0
         ? position
         : stopAt(route ?? [position], stays, shownRender / frameBlobs.length),
-    loading,
-    previewError,
+    loading:
+      source !== null &&
+      watermark !== null &&
+      failedSource !== source &&
+      settled?.request !== request,
+    // Only for the current inputs; a round for new ones clears it.
+    previewError: settled?.request === request && settled.failed,
     setScrubIndex,
-    reset,
   };
 }

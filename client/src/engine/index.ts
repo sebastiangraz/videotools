@@ -40,7 +40,13 @@ export async function runEngine(
 ): Promise<File[]> {
   const modules = await (compiled ??= Promise.all(
     PROGRAMS.map(async (name) => [name, await compile(`${WASM_URL}/${name}.wasm`)] as const),
-  ).then(Object.fromEntries));
+  )
+    .then(Object.fromEntries)
+    // A failed download is tried again by the next run.
+    .catch((err: unknown) => {
+      compiled = undefined;
+      throw err;
+    }));
   const turn = last;
   const { promise, resolve: ended } = Promise.withResolvers<void>();
   last = promise;

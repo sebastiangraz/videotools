@@ -151,15 +151,15 @@ export function trackLuma(luma: Luma, source: { width: number; height: number })
   // The brighter peak waiting out holdSeconds, since when, and where it was
   // at each frame (index into points) meanwhile.
   let rival: { peak: Peak; since: number; path: [number, Peak][] } | null = null;
-  // Starts mid-frame until a light shows.
-  let shown = { x: (width - 1) / 2, y: (height - 1) / 2 };
+  // Held while no light shows; mid-frame until one has.
+  const middle = { x: (width - 1) / 2, y: (height - 1) / 2 };
   const points: LightPoint[] = [];
 
   for (const [i, frame] of frames.entries()) {
     const time = i * step;
     const peaks = findPeaks(frame, width, height);
     if (!peaks.length) {
-      points.push({ time, ...toSource(shown), strength: 0 });
+      points.push({ time, ...toSource(followed ?? middle), strength: 0 });
       continue;
     }
     const brightest = peaks[0];
@@ -186,7 +186,7 @@ export function trackLuma(luma: Luma, source: { width: number; height: number })
       next = near;
       rival = null;
     }
-    followed = shown = next;
+    followed = next;
     points.push(pointAt(time, next));
   }
   return { width: source.width, height: source.height, points };

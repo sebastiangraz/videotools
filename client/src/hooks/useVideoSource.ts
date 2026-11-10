@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { hasFrames } from "@src/sourceFormat";
 import { openFrameSource } from "@src/frameSource";
 
@@ -15,41 +15,42 @@ export interface SourceMeta {
   fps?: number | null;
 }
 
+// duration: seconds; 0 = unknown (a still, undecodable, or no length).
+type VideoSource = {
+  file: File | null;
+  duration: number;
+  meta: SourceMeta | null;
+  nonSquare: boolean;
+};
+
+const NO_SOURCE: VideoSource = { file: null, duration: 0, meta: null, nonSquare: false };
+
 // A still has no duration, and its size is the EXIF-rotated one. nonSquare:
 // the browser saw non-square pixels, which no tool takes.
 export function useVideoSource() {
-  const [file, setFile] = useState<File | null>(null);
-  // Seconds; 0 = unknown (a still, undecodable, or no length).
-  const [duration, setDuration] = useState<number>(0);
-  const [meta, setMeta] = useState<SourceMeta | null>(null);
-  const [nonSquare, setNonSquare] = useState(false);
+  const [source, setSource] = useState(NO_SOURCE);
 
-  // A probe answers late, and must not answer for a file since replaced.
-  const latest = useRef<File | null>(null);
+  const pick = ([file]: File[]) => {
+    setSource({ ...NO_SOURCE, file });
 
-  const pick = ([picked]: File[]) => {
-    latest.current = picked;
-    setFile(picked);
-    setDuration(0);
-    setMeta(null);
-    setNonSquare(false);
-
-    if (!hasFrames(picked)) return;
-    openFrameSource(picked)
+    if (!hasFrames(file)) return;
+    openFrameSource(file)
       .then(async (frames) => {
         try {
-          const [seconds, frame, count] = await Promise.all([
+          const [duration, frame, count] = await Promise.all([
             frames.duration(),
             frames.frameAt(0),
             frames.frameCount?.().catch(() => null),
           ]);
           const { width, height } = frame;
           frame.close();
-          if (latest.current !== picked) return;
-          setDuration(seconds);
-          const fps = count && seconds ? count / seconds : null;
-          if (width > 0 && height > 0) setMeta({ w: width, h: height, fps });
-          setNonSquare(frames.nonSquare?.() ?? false);
+          const fps = count && duration ? count / duration : null;
+          const meta = width > 0 && height > 0 ? { w: width, h: height, fps } : null;
+          const nonSquare = frames.nonSquare?.() ?? false;
+          // A probe answers late, and must not answer for a file since replaced.
+          setSource((picked) =>
+            picked.file === file ? { file, duration, meta, nonSquare } : picked,
+          );
         } finally {
           frames.close();
         }
@@ -58,5 +59,5 @@ export function useVideoSource() {
       .catch(() => {});
   };
 
-  return { file, duration, meta, nonSquare, pick };
+  return { ...source, pick };
 }

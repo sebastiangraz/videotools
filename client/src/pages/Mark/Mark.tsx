@@ -122,7 +122,6 @@ export const Mark = () => {
 
   const pick = (picked: File[]) => {
     run.clearError();
-    preview.reset();
     source.pick(picked);
   };
 
