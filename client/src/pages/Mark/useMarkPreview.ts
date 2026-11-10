@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { runEngine } from "@src/engine";
 import {
-  MARK,
   MARK_POSITIONS,
+  markStays,
   type MARK_TUNING,
   type MarkFilter,
   type MarkPosition,
@@ -77,18 +77,17 @@ export function useMarkPreview(
   const [settled, setSettled] = useState<{ request: object; failed: boolean } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
 
-  // A new source starts over: none of the last one's frames or renders.
+  // A new source starts over: none of the last one's frames, length or renders.
   const [shownSource, setShownSource] = useState(source);
   if (shownSource !== source) {
     setShownSource(source);
     setFrameBlobs([]);
+    setDuration(0);
     setPreviewUrls([]);
     setScrubIndex(0);
   }
 
-  // Mirrors watermarkGraph's rotation: the clip in equal stays (as many as the
-  // cadence fits, two at least), each at the route's next stop, looping it.
-  const stays = route ? Math.max(2, Math.floor(duration / MARK.rotateCadence)) : 1;
+  const stays = route ? markStays(duration) : 1;
 
   // New whenever an input changes: loading until a round for it settles.
   const request = useMemo(

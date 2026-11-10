@@ -361,6 +361,10 @@ describe("watermarkGraph", () => {
     expect(stays(3.1)).toBe(3);
     expect(stays(2.5)).toBe(2);
     expect(stays(0.1)).toBe(2);
+    // Off the length to 1/100 s rounded half up, as ffmpeg prints it and the
+    // preview counts it
+    expect(stays(5 - 0.005 / MARK.rotateCadence)).toBe(5);
+    expect(stays(5 - 0.006 / MARK.rotateCadence)).toBe(4);
   });
 
   it("stays put while rotating a clip of unknown length", () => {

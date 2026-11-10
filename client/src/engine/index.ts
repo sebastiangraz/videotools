@@ -38,7 +38,12 @@ export async function runEngine(
   signal?: AbortSignal,
   onProgress?: (done: number) => void,
 ): Promise<File[]> {
-  const modules = await (compiled ??= Promise.all(
+  signal?.throwIfAborted();
+  // Rejects on abort, whichever stage the job is at.
+  const stopped = new Promise<never>((_, reject) =>
+    signal?.addEventListener("abort", () => reject(signal.reason), { once: true }),
+  );
+  compiled ??= Promise.all(
     PROGRAMS.map(async (name) => [name, await compile(`${WASM_URL}/${name}.wasm`)] as const),
   )
     .then(Object.fromEntries)
@@ -46,17 +51,20 @@ export async function runEngine(
     .catch((err: unknown) => {
       compiled = undefined;
       throw err;
-    }));
+    });
+  const modules = await Promise.race([compiled, stopped]);
   const turn = last;
   const { promise, resolve: ended } = Promise.withResolvers<void>();
   last = promise;
-  await turn;
-  if (signal?.aborted) ended();
-  signal?.throwIfAborted();
+  // Stopped while queued, it starts no worker: it hands the turn on once it gets it.
+  await Promise.race([turn, stopped]).catch((err: unknown) => {
+    void turn.then(ended);
+    throw err;
+  });
   const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   try {
     return await new Promise<File[]>((resolve, reject) => {
-      signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+      void stopped.catch(reject);
       worker.onmessage = ({ data }: MessageEvent<EngineResult | EngineProgress>) => {
         if ("progress" in data) onProgress?.(data.progress);
         else if ("files" in data) resolve(data.files);
