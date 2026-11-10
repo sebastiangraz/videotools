@@ -26,9 +26,13 @@ type EngineJob = EngineRequest & { modules: Record<string, WebAssembly.Module> }
 // A tool's one result, or a preview per frame.
 export type EngineResult = { files: File[] } | { error: string };
 
+// Posted while the result is encoded: how far (0–1) it has got.
+export type EngineProgress = { progress: number };
+
 async function run(job: EngineJob): Promise<File[]> {
   await fs.mkdir(workDir);
   const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules, "preview" in job), HEAP);
+  ff.onProgress = (progress) => postMessage({ progress } satisfies EngineProgress);
   const write = async (file: string, blob: Blob) =>
     fs.writeFile(file, new Uint8Array(await blob.arrayBuffer()));
 

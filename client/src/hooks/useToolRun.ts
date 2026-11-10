@@ -18,6 +18,8 @@ export const VerboseNames = createContext(false);
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
   const [busy, setBusy] = useState(false);
+  // How far (0–1) the run's encode has got.
+  const [progress, setProgress] = useState(0);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   // Also aborted on unmount: a tab switch unmounts the page.
@@ -27,6 +29,7 @@ export function useToolRun(tool: ToolId) {
   const run = async ({ files, extras = [], options, onDone }: RunRequest) => {
     if (busy) return;
     setBusy(true);
+    setProgress(0);
     setErrorDetail(null);
 
     const controller = new AbortController();
@@ -34,7 +37,11 @@ export function useToolRun(tool: ToolId) {
     const { signal } = controller;
 
     try {
-      const [result] = await runEngine({ tool, files: [...files, ...extras], options }, signal);
+      const [result] = await runEngine(
+        { tool, files: [...files, ...extras], options },
+        signal,
+        setProgress,
+      );
       const objectUrl = URL.createObjectURL(result);
       const a = Object.assign(document.createElement("a"), {
         href: objectUrl,
@@ -70,7 +77,7 @@ export function useToolRun(tool: ToolId) {
 
   const clearError = () => setErrorDetail(null);
 
-  return { busy, errorDetail, clearError, start, stop };
+  return { busy, progress, errorDetail, clearError, start, stop };
 }
 
 export type ToolRun = ReturnType<typeof useToolRun>;

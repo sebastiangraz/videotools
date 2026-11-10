@@ -1,7 +1,7 @@
 // The browser engine: a tool run or a round of Mark previews in a worker of
 // its own (worker.ts), so stopping a job is terminating its worker.
 import { PROGRAMS, WASM_URL } from "./exec";
-import type { EngineRequest, EngineResult } from "./worker";
+import type { EngineProgress, EngineRequest, EngineResult } from "./worker";
 
 // Kept across visits by the Cache API; a new build gets a new URL, and
 // replaces the build it follows.
@@ -33,7 +33,11 @@ let last = Promise.resolve();
 // are ended by Chrome, some time after it is terminated.
 const ENDS_MS = { finished: 250, stopped: 2500 };
 
-export async function runEngine(request: EngineRequest, signal?: AbortSignal): Promise<File[]> {
+export async function runEngine(
+  request: EngineRequest,
+  signal?: AbortSignal,
+  onProgress?: (done: number) => void,
+): Promise<File[]> {
   const modules = await (compiled ??= Promise.all(
     PROGRAMS.map(async (name) => [name, await compile(`${WASM_URL}/${name}.wasm`)] as const),
   ).then(Object.fromEntries));
@@ -47,8 +51,11 @@ export async function runEngine(request: EngineRequest, signal?: AbortSignal): P
   try {
     return await new Promise<File[]>((resolve, reject) => {
       signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-      worker.onmessage = ({ data }: MessageEvent<EngineResult>) =>
-        "files" in data ? resolve(data.files) : reject(new Error(data.error));
+      worker.onmessage = ({ data }: MessageEvent<EngineResult | EngineProgress>) => {
+        if ("progress" in data) onProgress?.(data.progress);
+        else if ("files" in data) resolve(data.files);
+        else reject(new Error(data.error));
+      };
       worker.onerror = (event) => reject(new Error(event.message));
       worker.postMessage({ ...request, modules });
     });

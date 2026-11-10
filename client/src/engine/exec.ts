@@ -71,17 +71,37 @@ function takeBack(FS: Instance["FS"], lent: Map<string, Uint8Array>, dir = ROOT)
   }
 }
 
+// A stream's text, line by line as it's written: the glue's print and
+// printErr hold back lines ending in \r (gifski's progress) to the exit.
+function lines(onLine?: (line: string) => void) {
+  const decoder = new TextDecoder();
+  let bytes: number[] = [];
+  let text = "";
+  const end = () => {
+    if (!bytes.length) return;
+    const line = decoder.decode(new Uint8Array(bytes));
+    bytes = [];
+    text += `${line}\n`;
+    onLine?.(line);
+  };
+  return {
+    write: (byte: number) => (byte === 10 || byte === 13 ? end() : void bytes.push(byte)),
+    text: () => (end(), text),
+  };
+}
+
 // `modules`: compiled once by the page (index.ts) and handed to each job's worker.
 export const exec =
   (modules: Record<string, WebAssembly.Module>, oneCpu = false): Exec =>
-  async (command, args, { cwd = ROOT }) => {
+  async (command, args, { cwd = ROOT, onLine }) => {
     const { default: factory }: { default: Factory } = await import(
       /* @vite-ignore */ `${GLUE_URL}/${command}.mjs`
     );
     const wasm = modules[command];
     const started = performance.now();
-    let stdout = "";
-    let stderr = "";
+    const stdout = lines(onLine);
+    const stderr = lines(onLine);
+    let aborted = "";
     let memory: WebAssembly.Memory | undefined;
     const { promise: exited, resolve: exit } = Promise.withResolvers<number | null>();
     const instance = await factory({
@@ -96,12 +116,12 @@ export const exec =
         void WebAssembly.instantiate(wasm, imports).then((instance) => ready(instance, wasm));
         return {};
       },
-      print: (line: string) => (stdout += `${line}\n`),
-      printErr: (line: string) => (stderr += `${line}\n`),
+      stdout: stdout.write,
+      stderr: stderr.write,
       onExit: exit,
       // A trap or out-of-memory: like a crashed process, no exit code.
       onAbort: (reason: unknown) => {
-        stderr += `${String(reason)}\n`;
+        aborted = `${String(reason)}\n`;
         exit(null);
       },
     });
@@ -117,5 +137,5 @@ export const exec =
     console.log(
       `${command} exit ${code}: ${Math.round(performance.now() - started)} ms, heap ${heap} MB`,
     );
-    return { code, stdout, stderr };
+    return { code, stdout: stdout.text(), stderr: stderr.text() + aborted };
   };

@@ -79,21 +79,63 @@
   }
 }
 
+/* A line for the label and the spinner (which overhangs it), padded to 3rem;
+   below it, the progress bar grows the button by its gap and height. */
 .submit {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: 1lh;
   justify-content: center;
-  gap: 0;
-  padding: 0 2em;
+  align-items: center;
+  row-gap: 0.4em;
+  padding: calc((3rem - 1lh) / 2) 2em;
   min-height: 3rem;
+  height: 3rem;
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   background-color: var(--fg);
   color: var(--bg);
   border: none;
   cursor: pointer;
+  transition: height var(--fade) ease;
   &:hover:not([aria-disabled="true"]) {
     background-color: var(--fg-secondary);
+  }
+  &:has(> .progress:not([hidden])) {
+    height: auto;
+  }
+}
+
+.progress {
+  grid-column: 1 / -1;
+  appearance: none;
+  inline-size: 100%;
+  block-size: 3px;
+  border: none;
+  border-radius: 3px;
+  overflow: hidden;
+  background-color: color-mix(in srgb, currentColor 25%, transparent);
+  transition:
+    opacity var(--fade) ease,
+    display var(--fade) allow-discrete;
+
+  @starting-style {
+    opacity: 0;
+  }
+
+  &[hidden] {
+    opacity: 0;
+  }
+
+  &::-webkit-progress-bar {
+    background-color: transparent;
+  }
+  &::-webkit-progress-value {
+    background-color: currentColor;
+    transition: inline-size 0.5s linear;
+  }
+  &::-moz-progress-bar {
+    background-color: currentColor;
   }
 }
 
@@ -102,6 +144,7 @@
 }
 
 .actions {
+  --fade: 0.25s;
   display: flex;
   align-items: end;
   gap: 0.5em;
@@ -113,7 +156,6 @@
 }
 
 .stopButton {
-  --fade: 0.25s;
   display: flex;
   align-items: center;
   justify-content: center;

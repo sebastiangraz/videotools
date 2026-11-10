@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, cleanup, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import { runEngine } from "@src/engine";
@@ -199,6 +199,20 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: /^stop$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(signal().aborted).toBe(true);
+  });
+
+  it("shows how far a run has got in the action button while it's in flight", async () => {
+    const user = userEvent.setup();
+    hangEngine();
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), mp4());
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+
+    await user.click(loopButton());
+    act(() => vi.mocked(runEngine).mock.calls[0][2]!(0.5));
+    const button = screen.getByRole("button", { name: /processing/i });
+    expect(within(button).getByRole("progressbar")).toHaveAttribute("value", "0.5");
   });
 
   it("stops an in-flight run when the tool is switched", async () => {

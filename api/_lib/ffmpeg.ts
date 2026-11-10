@@ -1,6 +1,10 @@
 import { InputError } from "./errors.js";
 
-type RunOptions = { cwd?: string };
+type RunOptions = {
+  cwd?: string;
+  // Each line of output as it's written; only the engine streams them.
+  onLine?: (line: string) => void;
+};
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
@@ -8,6 +12,21 @@ type RunResult = { code: number | null; stdout: string; stderr: string };
 // Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
 // only when not started.
 export type Exec = (command: string, args: string[], options: RunOptions) => Promise<RunResult>;
+
+// How far (0–1) a run says it has got, line by line: ffmpeg's `-progress`
+// frames, at the rate of the last video stream it lists (the output's),
+// against the `seconds` it writes, or gifski's frame count. Not ffmpeg's
+// time: that follows the audio, which runs ahead of the video's encode.
+export function runProgress(seconds: number): (line: string) => number | null {
+  let fps = 0;
+  return (line) => {
+    fps = Number(/^\s*Stream #.*: Video: .*, ([\d.]+) fps\b/.exec(line)?.[1] ?? fps);
+    const frames = /^frame=(\d+)$/.exec(line);
+    if (frames) return fps && seconds > 0 ? Math.min(1, Number(frames[1]) / fps / seconds) : null;
+    const gifski = /\bFrame (\d+) \/ (\d+)\b/.exec(line);
+    return gifski ? Number(gifski[1]) / Number(gifski[2]) : null;
+  };
+}
 
 export const DEFAULT_FPS = 30;
 
@@ -157,6 +176,11 @@ export class FFmpeg {
   heap: number | null;
   // Time spent so far decides optional further passes (render.ts).
   startedAt = Date.now();
+  // The engine's progress bar: how far (0–1) the result's encode has got.
+  onProgress: ((done: number) => void) | null = null;
+  // While the result is encoded (encodeRender): the seconds of it ffmpeg's
+  // runs write, and the part of the bar they, or gifski's, fill.
+  encoding: { seconds: number; from: number; to: number } | null = null;
   private infoCache = new Map<string, SourceProfile>();
 
   constructor(ffmpegPath: string, gifskiPath: string, exec: Exec, heap: number | null = null) {
@@ -280,15 +304,32 @@ export class FFmpeg {
   }
 
   runFFmpeg(args: string[], options: RunOptions = {}): Promise<string> {
-    return this.runCommand(this.ffmpeg, args, options);
+    // Its frames so far, on lines of their own (stats end in \r).
+    const progress = this.encoding && this.onProgress ? ["-progress", "pipe:2"] : [];
+    return this.runCommand(this.ffmpeg, [...progress, ...args], options);
   }
 
   runGifski(args: string[], options: RunOptions = {}): Promise<string> {
     return this.runCommand(this.gifski, args, options);
   }
 
+  // A run's lines, as how far the result's encode has got.
+  private progressLines(): RunOptions["onLine"] {
+    const { encoding, onProgress } = this;
+    if (!encoding || !onProgress) return undefined;
+    const { seconds, from, to } = encoding;
+    const read = runProgress(seconds);
+    return (line) => {
+      const done = read(line);
+      if (done !== null) onProgress(from + (to - from) * done);
+    };
+  }
+
   private async runCommand(command: string, args: string[], options: RunOptions): Promise<string> {
-    const { code, stdout, stderr } = await this.run(command, args, options);
+    const { code, stdout, stderr } = await this.run(command, args, {
+      ...options,
+      onLine: this.progressLines(),
+    });
     if (code === 0) return stdout;
     console.error(`Command failed with code ${code}`);
     console.error(`Command: ${command} ${args.join(" ")}`);
