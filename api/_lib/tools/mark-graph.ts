@@ -207,6 +207,14 @@ export function watermarkGraph(
   const CW = LW + 2 * P;
   const CH = LH + 2 * P;
   const [CX, CY] = corner(P);
+  // Only the logo's box shows: the rest of the cell is backdrop for the blurs
+  // and the lens to reach into, so a layer is cut to the box once it has what
+  // it needs from around it. `G` px stay on as a guard for what looks a
+  // little past an edge (bicubic scaling, chroma subsampling), and keep the
+  // box a multiple of 8 into the cell: swscale dithers by position.
+  const G = P - 8 * Math.max(0, Math.floor(P / 8) - 1);
+  const [BW, BH] = [LW + 2 * G, LH + 2 * G];
+  const box = `crop=${BW}:${BH}:${P - G}:${P - G}`;
 
   // Same matrix both ways keeps the cell's colours; it must match the source's
   // tag too, or overlay converts the whole frame (a JPEG grab is always bt601).
@@ -219,16 +227,16 @@ export function watermarkGraph(
   if (filter === "blur" && view === "render") {
     return [
       `${pad}${open},split[base][src]`,
-      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,gblur=sigma=${(shorter * M.blurFilterRatio).toFixed(2)}:steps=2,${saturate(M.blurSaturation)},split[frost][under]`,
-      `[1:v]format=rgba${trim},${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0,split[lg1][lg2]`,
+      `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,format=gbrap,gblur=sigma=${(shorter * M.blurFilterRatio).toFixed(2)}:steps=2:planes=7,${box},${saturate(M.blurSaturation)},split[frost][under]`,
+      `[1:v]format=rgba${trim},${scaleLogo},pad=${BW}:${BH}:${G}:${G}:color=black@0,split[lg1][lg2]`,
       `[lg1]format=rgba,alphaextract,format=gray,split[mask][dmask]`,
       `[under]lutrgb=r=negval:g=negval:b=negval[inverted]`,
       `[inverted][dmask]alphamerge,colorchannelmixer=aa=${M.blurDifference}[difference]`,
       `[frost][difference]overlay=format=auto[lifted]`,
       `[lifted][mask]alphamerge[fill]`,
       `[lg2]colorchannelmixer=aa=${M.blurLogoOpacity}[faint]`,
-      `[fill][faint]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
-      `[base][cell]${onto([CX, CY])}[out]`,
+      `[fill][faint]overlay=format=auto${fading(BW, BH)}${fromRgb}[cell]`,
+      `[base][cell]${onto(corner(G))}[out]`,
     ].join(";");
   }
 
@@ -259,7 +267,8 @@ export function watermarkGraph(
   // Refraction runs at 2×: remap moves whole pixels only, so at 1× the bevel
   // would step.
   const SS = 2;
-  const [CW2, CH2, LW2, LH2, P2] = [CW, CH, LW, LH, P].map((n) => n * SS);
+  const [CW2, CH2, LW2, LH2, P2, BW2, BH2] = [CW, CH, LW, LH, P, BW, BH].map((n) => n * SS);
+  const box2 = `crop=${BW2}:${BH2}:${P2 - G * SS}:${P2 - G * SS}`;
   // 16-bit lens: at 8 bits the heightfield's steps become rings across the
   // glass, and offsets can't pass ±127px.
   const FULL = 65535;
@@ -282,8 +291,8 @@ export function watermarkGraph(
   const heightfield = (out: string, slopes: number) => [
     `[mk1]gblur=sigma=${bevel.toFixed(2)}:steps=2[hw]`,
     `[mk2]gblur=sigma=${(bevel / 3).toFixed(2)}:steps=2,split[hn][hc]`,
-    `[hw][hn]blend=all_mode=average${out}`,
-    `[hc]${thick},split=${slopes}${Array.from({ length: slopes }, (_, i) => `[k${i + 1}]`).join("")}`,
+    `[hw][hn]blend=all_mode=average,${box2}${out}`,
+    `[hc]${thick},${box2},split=${slopes}${Array.from({ length: slopes }, (_, i) => `[k${i + 1}]`).join("")}`,
   ];
   const lensMask = (n: number) =>
     `scale=${LW2}:${LH2}:flags=lanczos,pad=${CW2}:${CH2}:${P2}:${P2}:color=black@0,format=rgba,alphaextract,format=gray,format=gray16le,split=${n}${Array.from({ length: n }, (_, i) => `[mk${i + 1}]`).join("")}`;
@@ -300,11 +309,11 @@ export function watermarkGraph(
     `[${field}]${sobel(axis, shift)}[s${axis}];[s${axis}][k${n}]blend=all_expr='${MID}+(A-${MID})*(${M.thinRefract}+B*${((1 - M.thinRefract) / FULL).toPrecision(6)})'`;
   // Offsets in 1/SUB px so the chroma split scales them before rounding.
   const SUB = 8;
-  // remap coordinates, mirrored back in at the cell's edges.
+  // remap coordinates into the cell, mirrored back in at its edges.
   const sampleAt = (axis: "x" | "y", gain: number) => {
-    const [c, n] = axis === "x" ? ["X", "W"] : ["Y", "H"];
-    const at = `abs(${c}+(p(X,Y)-${MID})*${(gain / SUB).toPrecision(6)})`;
-    return `geq=lum='st(0,${at});round(clip(if(gt(ld(0),${n}-1),2*(${n}-1)-ld(0),ld(0)),0,${n}-1))'`;
+    const [c, last] = axis === "x" ? ["X", CW2 - 1] : ["Y", CH2 - 1];
+    const at = `abs(${c}+${P2 - G * SS}+(p(X,Y)-${MID})*${(gain / SUB).toPrecision(6)})`;
+    return `geq=lum='st(0,${at});round(clip(if(gt(ld(0),${last}),${2 * last}-ld(0),ld(0)),0,${last}))'`;
   };
 
   // Red = x, green = y, so no shift reads olive; full swing at the steepest
@@ -318,8 +327,9 @@ export function watermarkGraph(
       `${lensSlope("y", 2, "hy", MID - 1)},format=gray[my]`,
       `[hz]format=gray,lut=c0=0[mz]`,
       `[my][mz][mx]${MERGE_GBR},format=rgba[map]`,
-      `[map][mk3]alphamerge,scale=${CW}:${CH}:flags=bicubic${fromRgb}[cell]`,
-      `[base][cell]${onto([CX, CY])}[out]`,
+      `[mk3]${box2}[shape]`,
+      `[map][shape]alphamerge,scale=${BW}:${BH}:flags=bicubic${fromRgb}[cell]`,
+      `[base][cell]${onto(corner(G))}[out]`,
     ].join(";");
   }
   const chroma = { r: 1 - M.chroma, g: 1, b: 1 + M.chroma };
@@ -365,10 +375,10 @@ export function watermarkGraph(
   ].join("");
   // core·level + (1-core)·glint.
   const rimLight = [
-    `${rig.perFrame("[h4]", CW2, CH2)}${lighting},${rimLevel}[rimLevel]`,
+    `${rig.perFrame("[h4]", BW2, BH2)}${lighting},${rimLevel}[rimLevel]`,
     `[rimLevel][k3]blend=all_mode=multiply[rimCore]`,
     `[k4]lut=c0='(${FULL}-val)*${M.glint}'[rimThin]`,
-    `[rimCore][rimThin]blend=all_mode=addition,format=gray,scale=${CW}:${CH}:flags=bicubic[light]`,
+    `[rimCore][rimThin]blend=all_mode=addition,format=gray,scale=${BW}:${BH}:flags=bicubic[light]`,
   ];
   // Glass light, inner shadows in white: the logo blurred over each glow's
   // bevel, moved towards the light and inverted, inside the logo. They hug
@@ -388,8 +398,9 @@ export function watermarkGraph(
       y: (deg) => String(room - shift(deg)[1]),
     });
     const [dx, dy] = shift(rig.angle);
-    const blurred = `[am${i}]gblur=sigma=${Math.max(0.5, bevel).toFixed(2)}:steps=2,pad=${CW + 2 * room}:${CH + 2 * room}:${room}:${room}`;
-    return `${rig.perFrame(blurred, CW + 2 * room, CH + 2 * room)}${crop}=${CW}:${CH}:${room - dx}:${room - dy},negate,lut=c0='val*${opacity}'`;
+    const [w, h] = [BW + 2 * room, BH + 2 * room];
+    const glow = `[am${i}]gblur=sigma=${Math.max(0.5, bevel).toFixed(2)}:steps=2,pad=${CW + 2 * room}:${CH + 2 * room}:${room}:${room},crop=${w}:${h}:${P - G}:${P - G},lut=c0='(${FULL}-val)*${opacity}'`;
+    return `${rig.perFrame(glow, w, h)}${crop}=${BW}:${BH}:${room - dx}:${room - dy}`;
   };
   const glows = M.ambient.length;
   // The lens's core gain [k5], back at 1×, one per `core` glow.
@@ -428,7 +439,7 @@ export function watermarkGraph(
         `[m5]format=gray16le,split=${laid.length ? `${glows + 1}[amask]` : glows}${ids.map((i) => `[am${i}]`).join("")}`,
         ...(cores
           ? [
-              `[k5]scale=${CW}:${CH}:flags=bicubic,format=gray16le,split=${cores}${M.ambient.map((glow, i) => (glow.core ? `[ac${i}]` : "")).join("")}`,
+              `[k5]scale=${BW}:${BH}:flags=bicubic,format=gray16le,split=${cores}${M.ambient.map((glow, i) => (glow.core ? `[ac${i}]` : "")).join("")}`,
             ]
           : []),
         ...M.ambient.map(
@@ -449,11 +460,12 @@ export function watermarkGraph(
           ? [
               ...screened(laid, "alaid"),
               // gray→rgba put the glow in r, moved to alpha under white.
-              `[amask][alaid]blend=all_mode=multiply,format=gray,format=rgba,colorchannelmixer=aa=0:ar=1,lutrgb=r=255:g=255:b=255[ambient]`,
+              `[amask]${box}[ashape]`,
+              `[ashape][alaid]blend=all_mode=multiply,format=gray,format=rgba,colorchannelmixer=aa=0:ar=1,lutrgb=r=255:g=255:b=255[ambient]`,
             ]
           : []),
       ]
-    : [`[m5]format=rgba,colorchannelmixer=aa=0[ambient]`];
+    : [`[m5]${box},format=rgba,colorchannelmixer=aa=0[ambient]`];
 
   const tint = whiten(M.tint);
   // Lifted towards white so the rim still reads as light on dark/grey video.
@@ -472,12 +484,13 @@ export function watermarkGraph(
     // Both conversions name their matrix: on auto the way back falls to
     // bt601 and shifts the hue.
     `[src]crop=${CW}:${CH}:${CX}:${CY},${toRgb}format=rgba,split=3[cellA][cellB][cellC]`,
-    `[cellB]colorchannelmixer=aa=0[canvas]`,
+    `[cellB]${box},colorchannelmixer=aa=0[canvas]`,
     // Explicit formats: after a split of an open-format scale output,
     // alphaextract/extractplanes can't negotiate one.
     `[1:v]format=rgba${trim},split=3[l1][l2][l3]`,
     `[l1]${scaleLogo},pad=${CW}:${CH}:${P}:${P}:color=black@0[lg1]`,
-    `[lg1]format=rgba,alphaextract,format=gray,split=5[m1][m2][m3][m5][m6]`,
+    `[lg1]format=rgba,alphaextract,format=gray,split[m5][shape]`,
+    `[shape]${box},split=4[m1][m2][m3][m6]`,
     `[l2]${lensMask(2)}`,
     ...heightfield(",split=4[h1][h2][h3][h4]", cores ? 5 : 4),
     `${lensSlope("x", 1, "h1", refractPx * SUB)},split=3[hx1][hx2][hx3]`,
@@ -496,16 +509,16 @@ export function watermarkGraph(
     `[cr][xr][yr]remap=format=gray[dr]`,
     `[cg][xg][yg]remap=format=gray[dg]`,
     `[cb][xb][yb]remap=format=gray[db]`,
-    `[dg][db][dr]${MERGE_GBR},scale=${CW}:${CH}:flags=bicubic,format=rgba[refracted]`,
+    `[dg][db][dr]${MERGE_GBR},scale=${BW}:${BH}:flags=bicubic,format=rgba[refracted]`,
     // The heightfield's tail runs past the logo's edge, so only the logo's
     // shape refracts: the blurs below then pull in the backdrop as it is
     // around the glass, which gives the rim the colour it sits on.
     `[refracted][m6]alphamerge[inside]`,
-    `[cellC][inside]overlay=format=auto,split=3[rf1][rf2][rf3]`,
+    `[cellC][inside]overlay=x=${P - G}:y=${P - G}:format=auto,format=gbrap,split=3[rf1][rf2][rf3]`,
     // Frost on the flat, barely blurred on the bevel (inverted heightfield).
-    `[rf1]gblur=sigma=${sigma}:steps=2[frost]`,
-    `[h3]${stretch},format=gray,scale=${CW}:${CH}:flags=bicubic,negate[bevelMask]`,
-    `[rf2]gblur=sigma=${minSigma}:steps=1[soft]`,
+    `[rf1]gblur=sigma=${sigma}:steps=2:planes=7,${box}[frost]`,
+    `[h3]${stretch},format=gray,scale=${BW}:${BH}:flags=bicubic,negate[bevelMask]`,
+    `[rf2]gblur=sigma=${minSigma}:steps=1:planes=7,${box}[soft]`,
     `[soft][bevelMask]alphamerge[bevel]`,
     `[frost][bevel]overlay=format=auto,colorchannelmixer=${saturation(M.saturation)},lutrgb=${tint}${plusLighter ? "[frosted]" : "[fill]"}`,
     `[fill][m1]alphamerge${view === "rim" ? ",colorchannelmixer=aa=0" : ""}[glass]`,
@@ -514,7 +527,7 @@ export function watermarkGraph(
     ...rimErode,
     `[m3][eroded]blend=all_mode=subtract[band]`,
     `[light][band]blend=all_mode=multiply[rimAlpha]`,
-    `[rf3]gblur=sigma=${rimSigma}:steps=1,${rimPaint}[paint]`,
+    `[rf3]gblur=sigma=${rimSigma}:steps=1:planes=7,${box},${rimPaint}[paint]`,
     `[paint][rimAlpha]alphamerge[rim]`,
     ...ambient,
     // Layers go on a transparent canvas so only covered pixels change: no
@@ -522,10 +535,10 @@ export function watermarkGraph(
     layered
       ? `[canvas][glass]overlay=format=auto[c2a];[c2a][ambient]overlay=format=auto[c2]`
       : `[canvas][glass]overlay=format=auto[c2]`,
-    `[c2][rim]overlay=format=auto${fading(CW, CH)}${fromRgb}[cell]`,
+    `[c2][rim]overlay=format=auto${fading(BW, BH)}${fromRgb}[cell]`,
     `[l3]${scaleLogo},pad=${SW}:${SH}:${S}:${S + shadowDy}:color=black@0,format=rgba,gblur=sigma=${shadowSigma}:steps=2,colorchannelmixer=rr=0:gg=0:bb=0:aa=${M.shadowOpacity}${fading(SW, SH)}${fromRgb}[shadow]`,
     `[base][shadow]${onto(corner(S))}[shaded]`,
-    `[shaded][cell]${onto([CX, CY])}[out]`,
+    `[shaded][cell]${onto(corner(G))}[out]`,
     ...rig.driver(pad),
   ].join(";");
 }
