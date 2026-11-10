@@ -79,11 +79,10 @@
   }
 }
 
-/* A line for the label and the spinner (which overhangs it), padded to 3rem;
-   below it, the progress bar grows the button by its gap and height. */
+/* A line for the label, padded to 3rem; below it, the progress bar grows the
+   button by its gap and height. */
 .submit {
   display: grid;
-  grid-template-columns: auto auto;
   grid-template-rows: 1lh;
   justify-content: center;
   align-items: center;
@@ -99,15 +98,32 @@
   cursor: pointer;
   transition: height var(--fade) ease;
   &:hover:not([aria-disabled="true"]) {
-    background-color: var(--fg-secondary);
+    background-color: color-mix(in srgb, var(--fg) 80%, var(--bg));
   }
   &:has(> .progress:not([hidden])) {
     height: auto;
   }
 }
 
+.label,
+.cancel {
+  grid-area: 1 / 1;
+}
+
+.cancel {
+  visibility: hidden;
+}
+
+.submit:is(:hover, :focus-visible) {
+  & > .label:has(+ .cancel) {
+    visibility: hidden;
+  }
+  & > .cancel {
+    visibility: visible;
+  }
+}
+
 .progress {
-  grid-column: 1 / -1;
   height: 3px;
   border-radius: 3px;
   overflow: hidden;
@@ -142,45 +158,8 @@
   margin-top: 1rem;
 }
 
-.actions > :not(.submit, .stopButton) {
+.actions > :not(.submit) {
   margin-inline-start: auto;
-}
-
-.stopButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 1.5em;
-  min-height: 3rem;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: transparent;
-  color: var(--fg);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  opacity: 1;
-  transition:
-    opacity var(--fade) ease,
-    background-color 150ms ease,
-    display var(--fade) allow-discrete;
-
-  @starting-style {
-    opacity: 0;
-  }
-
-  &:hover {
-    background-color: var(--border-subtle);
-  }
-}
-
-.stopButton[hidden] {
-  display: none;
-  opacity: 0;
-}
-
-.spinner {
-  transform-origin: center right;
-  transform: scale(0.5);
 }
 
 .errorBox {

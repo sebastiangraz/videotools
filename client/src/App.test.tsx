@@ -168,7 +168,7 @@ describe("App", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
-  // A run that only ends when stopped; hands back its signal.
+  // A run that only ends when cancelled; hands back its signal.
   const hangEngine = () => {
     vi.mocked(runEngine).mockImplementation(
       (_, signal) =>
@@ -177,28 +177,34 @@ describe("App", () => {
     return () => vi.mocked(runEngine).mock.calls[0][1]!;
   };
 
-  it("fades in a Stop button while a run is in flight and cancels it on click", async () => {
+  it("cancels a run in flight when the action button is clicked again", async () => {
     const user = userEvent.setup();
     const signal = hangEngine();
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
-    expect(screen.queryByRole("button", { name: /^stop$/i })).not.toBeInTheDocument();
-
     await user.click(loopButton());
-    const stop = await screen.findByRole("button", { name: /^stop$/i });
-    expect(stop).toBeVisible();
-    expect(screen.getByRole("button", { name: /processing/i })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    const button = screen.getByRole("button", { name: /processing/i });
+    expect(within(button).getByText("Cancel")).toBeInTheDocument();
+    expect(signal().aborted).toBe(false);
 
-    await user.click(stop);
+    await user.click(button);
 
     await waitFor(() => expect(loopButton()).toHaveAttribute("aria-disabled", "false"));
-    expect(screen.queryByRole("button", { name: /^stop$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(signal().aborted).toBe(true);
+  });
+
+  it("keeps a run going when the action button is double-clicked", async () => {
+    const user = userEvent.setup();
+    const signal = hangEngine();
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), mp4());
+    await user.dblClick(loopButton());
+
+    expect(screen.getByRole("button", { name: /processing/i })).toBeInTheDocument();
+    expect(signal().aborted).toBe(false);
   });
 
   it("shows how far a run has got in the action button while it's in flight", async () => {
@@ -215,7 +221,7 @@ describe("App", () => {
     expect(within(button).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0.5");
   });
 
-  it("stops an in-flight run when the tool is switched", async () => {
+  it("cancels an in-flight run when the tool is switched", async () => {
     const user = userEvent.setup();
     const signal = hangEngine();
 

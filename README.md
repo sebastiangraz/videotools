@@ -45,7 +45,7 @@ Nothing leaves the browser.
 2. The worker writes the files into the job's in-memory directory and runs the tool (one ffmpeg pass, plus gifski for GIF). Each command is a fresh WebAssembly instance, as each native run is a fresh process.
 3. While the result is encoded, the worker posts how far it has got (ffmpeg's `-progress` frames against the result's length, gifski's frame count) for the action button's progress bar. Then it posts the result back and the page saves it as a download.
 
-Stop (or leaving the tab) terminates the worker. An `InputError` reaches the user with its message; anything else shows as a generic failure, with the detail in the console.
+Cancel (or leaving the tab) terminates the worker. An `InputError` reaches the user with its message; anything else shows as a generic failure, with the detail in the console.
 
 ffmpeg's threads share memory, which needs cross-origin isolation: every response carries the COOP and COEP headers (`vercel.json`, and a middleware in `client/vite.config.ts` for the dev server).
 

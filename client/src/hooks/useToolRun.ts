@@ -59,7 +59,7 @@ export function useToolRun(tool: ToolId) {
 
       onDone?.();
     } catch (err: unknown) {
-      // Aborted = stopped on purpose: no error box.
+      // Aborted = cancelled on purpose: no error box.
       if (!signal.aborted) {
         console.error(err);
         setErrorDetail(err instanceof Error ? err.message : String(err));
@@ -73,11 +73,11 @@ export function useToolRun(tool: ToolId) {
   // Never rejects: a failure ends up in errorDetail.
   const start = (request: RunRequest) => void run(request);
 
-  const stop = () => abortRef.current?.abort();
+  const cancel = () => abortRef.current?.abort();
 
   const clearError = () => setErrorDetail(null);
 
-  return { busy, progress, errorDetail, clearError, start, stop };
+  return { busy, progress, errorDetail, clearError, start, cancel };
 }
 
 export type ToolRun = ReturnType<typeof useToolRun>;
