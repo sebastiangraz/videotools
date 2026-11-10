@@ -83,6 +83,8 @@ export async function encodeRender(
       : null;
   if (cap) console.log(`At most ${cap.maxrate} kb/s, going by the source`);
   const outputFile = path.join(workDir, `output.${target}`);
+  ff.encoding = { seconds: render.duration, from: 0, to: 1 };
   await ENCODERS[target](ff, render, { ...options, outputFile, cap });
+  ff.encoding = null;
   return outputFile;
 }

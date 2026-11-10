@@ -1,5 +1,5 @@
-// Smoke runs: the real tool handlers, called as /api/process would call them,
-// against the pinned ffmpeg and the assets in scripts/smoke/assets/:
+// Smoke runs: the tools themselves, natively on the pinned ffmpeg, over the
+// assets in scripts/smoke/assets/:
 //   images/   stills, which each suite picks by file name
 //   vectors/  SVG logos, listed in natural filename order
 //   videos/   clips, picked like stills
@@ -10,6 +10,7 @@
 //   bun run smoke before mark:depthmap,glass   only these parts, the rest kept
 import fs from "node:fs";
 import path from "node:path";
+import { execBinary } from "../../api/_lib/binaries.ts";
 import { FFmpeg } from "../../api/_lib/ffmpeg.ts";
 import { TOOLS } from "../../api/_lib/tools/index.ts";
 import { binaryPath, root } from "../binaries.mjs";
@@ -43,7 +44,7 @@ if (!label || unknown.length) {
 
 const ffmpegPath = binaryPath("ffmpeg");
 requireFfmpeg(ffmpegPath, { pinned: true });
-const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"));
+const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), execBinary);
 
 const listed = (dir) =>
   fs
@@ -57,27 +58,14 @@ const assets = {
   videos: picked("videos"),
 };
 
-// Files stand in for uploads: each gets its own blob URL, which `download` copies back.
-const uploads = new Map();
-const upload = (file) => {
-  const url = `https://smoke.public.blob.vercel-storage.com/${uploads.size}/${encodeURIComponent(path.basename(file))}`;
-  uploads.set(url, file);
-  return url;
-};
-const download = async (url, destPath) => fs.copyFileSync(uploads.get(url), destPath);
-
-// One /api/process request: `files` in upload order, results in `workDir`.
+// One tool run: `files` in the order the tool takes them, results in `workDir`.
 async function runTool(tool, files, options, workDir) {
-  const urls = files.map(upload);
-  const inputs = TOOLS[tool].inputs({
-    blobUrl: urls[0],
-    blobUrls: urls,
-    watermarkUrl: urls[1],
-    options,
-  });
-  if (!Array.isArray(inputs)) throw new Error(inputs.error);
   fs.mkdirSync(workDir, { recursive: true });
-  return TOOLS[tool].run({ ff, workDir, inputs, options, download });
+  const inputs = files.map((file) => ({
+    name: path.basename(file),
+    save: async (destPath) => fs.copyFileSync(file, destPath),
+  }));
+  return TOOLS[tool]({ ff, workDir, inputs, options });
 }
 
 // Progress bar

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
-import { sendJson, toDataUrl } from "@src/helpers";
+import { runEngine } from "@src/engine";
 import {
   MARK,
   MARK_POSITIONS,
@@ -34,7 +34,7 @@ export const shuffleRoute = (start: MarkPosition): MarkPosition[] => {
   return route;
 };
 
-// The server renders the preview with the real ffmpeg graph. Mark geometry is
+// The engine renders the preview with the real ffmpeg graph. Mark geometry is
 // relative to the frame, so a downscaled frame previews the same.
 const PREVIEW_MAX_WIDTH = 1280;
 
@@ -106,57 +106,52 @@ export function useMarkPreview(
     [],
   );
 
-  // Swap in all renders at once so scrubbing never mixes old and new. Aborting
-  // disconnects, which makes the function stop encoding.
+  // Swap in all renders at once so scrubbing never mixes old and new. Rounds
+  // run one at a time and to their end, the latest inputs next: a turned dial
+  // would otherwise start rounds faster than stopped ones give their memory back.
+  const rounds = useRef(Promise.resolve());
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
-    const controller = new AbortController();
-    (async () => {
+    let stale = false;
+    rounds.current = rounds.current.then(async () => {
+      if (stale) return;
       setPreviewError(false);
-      const logo = await toDataUrl(watermark);
-      const renders = await Promise.all(
-        frameBlobs.map(async (blob, n) => {
-          const res = await sendJson(
-            "/api/preview",
-            "POST",
-            {
-              frame: await toDataUrl(blob),
-              logo,
-              filter: filterMode,
-              size,
+      try {
+        const renders = await runEngine({
+          preview: {
+            frames: frameBlobs.map((image, n) => ({
+              image,
               position: stopAt(route ?? [position], stays, n / frameBlobs.length),
-              view,
-              tuning,
-            },
-            controller.signal,
-          );
-          if (!res.ok) throw new Error(`Preview failed (${res.status})`);
-          return res.blob();
-        }),
-      );
-      if (controller.signal.aborted) return;
-      setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
-    })()
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
+            })),
+            logo: watermark,
+            filter: filterMode,
+            size,
+            view,
+            tuning,
+          },
+        });
+        if (stale) return;
+        setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
+      } catch (err: unknown) {
+        if (stale) return;
         console.error(err);
         setPreviewError(true);
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return;
-        setSettled({
-          frameBlobs,
-          watermark,
-          filterMode,
-          size,
-          position,
-          route,
-          stays,
-          view,
-          tuning,
-        });
+      }
+      setSettled({
+        frameBlobs,
+        watermark,
+        filterMode,
+        size,
+        position,
+        route,
+        stays,
+        view,
+        tuning,
       });
-    return () => controller.abort();
+    });
+    return () => {
+      stale = true;
+    };
   }, [frameBlobs, watermark, filterMode, size, position, route, stays, view, tuning]);
 
   // Its own frame source, so its seeking never shows in the bare frame.

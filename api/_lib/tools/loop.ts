@@ -2,12 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
-import { removeDir, sizeLabel } from "../helpers.js";
+import { clamp, clampInt, pick, removeDir, sizeLabel } from "../helpers.js";
 import { DEFAULT_FPS, isRgb, shownDuration, type FFmpeg } from "../ffmpeg.js";
 import { encodePreserved } from "../encode/index.js";
 import { frameRate, sourceRender, videoPad, type Render } from "../encode/render.js";
 import { FASTSTART } from "../encode/video.js";
-import { clamp, clampInt, pick, singleVideo } from "../request.js";
 import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
 
@@ -20,32 +19,33 @@ const STREAM_COPY: FormatId[] = ["mp4", "mov", "webm"];
 // further away it is encoded to the frame instead.
 const KEYFRAME_SNAP_SECONDS = 0.5;
 
-// reverse buffers every decoded frame. Measured to fit a 2GB function next to
-// the encoder; raise only together with the function's memory. Mutable so the
-// smoke quality suite can lift it locally.
+// reverse buffers every decoded frame, in the engine's heap next to the
+// encoder. Mutable so the smoke quality suite can lift it natively.
 export const LOOP_LIMITS = { maxReverseBytes: 1.2e9 };
+
+// A decoder's frame threads hold about two frames each (measured at 4K).
+const DECODER_FRAMES = 32;
 
 // The output stage does the reversing (encode/render.ts), cheapest per format.
 function reverseLoop(source: Source, duration: number): Render {
   const { fps, width, height, pixFmt } = source.profile;
   // GIF frames are files gifski reads twice; others buffer yuv420p (1.5 B/px)
   // or, for WebP, bgra (4 B/px).
-  if (source.format !== "gif") {
-    const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
-    const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
-    if (bytes > LOOP_LIMITS.maxReverseBytes) {
-      throw new InputError(
-        `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
-          `${sizeLabel(width, height)} (${pixFmt}) doesn't fit in memory. Use a ` +
-          `shorter or smaller clip, or the crossfade technique.`,
-        "too-long",
-      );
-    }
+  const bytesPerPixel = source.format === "webp" ? 4 : 1.5;
+  const bytes = duration * (fps ?? DEFAULT_FPS) * width * height * bytesPerPixel;
+  if (source.format !== "gif" && bytes > LOOP_LIMITS.maxReverseBytes) {
+    throw new InputError(
+      `Video too long to reverse at this size: ${Math.round(duration)}s of ` +
+        `${sizeLabel(width, height)} (${pixFmt}) doesn't fit in memory. Use a ` +
+        `shorter or smaller clip, or the crossfade technique.`,
+      "too-long",
+    );
   }
   return sourceRender(source, {
     keepAudio: false,
     palindrome: true,
     duration: duration * 2,
+    held: bytes,
   });
 }
 
@@ -119,12 +119,15 @@ function crossfadeLoop(
       : `${order[0]}null[out]`,
   );
 
+  const { width, height } = source.profile;
   return sourceRender(source, {
     inputArgs: ["-i", source.path, "-i", source.path],
     filter: graph.join(";"),
     keepAudio: false,
     duration: (frames - fade) / fps,
     fps,
+    // The second decoder, and the fade-in xfade queues until the fade-out arrives.
+    held: (fade + DECODER_FRAMES) * width * height * (/p1\d/.test(pixFmt) ? 3 : 1.5),
   });
 }
 
@@ -141,8 +144,7 @@ async function loopByCopy(ff: FFmpeg, source: Source, copy: Copy): Promise<boole
   try {
     console.log("No fade: reordering the streams without decoding");
     return await reorderCopy(ff, source, copy);
-  } catch (err) {
-    if (ff.signal?.aborted) throw err;
+  } catch {
     console.log("Stream copy failed, encoding instead...");
     return false;
   }
@@ -241,37 +243,34 @@ async function reorderCopy(
   }
 }
 
-export const loop: Tool = {
-  inputs: singleVideo,
-  async run(job) {
-    const { ff, workDir, inputs, options } = job;
-    const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
-    const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
-    const startSeconds = clamp(options.startSecond, 0, Infinity, 0);
-    const quality = clampInt(options.quality, 1, 100, 100);
+export const loop: Tool = async (job) => {
+  const { ff, workDir, inputs, options } = job;
+  const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
+  const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
+  const startSeconds = clamp(options.startSecond, 0, Infinity, 0);
+  const quality = clampInt(options.quality, 1, 100, 100);
 
-    const source = await openSource(job, inputs[0]);
-    const format = preservedFormat(source);
-    const result = (outputPath: string) => ({
-      outputPath,
-      suffix: "loop",
-      ext: format,
-    });
-    console.log(`Looping ${format} (${technique})...`);
+  const source = await openSource(job, inputs[0]);
+  const format = preservedFormat(source);
+  const result = (outputPath: string) => ({
+    outputPath,
+    suffix: "loop",
+    ext: format,
+  });
+  console.log(`Looping ${format} (${technique})...`);
 
-    const outputFile = path.join(workDir, `output.${format}`);
-    const copy = { format, outputFile, startSeconds };
-    const unfaded = technique === "crossfade" && fadeDuration === 0;
-    if (unfaded && (await loopByCopy(ff, source, copy))) {
-      return result(outputFile);
-    }
+  const outputFile = path.join(workDir, `output.${format}`);
+  const copy = { format, outputFile, startSeconds };
+  const unfaded = technique === "crossfade" && fadeDuration === 0;
+  if (unfaded && (await loopByCopy(ff, source, copy))) {
+    return result(outputFile);
+  }
 
-    const packets = await ff.videoPackets(source.path);
-    const duration = packets ? shownDuration(packets) : source.profile.duration;
-    const render =
-      technique === "crossfade"
-        ? crossfadeLoop(source, duration, fadeDuration, startSeconds)
-        : reverseLoop(source, duration);
-    return result(await encodePreserved(job, render, { format, quality }));
-  },
+  const packets = await ff.videoPackets(source.path);
+  const duration = packets ? shownDuration(packets) : source.profile.duration;
+  const render =
+    technique === "crossfade"
+      ? crossfadeLoop(source, duration, fadeDuration, startSeconds)
+      : reverseLoop(source, duration);
+  return result(await encodePreserved(job, render, { format, quality }));
 };

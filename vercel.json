@@ -1,27 +1,23 @@
 {
-  "bunVersion": "1.4.x",
   "buildCommand": "bun run build",
-  "devCommand": "bun --filter client dev --port $PORT",
   "outputDirectory": "client/dist",
-  "rewrites": [
+  "headers": [
     {
-      "source": "/((?!api/|@)[^.]*)",
-      "destination": "/index.html"
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
+      ]
+    },
+    {
+      "source": "/(assets|engine)/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ],
-  "functions": {
-    "api/process.ts": {
-      "maxDuration": 300,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}",
-      "supportsCancellation": true
-    },
-    "api/preview.ts": {
-      "maxDuration": 60,
-      "includeFiles": "{api/_bin/ffmpeg/linux-x64/**,api/_bin/gifski/linux-x64/**}",
-      "supportsCancellation": true
-    },
-    "api/upload.ts": {
-      "maxDuration": 30
+  "rewrites": [
+    {
+      "source": "/([^.]*)",
+      "destination": "/index.html"
     }
-  }
+  ]
 }

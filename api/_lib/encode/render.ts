@@ -6,7 +6,7 @@ import { fileSize } from "../helpers.js";
 import type { Source } from "../source.js";
 import { GENERATION } from "./rate.js";
 
-// Leaves room inside the function's 300s (vercel.json) to upload the result.
+// How long a job may go on trying for a better fit.
 const TIME_BUDGET_MS = 240_000;
 
 // Assumes another try costs what the one begun at `started` did.
@@ -72,6 +72,9 @@ export type Render = {
   // Before any encoder scaling.
   width: number;
   height: number;
+  // Bytes the graph buffers beyond decoding one input; the encoder's threads
+  // fit in what a fixed heap has left (video.ts).
+  held?: number;
   // PNG frames `inputArgs` already reads (stills), for frame-file encoders.
   frames?: string[];
 };

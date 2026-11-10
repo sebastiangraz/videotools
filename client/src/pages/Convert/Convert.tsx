@@ -22,7 +22,7 @@ export const Convert = () => {
   const formatBlocker = useFormatBlocker(source.file, { foreign: false }, source.nonSquare);
   const [target, setTarget] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
-  // null = match the source framerate (the server probes it, capped at 30)
+  // null = match the source framerate (the tool probes it, capped at 30)
   const [gifFps, setGifFps] = useState<number | null>(null);
   // NumberField reports null while empty; submit falls back to the default.
   const [gifWidth, setGifWidth] = useState<number | null>(640);
@@ -46,10 +46,7 @@ export const Convert = () => {
       if (gifFps != null) options.fps = gifFps;
       options.width = gifWidth ?? 640;
     }
-    run.start({
-      files: [source.file],
-      payload: ({ blobUrls }) => ({ blobUrl: blobUrls[0], options }),
-    });
+    run.start({ files: [source.file], options });
   };
 
   return (

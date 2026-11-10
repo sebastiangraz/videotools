@@ -1,5 +1,4 @@
-# `vercel deploy` ignores .gitignore. The build's npm install fetches the
-# pinned binaries, so local ones stay behind.
+# `vercel deploy` ignores .gitignore. The native binaries are for the scripts.
 node_modules
 dist
 .env*.local

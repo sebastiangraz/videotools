@@ -1,6 +1,9 @@
+import { InputError } from "../errors.js";
+import type { FFmpeg } from "../ffmpeg.js";
+import { sizeLabel } from "../helpers.js";
 import type { Encoder } from "./index.js";
 import type { RateCap } from "./rate.js";
-import { audioArgs, graphArgs } from "./render.js";
+import { audioArgs, graphArgs, type Render } from "./render.js";
 
 // yuv420p needs even dimensions and odd-sized sources exist.
 const EVEN_SCALE = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
@@ -21,6 +24,26 @@ function x264Cap(cap: RateCap | null): string[] {
   return cap ? ["-maxrate", `${cap.maxrate}k`, "-bufsize", `${cap.bufsize}k`] : [];
 }
 
+// x264 holds its lookahead and, per thread, a frame with its reconstruction:
+// megabytes per megapixel, measured at 4K beside a 10-bit decoder. Its own
+// choice of 1.5 threads a core outgrows a fixed heap at 4K, and an encoder
+// that can't allocate hangs rather than fails.
+const X264_MB = { base: 245, thread: 15 };
+
+export function x264Threads(ff: FFmpeg, { width, height, held = 0 }: Render): string[] {
+  if (!ff.heap) return [];
+  const megapixels = (width * height) / 1e6;
+  const room = (ff.heap - held) / 2 ** 20 / megapixels;
+  const fit = Math.floor((room - X264_MB.base) / X264_MB.thread);
+  if (fit < 1) {
+    throw new InputError(
+      `Video too large to encode: ${sizeLabel(width, height)} frames don't fit in memory.`,
+      "too-large",
+    );
+  }
+  return ["-threads", String(Math.min(fit, Math.floor(navigator.hardwareConcurrency * 1.5)))];
+}
+
 const encodeH264 =
   (faststart: boolean): Encoder =>
   async (ff, render, { outputFile, quality, cap }) => {
@@ -33,6 +56,7 @@ const encodeH264 =
       "-crf",
       x264Crf(quality),
       ...x264Cap(cap),
+      ...x264Threads(ff, render),
       "-pix_fmt",
       "yuv420p",
       ...audioArgs(render, ["aac"], ["-c:a", "aac", "-b:a", "192k"]),

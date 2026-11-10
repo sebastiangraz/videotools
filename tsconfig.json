@@ -1,5 +1,4 @@
 {
-  // Used by @vercel/node at deploy (it forces noEmit off) and by typecheck.
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",

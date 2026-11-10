@@ -6,7 +6,7 @@ import styles from "./FramePreview.module.css";
 // The frame of `file` at `second`, drawn on a canvas. Video, animated images
 // and stills alike come through a frame source (see frameSource.ts), so there
 // is one element and one set of states for all of them. The accept list is
-// broader than what browsers can decode (server-side ffmpeg handles the rest),
+// broader than what browsers can decode (ffmpeg handles the rest),
 // so a file the source can't open or seek swaps the frame for a short note, or
 // for `fallback` (null for nothing at all). Tracking the failed file rather
 // than a boolean resets the error when a new file is picked. `maxSide` scales

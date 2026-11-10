@@ -4,8 +4,8 @@ import type { Encoder } from "./index.js";
 import { conversionFps, encodeWithinBudget, graphArgs, levelRange, scaledSize } from "./render.js";
 import { vpxCrf } from "./video.js";
 
-// libaom is slow: keeps within the 300s function limit. Pixels = 60s at
-// 30fps and 800×450, the most a conversion asks.
+// libaom is slow. Pixels = 60s at 30fps and 800×450, the most a conversion
+// asks.
 const MAX_AVIF_SECONDS = 60;
 const MAX_AVIF_PIXELS = 60 * 30 * 800 * 450;
 

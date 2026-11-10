@@ -6,20 +6,6 @@ export const cx = (...names: (string | false | null | undefined)[]): string =>
 export const toList = <T>(value: T | T[] | null): T[] =>
   value === null ? [] : Array.isArray(value) ? value : [value];
 
-// A JSON request; the response is the caller's to read.
-export const sendJson = (
-  url: string,
-  method: "POST" | "DELETE",
-  body: unknown,
-  signal?: AbortSignal,
-): Promise<Response> =>
-  fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
-
 // "clip.final.MOV" → ["clip.final", ".MOV"]; the extension is "" when there is none.
 export function splitExtension(filename: string): [base: string, ext: string] {
   const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(filename) ?? [];
@@ -44,14 +30,6 @@ export function matchesAccept(file: File, accept: string): boolean {
     return file.type === pattern;
   });
 }
-
-export const toDataUrl = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
 
 // Shrinks a width×height to fit `maxSide`, never enlarges.
 export const fitScale = (width: number, height: number, maxSide: number): number =>
@@ -94,7 +72,7 @@ export function timeAgo(iso: string) {
 
 // 6 characters of the source, the extras' names, then each option as key
 // initials + value (fadeDuration 0.7 → fd0.7, true, a list or a group → Y, false or null
-// left out), with the extension of the server's name.
+// left out), with the extension of the result's name.
 export function verboseName(
   base: string,
   extraNames: string[],

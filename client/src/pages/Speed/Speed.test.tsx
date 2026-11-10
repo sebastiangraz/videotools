@@ -1,21 +1,13 @@
 import { screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
-import {
-  blobUrl,
-  postedBody,
-  renderApp,
-  runFinished,
-  stubProcessFetch,
-  uploadMock,
-} from "@src/test/renderApp";
+import { engineRun, renderApp, stubEngine } from "@src/test/renderApp";
 import { file } from "@src/test/media";
 
 describe("Speed", () => {
   it("requests a speed change with the slider value", async () => {
     const user = userEvent.setup();
-    uploadMock.mockResolvedValue({ url: blobUrl("clip-abc.mp4") });
-    const fetchMock = stubProcessFetch();
+    stubEngine();
 
     await renderApp("/speed");
     await user.upload(screen.getByLabelText(/choose video/i), file("clip.mp4", "video/mp4"));
@@ -26,11 +18,8 @@ describe("Speed", () => {
     });
     await user.click(screen.getByRole("button", { name: /change speed/i }));
 
-    await runFinished(fetchMock);
-    expect(postedBody(fetchMock)).toMatchObject({
+    expect(await engineRun()).toMatchObject({
       tool: "speed",
-      blobUrl: blobUrl("clip-abc.mp4"),
-      filename: "clip.mp4",
       options: { speed: 1 },
     });
   });

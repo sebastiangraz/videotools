@@ -1,4 +1,4 @@
-// User-fixable errors → 400; the client and smoke run branch on `code`.
+// User-fixable errors: the client shows their message.
 type InputErrorCode =
   | "unsupported-source"
   | "unreadable-source"

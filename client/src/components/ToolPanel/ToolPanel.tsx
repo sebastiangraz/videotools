@@ -1,15 +1,15 @@
-import { useRef, MouseEvent, ReactNode } from "react";
+import { MouseEvent, ReactNode, useEffect, useState } from "react";
+import { Progress } from "@base-ui/react/progress";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
 import { Footer } from "@src/components/Footer/Footer";
-import { Spinner } from "@src/components/Spinner/Spinner";
 import type { Tool } from "@src/tools";
 import type { ToolRun } from "@src/hooks/useToolRun";
 import styles from "./ToolPanel.module.css";
 
 // The frame every tool page fills in: `inputs` (the drop zones) in the first
 // container, then the page's options (`children`), the action row (the action
-// and Stop buttons on the left, `control` on the right), the error box and
-// the footer in the second. The options must
+// button, which cancels a run in flight, on the left, `control` on the right),
+// the error box and the footer in the second. The options must
 // land as direct children of their container — the tab-change transition
 // staggers them by position (see the stylesheet) — so pages pass a fragment,
 // not a wrapper.
@@ -32,22 +32,29 @@ export const ToolPanel = ({
   control?: ReactNode;
   children?: ReactNode;
 }) => {
-  const submitRef = useRef<HTMLButtonElement>(null);
-  const { busy, status, errorDetail } = run;
+  const { busy, progress, errorDetail } = run;
   const ready = blocker === null;
 
-  const submit = () => {
-    // The button is only aria-disabled, so unusable states are rejected here
-    // rather than by the browser
-    if (!ready || busy) return;
-    onSubmit();
-  };
+  // The hover swap to "Cancel" waits
+  const [cancelArmed, setCancelArmed] = useState(false);
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setTimeout(() => setCancelArmed(true), 400);
+    return () => {
+      clearTimeout(timer);
+      setCancelArmed(false);
+    };
+  }, [busy]);
 
-  // Stop hides itself the moment the run ends, which would drop keyboard
-  // focus on <body>; hand it back to the action button instead.
-  const stop = (e: MouseEvent<HTMLButtonElement>) => {
-    run.stop();
-    if (e.detail === 0) submitRef.current?.focus();
+  // Busy, the button cancels the run; not on a double click's second click,
+  // which would undo the first. It is only aria-disabled, so a run that
+  // can't start yet is turned away here rather than by the browser.
+  const click = (e: MouseEvent<HTMLButtonElement>) => {
+    if (busy) {
+      if (e.detail < 2) run.cancel();
+    } else if (ready) {
+      onSubmit();
+    }
   };
 
   return (
@@ -62,21 +69,19 @@ export const ToolPanel = ({
             disabled={ready}
             content={blocker}
             render={
-              <button
-                ref={submitRef}
-                onClick={submit}
-                aria-disabled={!ready || busy}
-                className={styles.submit}
-              />
+              <button onClick={click} aria-disabled={!ready && !busy} className={styles.submit} />
             }
           >
-            {busy ? status : tool.actionLabel}
-            {busy && <Spinner className={styles.spinner} />}
+            <span className={styles.label}>{busy ? "Processing" : tool.actionLabel}</span>
+            {busy && (
+              <span className={styles.cancel} data-armed={cancelArmed || undefined}>
+                Cancel
+              </span>
+            )}
+            <Progress.Root value={progress} max={1} hidden={!busy} className={styles.progress}>
+              <Progress.Indicator className={styles.indicator} />
+            </Progress.Root>
           </Tooltip>
-
-          <button type="button" onClick={stop} hidden={!busy} className={styles.stopButton}>
-            Stop
-          </button>
           {control}
         </div>
 

@@ -40,7 +40,7 @@ function estimateOutputBytes(
 ): number {
   const bpp = SIZE_BPP[format] ?? SIZE_BPP.mp4;
   const t = quality / 100;
-  // The server caps the longest side at 1920
+  // The tool caps the longest side at 1920
   const scale = fitScale(w, h, 1920);
   const pixels = Math.round(w * scale) * Math.round(h * scale);
   // Quality affects size superlinearly
@@ -117,14 +117,11 @@ export const Sequence = () => {
   const submit = () =>
     run.start({
       files,
-      payload: ({ blobUrls }) => ({
-        blobUrls,
-        options: {
-          frameDuration: frameDuration ?? 1,
-          format,
-          quality,
-        },
-      }),
+      options: {
+        frameDuration: frameDuration ?? 1,
+        format,
+        quality,
+      },
     });
 
   return (

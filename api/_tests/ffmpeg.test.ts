@@ -1,5 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { parseMediaInfo, parseOutputSize, shownDuration } from "../_lib/ffmpeg.js";
+import { parseMediaInfo, parseOutputSize, runProgress, shownDuration } from "../_lib/ffmpeg.js";
+
+// Real lines from the engine: ffmpeg 9.0 with `-progress pipe:2`, gifski 1.34.
+describe("runProgress", () => {
+  it("counts ffmpeg's frames at its output's rate, not its time", () => {
+    const read = runProgress(9);
+    for (const line of [
+      "  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080, 5088 kb/s, 60 fps, 60 tbr, 60k tbn (default)",
+      "  Stream #0:0(und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080, q=2-31, 30 fps, 30k tbn (default)",
+      "frame=  135 fps= 29 q=-1.0 size=    1024KiB time=00:00:08.89 bitrate=N/A speed=1.9x",
+      // The audio's, ahead of the video's encode.
+      "out_time_us=8896000",
+    ]) {
+      expect(read(line)).toBeNull();
+    }
+    expect(read("frame=135")).toBe(0.5);
+    expect(read("frame=300")).toBe(1);
+  });
+
+  it("can't place ffmpeg's frames before it lists a rate", () => {
+    expect(runProgress(9)("frame=135")).toBeNull();
+  });
+
+  it.each([
+    ["Frame 1 / 180  _......  1m ", 1 / 180],
+    ["3.4MB GIF; Frame 45 / 180  ###########_......  3s ", 0.25],
+  ])("reads gifski's %j", (line, done) => {
+    expect(runProgress(0)(line)).toBe(done);
+  });
+});
 
 describe("parseMediaInfo", () => {
   // Real ffmpeg lines, each file probed as logo.png (the watermark PNG check).

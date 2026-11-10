@@ -96,7 +96,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       return encode(ff, render, target);
     };
   }
-  // The reverse cap guards a 2GB function; locally it would only skip clips.
+  // The reverse cap guards the engine's heap; natively it would only skip clips.
   const limits = { ...LOOP_LIMITS };
   LOOP_LIMITS.maxReverseBytes = Infinity;
   // Sequence takes all its stills at once, its source named after their folder.

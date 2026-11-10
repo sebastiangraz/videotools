@@ -31,7 +31,7 @@ export const Loop = () => {
   const [fadeDuration, setFadeDuration] = useState<number | null>(0.5);
   const [startSecond, setStartSecond] = useState<number | null>(0);
   const [quality, setQuality] = useState<number>(100);
-  // The server clamps to the clip as well.
+  // The tool clamps to the clip as well.
   const start = clampStart(startSecond, source.duration);
 
   const pick = (picked: File[]) => {
@@ -43,15 +43,12 @@ export const Loop = () => {
     if (!source.file) return;
     run.start({
       files: [source.file],
-      payload: ({ blobUrls }) => ({
-        blobUrl: blobUrls[0],
-        options: {
-          technique,
-          fadeDuration: fadeDuration ?? 0.5,
-          startSecond: start ?? 0,
-          quality,
-        },
-      }),
+      options: {
+        technique,
+        fadeDuration: fadeDuration ?? 0.5,
+        startSecond: start ?? 0,
+        quality,
+      },
     });
   };
 

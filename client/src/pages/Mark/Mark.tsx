@@ -32,7 +32,7 @@ import { Switch } from "@src/components/Switch/Switch";
 
 const TOOL = toolById("mark");
 
-// The server rasterizes an SVG at the size the frame needs; ".svg" is for
+// The tool rasterizes an SVG at the size the frame needs; ".svg" is for
 // systems that give an SVG no MIME type.
 const WATERMARK_ACCEPT = "image/png,image/svg+xml,.svg";
 
@@ -135,19 +135,15 @@ export const Mark = () => {
     if (!source.file || !watermark) return;
     run.start({
       files: [source.file],
-      extras: [{ file: watermark, status: "Uploading watermark" }],
-      payload: ({ blobUrls, extraUrls }) => ({
-        blobUrl: blobUrls[0],
-        watermarkUrl: extraUrls[0],
-        options: {
-          filter: filterMode,
-          size,
-          position,
-          route,
-          quality,
-          tuning: debug ? tuning : null,
-        },
-      }),
+      extras: [watermark],
+      options: {
+        filter: filterMode,
+        size,
+        position,
+        route,
+        quality,
+        tuning: debug ? tuning : null,
+      },
       onDone: () => route && setShuffle(shuffleRoute(position)),
     });
   };

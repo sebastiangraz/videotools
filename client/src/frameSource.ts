@@ -83,7 +83,7 @@ const openVideo = async (file: File): Promise<FrameSource> => {
 };
 
 // Stills and animations alike. A frame carries the EXIF orientation, which
-// drawImage applies (and displayWidth/Height include), as the server does.
+// drawImage applies (and displayWidth/Height include), as ffmpeg does.
 const openImage = async (file: File): Promise<FrameSource> => {
   // Dropped files can come without a type.
   const type = (stillFormat(file) ?? fileFormat(file))?.mime ?? file.type;

@@ -13,8 +13,8 @@ import {
   sourceBytesBudget,
 } from "./render.js";
 
-// Frames go on gifski's command line (Windows: 32k chars); pixels land on the
-// function's ~500MB ephemeral disk.
+// Frames go on gifski's command line (Windows: 32k chars); pixels land in
+// the job's files, which the engine keeps in memory.
 const MAX_GIF_FRAMES = 1500;
 const MAX_GIF_PIXELS = 600 * 800 * 800;
 
@@ -75,11 +75,14 @@ export const encodeGif: Encoder = async (
       chain.push("format=rgba");
     }
     if (!given) {
+      // Half the progress bar each: writing the frames, then gifski's encode.
+      ff.encoding = { seconds: rendered / fps, from: 0, to: 0.5 };
       await ff.runFFmpeg([
         ...graphArgs({ ...render, palindrome: false }, chain, "rgba"),
         ...(everyFrame ? ["-fps_mode", "passthrough"] : []),
         path.join(framesDir, "frame_%05d.png"),
       ]);
+      ff.encoding = { seconds: 0, from: 0.5, to: 1 };
     }
 
     const forward = given
