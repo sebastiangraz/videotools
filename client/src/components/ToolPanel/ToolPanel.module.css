@@ -96,7 +96,9 @@
   color: var(--bg);
   border: none;
   cursor: pointer;
-  transition: height var(--fade) ease;
+  transition:
+    height var(--fade) ease,
+    background-color var(--fade) ease;
   &:hover:not([aria-disabled="true"]) {
     background-color: color-mix(in srgb, var(--fg) 80%, var(--bg));
   }
@@ -108,18 +110,30 @@
 .label,
 .cancel {
   grid-area: 1 / 1;
+  transition:
+    opacity var(--fade) ease,
+    visibility var(--fade);
+}
+
+.label {
+  transition-delay: var(--fade);
 }
 
 .cancel {
   visibility: hidden;
+  opacity: 0;
 }
 
 .submit:is(:hover, :focus-visible) {
-  & > .label:has(+ .cancel) {
+  & > .label:has(+ .cancel[data-armed]) {
     visibility: hidden;
+    opacity: 0;
+    transition-delay: 0ms;
   }
-  & > .cancel {
+  & > .cancel[data-armed] {
     visibility: visible;
+    opacity: 1;
+    transition-delay: var(--fade);
   }
 }
 

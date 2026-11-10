@@ -1,4 +1,4 @@
-import { MouseEvent, ReactNode } from "react";
+import { MouseEvent, ReactNode, useEffect, useState } from "react";
 import { Progress } from "@base-ui/react/progress";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
 import { Footer } from "@src/components/Footer/Footer";
@@ -35,6 +35,17 @@ export const ToolPanel = ({
   const { busy, progress, errorDetail } = run;
   const ready = blocker === null;
 
+  // The hover swap to "Cancel" waits
+  const [cancelArmed, setCancelArmed] = useState(false);
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setTimeout(() => setCancelArmed(true), 400);
+    return () => {
+      clearTimeout(timer);
+      setCancelArmed(false);
+    };
+  }, [busy]);
+
   // Busy, the button cancels the run; not on a double click's second click,
   // which would undo the first. It is only aria-disabled, so a run that
   // can't start yet is turned away here rather than by the browser.
@@ -62,7 +73,11 @@ export const ToolPanel = ({
             }
           >
             <span className={styles.label}>{busy ? "Processing" : tool.actionLabel}</span>
-            {busy && <span className={styles.cancel}>Cancel</span>}
+            {busy && (
+              <span className={styles.cancel} data-armed={cancelArmed || undefined}>
+                Cancel
+              </span>
+            )}
             <Progress.Root value={progress} max={1} hidden={!busy} className={styles.progress}>
               <Progress.Indicator className={styles.indicator} />
             </Progress.Root>
