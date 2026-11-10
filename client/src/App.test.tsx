@@ -212,7 +212,7 @@ describe("App", () => {
     await user.click(loopButton());
     act(() => vi.mocked(runEngine).mock.calls[0][2]!(0.5));
     const button = screen.getByRole("button", { name: /processing/i });
-    expect(within(button).getByRole("progressbar")).toHaveAttribute("value", "0.5");
+    expect(within(button).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0.5");
   });
 
   it("stops an in-flight run when the tool is switched", async () => {

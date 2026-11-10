@@ -1,4 +1,5 @@
 import { useRef, MouseEvent, ReactNode } from "react";
+import { Progress } from "@base-ui/react/progress";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
 import { Footer } from "@src/components/Footer/Footer";
 import { Spinner } from "@src/components/Spinner/Spinner";
@@ -71,8 +72,9 @@ export const ToolPanel = ({
             }
           >
             {busy ? "Processing" : tool.actionLabel}
-            {busy && <Spinner className={styles.spinner} />}
-            <progress value={progress} hidden={!busy} className={styles.progress} />
+            <Progress.Root value={progress} max={1} hidden={!busy} className={styles.progress}>
+              <Progress.Indicator className={styles.indicator} />
+            </Progress.Root>
           </Tooltip>
 
           <button type="button" onClick={stop} hidden={!busy} className={styles.stopButton}>
