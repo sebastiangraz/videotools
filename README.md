@@ -5,24 +5,23 @@ Browser video tools: seamless loops, image sequences to video, speed changes, fo
 Bun 1.4: package manager and script runner. The app is a static site: every tool runs in the browser, on ffmpeg and gifski built as WebAssembly. That build is committed in `client/public/engine/`; rebuild it (`wasm/Dockerfile`, needs Docker) only when the engine changes, into a new numbered folder that `GLUE_URL` (`client/src/engine/exec.ts`) then points at: browsers keep an engine for good under its address.
 
 ```bash
-bun install                     # deps + pinned native ffmpeg/gifski for the smoke runs (postinstall)
+bun install                                     # deps + pinned native ffmpeg/gifski for the smoke runs (postinstall)
 docker build -f wasm/Dockerfile --output client/public/engine/<n> wasm   # rebuild the engine
-bun run dev                     # Vite dev server
+bun run dev                                     # Vite dev server
 
-bun run test                    # vitest (client tests + api unit tests)
-bun run lint                    # oxlint (type-aware on api/)
-bun run format                  # oxfmt
-bun run typecheck               # api + client
+bun run test                                    # vitest (client tests + api unit tests)
+bun run lint                                    # oxlint (type-aware on api/)
+bun run format                                  # oxfmt
+bun run typecheck                               # api + client
 
-                                # bun run smoke <name> [mark[:glass,debug,depthmap]|light|quality]
-bun run smoke name              # run smoke test for name .smoke/name
-bun run smoke name quality      # run smoke test only for quality in .smoke/name/quality
-bun run smoke name mark:debug   # run debug view for mark smoke tests .smoke/name/mark/debug
+bun run smoke name                              # outputs .smoke/name
+bun run smoke name light|mark|quality           # outputs .smoke/name/mark
+bun run smoke name mark:debug|depthmap|glass    # outputs .smoke/name/mark/debug
 
-bun add -g vercel               # Vercel CLI
-vercel --prod                   # production deploy
+bun add -g vercel                               # Vercel CLI
+vercel --prod                                   # production deploy
 
-git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
+git config core.autocrlf false                  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
 Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `api/_tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the tools themselves, natively on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `vectors/`, and `videos/`, where each suite lists the clips it uses by file name). `mark` lays its videos out as cropped tiles of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the light-tracking clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip. `quality` runs each tool over its videos at quality 100 and scores each result's SSIM, PSNR and VMAF against a lossless render of the same pictures (or against its input where the tool copies), failing when any frame falls below the floors in `quality.mjs`; round trips are also scored against the source.
