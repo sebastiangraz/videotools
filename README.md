@@ -14,9 +14,9 @@ bun run lint                                    # oxlint (type-aware on api/)
 bun run format                                  # oxfmt
 bun run typecheck                               # api + client
 
-bun run smoke name                              # outputs .smoke/name
-bun run smoke name light|mark|quality           # outputs .smoke/name/mark
-bun run smoke name mark:debug|depthmap|glass    # outputs .smoke/name/mark/debug
+bun run smoke name                              # outputs .smoke/name/
+bun run smoke name mark                         # outputs .smoke/name/mark · [mark|light|quality], several allowed
+bun run smoke name mark:debug                   # outputs .smoke/name/mark/debug · [:debug|depthmap|glass], comma-separated
 
 bun add -g vercel                               # Vercel CLI
 vercel --prod                                   # production deploy
