@@ -227,10 +227,5 @@
 }
 
 .container {
-  composes: container from "./components/ToolPanel/ToolPanel.module.css";
-  padding-block: 0;
-  & > * {
-    view-transition-class: unset;
-    view-transition-name: unset;
-  }
+  padding-inline: 1em;
 }
