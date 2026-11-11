@@ -215,7 +215,7 @@ describe("App", () => {
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
     await user.click(loopButton());
-    const button = await screen.findByRole("button", { name: /processing/i });
+    const button = await screen.findByRole("button", { name: /working/i });
     expect(within(button).getByText("Cancel")).toBeInTheDocument();
     expect(postSignal(fetchMock)?.aborted).toBe(false);
 
@@ -243,7 +243,7 @@ describe("App", () => {
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
     await user.dblClick(loopButton());
 
-    expect(await screen.findByRole("button", { name: /processing/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /working/i })).toBeInTheDocument();
     expect(postSignal(fetchMock)?.aborted).toBe(false);
   });
 
@@ -256,7 +256,7 @@ describe("App", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 
     await user.click(loopButton());
-    const button = await screen.findByRole("button", { name: /processing/i });
+    const button = await screen.findByRole("button", { name: /working/i });
     await waitFor(() =>
       expect(within(button).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0.5"),
     );

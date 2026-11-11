@@ -32,7 +32,7 @@ export const ToolPanel = ({
   control?: ReactNode;
   children?: ReactNode;
 }) => {
-  const { busy, status, progress, errorDetail } = run;
+  const { busy, progress, errorDetail } = run;
   // Busy, the button cancels; otherwise it runs unless blocked.
   const blocked = !busy && blocker !== null;
 
@@ -71,7 +71,7 @@ export const ToolPanel = ({
             content={blocker}
             render={<button onClick={click} aria-disabled={blocked} className={styles.submit} />}
           >
-            <span className={styles.label}>{busy ? status : tool.actionLabel}</span>
+            <span className={styles.label}>{busy ? "Working" : tool.actionLabel}</span>
             {busy && (
               <span className={styles.cancel} data-armed={cancelArmed || undefined}>
                 Cancel

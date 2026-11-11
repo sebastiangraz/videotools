@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ToolId } from "@src/tools";
-import { engineFetch, sendJson, shortenFilename, splitExtension, verboseName } from "@src/helpers";
+import { engineFetch, sendJson, splitExtension, verboseName } from "@src/helpers";
 
 // Best effort: the engine clears leftovers when it starts.
 function deleteUploads(uploads: string[]) {
@@ -8,11 +8,11 @@ function deleteUploads(uploads: string[]) {
   sendJson("/process", "DELETE", { uploads }).catch(() => {});
 }
 
-// `extras`: further uploads with their own status line (mark's logo).
+// `extras`: further inputs after the sources, uploaded apart (mark's logo).
 // `onDone`: once the result has downloaded.
 interface RunRequest {
   files: File[];
-  extras?: { file: File; status: string }[];
+  extras?: File[];
   payload: (uploads: { uploads: string[]; extraUploads: string[] }) => {
     options: Record<string, unknown>;
   } & Record<string, unknown>;
@@ -28,7 +28,6 @@ const PROGRESS_MS = 500;
 
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
-  const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   // How far (0–1) the run's encode has got.
   const [progress, setProgress] = useState(0);
@@ -61,17 +60,9 @@ export function useToolRun(tool: ToolId) {
         return id;
       };
 
-      for (let i = 0; i < files.length; i++) {
-        setStatus(files.length > 1 ? `Uploading ${i + 1}/${files.length}` : "Uploading");
-        uploads.push(await send(files[i]));
-      }
+      for (const file of files) uploads.push(await send(file));
+      for (const file of extras) extraUploads.push(await send(file));
 
-      for (const extra of extras) {
-        setStatus(extra.status);
-        extraUploads.push(await send(extra.file));
-      }
-
-      setStatus("Processing");
       const body = payload({ uploads, extraUploads });
       // Named here, so the engine can be asked how far the job has got while
       // the POST is held open.
@@ -97,13 +88,12 @@ export function useToolRun(tool: ToolId) {
       const downloadName = verbose
         ? verboseName(
             base,
-            extras.map(({ file }) => file.name),
+            extras.map((file) => file.name),
             body.options,
             resultName,
           )
         : resultName || `${base}_${tool}${ext}`;
 
-      setStatus(`Downloading ${shortenFilename(files[0])}`);
       // Encoded, whatever the last answer said.
       setProgress(1);
       const objectUrl = URL.createObjectURL(await res.blob());
@@ -142,7 +132,7 @@ export function useToolRun(tool: ToolId) {
 
   const clearError = () => setErrorDetail(null);
 
-  return { busy, status, progress, errorDetail, clearError, start, cancel };
+  return { busy, progress, errorDetail, clearError, start, cancel };
 }
 
 export type ToolRun = ReturnType<typeof useToolRun>;

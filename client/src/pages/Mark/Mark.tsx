@@ -171,7 +171,7 @@ export const Mark = () => {
     if (!source.file || !logo) return;
     run.start({
       files: [source.file],
-      extras: [{ file: logo, status: "Uploading watermark" }],
+      extras: [logo],
       payload: ({ uploads, extraUploads }) => ({
         upload: uploads[0],
         watermark: extraUploads[0],
