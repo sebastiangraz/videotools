@@ -45,6 +45,18 @@ export const sendJson = (
     signal,
   });
 
+// Runs `load` while navigator.userAgent reads as `userAgent`, for a module that
+// sniffs it as it first runs; an already loaded one won't run again, so import
+// a fresh copy (a query on its path).
+export async function withUserAgent<T>(userAgent: string, load: () => Promise<T>): Promise<T> {
+  Object.defineProperty(navigator, "userAgent", { value: userAgent, configurable: true });
+  try {
+    return await load();
+  } finally {
+    Reflect.deleteProperty(navigator, "userAgent");
+  }
+}
+
 // "clip.final.MOV" → ["clip.final", ".MOV"]; the extension is "" when there is none.
 export function splitExtension(filename: string): [base: string, ext: string] {
   const [, base, ext = ""] = /^(.*?)(\.[^.]+)?$/.exec(filename) ?? [];

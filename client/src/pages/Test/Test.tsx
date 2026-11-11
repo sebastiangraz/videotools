@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Page } from "@src/components/Page/Page";
 import { Upload } from "@src/components/Upload/Upload";
 import { Message } from "@src/components/Message/Message";
@@ -10,6 +10,9 @@ import { Switch } from "@src/components/Switch/Switch";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
+import { EngineSetup } from "@src/components/EngineSetup/EngineSetup";
+import type { Health } from "@src/hooks/useEngine";
+import { withUserAgent } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOGGLE_OPTIONS = [
@@ -66,7 +69,14 @@ export const Test = () => {
         </div>
       </div>
       {message && <Message>A message over the title</Message>}
-      {error && <Message kind="error">An error over the title</Message>}
+      {error && (
+        <Message kind="error">
+          An error over the title{" "}
+          <a href="#" onClick={(e) => e.preventDefault()}>
+            link
+          </a>
+        </Message>
+      )}
 
       <Upload accept="*" multiple pickerLabel="choose files" files={files} onFiles={setFiles} />
 
@@ -233,6 +243,15 @@ export const Test = () => {
         />
       </div>
 
+      <div className={form.horizontal}>
+        <EngineSetup health={Health.MISSING} />
+        <EngineSetup health={Health.WARNING} />
+        <EngineSetup health={Health.ERROR} />
+        <Suspense>
+          <SafariEngineSetup health={Health.MISSING} />
+        </Suspense>
+      </div>
+
       <div className={form.switchRow}>
         <Tooltip content="Tooltip content" render={<span />}>
           <span className={form.label}>Hover for a tooltip</span>
@@ -241,3 +260,24 @@ export const Test = () => {
     </Page>
   );
 };
+
+const SafariEngineSetup = lazy(async () => {
+  const module: typeof import("@src/components/EngineSetup/EngineSetup") = await withUserAgent(
+    "Safari",
+    // @ts-expect-error TypeScript can't resolve a module id with a query.
+    () => import("@src/components/EngineSetup/EngineSetup?safari"),
+  );
+  return { default: module.EngineSetup };
+});
+
+const Health = {
+  MISSING: null,
+  WARNING: {
+    version: 0,
+    reload: false,
+  },
+  ERROR: {
+    version: 0,
+    reload: true,
+  },
+} as Record<string, Health>;
