@@ -93,19 +93,20 @@ export const Mark = () => {
     setDevSize(false);
   };
 
-  const still = source.file !== null && isStillImage(source.file) && source.duration === 0;
-  const route = still ? null : shuffle;
-  const shuffling = route !== null;
   const preview = useMarkPreview(
-    source.file,
+    source.file && hasFrames(source.file) ? source.file : null,
     watermark,
     filterMode,
     size,
     position,
-    route,
+    shuffle,
     debug ? debugView : "render",
     debug ? tuning : TUNED,
   );
+  // Off the length the preview's frames land with, so its first round is right.
+  const still = source.file !== null && isStillImage(source.file) && preview.duration === 0;
+  const route = still ? null : shuffle;
+  const shuffling = route !== null;
   const previewRef = useRef<HTMLDivElement | null>(null);
 
   const [markX, markY] = MARK_POSITIONS[preview.shownPosition];
@@ -122,7 +123,6 @@ export const Mark = () => {
 
   const pick = (picked: File[]) => {
     run.clearError();
-    preview.reset();
     source.pick(picked);
   };
 

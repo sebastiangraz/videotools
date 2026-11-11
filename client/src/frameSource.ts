@@ -55,10 +55,15 @@ const openVideo = async (file: File): Promise<FrameSource> => {
   return {
     duration: async () => (Number.isFinite(video.duration) ? video.duration : 0),
     frameAt: async (second) => {
+      // Seeks never land after an error.
+      if (video.error) throw new Error("The browser can't decode this file");
       if (video.currentTime !== second) video.currentTime = second;
       // May be an earlier call's seek; nothing to draw until it lands.
       if (video.seeking) {
-        await new Promise((resolve) => video.addEventListener("seeked", resolve, { once: true }));
+        await new Promise((resolve, reject) => {
+          video.addEventListener("seeked", resolve, { once: true });
+          video.addEventListener("error", reject, { once: true });
+        });
       }
       return {
         image: video,

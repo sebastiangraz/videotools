@@ -267,7 +267,7 @@ describe("Mark", () => {
 
   it("grabs a set of frames and scrubs through their renders as the pointer crosses the preview", async () => {
     const user = userEvent.setup();
-    stubVideo(10);
+    stubVideo(9.996);
     // A URL per render, to tell the slots apart
     let renders = 0;
     URL.createObjectURL = vi.fn((blob: Blob | MediaSource) =>
@@ -291,8 +291,9 @@ describe("Mark", () => {
     fireEvent.pointerEnter(strips[0]);
     expect(within(preview).getByAltText(/watermarked frame/i)).toBe(first);
 
-    // Shuffling, each frame shows the mark where its stay puts it: 10s at the
-    // cadence of 2 is five stays, each somewhere new
+    // Shuffling, each frame shows the mark where its stay puts it: 9.996s,
+    // 10.00 as ffmpeg prints it, at the cadence of 2 is five stays, each
+    // somewhere new
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
     await waitFor(() => expect(renderMock).toHaveBeenCalledTimes(2));
     const positions = previewed(1).frames.map((frame) => frame.position);

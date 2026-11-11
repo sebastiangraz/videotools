@@ -33,7 +33,8 @@ export const ToolPanel = ({
   children?: ReactNode;
 }) => {
   const { busy, progress, errorDetail } = run;
-  const ready = blocker === null;
+  // Busy, the button cancels; otherwise it runs unless blocked.
+  const blocked = !busy && blocker !== null;
 
   // The hover swap to "Cancel" waits
   const [cancelArmed, setCancelArmed] = useState(false);
@@ -52,7 +53,7 @@ export const ToolPanel = ({
   const click = (e: MouseEvent<HTMLButtonElement>) => {
     if (busy) {
       if (e.detail < 2) run.cancel();
-    } else if (ready) {
+    } else if (!blocked) {
       onSubmit();
     }
   };
@@ -66,11 +67,9 @@ export const ToolPanel = ({
 
         <div className={styles.actions}>
           <Tooltip
-            disabled={ready}
+            disabled={!blocked}
             content={blocker}
-            render={
-              <button onClick={click} aria-disabled={!ready && !busy} className={styles.submit} />
-            }
+            render={<button onClick={click} aria-disabled={blocked} className={styles.submit} />}
           >
             <span className={styles.label}>{busy ? "Processing" : tool.actionLabel}</span>
             {busy && (

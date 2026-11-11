@@ -1,6 +1,11 @@
 // No imports: the client reads these too.
 
-export type AmbientGlow = { bevelRatio: number; opacity: number; core?: boolean; ignoreBlend?: boolean };
+export type AmbientGlow = {
+  bevelRatio: number;
+  opacity: number;
+  core?: boolean;
+  ignoreBlend?: boolean;
+};
 
 export const MARK = {
   // Square logo side fraction of the width and height geometric mean.
@@ -95,6 +100,13 @@ export const MARK = {
   // Rotation fade in and fade out seconds, each.
   fadeSeconds: 0.25,
 };
+
+// The clip in equal stays, as many as rotateCadence fits but two at least, so
+// it opens and closes on a whole mark. Off the length as ffmpeg prints it,
+// whole µs rounded half up to 1/100 s, so a browser's finer measure of the
+// clip counts the same.
+export const markStays = (duration: number) =>
+  Math.max(2, Math.floor((Math.round(duration * 1e6) + 5e3) / (1e6 * MARK.rotateCadence)));
 
 // `uncapped` lifts the maxSpan cap, the logo kept only inside the frame.
 export type MarkSizeSpec = { scale: number; gap: number; rim: number; uncapped?: boolean };

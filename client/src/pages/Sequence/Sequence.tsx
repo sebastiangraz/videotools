@@ -79,13 +79,16 @@ const SequencePreview = ({
 
 export const Sequence = () => {
   const run = useToolRun(TOOL.value);
-  const [files, setFiles] = useState<File[]>([]);
+  // imageMeta: the first image's size, once read.
+  const [{ files, imageMeta }, setPicked] = useState<{
+    files: File[];
+    imageMeta: SourceMeta | null;
+  }>({ files: [], imageMeta: null });
   const formatBlocker = useFormatBlocker(files, {
     stills: true,
     foreign: false,
     oneFormat: true,
   });
-  const [imageMeta, setImageMeta] = useState<SourceMeta | null>(null);
   // NumberField reports null while empty; submit falls back to the default.
   const [frameDuration, setFrameDuration] = useState<number | null>(1);
   const [format, setFormat] = useState<string>("mp4");
@@ -94,15 +97,16 @@ export const Sequence = () => {
   const pick = (picked: File[]) => {
     run.clearError();
     const sorted = [...picked].sort(byFilename);
-    setFiles(sorted);
-    setImageMeta(null);
+    setPicked({ files: sorted, imageMeta: null });
 
     const first = sorted[0];
     if (first.type.startsWith("image/")) {
-      // The first image sets the output frame size.
+      // The first image sets the output frame size. It loads late, and must
+      // not answer for a pick since replaced.
       const img = new Image();
       img.onload = () => {
-        setImageMeta({ w: img.naturalWidth, h: img.naturalHeight });
+        const imageMeta = { w: img.naturalWidth, h: img.naturalHeight };
+        setPicked((current) => (current.files === sorted ? { files: sorted, imageMeta } : current));
         URL.revokeObjectURL(img.src);
       };
       img.src = URL.createObjectURL(first);

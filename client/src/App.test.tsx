@@ -207,6 +207,21 @@ describe("App", () => {
     expect(signal().aborted).toBe(false);
   });
 
+  it("starts one run for two clicks that come before a re-render", async () => {
+    const user = userEvent.setup();
+    hangEngine();
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), mp4());
+    // One act: React renders once both are in
+    act(() => {
+      loopButton().click();
+      loopButton().click();
+    });
+
+    expect(runEngine).toHaveBeenCalledOnce();
+  });
+
   it("shows how far a run has got in the action button while it's in flight", async () => {
     const user = userEvent.setup();
     hangEngine();

@@ -27,7 +27,7 @@ export function useToolRun(tool: ToolId) {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const run = async ({ files, extras = [], options, onDone }: RunRequest) => {
-    if (busy) return;
+    if (abortRef.current) return;
     setBusy(true);
     setProgress(0);
     setErrorDetail(null);
@@ -65,7 +65,7 @@ export function useToolRun(tool: ToolId) {
         setErrorDetail(err instanceof Error ? err.message : String(err));
       }
     } finally {
-      if (abortRef.current === controller) abortRef.current = null;
+      abortRef.current = null;
       setBusy(false);
     }
   };
