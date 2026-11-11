@@ -23,7 +23,7 @@
   font-family: var(--font-mono);
   background: var(--input-bg);
   border-radius: calc(var(--radius) / 2);
-  user-select: all;
+  color: var(--fg-secondary);
   overflow-wrap: anywhere;
 }
 

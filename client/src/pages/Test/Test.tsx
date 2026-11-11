@@ -243,9 +243,12 @@ export const Test = () => {
         />
       </div>
 
-      <div className={form.horizontal}>
+      <div className={form.horizontal} style={{ gap: "0.5rem" }}>
         <EngineSetup health={Health.MISSING} />
         <EngineSetup health={Health.WARNING} />
+      </div>
+
+      <div className={form.horizontal} style={{ gap: "0.5rem" }}>
         <EngineSetup health={Health.ERROR} />
         <Suspense>
           <SafariEngineSetup health={Health.MISSING} />
