@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import { ENGINE } from "@api/formats";
@@ -7,6 +7,7 @@ import {
   downloadedName,
   enableVerboseNames,
   engineUrl,
+  type FetchMock,
   postedBody,
   renderApp,
   runFinished,
@@ -193,34 +194,36 @@ describe("App", () => {
       );
     });
 
-  it("fades in a Stop button while a run is in flight and cancels it on click", async () => {
-    const user = userEvent.setup();
+  // A run whose /process only answers once cancelled, halfway through its
+  // encode until then.
+  const hangProcessing = () => {
     const fetchMock = stubProcessFetch();
-    fetchMock.mockImplementation(async (_input, init) =>
-      init?.method === "POST"
-        ? hangUntilAborted<Response>(init.signal)
-        : new Response(null, { status: 204 }),
-    );
+    fetchMock.mockImplementation(async (input, init) => {
+      if (init?.method === "POST") return hangUntilAborted<Response>(init.signal);
+      const progress = typeof input === "string" && input.startsWith(engineUrl("/progress/"));
+      return progress ? Response.json(0.5) : new Response(null, { status: 204 });
+    });
+    return fetchMock;
+  };
+  const postSignal = (fetchMock: FetchMock) =>
+    fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1]?.signal;
+
+  it("cancels a run in flight when the action button is clicked again", async () => {
+    const user = userEvent.setup();
+    const fetchMock = hangProcessing();
 
     await renderApp();
     await user.upload(screen.getByLabelText(/choose video/i), mp4());
-    expect(screen.queryByRole("button", { name: /^stop$/i })).not.toBeInTheDocument();
-
     await user.click(loopButton());
-    const stop = await screen.findByRole("button", { name: /^stop$/i });
-    expect(stop).toBeVisible();
-    expect(screen.getByRole("button", { name: /processing/i })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    const button = await screen.findByRole("button", { name: /processing/i });
+    expect(within(button).getByText("Cancel")).toBeInTheDocument();
+    expect(postSignal(fetchMock)?.aborted).toBe(false);
 
-    await user.click(stop);
+    await user.click(button);
 
     await waitFor(() => expect(loopButton()).toHaveAttribute("aria-disabled", "false"));
-    expect(screen.queryByRole("button", { name: /^stop$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    const postInit = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")?.[1];
-    expect(postInit?.signal?.aborted).toBe(true);
+    expect(postSignal(fetchMock)?.aborted).toBe(true);
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         engineUrl("/process"),
@@ -232,7 +235,38 @@ describe("App", () => {
     );
   });
 
-  it("aborts an in-flight upload when the tool is switched", async () => {
+  it("keeps a run going when the action button is double-clicked", async () => {
+    const user = userEvent.setup();
+    const fetchMock = hangProcessing();
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), mp4());
+    await user.dblClick(loopButton());
+
+    expect(await screen.findByRole("button", { name: /processing/i })).toBeInTheDocument();
+    expect(postSignal(fetchMock)?.aborted).toBe(false);
+  });
+
+  it("shows how far a run's encode has got in the action button", async () => {
+    const user = userEvent.setup();
+    const fetchMock = hangProcessing();
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), mp4());
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+
+    await user.click(loopButton());
+    const button = await screen.findByRole("button", { name: /processing/i });
+    await waitFor(() =>
+      expect(within(button).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0.5"),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      engineUrl(`/progress/${postedBody(fetchMock).job}`),
+      expect.anything(),
+    );
+  });
+
+  it("cancels an in-flight upload when the tool is switched", async () => {
     const user = userEvent.setup();
     const fetchMock = stubProcessFetch();
     fetchMock.mockImplementation(async (_input, init) =>

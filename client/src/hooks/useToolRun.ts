@@ -22,10 +22,16 @@ interface RunRequest {
 // Temporary: the "verbose" setting names downloads after their settings.
 export const VerboseNames = createContext(false);
 
+// The progress bar's transition takes as long (ToolPanel.module.css), so it
+// glides from one answer to the next.
+const PROGRESS_MS = 500;
+
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  // How far (0–1) the run's encode has got.
+  const [progress, setProgress] = useState(0);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   // Also aborted on unmount: a tab switch unmounts the page.
@@ -35,6 +41,7 @@ export function useToolRun(tool: ToolId) {
   const run = async ({ files, extras = [], payload, onDone }: RunRequest) => {
     if (busy) return;
     setBusy(true);
+    setProgress(0);
     setErrorDetail(null);
 
     const controller = new AbortController();
@@ -66,12 +73,21 @@ export function useToolRun(tool: ToolId) {
 
       setStatus("Processing");
       const body = payload({ uploads, extraUploads });
+      // Named here, so the engine can be asked how far the job has got while
+      // the POST is held open.
+      const job = crypto.randomUUID();
+      const poll = setInterval(async () => {
+        const done = await engineFetch(`/progress/${job}`, { signal })
+          .then((res) => res.json())
+          .catch(() => null);
+        if (typeof done === "number") setProgress(done);
+      }, PROGRESS_MS);
       const res = await sendJson(
         "/process",
         "POST",
-        { tool, filename: files[0].name, ...body },
+        { tool, filename: files[0].name, job, ...body },
         signal,
-      );
+      ).finally(() => clearInterval(poll));
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
         throw new Error(errorData?.error || `Engine error (${res.status}): Unable to process`);
@@ -88,6 +104,8 @@ export function useToolRun(tool: ToolId) {
         : resultName || `${base}_${tool}${ext}`;
 
       setStatus(`Downloading ${shortenFilename(files[0])}`);
+      // Encoded, whatever the last answer said.
+      setProgress(1);
       const objectUrl = URL.createObjectURL(await res.blob());
       const a = Object.assign(document.createElement("a"), {
         href: objectUrl,
@@ -100,7 +118,7 @@ export function useToolRun(tool: ToolId) {
     } catch (err: unknown) {
       // The engine deletes what a job was given; double deletes are harmless.
       deleteUploads([...uploads, ...extraUploads]);
-      // Aborted = stopped on purpose: no error box.
+      // Aborted = cancelled on purpose: no error box.
       if (!signal.aborted) {
         console.error(err);
         setErrorDetail(
@@ -120,11 +138,11 @@ export function useToolRun(tool: ToolId) {
   // Never rejects: a failure ends up in errorDetail.
   const start = (request: RunRequest) => void run(request);
 
-  const stop = () => abortRef.current?.abort();
+  const cancel = () => abortRef.current?.abort();
 
   const clearError = () => setErrorDetail(null);
 
-  return { busy, status, errorDetail, clearError, start, stop };
+  return { busy, status, progress, errorDetail, clearError, start, cancel };
 }
 
 export type ToolRun = ReturnType<typeof useToolRun>;

@@ -38,14 +38,19 @@ const pickSource = (user: User, picked: File) =>
 const pickLogo = (user: User, picked = file("logo.png", "image/png")) =>
   user.upload(screen.getByLabelText(/choose watermark/i), picked);
 
-// A string body: Node's Response can't stream jsdom's Blob.
-const JPEG = { headers: { "Content-Type": "image/jpeg" } };
+// A render per frame asked for, each a data URL of its own to tell them apart.
+let renders = 0;
+const rendered = (init?: RequestInit) =>
+  Response.json(
+    JSON.parse(init?.body as string).frames.map(
+      () => `data:image/jpeg;base64,${btoa(`jpg${renders++}`)}`,
+    ),
+  );
+const JPEG = expect.stringMatching(/^data:image\/jpeg;base64,/);
 
 const stubPreviewFetch = () => {
   const fetchMock: FetchMock = vi.fn(async (input, init) => {
-    if (input === engineUrl("/preview") && init?.method === "POST") {
-      return new Response("jpg", JPEG);
-    }
+    if (input === engineUrl("/preview") && init?.method === "POST") return rendered(init);
     throw unexpectedFetch(input);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -101,7 +106,7 @@ describe("Mark", () => {
     const fetchMock = stubProcessFetch();
     const answer = fetchMock.getMockImplementation()!;
     fetchMock.mockImplementation(async (input, init) =>
-      input === engineUrl("/preview") ? new Response("jpg", JPEG) : answer(input, init),
+      input === engineUrl("/preview") ? rendered(init) : answer(input, init),
     );
     const svg = file("logo.svg", "image/svg+xml");
 
@@ -145,13 +150,13 @@ describe("Mark", () => {
     expect(markButton()).toHaveAttribute("aria-disabled", "false");
 
     await waitFor(() =>
-      expect(screen.getByAltText(/watermarked frame/i)).toHaveAttribute("src", "blob:mock"),
+      expect(screen.getByAltText(/watermarked frame/i)).toHaveAttribute("src", JPEG),
     );
     expect(screen.getByLabelText(/watermark preview/i)).toHaveStyle({
       aspectRatio: "1080 / 1920",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(postedBody(fetchMock).frame).toMatch(/^data:image\/jpeg;base64,/);
+    expect(postedBody(fetchMock).frames[0].image).toEqual(JPEG);
     expect(drawImage).toHaveBeenCalledWith(
       expect.objectContaining({ frameIndex: 0 }),
       0,
@@ -209,14 +214,11 @@ describe("Mark", () => {
       expect.objectContaining({ method: "POST" }),
     );
     const body = postedBody(fetchMock);
-    expect(body).toMatchObject({ filter: "glass", size: "medium", position: "bottom-right" });
-    expect(body.frame).toMatch(/^data:image\/jpeg;base64,/);
+    expect(body).toMatchObject({ filter: "glass", size: "medium" });
+    expect(body.frames).toEqual([{ image: JPEG, position: "bottom-right" }]);
     expect(body.logo).toMatch(/^data:image\/png;base64,/);
     await waitFor(() =>
-      expect(within(preview).getByAltText(/watermarked frame/i)).toHaveAttribute(
-        "src",
-        "blob:mock",
-      ),
+      expect(within(preview).getByAltText(/watermarked frame/i)).toHaveAttribute("src", JPEG),
     );
 
     await user.click(screen.getByRole("button", { name: /blur/i }));
@@ -321,11 +323,6 @@ describe("Mark", () => {
   it("grabs a set of frames and scrubs through their renders as the pointer crosses the preview", async () => {
     const user = userEvent.setup();
     stubVideo(10);
-    // A URL per render, to tell the slots apart
-    let renders = 0;
-    URL.createObjectURL = vi.fn((blob: Blob | MediaSource) =>
-      blob instanceof Blob && blob.type === "image/jpeg" ? `blob:render-${renders++}` : "blob:mock",
-    );
     const fetchMock = stubPreviewFetch();
 
     await renderApp("/mark");
@@ -347,32 +344,27 @@ describe("Mark", () => {
     // Shuffling, each frame shows the mark where its stay puts it: 10s at the
     // cadence of 2 is five stays, each somewhere new
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2 * SCRUB_FRAMES));
-    const positions = Array.from(
-      { length: SCRUB_FRAMES },
-      (_, n) => postedBody(fetchMock, SCRUB_FRAMES + n).position,
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const positions = postedBody(fetchMock, 1).frames.map(
+      (frame: { position: string }) => frame.position,
     );
+    expect(positions).toHaveLength(SCRUB_FRAMES);
     expect(positions[0]).toBe("bottom-right");
     expect(new Set(positions).size).toBe(5);
   });
 
-  it("says it is loading until every render of a set has landed, and keeps the last set up meanwhile", async () => {
+  it("says it is loading until a set of renders has landed, and keeps the last set up meanwhile", async () => {
     const user = userEvent.setup();
     stubVideo(10);
-    // A URL of its own per blob, to tell the sets apart
-    let urls = 0;
-    URL.createObjectURL = vi.fn(() => `blob:url-${urls++}`);
     const answers: Array<() => void> = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         if (input !== engineUrl("/preview")) throw unexpectedFetch(input);
-        return new Promise<Response>((resolve) =>
-          answers.push(() => resolve(new Response("jpg", JPEG))),
-        );
+        return new Promise<Response>((resolve) => answers.push(() => resolve(rendered(init))));
       }),
     );
-    const answer = (count: number) => answers.splice(0, count).forEach((respond) => respond());
+    const answer = () => answers.splice(0).forEach((respond) => respond());
     const sources = (preview: HTMLElement) =>
       [...preview.querySelectorAll("img")].map((img) => img.src);
 
@@ -380,16 +372,13 @@ describe("Mark", () => {
     await pickSource(user, file("clip.mp4", "video/mp4"));
     await pickLogo(user);
 
-    // Loading from the first logo on; all renders of a set but one put nothing up
+    // Loading from the first logo on
     const preview = screen.getByLabelText(/watermark preview/i);
     expect(preview).toHaveAttribute("aria-busy", "true");
-    await waitFor(() => expect(answers).toHaveLength(SCRUB_FRAMES));
-    answer(SCRUB_FRAMES - 1);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await waitFor(() => expect(answers).toHaveLength(1));
     expect(sources(preview)).toEqual([]);
-    expect(preview).toHaveAttribute("aria-busy", "true");
 
-    answer(1);
+    answer();
     await waitFor(() => expect(sources(preview)).toHaveLength(SCRUB_FRAMES));
     expect(preview).toHaveAttribute("aria-busy", "false");
     const firstSet = sources(preview);
@@ -397,13 +386,11 @@ describe("Mark", () => {
     // A change asks for a new set: the last one stays whole until then
     await user.click(screen.getByRole("button", { name: /plain/i }));
     expect(preview).toHaveAttribute("aria-busy", "true");
-    await waitFor(() => expect(answers).toHaveLength(SCRUB_FRAMES));
-    answer(SCRUB_FRAMES - 1);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await waitFor(() => expect(answers).toHaveLength(1));
     expect(sources(preview)).toEqual(firstSet);
     expect(preview).toHaveAttribute("aria-busy", "true");
 
-    answer(1);
+    answer();
     await waitFor(() => expect(preview).toHaveAttribute("aria-busy", "false"));
     const secondSet = sources(preview);
     expect(secondSet).toHaveLength(SCRUB_FRAMES);
@@ -429,6 +416,7 @@ describe("Mark", () => {
     expect(postedBody(fetchMock)).toEqual({
       tool: "mark",
       filename: "clip.mp4",
+      job: expect.any(String),
       upload: uploads(fetchMock)[0].id,
       watermark: uploads(fetchMock)[1].id,
       options: {

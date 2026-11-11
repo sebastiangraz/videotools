@@ -58,10 +58,10 @@ It listens on `127.0.0.1` only and refuses any page origin outside `ORIGINS` in 
 Every path here follows the logic's hash.
 
 1. The browser streams each file to the engine (`PUT /upload/<id>`, where the id is random plus the file's extension), which writes it to its temp folder.
-2. It POSTs the tool id, upload ids and options to `/process`, which moves the inputs into a work dir, runs the tool (one ffmpeg pass, plus gifski for GIF), and answers with the result itself, named in `X-Filename`.
+2. It POSTs the tool id, upload ids, options and a job id of its own to `/process`, which moves the inputs into a work dir, runs the tool (one ffmpeg pass, plus gifski for GIF), and answers with the result itself, named in `X-Filename`. While the result is encoded, `GET /progress/<job>` answers how far it has got (ffmpeg's `-progress` frames against the result's length, gifski's frame count); the page asks it while the POST is open, for the action button's progress bar (`useToolRun`).
 3. The browser saves the result. The engine deletes the inputs it was given and the result once sent.
 
-Stop (or leaving the tab) aborts the whole chain client-side, and the disconnect fires `request.signal`, which kills ffmpeg; a failed run asks `DELETE /process` to drop its uploads. Whatever a crash leaves behind is cleared when the engine next starts. `/preview` renders Mark's preview frames: the frame and logo come inline as data URLs, the same graph runs, and a JPEG comes back. Mark's logos reach the engine as PNGs: the page renders an SVG at the source's long side first.
+Cancel (clicking the busy action button, or leaving the tab) aborts the whole chain client-side, and the disconnect fires `request.signal`, which kills ffmpeg; a failed run asks `DELETE /process` to drop its uploads. Whatever a crash leaves behind is cleared when the engine next starts. `/preview` renders a round of Mark's preview frames in one request: the frames, each with its mark's position, and the logo come inline as data URLs, the logo is opened once, the same graph runs on each frame, and a JPEG data URL per frame comes back. A change on the page aborts the round in flight. Mark's logos reach the engine as PNGs: the page renders an SVG at the source's long side first.
 
 Handlers are web-standard (`fetch(request)`, returning a `Response`) and go through `runJob` (`api/_lib/request.ts`): an `InputError` becomes a 400 with its message and `code`, anything else a generic 500.
 
@@ -88,7 +88,7 @@ Steps 1–4 are type-checked against each other, so a missing registration fails
 
 ## Limits
 
-- Uploads: no size cap. Preview payload: 8 MB (frame + logo).
+- Uploads: no size cap. Preview payload: `MAX_BYTES` in `preview.ts` per frame, logo included.
 - Encoders stop optional size retries after 240 s.
 - GIF: at most 1500 frames or 384 M frame pixels. AVIF: at most 60 s or 648 M frame pixels. Convert caps animated-image width at 800 px.
 - Reverse loop: decoded frames must fit in 1.2 GB (GIF is exempt). Crossfade streams.

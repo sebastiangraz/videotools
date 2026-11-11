@@ -1,12 +1,28 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import { InputError } from "./errors.js";
 
-const execFileAsync = promisify(execFile);
-
-type RunOptions = { cwd?: string };
+type RunOptions = {
+  cwd?: string;
+  // Each line of output as it's written.
+  onLine?: (line: string) => void;
+};
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
+
+// How far (0–1) a run says it has got, line by line: ffmpeg's `-progress`
+// frames, at the rate of the last video stream it lists (the output's),
+// against the `seconds` it writes, or gifski's frame count. Not ffmpeg's
+// time: that follows the audio, which runs ahead of the video's encode.
+export function runProgress(seconds: number): (line: string) => number | null {
+  let fps = 0;
+  return (line) => {
+    fps = Number(/^\s*Stream #.*: Video: .*, ([\d.]+) fps\b/.exec(line)?.[1] ?? fps);
+    const frames = /^frame=(\d+)$/.exec(line);
+    if (frames) return fps && seconds > 0 ? Math.min(1, Number(frames[1]) / fps / seconds) : null;
+    const gifski = /\bFrame (\d+) \/ (\d+)\b/.exec(line);
+    return gifski ? Number(gifski[1]) / Number(gifski[2]) : null;
+  };
+}
 
 export const DEFAULT_FPS = 30;
 
@@ -153,6 +169,13 @@ export class FFmpeg {
   signal: AbortSignal | null;
   // Time left in the function limit decides optional second passes (gif.ts).
   startedAt = Date.now();
+  // The action button's progress bar: how far (0–1) the result's encode has got.
+  onProgress: ((done: number) => void) | null = null;
+  // While the result is encoded (encodeRender): the seconds of it ffmpeg's
+  // runs write, and the part of the bar they, or gifski's, fill.
+  encoding: { seconds: number; from: number; to: number } | null = null;
+  // ffmpeg as if on one CPU, starting no codec or filter threads (mark.ts).
+  oneCpu = false;
   private infoCache = new Map<string, SourceProfile>();
 
   constructor(ffmpegPath: string, gifskiPath: string, signal: AbortSignal | null = null) {
@@ -275,15 +298,32 @@ export class FFmpeg {
   }
 
   runFFmpeg(args: string[], options: RunOptions = {}): Promise<string> {
-    return this.runCommand(this.ffmpeg, args, options);
+    // Its frames so far, on lines of their own (stats end in \r).
+    const progress = this.encoding && this.onProgress ? ["-progress", "pipe:2"] : [];
+    return this.runCommand(this.ffmpeg, [...progress, ...args], options);
   }
 
   runGifski(args: string[], options: RunOptions = {}): Promise<string> {
     return this.runCommand(this.gifski, args, options);
   }
 
+  // A run's lines, as how far the result's encode has got.
+  private progressLines(): RunOptions["onLine"] {
+    const { encoding, onProgress } = this;
+    if (!encoding || !onProgress) return undefined;
+    const { seconds, from, to } = encoding;
+    const read = runProgress(seconds);
+    return (line) => {
+      const done = read(line);
+      if (done !== null) onProgress(from + (to - from) * done);
+    };
+  }
+
   private async runCommand(command: string, args: string[], options: RunOptions): Promise<string> {
-    const { code, stdout, stderr } = await this.run(command, args, options);
+    const { code, stdout, stderr } = await this.run(command, args, {
+      ...options,
+      onLine: this.progressLines(),
+    });
     if (code === 0) return stdout;
     console.error(`Command failed with code ${code}`);
     console.error(`Command: ${command} ${args.join(" ")}`);
@@ -296,49 +336,47 @@ export class FFmpeg {
 
   // Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
   // only when not started or cancelled.
-  async run(command: string, args: string[], options: RunOptions = {}): Promise<RunResult> {
+  run(command: string, args: string[], { cwd, onLine }: RunOptions = {}): Promise<RunResult> {
+    if (this.oneCpu && command === this.ffmpeg) args = ["-cpucount", "1", ...args];
     console.log(`Running: ${command} ${args.join(" ")}`);
-    if (options.cwd) {
-      console.log(`Working directory: ${options.cwd}`);
+    if (cwd) {
+      console.log(`Working directory: ${cwd}`);
     }
 
     // SIGKILL: partial output is discarded anyway.
     const signal = this.signal ?? undefined;
-    const cancelled = () => new Error("Cancelled");
-    try {
-      const running = execFileAsync(command, args, {
-        cwd: options.cwd,
-        signal,
-        killSignal: "SIGKILL",
-        maxBuffer: Infinity,
-        // The engine has no console on Windows, so each run would open one.
-        windowsHide: true,
-      });
-      // Immediate EOF, like an ignored stdin.
-      running.child.stdin?.end();
-      const { stdout, stderr } = await running;
-      if (signal?.aborted) throw cancelled();
-      return { code: 0, stdout, stderr };
-    } catch (error) {
-      if (signal?.aborted) throw cancelled();
-      const failure = error as NodeJS.ErrnoException & {
-        code?: number | string | null;
-        stdout?: string;
-        stderr?: string;
-      };
-      // A child that never started has a syscall ("spawn ...").
-      if (failure.syscall === undefined && typeof failure.stderr === "string") {
-        return {
-          code: typeof failure.code === "number" ? failure.code : null,
-          stdout: failure.stdout ?? "",
-          stderr: failure.stderr,
-        };
-      }
-      console.error(`Failed to start command: ${command} ${args.join(" ")}`);
-      console.error(`Error: ${failure.message}`);
-      throw new Error(`Failed to start command: ${failure.message}`, {
-        cause: error,
+    const child = spawn(command, args, {
+      cwd,
+      signal,
+      killSignal: "SIGKILL",
+      stdio: ["ignore", "pipe", "pipe"],
+      // The engine has no console on Windows, so each run would open one.
+      windowsHide: true,
+    });
+    const output = { stdout: "", stderr: "" };
+    // gifski's progress goes to stdout, ffmpeg's to stderr. A line is whole
+    // once its \r or \n is in.
+    for (const name of ["stdout", "stderr"] as const) {
+      let partial = "";
+      child[name].setEncoding("utf8").on("data", (chunk: string) => {
+        output[name] += chunk;
+        if (!onLine) return;
+        const lines = (partial + chunk).split(/[\r\n]/);
+        partial = lines.pop()!;
+        lines.forEach(onLine);
       });
     }
+    // Cancelled once the child is gone, so no line comes after.
+    return new Promise((resolve, reject) => {
+      child.on("close", (code) =>
+        signal?.aborted ? reject(new Error("Cancelled")) : resolve({ code, ...output }),
+      );
+      child.on("error", (error) => {
+        if (signal?.aborted) return;
+        console.error(`Failed to start command: ${command} ${args.join(" ")}`);
+        console.error(`Error: ${error.message}`);
+        reject(new Error(`Failed to start command: ${error.message}`, { cause: error }));
+      });
+    });
   }
 }

@@ -20,9 +20,19 @@ import { ffmpegPath, gifskiPath } from "./binaries.js";
 type ProcessBody = Partial<ToolRequest> & {
   tool?: unknown;
   filename?: unknown;
+  // The page's id for the job (an upload id's shape), for /progress/<job>.
+  job?: unknown;
 };
 
 const uploadPath = (id: string) => path.join(UPLOADS, id);
+
+// How far (0–1) each job's encode has got, by the page's id for it: there
+// from the encode's first report until the job ends.
+const progress = new Map<string, number>();
+
+// GET /progress/<job>: null outside that time, never an error, which the
+// browser would log for every poll.
+export const jobProgress = (job: string): Response => Response.json(progress.get(job) ?? null);
 
 // PUT /upload/<id>: the body, streamed to disk.
 export async function receive(request: Request, id: string): Promise<Response> {
@@ -52,6 +62,7 @@ export default {
       uploads,
       watermark,
       options = {},
+      job,
     }: ProcessBody = await jsonBody(request);
 
     // Uploads happen first, so a rejected request must still delete them.
@@ -78,8 +89,10 @@ export default {
       .replace(/[^\w.-]/g, "_");
 
     const response = await runJob(request, "Processing", async (workDir, signal) => {
+      const ff = new FFmpeg(ffmpegPath, gifskiPath, signal);
+      if (isUploadId(job)) ff.onProgress = (done) => progress.set(job, done);
       const { outputPath, suffix, ext } = await run({
-        ff: new FFmpeg(ffmpegPath, gifskiPath, signal),
+        ff,
         workDir,
         inputs: inputIds,
         options,
@@ -101,6 +114,7 @@ export default {
         },
       });
     });
+    if (isUploadId(job)) progress.delete(job);
     // Inputs a failed job never took.
     await discard(inputIds);
     return response;

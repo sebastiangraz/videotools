@@ -3,7 +3,7 @@
 // handler it resolves to every /<logic>/<path> request, so it ships with the
 // site, not with the engine.
 import { install } from "./binaries.js";
-import processing, { receive } from "./process.js";
+import processing, { jobProgress, receive } from "./process.js";
 import preview from "./preview.js";
 import { errorResponse } from "./request.js";
 
@@ -13,6 +13,8 @@ export default async () => {
   return (request: Request, path: string): Promise<Response> | Response => {
     const upload = /^\/upload\/([^/]+)$/.exec(path);
     if (upload && request.method === "PUT") return receive(request, upload[1]);
+    const job = /^\/progress\/([^/]+)$/.exec(path);
+    if (job && request.method === "GET") return jobProgress(job[1]);
     if (path === "/process") return processing.fetch(request);
     if (path === "/preview") return preview.fetch(request);
     return errorResponse("Not found", 404);

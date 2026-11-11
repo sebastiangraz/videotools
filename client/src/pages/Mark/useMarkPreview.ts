@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { sendJson, toDataUrl } from "@src/helpers";
 import {
@@ -92,50 +92,37 @@ export function useMarkPreview(
   // cadence fits, two at least), each at the route's next stop, looping it.
   const stays = route ? Math.max(2, Math.floor(duration / MARK.rotateCadence)) : 1;
 
-  const liveUrls = useRef<string[]>([]);
-  useEffect(() => {
-    for (const url of liveUrls.current) {
-      if (url && !previewUrls.includes(url)) URL.revokeObjectURL(url);
-    }
-    liveUrls.current = previewUrls;
-  }, [previewUrls]);
-  useEffect(
-    () => () => {
-      for (const url of liveUrls.current) if (url) URL.revokeObjectURL(url);
-    },
-    [],
-  );
-
-  // Swap in all renders at once so scrubbing never mixes old and new. Aborting
-  // disconnects, which makes the engine stop encoding.
+  // A round is one request: a browser holds six at most to a host, so a
+  // request per frame would queue some behind the others' renders. Its
+  // renders swap in at once so scrubbing never mixes old and new. Aborting
+  // disconnects, which makes the engine stop rendering.
   useEffect(() => {
     if (frameBlobs.length === 0 || !watermark) return;
     const controller = new AbortController();
     (async () => {
       setPreviewError(false);
-      const logo = await toDataUrl(watermark);
-      const renders = await Promise.all(
-        frameBlobs.map(async (blob, n) => {
-          const res = await sendJson(
-            "/preview",
-            "POST",
-            {
-              frame: await toDataUrl(blob),
-              logo,
-              filter: filterMode,
-              size,
+      const res = await sendJson(
+        "/preview",
+        "POST",
+        {
+          frames: await Promise.all(
+            frameBlobs.map(async (blob, n) => ({
+              image: await toDataUrl(blob),
               position: stopAt(route ?? [position], stays, n / frameBlobs.length),
-              view,
-              tuning,
-            },
-            controller.signal,
-          );
-          if (!res.ok) throw new Error(`Preview failed (${res.status})`);
-          return res.blob();
-        }),
+            })),
+          ),
+          logo: await toDataUrl(watermark),
+          filter: filterMode,
+          size,
+          view,
+          tuning,
+        },
+        controller.signal,
       );
+      if (!res.ok) throw new Error(`Preview failed (${res.status})`);
+      const renders: string[] = await res.json();
       if (controller.signal.aborted) return;
-      setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
+      setPreviewUrls(renders);
     })()
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;

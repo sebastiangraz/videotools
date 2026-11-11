@@ -284,9 +284,20 @@ describe("watermarkGraph", () => {
     const l = watermarkLayout(video, logo, "medium", "top-left");
     for (const filter of MARK_FILTERS) {
       const graph = watermarkGraph(video, logo, { filter, position: "top-left" });
-      // plain overlays the logo itself; the glass filters their padded cell
-      const p = filter === "plain" ? 0 : l.margin;
-      expect(graph).toContain(`overlay=x=${l.LX - p}:y=${l.LY - p}`);
+      // plain overlays the logo itself; the glass filters its box, cut from
+      // their padded cell a multiple of 8 in, an edge's guard kept
+      const [x, y] = /.*overlay=x=(\d+):y=(\d+)/.exec(graph)!.slice(1).map(Number);
+      const guard = l.LX - x;
+      expect(l.LY - y).toBe(guard);
+      if (filter === "plain") expect(guard).toBe(0);
+      else {
+        expect(guard).toBeGreaterThanOrEqual(Math.min(8, l.margin));
+        expect(guard).toBeLessThanOrEqual(l.margin);
+        expect((l.margin - guard) % 8).toBe(0);
+        expect(graph).toContain(
+          `crop=${l.LW + 2 * guard}:${l.LH + 2 * guard}:${l.margin - guard}:${l.margin - guard}`,
+        );
+      }
     }
   });
 
@@ -320,10 +331,14 @@ describe("watermarkGraph", () => {
       // Each stop's corner in turn, as the mark's (last) overlay picks them
       const [, xs, ys] = /.*overlay=x='[^;]+;([^']+)':y='[^;]+;([^']+)'/.exec(graph)!;
       const stops = xs.split("+").map((x, i) => `${parseInt(x)},${parseInt(ys.split("+")[i])}`);
-      const p = filter === "plain" ? 0 : watermarkLayout(clip, logo).margin;
+      // The same way in from the logo's corner at every stop
+      const guard = watermarkLayout(clip, logo, "medium", route[0]).LX - parseInt(xs);
+      expect(guard).toBeLessThanOrEqual(
+        filter === "plain" ? 0 : watermarkLayout(clip, logo).margin,
+      );
       const corner = (position: (typeof route)[number]) => {
         const l = watermarkLayout(clip, logo, "medium", position);
-        return `${l.LX - p},${l.LY - p}`;
+        return `${l.LX - guard},${l.LY - guard}`;
       };
       expect(stops).toEqual(route.map(corner));
       expect(graph).toContain("[clock]");
