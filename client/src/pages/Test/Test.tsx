@@ -11,7 +11,6 @@ import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
 import { EngineSetup } from "@src/components/EngineSetup/EngineSetup";
-import type { Health } from "@src/hooks/useEngine";
 import { withUserAgent } from "@src/helpers";
 import form from "@src/form.module.css";
 
@@ -244,14 +243,14 @@ export const Test = () => {
       </div>
 
       <div className={form.horizontal} style={{ gap: "0.5rem" }}>
-        <EngineSetup health={Health.MISSING} />
-        <EngineSetup health={Health.WARNING} />
+        <EngineSetup engine={{ state: "missing" }} />
+        <EngineSetup engine={{ state: "outdated" }} />
       </div>
 
       <div className={form.horizontal} style={{ gap: "0.5rem" }}>
-        <EngineSetup health={Health.ERROR} />
+        <EngineSetup engine={{ state: "reload" }} />
         <Suspense>
-          <SafariEngineSetup health={Health.MISSING} />
+          <SafariEngineSetup engine={{ state: "missing" }} />
         </Suspense>
       </div>
 
@@ -272,15 +271,3 @@ const SafariEngineSetup = lazy(async () => {
   );
   return { default: module.EngineSetup };
 });
-
-const Health = {
-  MISSING: null,
-  WARNING: {
-    version: 0,
-    reload: false,
-  },
-  ERROR: {
-    version: 0,
-    reload: true,
-  },
-} as Record<string, Health>;

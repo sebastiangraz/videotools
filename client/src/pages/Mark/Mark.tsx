@@ -66,6 +66,8 @@ const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   { value: "rim", label: "Rim only" },
 ];
 
+type SvgRender = { state: "rendering" } | { state: "failed" } | { state: "ready"; png: File };
+
 const TUNED: MarkTuning = { coreGain: MARK.coreGain, thinRefract: MARK.thinRefract };
 const TUNING_KNOBS = (
   [
@@ -83,9 +85,9 @@ export const Mark = () => {
   const formatBlocker = useFormatBlocker(source.file, { stills: true }, source.nonSquare);
   const [watermark, setWatermark] = useState<File | null>(null);
 
-  // An SVG watermark as the engine gets it, rendered at the source's long side:
-  // null while that runs, false if it can't.
-  const [rendered, setRendered] = useState<File | false | null>(null);
+  // An SVG watermark as the engine gets it, rendered at the source's long side.
+  // A new long side renders again, the last PNG standing in meanwhile.
+  const [rendered, setRendered] = useState<SvgRender>({ state: "rendering" });
   const svg = watermark !== null && matchesAccept(watermark, SVG_ACCEPT);
   const longSide = source.meta && Math.max(source.meta.w, source.meta.h);
   useEffect(() => {
@@ -93,14 +95,15 @@ export const Mark = () => {
     let live = true;
     const name = `${splitExtension(watermark.name)[0]}.png`;
     svgToPng(watermark, longSide).then(
-      (png) => live && setRendered(new File([png], name, { type: png.type })),
-      () => live && setRendered(false),
+      (png) =>
+        live && setRendered({ state: "ready", png: new File([png], name, { type: png.type }) }),
+      () => live && setRendered({ state: "failed" }),
     );
     return () => {
       live = false;
     };
   }, [svg, watermark, longSide]);
-  const logo = svg ? rendered : watermark;
+  const logo = !svg ? watermark : rendered.state === "ready" ? rendered.png : null;
 
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("medium");
@@ -127,7 +130,7 @@ export const Mark = () => {
   const shuffling = route !== null;
   const preview = useMarkPreview(
     source.file,
-    logo || null,
+    logo,
     filterMode,
     size,
     position,
@@ -146,7 +149,7 @@ export const Mark = () => {
     ? null
     : !watermark
       ? "Upload a watermark"
-      : logo === false
+      : rendered.state === "failed"
         ? "Can't render this SVG"
         : "Rendering the SVG";
 
@@ -164,7 +167,7 @@ export const Mark = () => {
   const pickWatermark = ([picked]: File[]) => {
     run.clearError();
     setWatermark(picked);
-    setRendered(null);
+    setRendered({ state: "rendering" });
   };
 
   const submit = () => {

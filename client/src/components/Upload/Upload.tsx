@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, ChangeEvent, DragEvent } from "react";
+import { useCallback, useState, ChangeEvent, DragEvent } from "react";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { FramePreview } from "@src/components/FramePreview/FramePreview";
 import { hasFrames } from "@src/sourceFormat";
@@ -64,10 +64,9 @@ export const Upload = ({
   meta?: SourceMeta | null;
 }) => {
   // Drag enter/leave also fire on the upload's children, so a plain
-  // boolean would flicker off mid-drag; the depth counter only clears once
-  // the drag truly leaves the upload.
-  const dragDepth = useRef(0);
-  const [dragging, setDragging] = useState(false);
+  // boolean would flicker off mid-drag; a drag is over the upload until the
+  // depth is back at 0.
+  const [dragDepth, setDragDepth] = useState(0);
 
   const pick = (e: ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
@@ -76,22 +75,14 @@ export const Upload = ({
 
   const dragEnter = (e: DragEvent) => {
     e.preventDefault();
-    dragDepth.current += 1;
-    setDragging(true);
+    setDragDepth((depth) => depth + 1);
   };
 
-  const dragLeave = () => {
-    dragDepth.current -= 1;
-    if (dragDepth.current <= 0) {
-      dragDepth.current = 0;
-      setDragging(false);
-    }
-  };
+  const dragLeave = () => setDragDepth((depth) => Math.max(0, depth - 1));
 
   const drop = (e: DragEvent) => {
     e.preventDefault();
-    dragDepth.current = 0;
-    setDragging(false);
+    setDragDepth(0);
     const dropped = Array.from(e.dataTransfer.files).filter((f) => matchesAccept(f, accept));
     if (!dropped.length) return;
     onFiles(multiple ? dropped : dropped.slice(0, 1));
@@ -101,7 +92,7 @@ export const Upload = ({
 
   return (
     <label
-      className={cx(styles.upload, dragging && styles.uploadActive)}
+      className={cx(styles.upload, dragDepth > 0 && styles.uploadActive)}
       onDragEnter={dragEnter}
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={dragLeave}

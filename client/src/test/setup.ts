@@ -8,8 +8,9 @@ vi.mock("@src/components/VersionLabel/VersionLabel", () => ({
 }));
 
 // Likewise the engine's health probe, which retries until the engine answers.
-vi.mock("@src/hooks/useEngine", () => ({
-  useEngine: () => undefined,
+vi.mock("@src/hooks/useEngine", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@src/hooks/useEngine")>()),
+  useEngine: () => ({ state: "checking" }),
 }));
 
 // jsdom has no PointerEvent; Base UI's Switch dispatches one on click.

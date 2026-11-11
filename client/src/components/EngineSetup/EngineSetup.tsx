@@ -1,6 +1,5 @@
-import { ENGINE } from "@api/formats";
 import { repoFile } from "@src/helpers";
-import type { Health } from "@src/hooks/useEngine";
+import type { Engine } from "@src/hooks/useEngine";
 import form from "@src/form.module.css";
 import styles from "./EngineSetup.module.css";
 
@@ -22,16 +21,16 @@ const UNINSTALL = isWindows
 
 // Jobs run in the engine on the visitor's machine; until it answers, this
 // says how to get it.
-export const EngineSetup = ({ health }: { health: Health }) => {
-  if (health === undefined || (health?.version ?? 0) >= ENGINE.version) return null;
-  const outdated = health !== null;
+export const EngineSetup = ({ engine }: { engine: Engine }) => {
+  if (engine.state === "checking" || engine.state === "ready") return null;
+  const outdated = engine.state === "outdated";
   return (
     <section className={styles.panel} aria-label="Engine setup">
       {isSafari ? (
         <p>
           Your videos are processed locally. Safari is not supported yet. Use Chrome or Firefox.
         </p>
-      ) : health?.reload ? (
+      ) : engine.state === "reload" ? (
         <p>The site has been updated since this page loaded. Reload the page.</p>
       ) : (
         <>

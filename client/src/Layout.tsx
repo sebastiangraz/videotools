@@ -54,7 +54,7 @@ export const Layout = () => {
   const { tool } = useParams({ strict: false });
   // Keeps the debug-mode shortcut (Shift+D) listening on every page.
   const debug = useDebugMode();
-  const health = useEngine();
+  const engine = useEngine();
   const [settings, setSettings] = useState<typeof DEFAULT_SETTINGS>(() => ({
     ...DEFAULT_SETTINGS,
     ...JSON.parse(localStorage.getItem("settings") ?? "{}"),
@@ -151,9 +151,9 @@ export const Layout = () => {
             </div>
             <div className={styles.settingsRow}>
               <span className={form.label}>Helper</span>
-              {health?.version ? (
+              {engine.version ? (
                 <div className={styles.helper}>
-                  <span className={form.label}>Version {health.version}</span>
+                  <span className={form.label}>Version {engine.version}</span>
                   <Uninstall />
                 </div>
               ) : (
@@ -164,7 +164,7 @@ export const Layout = () => {
         </Tabs>
         <main className={styles.main}>
           <div className={styles.container}>
-            <EngineSetup health={health} />
+            <EngineSetup engine={engine} />
           </div>
           <VerboseNames value={settings.verbose}>
             <Outlet />

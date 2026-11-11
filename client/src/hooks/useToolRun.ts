@@ -26,22 +26,26 @@ export const VerboseNames = createContext(false);
 // glides from one answer to the next.
 const PROGRESS_MS = 500;
 
+// A failure stays up until the next run or clearError.
+type RunStatus = { state: "idle" } | { state: "running" } | { state: "failed"; error: string };
+
+const IDLE: RunStatus = { state: "idle" };
+
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
-  const [busy, setBusy] = useState(false);
-  // How far (0–1) the run's encode has got.
+  const [status, setStatus] = useState<RunStatus>(IDLE);
+  // How far (0–1) the run's encode has got. Kept once it ends, so the bar
+  // fades out where it stood.
   const [progress, setProgress] = useState(0);
-  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   // Also aborted on unmount: a tab switch unmounts the page.
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const run = async ({ files, extras = [], payload, onDone }: RunRequest) => {
-    if (busy) return;
-    setBusy(true);
+    if (status.state === "running") return;
+    setStatus({ state: "running" });
     setProgress(0);
-    setErrorDetail(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -105,23 +109,27 @@ export function useToolRun(tool: ToolId) {
       URL.revokeObjectURL(objectUrl);
 
       onDone?.();
+      setStatus(IDLE);
     } catch (err: unknown) {
       // The engine deletes what a job was given; double deletes are harmless.
       deleteUploads([...uploads, ...extraUploads]);
       // Aborted = cancelled on purpose: no error box.
-      if (!signal.aborted) {
+      if (signal.aborted) {
+        setStatus(IDLE);
+      } else {
         console.error(err);
-        setErrorDetail(
-          err instanceof TypeError
-            ? "Can't reach the videotools engine. Is it still running?"
-            : err instanceof Error
-              ? err.message
-              : String(err),
-        );
+        setStatus({
+          state: "failed",
+          error:
+            err instanceof TypeError
+              ? "Can't reach the videotools engine. Is it still running?"
+              : err instanceof Error
+                ? err.message
+                : String(err),
+        });
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
-      setBusy(false);
     }
   };
 
@@ -130,9 +138,16 @@ export function useToolRun(tool: ToolId) {
 
   const cancel = () => abortRef.current?.abort();
 
-  const clearError = () => setErrorDetail(null);
+  const clearError = () => setStatus((now) => (now.state === "failed" ? IDLE : now));
 
-  return { busy, progress, errorDetail, clearError, start, cancel };
+  return {
+    busy: status.state === "running",
+    progress,
+    errorDetail: status.state === "failed" ? status.error : null,
+    clearError,
+    start,
+    cancel,
+  };
 }
 
 export type ToolRun = ReturnType<typeof useToolRun>;
