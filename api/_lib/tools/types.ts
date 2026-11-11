@@ -5,7 +5,7 @@ import type { FFmpeg } from "../ffmpeg.js";
 export type ToolRequest = {
   upload?: unknown;
   uploads?: unknown;
-  // mark only: the logo (PNG or SVG).
+  // mark only: the logo (a PNG).
   watermark?: unknown;
   options: Record<string, unknown>;
 };

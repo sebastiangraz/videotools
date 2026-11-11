@@ -8,3 +8,5 @@ api/_bin/gifski/*/
 
 .vercel
 .env*
+# The engine logic `bun run build` bundles into the site
+client/public/engine.js

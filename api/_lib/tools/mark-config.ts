@@ -96,6 +96,9 @@ export const MARK = {
   fadeSeconds: 0.25,
 };
 
+// SVG logo raster long side: the frame's long side, clamped.
+export const SVG_SIDE = { min: 512, max: 4096, fallback: 1920 };
+
 // `uncapped` lifts the maxSpan cap, the logo kept only inside the frame.
 export type MarkSizeSpec = { scale: number; gap: number; rim: number; uncapped?: boolean };
 

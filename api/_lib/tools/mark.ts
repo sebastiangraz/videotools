@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import type { FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
@@ -27,9 +26,6 @@ import type { Tool, ToolJob } from "./types.js";
 
 // mjpeg -q:v: 1 finest – 31 coarsest.
 const PREVIEW_JPEG_Q = "3";
-
-// SVG raster long side: the frame's long side, clamped.
-const SVG_SIDE = { min: 512, max: 4096, fallback: 1920 };
 
 // Only the glass has a light to aim; the depth map shows none.
 const lit = (filter: MarkFilter, view: MarkView | undefined) =>
@@ -65,18 +61,18 @@ async function markGraph(
   frame: SourceProfile,
   logoFile: string,
   options: Omit<Parameters<typeof watermarkGraph>[2], "bounds" | "light">,
-): Promise<{ graph: string; logoPng: string }> {
-  const [{ logoPng, logo }, light] = await Promise.all([
-    openLogo(ff, logoFile, frame),
+): Promise<string> {
+  const [logo, light] = await Promise.all([
+    openLogo(ff, logoFile),
     lit(options.filter, options.view) ? followLight(ff, file, frame, workDir) : null,
   ]);
   const graph = watermarkGraph(frame, logo, {
     ...options,
-    bounds: await logoBounds(ff, logoPng, logo),
+    bounds: await logoBounds(ff, logoFile, logo),
     light,
   });
   await light?.write();
-  return { graph, logoPng };
+  return graph;
 }
 
 async function addWatermark(
@@ -88,7 +84,7 @@ async function addWatermark(
   const frame = source.still
     ? { ...source.profile, ...(await job.ff.shownSize(source.path)) }
     : source.profile;
-  const { graph, logoPng } = await markGraph(job, source.path, frame, logoFile, {
+  const graph = await markGraph(job, source.path, frame, logoFile, {
     ...look,
     filter,
     // GIF/WebP/stills stay RGBA: yuv420p would lose alpha, odd sizes and chroma.
@@ -97,7 +93,7 @@ async function addWatermark(
   });
   return sourceRender(source, {
     // overlay holds the one-frame logo stream for the whole video.
-    inputArgs: ["-i", source.path, "-i", logoPng],
+    inputArgs: ["-i", source.path, "-i", logoFile],
     filter: graph,
     keepAudio: true,
     width: frame.width,
@@ -120,7 +116,7 @@ export async function renderWatermarkFrame(
 ): Promise<string> {
   const { ff, workDir } = job;
   const frame = await ff.mediaInfo(frameFile);
-  const { graph, logoPng } = await markGraph(job, frameFile, frame, logoFile, {
+  const graph = await markGraph(job, frameFile, frame, logoFile, {
     filter,
     size,
     position,
@@ -134,7 +130,7 @@ export async function renderWatermarkFrame(
     "-i",
     frameFile,
     "-i",
-    logoPng,
+    logoFile,
     "-filter_complex",
     graph,
     "-map",
@@ -149,46 +145,17 @@ export async function renderWatermarkFrame(
   return outputFile;
 }
 
-// PNG or SVG only (a GIF logo would play once and freeze); checking the codec
-// rather than the name also rejects APNG.
-async function openLogo(
-  ff: FFmpeg,
-  logoFile: string,
-  frame: { width: number; height: number },
-): Promise<{ logoPng: string; logo: MediaInfo }> {
-  // Sniff the demuxer first: ffmpeg recognizes an SVG but may not decode it.
-  const summary = await ff.summary(logoFile);
-  const svg = /^Input #0, svg_pipe,/m.test(summary);
-  const logoPng = svg ? await rasterizeSvg(logoFile, frame) : logoFile;
-  const logo = await ff.mediaInfo(logoPng, svg ? undefined : summary);
+// PNG only (a GIF logo would play once and freeze); checking the codec rather
+// than the name also rejects APNG.
+async function openLogo(ff: FFmpeg, logoFile: string): Promise<MediaInfo> {
+  const logo = await ff.mediaInfo(logoFile);
   if (logo.codec !== "png") {
     throw new InputError(
-      `Watermark must be a PNG or SVG image (got ${logo.codec || "an unknown format"})`,
+      `Watermark must be a PNG image (got ${logo.codec || "an unknown format"})`,
       "invalid-watermark",
     );
   }
-  return { logoPng, logo };
-}
-
-// At the frame's long side, so it scales down like a PNG would; logoBounds
-// trims any margins the SVG carries.
-async function rasterizeSvg(
-  svgFile: string,
-  frame: { width: number; height: number },
-): Promise<string> {
-  const { min, max, fallback } = SVG_SIDE;
-  const side = clampInt(Math.max(frame.width, frame.height), min, max, fallback);
-  const pngFile = path.join(path.dirname(svgFile), "logo-svg.png");
-  // Loaded on first use, so importing mark doesn't load the WebAssembly.
-  const { svgToPng } = await import("../svg.js");
-  let png: Uint8Array;
-  try {
-    png = await svgToPng(await fs.readFile(svgFile), side);
-  } catch {
-    throw new InputError("Watermark SVG could not be rendered", "invalid-watermark");
-  }
-  await fs.writeFile(pngFile, png);
-  return pngFile;
+  return logo;
 }
 
 // Logos often carry empty margins that would size and place them wrong.

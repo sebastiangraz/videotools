@@ -151,7 +151,7 @@ export const Layout = () => {
             </div>
             <div className={styles.settingsRow}>
               <span className={form.label}>Helper</span>
-              {health ? (
+              {health?.version ? (
                 <div className={styles.helper}>
                   <span className={form.label}>Version {health.version}</span>
                   <Uninstall />

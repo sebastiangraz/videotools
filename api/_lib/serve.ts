@@ -1,16 +1,17 @@
 // The engine: runs the tools on the user's machine for the site's pages.
 // `bun api/_lib/serve.ts` from the repo; `bun run build:engine` compiles it
 // into the executables Homebrew and winget install. Listens on loopback only.
+// The tools themselves are the logic (logic.ts), which the site serves and
+// this loads, so whatever this imports is frozen into each release.
 import { spawn } from "node:child_process";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { ENGINE } from "./formats.js";
-import { BINARIES, compiled, install } from "./binaries.js";
-import processing, { UPLOADS, receive } from "./process.js";
-import preview from "./preview.js";
-import { errorResponse } from "./request.js";
+import { compiled } from "./helpers.js";
+import { UPLOADS, errorResponse } from "./request.js";
 
 // Pages that may send jobs. Browsers send Origin with every cross-origin and
 // every POST request, so other sites are refused; tools like curl send none.
@@ -19,23 +20,6 @@ const ORIGINS = [
   /^https:\/\/videotools-[\w-]+-grazs-projects\.vercel\.app$/,
   /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
 ];
-
-const route = (request: Request): Promise<Response> | Response => {
-  const { pathname } = new URL(request.url);
-  const upload = /^\/upload\/([^/]+)$/.exec(pathname);
-  if (request.method === "OPTIONS") return new Response(null, { status: 204 });
-  if (pathname === "/health") {
-    return Response.json({
-      version: ENGINE.version,
-      ffmpeg: BINARIES.ffmpeg.version,
-      pid: process.pid,
-    });
-  }
-  if (upload && request.method === "PUT") return receive(request, upload[1]);
-  if (pathname === "/process") return processing.fetch(request);
-  if (pathname === "/preview") return preview.fetch(request);
-  return errorResponse("Not found", 404);
-};
 
 // The installed engine on Windows. winget runs the downloaded exe with
 // --install and the installed one with --uninstall; Homebrew runs it as a
@@ -106,14 +90,76 @@ async function moveOut(): Promise<void> {
   }).unref();
 }
 
-const command = compiled ? process.argv[2] : undefined;
+const command = compiled() ? process.argv[2] : undefined;
 if (command === "--install" || command === "--uninstall") {
   await (command === "--install" ? moveIn() : moveOut());
   process.exit(0);
 }
 
-await install("ffmpeg");
-await install("gifski");
+// The logic a page names by its bundle's sha256: from HOME, else from the
+// production site, never from the page, so a page can only pick code the site
+// has served. Run from source, it is logic.ts, whatever the page names. Its
+// default export starts it and resolves to the handler.
+const LOGIC_URL = "https://videotools-client.vercel.app/engine.js";
+type Logic = (request: Request, path: string) => Promise<Response> | Response;
+const logics = new Map<string, Promise<Logic>>();
+
+async function importLogic(hash: string): Promise<Logic> {
+  let file = path.join(import.meta.dir, "logic.ts");
+  if (compiled()) {
+    const dir = path.join(HOME, "logic");
+    file = path.join(dir, `${hash}.js`);
+    if (!(await Bun.file(file).exists())) {
+      const res = await fetch(LOGIC_URL, { signal: AbortSignal.timeout(60_000) });
+      if (!res.ok) throw new Error(`${LOGIC_URL}: HTTP ${res.status}`);
+      const code = await res.bytes();
+      // The site has been deployed again since the page loaded.
+      if (new Bun.CryptoHasher("sha256").update(code).digest("hex") !== hash) {
+        throw errorResponse("The site has been updated: reload the page", 409);
+      }
+      await Bun.write(`${file}.partial`, code);
+      await fsp.rename(`${file}.partial`, file);
+      // Only the newest is kept; older ones stay loaded until a restart.
+      for (const name of await fsp.readdir(dir)) {
+        if (name !== `${hash}.js`)
+          await fsp.rm(path.join(dir, name), { force: true }).catch(() => {});
+      }
+    }
+  }
+  return (await import(pathToFileURL(file).href)).default();
+}
+
+// Once per logic; a failed load or start is dropped, so the next request
+// tries again.
+function load(hash: string): Promise<Logic> {
+  let logic = logics.get(hash);
+  if (!logic) {
+    logic = importLogic(hash);
+    logic.catch(() => logics.delete(hash));
+    logics.set(hash, logic);
+  }
+  return logic;
+}
+
+const health = () => Response.json({ version: ENGINE.version, pid: process.pid });
+
+async function route(request: Request): Promise<Response> {
+  const { pathname } = new URL(request.url);
+  if (request.method === "OPTIONS") return new Response(null, { status: 204 });
+  if (pathname === "/health") return health();
+  const named = /^\/([0-9a-f]{64})(\/.*)$/.exec(pathname);
+  if (!named) return errorResponse("Not found", 404);
+  let logic: Logic;
+  try {
+    logic = await load(named[1]);
+  } catch (error) {
+    if (error instanceof Response) return error.clone();
+    console.error("Logic failed to load:", error);
+    return errorResponse("Logic failed to load", 500);
+  }
+  return named[2] === "/health" ? health() : logic(request, named[2]);
+}
+
 await fsp.rm(UPLOADS, { recursive: true, force: true });
 await fsp.mkdir(UPLOADS, { recursive: true });
 

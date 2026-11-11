@@ -1,4 +1,7 @@
+import type { InitInput } from "@resvg/resvg-wasm";
+import wasmUrl from "@resvg/resvg-wasm/index_bg.wasm?url";
 import { ENGINE } from "@api/formats";
+import { SVG_SIDE } from "@api/tools/mark-config";
 
 // Class names, falsy ones left out: cx(styles.a, on && styles.b).
 export const cx = (...names: (string | false | null | undefined)[]): string =>
@@ -17,12 +20,16 @@ export const REF = (typeof __GIT_REF__ === "string" && __GIT_REF__) || "main";
 // "README.md#the-engine" → that file on GitHub, at REF.
 export const repoFile = (path: string) => `https://github.com/${REPO}/blob/${REF}/${path}`;
 
-// The engine on the visitor's machine (api/_lib/serve.ts). `targetAddressSpace`
+// The engine on the visitor's machine (api/_lib/serve.ts), each request under
+// the logic this build carries (`__LOGIC__`, see vite.config.ts). `targetAddressSpace`
 // lets a public page reach loopback once the visitor allows it (Chrome asks).
 export const ENGINE_URL = `http://127.0.0.1:${ENGINE.port}`;
 
 export const engineFetch = (path: string, init: RequestInit = {}): Promise<Response> =>
-  fetch(`${ENGINE_URL}${path}`, { ...init, targetAddressSpace: "loopback" } as RequestInit);
+  fetch(`${ENGINE_URL}/${__LOGIC__}${path}`, {
+    ...init,
+    targetAddressSpace: "loopback",
+  } as RequestInit);
 
 // A JSON request to the engine; the response is the caller's to read.
 export const sendJson = (
@@ -70,6 +77,36 @@ export const toDataUrl = (blob: Blob) =>
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
+
+let resvgWasm: Promise<typeof import("@resvg/resvg-wasm")> | undefined;
+
+// An SVG as a PNG at its own aspect, its long side the frame's (`side`) within
+// SVG_SIDE, so it scales down like a PNG would. resvg loads on first use, its
+// WebAssembly from the site unless `wasm` says where (the smoke runs, tests).
+// resvg writes straight alpha, which the engine's overlay expects.
+export async function svgToPng(svg: Blob, side: number | null, wasm: InitInput = wasmUrl) {
+  resvgWasm ??= import("@resvg/resvg-wasm").then(async (resvg) => {
+    await resvg.initWasm(wasm);
+    return resvg;
+  });
+  const { Resvg } = await resvgWasm;
+  const { min, max, fallback } = SVG_SIDE;
+  const bytes = await svg.bytes();
+  const intrinsic = new Resvg(bytes);
+  const mode = intrinsic.width >= intrinsic.height ? "width" : "height";
+  intrinsic.free();
+  const resvg = new Resvg(bytes, {
+    fitTo: { mode, value: Math.min(max, Math.max(min, side ?? fallback)) },
+  });
+  try {
+    const image = resvg.render();
+    const png = new Blob([image.asPng() as Uint8Array<ArrayBuffer>], { type: "image/png" });
+    image.free();
+    return png;
+  } finally {
+    resvg.free();
+  }
+}
 
 // Shrinks a width×height to fit `maxSide`, never enlarges.
 export const fitScale = (width: number, height: number, maxSide: number): number =>

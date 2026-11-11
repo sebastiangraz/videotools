@@ -19,8 +19,8 @@ const NEEDS = {
     "png",
   ],
   muxers: ["mp4", "webm", "avif", "webp", "image2", "framecrc", "null"],
-  demuxers: ["concat", "image2", "webp_anim", "svg_pipe"],
-  // Animated WebP has its own decoder (source.ts). SVG logos go through resvg (svg.ts).
+  demuxers: ["concat", "image2", "webp_anim"],
+  // Animated WebP has its own decoder (source.ts).
   decoders: ["webp", "webp_anim"],
   // lavfi (smoke-run inputs) is a device.
   devices: ["lavfi"],

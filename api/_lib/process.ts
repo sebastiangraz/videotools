@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 
@@ -8,17 +7,20 @@ import { STILLS, formatById, isToolId, type FormatId } from "./formats.js";
 import { FFmpeg } from "./ffmpeg.js";
 import { TOOLS } from "./tools/index.js";
 import type { ToolRequest } from "./tools/types.js";
-import { errorResponse, isUploadId, jsonBody, methodNotAllowed, runJob } from "./request.js";
+import {
+  UPLOADS,
+  errorResponse,
+  isUploadId,
+  jsonBody,
+  methodNotAllowed,
+  runJob,
+} from "./request.js";
 import { ffmpegPath, gifskiPath } from "./binaries.js";
 
 type ProcessBody = Partial<ToolRequest> & {
   tool?: unknown;
   filename?: unknown;
 };
-
-// Uploads wait here for their job, results for their download; the engine
-// empties it on start, which catches whatever an aborted run left.
-export const UPLOADS = path.join(os.tmpdir(), "videotools-engine");
 
 const uploadPath = (id: string) => path.join(UPLOADS, id);
 

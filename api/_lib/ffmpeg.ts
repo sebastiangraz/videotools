@@ -167,10 +167,10 @@ export class FFmpeg {
     return stderr;
   }
 
-  async mediaInfo(inputFile: string, summary?: string): Promise<SourceProfile> {
+  async mediaInfo(inputFile: string): Promise<SourceProfile> {
     const cached = this.infoCache.get(inputFile);
     if (cached) return cached;
-    const stderr = summary ?? (await this.summary(inputFile));
+    const stderr = await this.summary(inputFile);
     const info = parseSourceProfile(stderr);
     // The client can't validate WebP, so a bad one is the user's error.
     const unreadableWebp = () =>

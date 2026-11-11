@@ -1,5 +1,9 @@
 import fs from "node:fs/promises";
 
+// A `bun build --compile` executable runs its code from Bun's embedded fs. A
+// call, so the unit tests (which run on Node) never read Bun.main.
+export const compiled = (): boolean => /^(B:\/~BUN|\/\$bunfs)\//.test(Bun.main);
+
 export const fileSize = async (file: string): Promise<number> => (await fs.stat(file)).size;
 
 // Best effort: a leftover only takes up temp space.

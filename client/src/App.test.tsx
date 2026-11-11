@@ -1,6 +1,8 @@
-import { cleanup, screen, waitFor, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
+import { ENGINE } from "@api/formats";
+import { EngineSetup } from "./components/EngineSetup/EngineSetup";
 import {
   downloadedName,
   enableVerboseNames,
@@ -251,4 +253,27 @@ describe("App", () => {
     await screen.findByRole("button", { name: /create video/i });
     expect(uploadSignal()?.aborted).toBe(true);
   });
+});
+
+describe("EngineSetup", () => {
+  const panel = () => screen.queryByRole("region", { name: /engine setup/i });
+
+  it.each([
+    [null, /install the helper/i],
+    // An engine from before the logic paths answers them without a version
+    [{}, /out of date/i],
+    [{ version: ENGINE.version - 0.1 }, /out of date/i],
+    [{ reload: true }, /reload the page/i],
+  ])("asks an engine that answered %o for what it needs", (health, text) => {
+    render(<EngineSetup health={health} />);
+    expect(panel()).toHaveTextContent(text);
+  });
+
+  it.each([undefined, { version: ENGINE.version }, { version: ENGINE.version + 0.1 }])(
+    "stays away for %o",
+    (health) => {
+      render(<EngineSetup health={health} />);
+      expect(panel()).not.toBeInTheDocument();
+    },
+  );
 });

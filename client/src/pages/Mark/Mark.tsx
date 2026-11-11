@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ToolPanel } from "@src/components/ToolPanel/ToolPanel";
 import { Upload } from "@src/components/Upload/Upload";
 import { FramePreview } from "@src/components/FramePreview/FramePreview";
@@ -12,7 +12,15 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
+import {
+  aspectRatioOf,
+  cx,
+  formatClock,
+  matchesAccept,
+  splitExtension,
+  svgToPng,
+  toList,
+} from "@src/helpers";
 import {
   MARK,
   MARK_POSITIONS,
@@ -32,9 +40,10 @@ import { Switch } from "@src/components/Switch/Switch";
 
 const TOOL = toolById("mark");
 
-// The server rasterizes an SVG at the size the frame needs; ".svg" is for
-// systems that give an SVG no MIME type.
-const WATERMARK_ACCEPT = "image/png,image/svg+xml,.svg";
+// The engine takes PNGs, so an SVG is rasterized here at the size the frame
+// needs; ".svg" is for systems that give an SVG no MIME type.
+const SVG_ACCEPT = "image/svg+xml,.svg";
+const WATERMARK_ACCEPT = `image/png,${SVG_ACCEPT}`;
 
 const SIZE_OPTIONS: { value: MarkSize; label: string }[] = [
   { value: "small", label: "Small" },
@@ -73,6 +82,26 @@ export const Mark = () => {
   const source = useVideoSource();
   const formatBlocker = useFormatBlocker(source.file, { stills: true }, source.nonSquare);
   const [watermark, setWatermark] = useState<File | null>(null);
+
+  // An SVG watermark as the engine gets it, rendered at the source's long side:
+  // null while that runs, false if it can't.
+  const [rendered, setRendered] = useState<File | false | null>(null);
+  const svg = watermark !== null && matchesAccept(watermark, SVG_ACCEPT);
+  const longSide = source.meta && Math.max(source.meta.w, source.meta.h);
+  useEffect(() => {
+    if (!svg) return;
+    let live = true;
+    const name = `${splitExtension(watermark.name)[0]}.png`;
+    svgToPng(watermark, longSide).then(
+      (png) => live && setRendered(new File([png], name, { type: png.type })),
+      () => live && setRendered(false),
+    );
+    return () => {
+      live = false;
+    };
+  }, [svg, watermark, longSide]);
+  const logo = svg ? rendered : watermark;
+
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
   const [pickedSize, setPickedSize] = useState<Exclude<MarkSize, "dev">>("medium");
   const [position, setPosition] = useState<MarkPosition>("bottom-right");
@@ -98,7 +127,7 @@ export const Mark = () => {
   const shuffling = route !== null;
   const preview = useMarkPreview(
     source.file,
-    watermark,
+    logo || null,
     filterMode,
     size,
     position,
@@ -113,7 +142,13 @@ export const Mark = () => {
   const lossless = source.file !== null && stillFormat(source.file)?.id === "png";
   const aspectRatio = aspectRatioOf(source.meta);
   const zoomLabel = previewZoomed ? "Zoom out" : "Zoom in";
-  const watermarkBlocker = watermark ? null : "Upload a watermark";
+  const watermarkBlocker = logo
+    ? null
+    : !watermark
+      ? "Upload a watermark"
+      : logo === false
+        ? "Can't render this SVG"
+        : "Rendering the SVG";
 
   const pickPosition = (picked: MarkPosition) => {
     setPosition(picked);
@@ -129,13 +164,14 @@ export const Mark = () => {
   const pickWatermark = ([picked]: File[]) => {
     run.clearError();
     setWatermark(picked);
+    setRendered(null);
   };
 
   const submit = () => {
-    if (!source.file || !watermark) return;
+    if (!source.file || !logo) return;
     run.start({
       files: [source.file],
-      extras: [{ file: watermark, status: "Uploading watermark" }],
+      extras: [{ file: logo, status: "Uploading watermark" }],
       payload: ({ uploads, extraUploads }) => ({
         upload: uploads[0],
         watermark: extraUploads[0],

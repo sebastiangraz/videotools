@@ -5,6 +5,10 @@ import { InputError } from "./errors.js";
 import { removeDir } from "./helpers.js";
 import type { ToolRequest } from "./tools/types.js";
 
+// Uploads wait here for their job, results for their download; the engine
+// empties it on start, which catches whatever an aborted run left.
+export const UPLOADS = path.join(os.tmpdir(), "videotools-engine");
+
 // The client names each upload: a random id plus the file's extension. Being
 // a bare file name, it can't point outside the uploads folder.
 export const isUploadId = (id: unknown): id is string =>

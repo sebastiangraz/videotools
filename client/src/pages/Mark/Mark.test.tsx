@@ -22,7 +22,14 @@ import {
   stubProperties,
 } from "@src/test/media";
 import { MARK } from "@api/tools/mark-config";
+import { svgToPng } from "@src/helpers";
 import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
+
+// resvg's WebAssembly can't load here; the smoke runs render for real.
+vi.mock("@src/helpers", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@src/helpers")>()),
+  svgToPng: vi.fn(async () => new Blob(["png"], { type: "image/png" })),
+}));
 
 type User = ReturnType<typeof userEvent.setup>;
 const markButton = () => screen.getByRole("button", { name: /^mark$/i });
@@ -77,7 +84,7 @@ describe("Mark", () => {
     expect(screen.queryByRole("button", { name: /glass/i })).not.toBeInTheDocument();
 
     await pickLogo(user, file("logo.svg", "image/svg+xml"));
-    expect(markButton()).toHaveAttribute("aria-disabled", "false");
+    await waitFor(() => expect(markButton()).toHaveAttribute("aria-disabled", "false"));
     expect(screen.getByText("logo.svg")).toBeInTheDocument();
 
     await pickLogo(user);
@@ -86,6 +93,41 @@ describe("Mark", () => {
     expect(screen.getByRole("button", { name: /glass/i })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /plain/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /blur/i })).toBeInTheDocument();
+  });
+
+  it("renders an SVG watermark at the source's long side, and previews and sends that PNG", async () => {
+    const user = userEvent.setup();
+    stubVideo();
+    const fetchMock = stubProcessFetch();
+    const answer = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) =>
+      input === engineUrl("/preview") ? new Response("jpg", JPEG) : answer(input, init),
+    );
+    const svg = file("logo.svg", "image/svg+xml");
+
+    await renderApp("/mark");
+    await pickSource(user, file("clip.mp4", "video/mp4"));
+    await pickLogo(user, svg);
+    await waitFor(() => expect(svgToPng).toHaveBeenLastCalledWith(svg, 1280));
+    await waitFor(() =>
+      expect(postedBody(fetchMock).logo).toBe(`data:image/png;base64,${btoa("png")}`),
+    );
+
+    await user.click(markButton());
+    await runFinished();
+    expect(uploads(fetchMock)[1].file).toMatchObject({ name: "logo.png", type: "image/png" });
+  });
+
+  it("says so when an SVG watermark can't be rendered", async () => {
+    const user = userEvent.setup();
+    vi.mocked(svgToPng).mockRejectedValueOnce(new Error("unreadable"));
+
+    await renderApp("/mark");
+    await pickSource(user, file("clip.mp4", "video/mp4"));
+    await pickLogo(user, file("logo.svg", "image/svg+xml"));
+    await user.hover(markButton());
+    expect(await screen.findByText("Can't render this SVG")).toBeInTheDocument();
+    expect(markButton()).toHaveAttribute("aria-disabled", "true");
   });
 
   it("takes a photo as the mark source and previews it off its decoded frame", async () => {

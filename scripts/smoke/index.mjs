@@ -16,6 +16,7 @@ import { binaryPath } from "../../api/_lib/binaries.ts";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
 import { encodeLoss } from "./quality.mjs";
+import { svgToPng } from "../../client/src/helpers.ts";
 
 const SUITES = { mark: markGrid, light: lightGrid, quality: encodeLoss };
 // Subfolders a suite can run on their own.
@@ -67,8 +68,17 @@ const upload = (file) => {
 };
 const take = async (id, destPath) => fs.copyFileSync(uploads.get(id), destPath);
 
-// One /process request: `files` in upload order, results in `workDir`.
+// One /process request: `files` in upload order, results in `workDir`. An SVG
+// watermark goes up as the site sends it, a PNG at the source's long side.
 async function runTool(tool, files, options, workDir) {
+  fs.mkdirSync(workDir, { recursive: true });
+  if (files[1]?.endsWith(".svg")) {
+    const { width, height } = await ff.mediaInfo(files[0]);
+    const svg = Bun.file(files[1]);
+    const wasm = import.meta.resolve("@resvg/resvg-wasm/index_bg.wasm");
+    files = [files[0], path.join(workDir, "logo.png")];
+    await Bun.write(files[1], await svgToPng(svg, Math.max(width, height), wasm));
+  }
   const ids = files.map(upload);
   const inputs = TOOLS[tool].inputs({
     upload: ids[0],
@@ -77,7 +87,6 @@ async function runTool(tool, files, options, workDir) {
     options,
   });
   if (!Array.isArray(inputs)) throw new Error(inputs.error);
-  fs.mkdirSync(workDir, { recursive: true });
   return TOOLS[tool].run({ ff, workDir, inputs, options, take });
 }
 

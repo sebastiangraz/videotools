@@ -2,3 +2,4 @@
 
 // Injected via `define` in vite.config.ts
 declare const __GIT_REF__: string;
+declare const __LOGIC__: string;

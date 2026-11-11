@@ -15,6 +15,8 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import zlib from "node:zlib";
 
+import { compiled } from "./helpers.js";
+
 type Tool = "ffmpeg" | "gifski";
 type Pin = { url: string; sha256: string };
 
@@ -77,13 +79,10 @@ export const BINARIES: Record<Tool, { version: string; platforms: Record<string,
 
 const hostPlatform = `${process.platform}-${process.arch}`;
 
-// A `bun build --compile` executable runs its code from Bun's embedded fs.
-export const compiled = /^(B:\/~BUN|\/\$bunfs)\//.test(Bun.main);
-
 // Next to the compiled engine, or under the working directory (the repo).
 export const binaryPath = (tool: Tool, key = hostPlatform): string =>
   path.join(
-    compiled ? path.dirname(process.execPath) : process.cwd(),
+    compiled() ? path.dirname(process.execPath) : process.cwd(),
     "api",
     "_bin",
     tool,

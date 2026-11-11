@@ -23,7 +23,7 @@ const UNINSTALL = isWindows
 // Jobs run in the engine on the visitor's machine; until it answers, this
 // says how to get it.
 export const EngineSetup = ({ health }: { health: Health }) => {
-  if (health === undefined || health?.version === ENGINE.version) return null;
+  if (health === undefined || (health?.version ?? 0) >= ENGINE.version) return null;
   const outdated = health !== null;
   return (
     <section className={styles.panel} aria-label="Engine setup">
@@ -31,6 +31,8 @@ export const EngineSetup = ({ health }: { health: Health }) => {
         <p>
           Your videos are processed locally. Safari is not supported yet. Use Chrome or Firefox.
         </p>
+      ) : health?.reload ? (
+        <p>The site has been updated since this page loaded. Reload the page.</p>
       ) : (
         <>
           <p>

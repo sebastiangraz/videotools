@@ -5,7 +5,7 @@ import { expect, vi, type Mock } from "vitest";
 import { createAppRouter } from "@src/App";
 import { ENGINE_URL } from "@src/helpers";
 
-export const engineUrl = (path: string) => `${ENGINE_URL}${path}`;
+export const engineUrl = (path: string) => `${ENGINE_URL}/${__LOGIC__}${path}`;
 
 export const renderApp = async (initialPath = "/loop") => {
   const router = createAppRouter(createMemoryHistory({ initialEntries: [initialPath] }));
