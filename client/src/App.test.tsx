@@ -2,7 +2,9 @@ import { cleanup, render, screen, waitFor, within, fireEvent } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import { ENGINE } from "@api/formats";
+import readme from "../../README.md?raw";
 import { EngineSetup } from "./components/EngineSetup/EngineSetup";
+import { repoFile } from "./helpers";
 import { engineFrom, type Engine } from "./hooks/useEngine";
 import {
   downloadedName,
@@ -311,5 +313,21 @@ describe("EngineSetup", () => {
   ])("stays away for %o", (engine) => {
     render(<EngineSetup engine={engine} />);
     expect(panel()).not.toBeInTheDocument();
+  });
+
+  // The link opens the README at the commit the site was built from, so this
+  // checkout's headings are the anchors it can land on.
+  it("links to a README heading", () => {
+    render(<EngineSetup engine={engineFrom(null)} />);
+    // GitHub's anchor for each heading
+    const anchors = [...readme.matchAll(/^#+ (.+)$/gm)].map(([, heading]) =>
+      heading
+        .toLowerCase()
+        .replace(/[^\w -]/g, "")
+        .replaceAll(" ", "-"),
+    );
+    expect(anchors.map((anchor) => repoFile(`README.md#${anchor}`))).toContain(
+      screen.getByRole("link", { name: /learn more/i }).getAttribute("href"),
+    );
   });
 });
