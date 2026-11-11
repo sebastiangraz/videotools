@@ -4,7 +4,6 @@
   flex-direction: column;
   gap: 1rem;
   /* border-radius: calc(var(--radius) * 2); */
-  margin-inline: 1rem;
   padding: 1rem;
   font-size: var(--font-md);
   line-height: 1.5;

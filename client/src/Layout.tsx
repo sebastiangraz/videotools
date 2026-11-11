@@ -163,7 +163,9 @@ export const Layout = () => {
           </Popover>
         </Tabs>
         <main className={styles.main}>
-          <EngineSetup health={health} />
+          <div className={styles.container}>
+            <EngineSetup health={health} />
+          </div>
           <VerboseNames value={settings.verbose}>
             <Outlet />
           </VerboseNames>

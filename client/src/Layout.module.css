@@ -225,3 +225,12 @@
   --settings-mask: 1;
   --settings-opacity: 64%;
 }
+
+.container {
+  composes: container from "./components/ToolPanel/ToolPanel.module.css";
+  padding-block: 0;
+  & > * {
+    view-transition-class: unset;
+    view-transition-name: unset;
+  }
+}

@@ -9,10 +9,6 @@
   }
 }
 
-/* .container + .container {
-  border-top: 1px solid var(--border-subtle);
-} */
-
 /* Animate contents on nav change. */
 .container > * {
   view-transition-name: match-element;
@@ -79,8 +75,6 @@
   }
 }
 
-/* A line for the label, padded to 3rem; below it, the progress bar grows the
-   button by its gap and height. */
 .submit {
   display: grid;
   grid-template-rows: 1lh;
