@@ -25,7 +25,7 @@ const logo = path.join(dir, "logo.svg");
 fs.writeFileSync(clip, "");
 fs.writeFileSync(logo, "");
 
-describe("video-tools", () => {
+describe("videotools", () => {
   it("lists every tool", async () => {
     const { code, stdout } = await cli("--help");
     expect(code).toBe(0);
@@ -35,7 +35,7 @@ describe("video-tools", () => {
   it.each(TOOL_IDS)("shows the usage of %s", async (tool) => {
     const { code, stdout } = await cli(tool, "--help");
     expect(code).toBe(0);
-    expect(stdout).toMatch(new RegExp(`^Usage: video-tools ${tool} `));
+    expect(stdout).toMatch(new RegExp(`^Usage: videotools ${tool} `));
   });
 
   it("prints its version", async () => {
@@ -52,7 +52,7 @@ describe("video-tools", () => {
   ])("shows the usage for %s", async (_, args, tool) => {
     const { code, stderr } = await cli(...args);
     expect(code).toBe(2);
-    expect(stderr).toContain(`Usage: video-tools ${tool} `);
+    expect(stderr).toContain(`Usage: videotools ${tool} `);
   });
 
   it.each([

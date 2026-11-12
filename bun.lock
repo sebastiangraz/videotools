@@ -14,9 +14,9 @@
     },
     "cli": {
       "name": "@videotools/cli",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "bin": {
-        "video-tools": "dist/index.js",
+        "videotools": "dist/index.js",
       },
       "dependencies": {
         "@resvg/resvg-wasm": "2.6.2",

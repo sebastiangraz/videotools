@@ -192,9 +192,9 @@ const within = ([min, max]: readonly [number, number]) =>
   max === Infinity ? `from ${min} up` : `from ${min} to ${max}`;
 
 // The tool's own once it is known.
-let help = `Usage: video-tools <tool> <file|folder|glob>... [options]
-       video-tools <tool> --help
-       video-tools --version
+let help = `Usage: videotools <tool> <file|folder|glob>... [options]
+       videotools <tool> --help
+       videotools --version
 
 The web app's tools on native ffmpeg, a job at a time: one per file, or one
 for all of a sequence's images. A folder means the files in it that the tool
@@ -223,7 +223,7 @@ if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool}` : "No tool given");
 const command = COMMANDS[tool];
 const flags = { ...command.flags, out: OUT };
 const required = Object.entries(flags).filter(([, flag]) => flag.required);
-help = `Usage: video-tools ${tool} <file|folder|glob>...${required.map(([name, flag]) => ` --${name} <${flag.arg}>`).join("")} [options]
+help = `Usage: videotools ${tool} <file|folder|glob>...${required.map(([name, flag]) => ` --${name} <${flag.arg}>`).join("")} [options]
 
 ${command.about}.
 

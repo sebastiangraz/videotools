@@ -51,15 +51,15 @@ ffmpeg's threads share memory, which needs cross-origin isolation: every respons
 
 ## CLI
 
-`video-tools` (`cli/index.ts`) runs the tools natively over many files, on the same code as the app, a job at a time: one per file, or one for all of a sequence's images.
+`videotools` (`cli/index.ts`) runs the tools natively over many files, on the same code as the app, a job at a time: one per file, or one for all of a sequence's images.
 
 ```bash
-video-tools loop <file|folder|glob>... [--technique <how>] [--fade <seconds>] [--start <seconds>] [--quality <n>]
-video-tools sequence <file|folder|glob>... [--frame-duration <seconds>] [--format <format>] [--quality <n>]
-video-tools speed <file|folder|glob>... [--speed <n>]
-video-tools convert <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
-video-tools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
-video-tools <tool> --help                       # its flags, their values and defaults
+videotools loop <file|folder|glob>... [--technique <how>] [--fade <seconds>] [--start <seconds>] [--quality <n>]
+videotools sequence <file|folder|glob>... [--frame-duration <seconds>] [--format <format>] [--quality <n>]
+videotools speed <file|folder|glob>... [--speed <n>]
+videotools convert <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
+videotools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
+videotools <tool> --help                        # its flags, their values and defaults
 npx @videotools/cli <tool> ...                  # from npm, on Node
 bun cli/index.ts <tool> ...                     # from this repo
 ```
