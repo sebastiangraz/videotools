@@ -4,9 +4,6 @@
   "workspaces": {
     "": {
       "name": "videotools",
-      "dependencies": {
-        "@resvg/resvg-wasm": "2.6.2",
-      },
       "devDependencies": {
         "@types/node": "^24.19.0",
         "oxfmt": "^0.71.0",
@@ -21,6 +18,7 @@
       "dependencies": {
         "@base-ui/react": "^1.8.0",
         "@tanstack/react-router": "^1.170.40",
+        "@videotools/core": "workspace:*",
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
       },
@@ -34,6 +32,12 @@
         "jsdom": "^30.1.1",
         "vite": "^8.3.1",
         "vitest": "^5.0.3",
+      },
+    },
+    "core": {
+      "name": "@videotools/core",
+      "dependencies": {
+        "@resvg/resvg-wasm": "2.6.2",
       },
     },
   },
@@ -239,6 +243,8 @@
     "@types/react": ["@types/react@19.3.0", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg=="],
 
     "@types/react-dom": ["@types/react-dom@19.3.0", "", { "peerDependencies": { "@types/react": "^19.3.0" } }, "sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q=="],
+
+    "@videotools/core": ["@videotools/core@workspace:core"],
 
     "@vitejs/plugin-react": ["@vitejs/plugin-react@6.1.1", "", { "dependencies": { "@rolldown/pluginutils": "^1.0.1" }, "peerDependencies": { "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0", "babel-plugin-react-compiler": "^1.0.0", "oxc-transform-react": "^0.145.0", "vite": "^8.0.0" }, "optionalPeers": ["@rolldown/plugin-babel", "babel-plugin-react-compiler", "oxc-transform-react"] }, "sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw=="],
 

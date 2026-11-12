@@ -1,4 +1,4 @@
-// Runs the light tracker (api/_lib/light-track.ts) on a clip and prints where
+// Runs the light tracker (core/light-track.ts) on a clip and prints where
 // it put the light; with --out, also writes the clip with the tracked point
 // boxed, to see it follow (or not).
 //
@@ -19,9 +19,9 @@ if (positionals.length !== 1) {
   process.exit(1);
 }
 const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
-const { FFmpeg } = await load("api/_lib/ffmpeg.ts");
-const { trackLight } = await load("api/_lib/light-track.ts");
-const { execBinary } = await load("api/_lib/binaries.ts");
+const { FFmpeg } = await load("core/ffmpeg.ts");
+const { trackLight } = await load("core/light-track.ts");
+const { execBinary } = await load("cli/exec.ts");
 
 const input = path.resolve(positionals[0]);
 const ff = new FFmpeg(values.ffmpeg ?? binaryPath("ffmpeg"), "", execBinary);

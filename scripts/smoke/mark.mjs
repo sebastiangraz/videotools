@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { MARK_SIZES } from "../../api/_lib/tools/mark-config.ts";
+import { MARK_SIZES } from "../../core/tools/mark-config.ts";
 
 const ZOOM_OUT = 2;
 const FPS = 30;

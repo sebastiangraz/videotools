@@ -1,8 +1,8 @@
-import { FORMATS, STILLS, type Format, type Still } from "@api/formats";
+import { FORMATS, STILLS, type Format, type Still } from "@videotools/core/formats";
 import { extensionOf } from "./helpers";
 
 // By name, else by browser MIME type; null = none the app writes. The tools
-// go by content (api/_lib/source.ts); this is only the guess before a run.
+// go by content (core/source.ts); this is only the guess before a run.
 export function fileFormat(file: File): Format | null {
   const ext = extensionOf(file.name);
   return (

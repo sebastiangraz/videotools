@@ -4,7 +4,7 @@
 https://github.com/ImageOptim/gifski/releases/tag/1.34.0). Its binaries are
 mirrored, unmodified, to this repo's `gifski-<version>` release, and `bun
 install`'s postinstall (`scripts/binaries-install.mjs`) fetches the host's into
-`api/_bin/gifski/<platform>/` (gitignored), as it does for ffmpeg, for the
+`cli/bin/gifski/<platform>/` (gitignored), as it does for ffmpeg, for the
 smoke suites (the app runs the WebAssembly build from `wasm/Dockerfile`):
 
 - `linux-x64` — static-pie linked (no glibc dependency).

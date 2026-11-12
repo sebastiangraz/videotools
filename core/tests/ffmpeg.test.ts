@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMediaInfo, parseOutputSize, runProgress, shownDuration } from "../_lib/ffmpeg.js";
+import { parseMediaInfo, parseOutputSize, runProgress, shownDuration } from "../ffmpeg.js";
 
 // Real lines from the engine: ffmpeg 9.0 with `-progress pipe:2`, gifski 1.34.
 describe("runProgress", () => {

@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 
 // The browser build turns this into an asset URL; natively it's a file.
-const wasm = new URL("../../node_modules/@resvg/resvg-wasm/index_bg.wasm", import.meta.url);
+const wasm = new URL("../node_modules/@resvg/resvg-wasm/index_bg.wasm", import.meta.url);
 
 let ready: Promise<void> | undefined;
 

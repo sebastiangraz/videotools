@@ -16,7 +16,7 @@ import form from "@src/form.module.css";
 
 const TOOL = toolById("loop");
 
-// Mirrored in api/_lib/tools/loop.ts (VALID_TECHNIQUES)
+// Mirrored in core/tools/loop.ts (VALID_TECHNIQUES)
 const TECHNIQUES = [
   { value: "crossfade", label: "Crossfade" },
   { value: "reverse", label: "Forward & reverse" },

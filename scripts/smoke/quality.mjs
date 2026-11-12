@@ -6,12 +6,12 @@
 // video bitrate is held to its rate cap and its frames to the reference's too.
 import fs from "node:fs";
 import path from "node:path";
-import { ENCODERS } from "../../api/_lib/encode/index.ts";
-import { shownDuration } from "../../api/_lib/ffmpeg.ts";
+import { ENCODERS } from "../../core/encode/index.ts";
+import { shownDuration } from "../../core/ffmpeg.ts";
 import { formatBytes } from "../../client/src/helpers.ts";
-import { graphArgs } from "../../api/_lib/encode/render.ts";
-import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
-import { LOOP_LIMITS } from "../../api/_lib/tools/loop.ts";
+import { graphArgs } from "../../core/encode/render.ts";
+import { FORMATS, SEQUENCE_FORMATS } from "../../core/formats.ts";
+import { LOOP_LIMITS } from "../../core/tools/loop.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
 // Worst frame of any step.

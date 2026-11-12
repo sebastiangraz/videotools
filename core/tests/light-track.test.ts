@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findPeaks, gridSize, TRACK, trackLuma, type Luma } from "../_lib/light-track.js";
+import { findPeaks, gridSize, TRACK, trackLuma, type Luma } from "../light-track.js";
 
 // The analysis grid of a 16:9 source, and glows drawn on it: a 16 black
 // floor, 1/e² radius 0.22×height.

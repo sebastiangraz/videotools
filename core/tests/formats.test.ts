@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FORMATS, SEQUENCE_FORMATS, STILLS, formatById } from "../_lib/formats.js";
+import { FORMATS, SEQUENCE_FORMATS, STILLS, formatById } from "../formats.js";
 
 describe("formats", () => {
   it("lists every format once, each under extensions of its own", () => {

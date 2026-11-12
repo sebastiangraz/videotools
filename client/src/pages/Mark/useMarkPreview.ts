@@ -9,7 +9,7 @@ import {
   type MarkPosition,
   type MarkSize,
   type MarkView,
-} from "@api/tools/mark-config";
+} from "@videotools/core/tools/mark-config";
 
 export type MarkTuning = Record<keyof typeof MARK_TUNING, number>;
 const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];

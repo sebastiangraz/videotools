@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { FFmpeg } from "../_lib/ffmpeg.js";
-import type { Render } from "../_lib/encode/render.js";
-import { x264Threads } from "../_lib/encode/video.js";
+import type { FFmpeg } from "../ffmpeg.js";
+import type { Render } from "../encode/render.js";
+import { x264Threads } from "../encode/video.js";
 
 const engine = { heap: 3.4 * 2 ** 30 } as FFmpeg;
 const frames = (width: number, height: number, held?: number) =>

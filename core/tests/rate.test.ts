@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codecFactor, rateCap } from "../_lib/encode/rate.js";
+import { codecFactor, rateCap } from "../encode/rate.js";
 
 // `seconds` of video at `kbps`; 32 fps keeps the times exact in binary.
 const steady = (kbps: number, seconds: number, from = 0) =>

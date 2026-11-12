@@ -1,4 +1,4 @@
-// Checks an ffmpeg has the pinned version and everything api/_lib/ spawns it
+// Checks an ffmpeg has the pinned version and everything core/ spawns it
 // with, so a build missing a library fails here rather than on a user's file.
 //
 //   bun scripts/ffmpeg-check.mjs [<ffmpeg path>]    default: the pinned one
@@ -106,5 +106,5 @@ export function requireFfmpeg(ffmpeg, { pinned }) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const ffmpeg = process.argv[2] ?? binaryPath("ffmpeg");
   const version = requireFfmpeg(ffmpeg, { pinned: !process.argv[2] });
-  console.log(`${ffmpeg}: ffmpeg ${version}, has everything the api uses`);
+  console.log(`${ffmpeg}: ffmpeg ${version}, has everything core uses`);
 }

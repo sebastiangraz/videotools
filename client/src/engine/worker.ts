@@ -1,11 +1,11 @@
-// One engine job: a tool (api/_lib), run against WebAssembly ffmpeg and
+// One engine job: a tool (core/), run against WebAssembly ffmpeg and
 // gifski (exec.ts).
-import { InputError } from "@api/errors";
-import { FFmpeg } from "@api/ffmpeg";
-import { resultFile, type ToolId } from "@api/formats";
-import { TOOLS } from "@api/tools/index";
-import { markLook, renderWatermarkFrames } from "@api/tools/mark";
-import type { MarkPosition } from "@api/tools/mark-config";
+import { InputError } from "@videotools/core/errors";
+import { FFmpeg } from "@videotools/core/ffmpeg";
+import { resultFile, type ToolId } from "@videotools/core/formats";
+import { TOOLS } from "@videotools/core/tools/index";
+import { markLook, renderWatermarkFrames } from "@videotools/core/tools/mark";
+import type { MarkPosition } from "@videotools/core/tools/mark-config";
 import { exec, HEAP, ROOT as workDir } from "./exec";
 import fs from "./fs";
 import path from "./path";

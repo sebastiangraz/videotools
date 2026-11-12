@@ -3,8 +3,8 @@ dist/
 tmp/
 .smoke/
 # Fetched by the postinstall (scripts/binaries.mjs pins them)
-api/_bin/ffmpeg/
-api/_bin/gifski/*/
+cli/bin/ffmpeg/
+cli/bin/gifski/*/
 
 .vercel
 .env*

@@ -64,4 +64,4 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export const hostPlatform = `${process.platform}-${process.arch}`;
 
 export const binaryPath = (tool, key = hostPlatform) =>
-  path.join(root, "api", "_bin", tool, key, key.startsWith("win32-") ? `${tool}.exe` : tool);
+  path.join(root, "cli", "bin", tool, key, key.startsWith("win32-") ? `${tool}.exe` : tool);

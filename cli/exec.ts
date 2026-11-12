@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { Exec } from "./ffmpeg.js";
+import type { Exec } from "../core/ffmpeg.js";
 
 const execFileAsync = promisify(execFile);
 
-// Native runs, for the scripts: the app itself runs WebAssembly (client/src/engine).
+// Native runs, for the scripts. Kept out of core, which the app runs on
+// WebAssembly (client/src/engine).
 export const execBinary: Exec = async (command, args, { cwd }) => {
   try {
     const running = execFileAsync(command, args, { cwd, maxBuffer: Infinity });

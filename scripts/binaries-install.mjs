@@ -1,5 +1,5 @@
 // Postinstall: fetches the binaries BINARIES (binaries.mjs) pins into
-// api/_bin/<tool>/<platform>/, for the scripts: the app runs its own
+// cli/bin/<tool>/<platform>/, for the scripts: the app runs its own
 // WebAssembly build (wasm/Dockerfile).
 //
 //   BIN_PLATFORM=linux-x64 bun scripts/binaries-install.mjs

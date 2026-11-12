@@ -5,7 +5,7 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    // The tools (@api) are written against node:fs/promises and node:path.
+    // The tools (@videotools/core) are written against node:fs/promises and node:path.
     "types": ["node"],
 
     "moduleResolution": "bundler",
@@ -14,8 +14,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@src/*": ["./src/*"],
-      "@api/*": ["../api/_lib/*"]
+      "@src/*": ["./src/*"]
     },
 
     "strict": true,

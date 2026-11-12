@@ -16,7 +16,7 @@ import {
   stubMediaLoading,
   stubProperties,
 } from "@src/test/media";
-import { MARK } from "@api/tools/mark-config";
+import { MARK } from "@videotools/core/tools/mark-config";
 import { runEngine } from "@src/engine";
 import type { EngineRequest } from "@src/engine/worker";
 import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";

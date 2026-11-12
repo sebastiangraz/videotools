@@ -11,7 +11,7 @@ import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
-import { SEQUENCE_FORMATS, formatById } from "@api/formats";
+import { SEQUENCE_FORMATS, formatById } from "@videotools/core/formats";
 import form from "@src/form.module.css";
 import { aspectRatioOf, byFilename, fitScale, formatBytes } from "@src/helpers";
 

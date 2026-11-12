@@ -5,8 +5,8 @@ import {
   MARK_POSITIONS,
   MARK_SIZES,
   MARK_VIEWS,
-} from "../_lib/tools/mark-config.js";
-import { parseBounds, watermarkGraph, watermarkLayout } from "../_lib/tools/mark-graph.js";
+} from "../tools/mark-config.js";
+import { parseBounds, watermarkGraph, watermarkLayout } from "../tools/mark-graph.js";
 
 // Expectations derive from MARK, so the tuned constants can change freely.
 const HD = { width: 1920, height: 1080 };

@@ -1,4 +1,4 @@
-import { FORMATS, STILLS, TOOL_IDS, type ToolId } from "@api/formats";
+import { FORMATS, STILLS, TOOL_IDS, type ToolId } from "@videotools/core/formats";
 
 export type { ToolId };
 

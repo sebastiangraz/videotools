@@ -24,7 +24,7 @@ export const Speed = () => {
   const [speed, setSpeed] = useState<number>(0);
 
   // Signed speed ratio → playback multiplier: ±1 → 2× faster/slower,
-  // ±3 → 4×. Mirrored in api/_lib/tools/speed.ts.
+  // ±3 → 4×. Mirrored in core/tools/speed.ts.
   const speedMultiplier = speed >= 0 ? 1 + speed : 1 / (1 - speed);
 
   const pick = (picked: File[]) => {

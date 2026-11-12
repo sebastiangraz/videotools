@@ -10,9 +10,9 @@
 //   bun run smoke before mark:depthmap,glass   only these parts, the rest kept
 import fs from "node:fs";
 import path from "node:path";
-import { execBinary } from "../../api/_lib/binaries.ts";
-import { FFmpeg } from "../../api/_lib/ffmpeg.ts";
-import { TOOLS } from "../../api/_lib/tools/index.ts";
+import { execBinary } from "../../cli/exec.ts";
+import { FFmpeg } from "../../core/ffmpeg.ts";
+import { TOOLS } from "../../core/tools/index.ts";
 import { binaryPath, root } from "../binaries.mjs";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";

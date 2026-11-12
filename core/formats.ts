@@ -1,6 +1,6 @@
 // The tools and formats the app offers. No imports: the client compiles this too.
 
-// Keys both the api registry and the client tabs, so a one-sided addition is a
+// Keys both the core registry and the client tabs, so a one-sided addition is a
 // compile error. Tab order.
 export const TOOL_IDS = ["loop", "sequence", "speed", "convert", "mark"] as const;
 

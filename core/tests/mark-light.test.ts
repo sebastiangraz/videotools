@@ -2,9 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { LightPoint } from "../_lib/light-track.js";
-import { MARK } from "../_lib/tools/mark-config.js";
-import { watermarkGraph, watermarkLayout } from "../_lib/tools/mark-graph.js";
+import type { LightPoint } from "../light-track.js";
+import { MARK } from "../tools/mark-config.js";
+import { watermarkGraph, watermarkLayout } from "../tools/mark-graph.js";
 import {
   LIGHT,
   LightRig,
@@ -12,7 +12,7 @@ import {
   aimLight,
   fixedRig,
   smoothLight,
-} from "../_lib/tools/mark-light.js";
+} from "../tools/mark-light.js";
 
 const FRAME = { width: 1920, height: 1080 };
 const track = (points: Partial<LightPoint>[]) => ({

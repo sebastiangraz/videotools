@@ -4,7 +4,7 @@ dist
 .env*.local
 tmp
 .smoke
-api/_bin/ffmpeg
-api/_bin/gifski/*/
-api/_tests
+cli/bin/ffmpeg
+cli/bin/gifski/*/
+core/tests
 scripts/smoke/assets

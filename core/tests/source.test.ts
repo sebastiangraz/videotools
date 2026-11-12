@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { parseSourceProfile, type SourceProfile } from "../_lib/ffmpeg.js";
+import { parseSourceProfile, type SourceProfile } from "../ffmpeg.js";
 import {
   checkSquarePixels,
   preservedFormat,
   type Source,
   sourceFormat,
   sourceStill,
-} from "../_lib/source.js";
+} from "../source.js";
 
 // `ffmpeg -i` summaries of real files, one per kind of source (the AVIF
 // from 9.0.2, the rest from 6.1.1: 9.0 prints those lines alike).
