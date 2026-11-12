@@ -4,15 +4,13 @@
 import fs from "node:fs/promises";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 
-// The browser build turns this into an asset URL; natively it's a file.
-const wasm = new URL("../node_modules/@resvg/resvg-wasm/index_bg.wasm", import.meta.url);
-
 let ready: Promise<void> | undefined;
 
 // A PNG of the SVG at its own aspect, its long side `side` pixels. resvg
-// writes straight alpha, which overlay expects.
-export async function svgToPng(svg: Uint8Array, side: number): Promise<Uint8Array> {
-  ready ??= initWasm(wasm.protocol === "file:" ? fs.readFile(wasm) : fetch(wasm));
+// writes straight alpha, which overlay expects. `wasm` is resvg's module
+// (FFmpeg.resvg): a file: URL natively, else fetched.
+export async function svgToPng(wasm: string, svg: Uint8Array, side: number): Promise<Uint8Array> {
+  ready ??= initWasm(wasm.startsWith("file:") ? fs.readFile(new URL(wasm)) : fetch(wasm));
   await ready;
   const intrinsic = new Resvg(svg);
   const mode = intrinsic.width >= intrinsic.height ? "width" : "height";

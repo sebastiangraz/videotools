@@ -170,6 +170,8 @@ export function parseSourceProfile(output: string): SourceProfile | null {
 export class FFmpeg {
   ffmpeg: string;
   gifski: string;
+  // The URL of resvg's WebAssembly (svg.ts), which the host bundles or installs.
+  resvg: string;
   exec: Exec;
   // Bytes a run can allocate where that is fixed: the browser engine's
   // WebAssembly heap. Null for a native run.
@@ -183,9 +185,16 @@ export class FFmpeg {
   encoding: { seconds: number; from: number; to: number } | null = null;
   private infoCache = new Map<string, SourceProfile>();
 
-  constructor(ffmpegPath: string, gifskiPath: string, exec: Exec, heap: number | null = null) {
+  constructor(
+    ffmpegPath: string,
+    gifskiPath: string,
+    resvgUrl: string,
+    exec: Exec,
+    heap: number | null = null,
+  ) {
     this.ffmpeg = ffmpegPath;
     this.gifski = gifskiPath;
+    this.resvg = resvgUrl;
     this.exec = exec;
     this.heap = heap;
   }

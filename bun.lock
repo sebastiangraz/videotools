@@ -15,6 +15,12 @@
     "cli": {
       "name": "video-tools",
       "version": "0.1.0",
+      "bin": {
+        "video-tools": "dist/index.js",
+      },
+      "dependencies": {
+        "@resvg/resvg-wasm": "2.6.2",
+      },
       "devDependencies": {
         "@videotools/core": "workspace:*",
       },
@@ -24,6 +30,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@base-ui/react": "^1.8.0",
+        "@resvg/resvg-wasm": "2.6.2",
         "@tanstack/react-router": "^1.170.40",
         "@videotools/core": "workspace:*",
         "react": "^19.3.0",

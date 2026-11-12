@@ -174,7 +174,7 @@ async function openLogo(
   // Sniff the demuxer first: ffmpeg recognizes an SVG but may not decode it.
   const summary = await ff.summary(logoFile);
   const svg = /^Input #0, svg_pipe,/m.test(summary);
-  const logoPng = svg ? await rasterizeSvg(logoFile, frame) : logoFile;
+  const logoPng = svg ? await rasterizeSvg(ff, logoFile, frame) : logoFile;
   const logo = await ff.mediaInfo(logoPng, svg ? undefined : summary);
   if (logo.codec !== "png") {
     throw new InputError(
@@ -188,13 +188,14 @@ async function openLogo(
 // At the frame's long side, so it scales down like a PNG would; logoBounds
 // trims any margins the SVG carries.
 async function rasterizeSvg(
+  ff: FFmpeg,
   svgFile: string,
   frame: { width: number; height: number },
 ): Promise<string> {
   const { min, max, fallback } = SVG_SIDE;
   const side = clampInt(Math.max(frame.width, frame.height), min, max, fallback);
   const pngFile = path.join(path.dirname(svgFile), "logo-svg.png");
-  const png = await svgToPng(await fs.readFile(svgFile), side).catch(() => {
+  const png = await svgToPng(ff.resvg, await fs.readFile(svgFile), side).catch(() => {
     throw new InputError("Watermark SVG could not be rendered", "invalid-watermark");
   });
   await fs.writeFile(pngFile, png);

@@ -83,6 +83,9 @@ export const binaryPath = (tool: Tool): string =>
     process.platform === "win32" ? `${tool}.exe` : tool,
   );
 
+// resvg's WebAssembly comes from its package, a dependency kept out of the bundle.
+export const resvgUrl = import.meta.resolve("@resvg/resvg-wasm/index_bg.wasm");
+
 export async function install(tool: Tool): Promise<void> {
   const { version, platforms } = BINARIES[tool];
   const pinned = platforms[hostPlatform];

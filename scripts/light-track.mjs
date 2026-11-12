@@ -24,7 +24,7 @@ const root = path.join(import.meta.dirname, "..");
 
 const input = path.resolve(positionals[0]);
 if (!values.ffmpeg) await install("ffmpeg");
-const ff = new FFmpeg(values.ffmpeg ?? binaryPath("ffmpeg"), "", execBinary);
+const ff = new FFmpeg(values.ffmpeg ?? binaryPath("ffmpeg"), "", "", execBinary);
 // The runner logs every command; only the result matters here.
 console.log = () => {};
 const print = (line) => process.stdout.write(`${line}\n`);

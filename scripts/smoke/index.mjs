@@ -10,7 +10,7 @@
 //   bun run smoke before mark:depthmap,glass   only these parts, the rest kept
 import fs from "node:fs";
 import path from "node:path";
-import { binaryPath, install } from "../../cli/binaries.ts";
+import { binaryPath, install, resvgUrl } from "../../cli/binaries.ts";
 import { execBinary } from "../../cli/exec.ts";
 import { FFmpeg } from "../../core/ffmpeg.ts";
 import { runTool as runToolOn } from "../../core/tools/index.ts";
@@ -47,7 +47,7 @@ await install("ffmpeg");
 await install("gifski");
 const ffmpegPath = binaryPath("ffmpeg");
 requireFfmpeg(ffmpegPath, { pinned: true });
-const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), execBinary);
+const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), resvgUrl, execBinary);
 const runTool = (...args) => runToolOn(ff, ...args);
 
 const listed = (dir) =>

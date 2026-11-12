@@ -17,7 +17,7 @@ import {
   shuffleRoute,
   type MarkPosition,
 } from "@videotools/core/tools/mark-config";
-import { binaryPath, install } from "./binaries.js";
+import { binaryPath, install, resvgUrl } from "./binaries.js";
 import { execBinary, running } from "./exec.js";
 import pkg from "./package.json" with { type: "json" };
 
@@ -148,7 +148,7 @@ let failed = false;
 for (const [n, file] of sources.entries()) {
   const label = `[${n + 1}/${sources.length}] ${path.basename(file)}`;
   process.stdout.write(tty ? label : `${label}\n`);
-  const ff = new FFmpeg(binaryPath("ffmpeg"), binaryPath("gifski"), execBinary);
+  const ff = new FFmpeg(binaryPath("ffmpeg"), binaryPath("gifski"), resvgUrl, execBinary);
   if (tty) {
     ff.onProgress = (done) => process.stdout.write(`\r\x1b[2K${label} ${Math.floor(done * 100)}%`);
   }
