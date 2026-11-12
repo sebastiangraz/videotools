@@ -19,7 +19,7 @@ import {
 import { MARK } from "@videotools/core/tools/mark-config";
 import { runEngine } from "@src/engine";
 import type { EngineRequest } from "@src/engine/worker";
-import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
+import { SCRUB_FRAMES } from "./useMarkPreview";
 
 type User = ReturnType<typeof userEvent.setup>;
 const markButton = () => screen.getByRole("button", { name: /^mark$/i });
@@ -384,22 +384,5 @@ describe("Mark", () => {
 
     await engineRun();
     expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
-  });
-});
-
-describe("shuffleRoute", () => {
-  it("spends every position before any comes round again, never twice running", () => {
-    for (let run = 0; run < 100; run++) {
-      const route = shuffleRoute("top");
-      expect(route[0]).toBe("top");
-      for (let bag = 0; bag < route.length; bag += 9) {
-        expect(new Set(route.slice(bag, bag + 9)).size).toBe(9);
-      }
-      route.forEach((at, i) => expect(at).not.toBe(route[(i + 1) % route.length]));
-    }
-  });
-
-  it("draws a new route each time", () => {
-    expect(shuffleRoute("top")).not.toEqual(shuffleRoute("top"));
   });
 });

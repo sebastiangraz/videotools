@@ -5,6 +5,7 @@ import {
   MARK_POSITIONS,
   MARK_SIZES,
   MARK_VIEWS,
+  shuffleRoute,
 } from "../tools/mark-config.js";
 import { parseBounds, watermarkGraph, watermarkLayout } from "../tools/mark-graph.js";
 
@@ -220,6 +221,23 @@ describe("watermarkLayout positions", () => {
       }
     },
   );
+});
+
+describe("shuffleRoute", () => {
+  it("spends every position before any comes round again, never twice running", () => {
+    for (let run = 0; run < 100; run++) {
+      const route = shuffleRoute("top");
+      expect(route[0]).toBe("top");
+      for (let bag = 0; bag < route.length; bag += 9) {
+        expect(new Set(route.slice(bag, bag + 9)).size).toBe(9);
+      }
+      route.forEach((at, i) => expect(at).not.toBe(route[(i + 1) % route.length]));
+    }
+  });
+
+  it("draws a new route each time", () => {
+    expect(shuffleRoute("top")).not.toEqual(shuffleRoute("top"));
+  });
 });
 
 describe("watermarkGraph", () => {

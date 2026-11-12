@@ -33,7 +33,7 @@ Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and op
 A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool), deployed as a static site; there is no backend. The tools live in `core/`, a workspace package the client and `cli/` import as `@videotools/core/*`: `tools/` holds one module per tool, `encode/` one encoder per output format. They are written against `node:fs/promises`, `node:path` and a command runner they are handed, so the same code runs in two places:
 
 - In the browser, where Vite swaps the two modules for the engine's in-memory ones (`client/src/engine/`) and a command runs ffmpeg or gifski as WebAssembly.
-- Natively, for the smoke suites and scripts, through `cli/` (the `video-tools` package): `exec.ts` runs real binaries, and the first native run downloads the host's builds pinned in `binaries.ts` into the user's cache (`~/.videotools/<tool>-<version>/`), sha256-checked.
+- Natively, for the CLI (below), the smoke suites and scripts, through `cli/` (the `video-tools` package): `exec.ts` runs real binaries, and the first native run downloads the host's builds pinned in `binaries.ts` into the user's cache (`~/.videotools/<tool>-<version>/`), sha256-checked.
 
 There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
 
@@ -49,6 +49,17 @@ Cancel (or leaving the tab) terminates the worker. An `InputError` reaches the u
 
 ffmpeg's threads share memory, which needs cross-origin isolation: every response carries the COOP and COEP headers (`vercel.json`, and a middleware in `client/vite.config.ts` for the dev server).
 
+## CLI
+
+`video-tools` (`cli/index.ts`) runs the tools natively over many files, on the same code as the app: one job per file, one after another. Its command so far is Mark:
+
+```bash
+video-tools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <q>] [--out <dir>]
+bun cli/index.ts mark ...                       # from this repo
+```
+
+The flags are Mark's controls: the page's values, starting where the page starts; any other value is refused (`--help` lists them). `--shuffle` draws a new route for each file, as the page does for each export. A folder means the files in it that Mark takes; a glob is expanded by the CLI itself, for shells that pass it on as typed. The first run downloads ffmpeg and gifski into the user's cache. Results go to `--out`, by default the current folder (never the sources', where a rerun would pick them up), named as the app names its downloads; a file whose result would take a name already written in the run fails instead. A failed file is reported (an `InputError` with its message) and the rest go on; the exit code says whether any failed. Ctrl+C stops the running ffmpeg or gifski and removes the job's temp folder.
+
 ## Principles
 
 - **Format agnostic.** Loop, Speed and Mark return a GIF for a GIF, an MP4 for an MP4. Only Convert changes formats. Unsupported formats (AVI, MKV, etc.) are refused with a pointer to Convert.
@@ -58,7 +69,7 @@ ffmpeg's threads share memory, which needs cross-origin isolation: every respons
 
 ## ffmpeg
 
-One pinned ffmpeg, built twice from the same tag with no version workarounds in code: as WebAssembly for the app (`wasm/Dockerfile`) and natively for the smoke suites and scripts (`BINARIES` in `cli/binaries.ts`). Upgrades are rare and manual. Native: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, and update the version, URLs and binary sha256s in `BINARIES`; the next native run downloads the new build. WebAssembly: move the tag and library commits in `wasm/Dockerfile` and rebuild. Then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `cli/gifski/README.md`).
+One pinned ffmpeg, built twice from the same tag with no version workarounds in code: as WebAssembly for the app (`wasm/Dockerfile`) and natively for the CLI, the smoke suites and scripts (`BINARIES` in `cli/binaries.ts`). Upgrades are rare and manual. Native: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, and update the version, URLs and binary sha256s in `BINARIES`; the next native run downloads the new build. WebAssembly: move the tag and library commits in `wasm/Dockerfile` and rebuild. Then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `cli/gifski/README.md`).
 
 ## Adding a tool
 

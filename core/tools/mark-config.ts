@@ -137,6 +137,25 @@ export type MarkPosition = keyof typeof MARK_POSITIONS;
 export const isMarkPosition = (value: unknown): value is MarkPosition =>
   typeof value === "string" && Object.hasOwn(MARK_POSITIONS, value);
 
+const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
+
+// Four bags of every position from `start`, each spent before the next, never
+// the same twice running, looping back to `start` included.
+export const shuffleRoute = (start: MarkPosition): MarkPosition[] => {
+  const route = [start];
+  let bag = POSITIONS.filter((at) => at !== start);
+  while (route.length < 4 * POSITIONS.length) {
+    if (bag.length === 0) bag = [...POSITIONS];
+    const draws = bag.filter((at) => at !== route.at(-1));
+    const next = draws[Math.floor(Math.random() * draws.length)];
+    bag.splice(bag.indexOf(next), 1);
+    route.push(next);
+  }
+  const end = route.length - 1;
+  if (route[end] === start) [route[end - 1], route[end]] = [route[end], route[end - 1]];
+  return route;
+};
+
 export const MARK_FILTERS = ["plain", "glass", "blur"] as const;
 export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>

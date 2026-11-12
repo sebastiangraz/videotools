@@ -17,12 +17,13 @@ import {
   MARK,
   MARK_POSITIONS,
   MARK_TUNING,
+  shuffleRoute,
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
   type MarkView,
 } from "@videotools/core/tools/mark-config";
-import { shuffleRoute, useMarkPreview, type MarkTuning } from "./useMarkPreview";
+import { useMarkPreview, type MarkTuning } from "./useMarkPreview";
 import form from "@src/form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
