@@ -4,7 +4,12 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { FORMATS, SEQUENCE_FORMATS, TOOL_IDS } from "@videotools/core/formats";
 import { VALID_TECHNIQUES } from "@videotools/core/tools/loop";
-import { MARK_FILTERS, MARK_POSITIONS } from "@videotools/core/tools/mark-config";
+import {
+  MARK_FILTERS,
+  MARK_POSITIONS,
+  type MarkPosition,
+} from "@videotools/core/tools/mark-config";
+import { markCommand } from "../../client/src/helpers.js";
 import { execBinary } from "../exec.js";
 import pkg from "../package.json" with { type: "json" };
 
@@ -99,6 +104,50 @@ describe("video-tools", () => {
     const { code, stderr } = await cli("mark", clip, "--logo", logo, "--quality", quality);
     expect(code).toBe(2);
     expect(stderr).toContain("--quality must be a number from 1 to 100\n");
+  });
+
+  // Mark's page copies its settings as a command (client/src/helpers.ts); a
+  // spread of them must give only flags and values --help offers.
+  it("takes the commands Mark's page copies", async () => {
+    const { stdout } = await cli("mark", "--help");
+    // "  --size <size>   small|medium|large (default: medium)"
+    const offered = new Map(
+      [...stdout.matchAll(/^ {2}(--\S+)( <\S+>)? +(.*)$/gm)].map(([, flag, arg, about]) => [
+        flag,
+        { arg, about },
+      ]),
+    );
+    const positions = Object.keys(MARK_POSITIONS) as MarkPosition[];
+    for (const [n, position] of positions.entries()) {
+      const command = markCommand({
+        source: n % 2 ? "my clip.mp4" : undefined,
+        logo: n % 2 ? undefined : "my logo.svg",
+        position,
+        size: (["small", "medium", "large"] as const)[n % 3],
+        filter: MARK_FILTERS[(n + 1) % 3],
+        shuffle: n % 2 === 0,
+        // The knob's ends and between
+        quality: Math.round((n / (positions.length - 1)) * 100),
+      });
+      const [program, tool, source, ...args] = command.match(/"[^"]*"|\S+/g)!;
+      expect([program, tool, source]).toEqual(["video-tools", "mark", expect.stringMatching(/^"/)]);
+      for (let i = 0; i < args.length; i++) {
+        const flag = offered.get(args[i]);
+        expect(flag, `${args[i]} in ${command}`).toBeDefined();
+        if (!flag?.arg) continue;
+        const value = args[++i];
+        const [, min, max] = /^from (\S+) to (\S+)/.exec(flag.about) ?? [];
+        const values = /^\S+\|\S+/.exec(flag.about)?.[0].split("|");
+        if (min) {
+          expect(Number(value) >= Number(min) && Number(value) <= Number(max), command).toBe(true);
+        } else if (values) {
+          expect(values, command).toContain(value);
+        } else {
+          // A file
+          expect(value, command).toMatch(/^".+"$/);
+        }
+      }
+    }
   });
 
   it("turns away a missing logo, naming it", async () => {

@@ -1,3 +1,5 @@
+import type { MarkFilter, MarkPosition, MarkSize } from "@videotools/core/tools/mark-config";
+
 // Class names, falsy ones left out: cx(styles.a, on && styles.b).
 export const cx = (...names: (string | false | null | undefined)[]): string =>
   names.filter(Boolean).join(" ");
@@ -94,6 +96,43 @@ export function verboseName(
         ),
     ].join("_") + splitExtension(resultName)[1]
   );
+}
+
+// Mark's settings as the CLI command (cli/index.ts) that marks the same way,
+// every flag spelled out so it keeps its meaning if a default changes. The
+// browser knows only the files' names; each goes in double quotes, which hold
+// spaces in PowerShell and POSIX shells alike, and one that is not picked, or
+// has a character both shells read inside them, is a placeholder to fill in.
+export function markCommand({
+  source,
+  logo,
+  position,
+  size,
+  filter,
+  shuffle,
+  quality,
+}: {
+  source?: string;
+  logo?: string;
+  position: MarkPosition;
+  size: Exclude<MarkSize, "dev">;
+  filter: MarkFilter;
+  shuffle: boolean;
+  quality: number;
+}): string {
+  const quoted = (name: string | undefined, placeholder: string) =>
+    name && !/["$`]/.test(name) ? `"${name}"` : `"${placeholder}"`;
+  return [
+    "video-tools mark",
+    quoted(source, "<file|folder|glob>"),
+    `--logo ${quoted(logo, "<png|svg>")}`,
+    `--position ${position}`,
+    `--size ${size}`,
+    `--filter ${filter}`,
+    ...(shuffle ? ["--shuffle"] : []),
+    // The knob turns to 0, which the tools take as 1 and the CLI refuses.
+    `--quality ${Math.max(1, quality)}`,
+  ].join(" ");
 }
 
 export function shortenFilename(file: File, length = 24): string {

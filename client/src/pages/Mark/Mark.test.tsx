@@ -385,4 +385,26 @@ describe("Mark", () => {
     await engineRun();
     expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
   });
+
+  it("copies its settings as the CLI's command and says so, the source to fill in until picked and unshuffled for a still", async () => {
+    // userEvent.setup() stands in for the clipboard
+    const user = userEvent.setup();
+    await renderApp("/mark");
+    await pickLogo(user);
+    await user.click(screen.getByRole("button", { name: /large/i }));
+    await user.click(screen.getByRole("button", { name: /shuffle/i }));
+    const copy = screen.getByRole("button", { name: /copy as command/i });
+
+    await user.click(copy);
+    expect(await navigator.clipboard.readText()).toBe(
+      'video-tools mark "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
+    );
+    expect(await screen.findByText(/command copied/i)).toHaveAttribute("role", "status");
+
+    await pickSource(user, file("my shot.png", "image/png"));
+    await user.click(copy);
+    expect(await navigator.clipboard.readText()).toBe(
+      'video-tools mark "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
+    );
+  });
 });

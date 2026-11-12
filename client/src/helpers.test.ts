@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { byFilename, cx, extensionOf, splitExtension, toList, verboseName } from "./helpers";
+import {
+  byFilename,
+  cx,
+  extensionOf,
+  markCommand,
+  splitExtension,
+  toList,
+  verboseName,
+} from "./helpers";
 import { file } from "./test/media";
 
 describe("cx", () => {
@@ -65,5 +73,61 @@ describe("verboseName", () => {
 
   it.each([false, null])("leaves out an option set to %s", (value) => {
     expect(verboseName("clip", [], { route: value }, "out.mp4")).toBe("clip.mp4");
+  });
+});
+
+describe("markCommand", () => {
+  const settings = {
+    source: "clip.mp4",
+    logo: "logo.svg",
+    position: "bottom-right",
+    size: "medium",
+    filter: "glass",
+    shuffle: false,
+    quality: 100,
+  } as const;
+
+  it("spells out every setting, the defaults too", () => {
+    expect(markCommand(settings)).toBe(
+      'video-tools mark "clip.mp4" --logo "logo.svg" --position bottom-right --size medium --filter glass --quality 100',
+    );
+  });
+
+  it("gives each flag its setting, and --shuffle when the page would shuffle", () => {
+    expect(
+      markCommand({
+        ...settings,
+        position: "top-left",
+        size: "large",
+        filter: "blur",
+        shuffle: true,
+        quality: 42,
+      }),
+    ).toBe(
+      'video-tools mark "clip.mp4" --logo "logo.svg" --position top-left --size large --filter blur --shuffle --quality 42',
+    );
+  });
+
+  it("asks for the tools' lowest quality where the knob turns below it", () => {
+    expect(markCommand({ ...settings, quality: 0 })).toMatch(/ --quality 1$/);
+  });
+
+  it.each([
+    ["my clip.mp4", '"my clip.mp4"'],
+    ["it's.mp4", `"it's.mp4"`],
+    ['the "best".mp4', '"<file|folder|glob>"'],
+    ["$HOME.mp4", '"<file|folder|glob>"'],
+    ["`id`.mp4", '"<file|folder|glob>"'],
+    [undefined, '"<file|folder|glob>"'],
+  ])("quotes the source %j as %s", (source, quoted) => {
+    expect(markCommand({ ...settings, source })).toContain(` mark ${quoted} --logo `);
+  });
+
+  it.each([
+    ["my logo.svg", '"my logo.svg"'],
+    ["$logo.png", '"<png|svg>"'],
+    [undefined, '"<png|svg>"'],
+  ])("quotes the logo %j as %s", (logo, quoted) => {
+    expect(markCommand({ ...settings, logo })).toContain(` --logo ${quoted} --position `);
   });
 });

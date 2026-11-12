@@ -8,11 +8,12 @@ import { Spinner } from "@src/components/Spinner/Spinner";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
+import { useMessage } from "@src/hooks/useMessage";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
+import { aspectRatioOf, cx, formatClock, markCommand, toList } from "@src/helpers";
 import {
   MARK,
   MARK_POSITIONS,
@@ -80,6 +81,8 @@ export const Mark = () => {
   // Reshuffled for each export.
   const [shuffle, setShuffle] = useState<MarkPosition[] | null>(null);
   const [quality, setQuality] = useState<number>(100);
+  const [copied, setCopied] = useState(false);
+  useMessage(copied && "Command copied");
   const [previewZoomed, setPreviewZoomed] = useState(false);
   const debug = useDebugMode();
   const [debugView, setDebugView] = useState<MarkView>("render");
@@ -149,6 +152,25 @@ export const Mark = () => {
     });
   };
 
+  // For the CLI to do to a folder what `submit` does to this file.
+  const copyCommand = () =>
+    void navigator.clipboard
+      .writeText(
+        markCommand({
+          source: source.file?.name,
+          logo: watermark?.name,
+          position,
+          size: pickedSize,
+          filter: filterMode,
+          shuffle: shuffling,
+          quality,
+        }),
+      )
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+
   return (
     <ToolPanel
       tool={TOOL}
@@ -168,15 +190,22 @@ export const Mark = () => {
       run={run}
       onSubmit={submit}
       control={
-        !lossless && (
-          <SliderRotary
-            label={`Quality ${quality}`}
-            value={quality}
-            onValueChange={setQuality}
-            {...QUALITY_KNOB}
-            disabled={run.busy}
-          />
-        )
+        <div className={styles.markControl}>
+          {watermark && (
+            <button type="button" className={cx(form.label, styles.markCopy)} onClick={copyCommand}>
+              Copy as command
+            </button>
+          )}
+          {!lossless && (
+            <SliderRotary
+              label={`Quality ${quality}`}
+              value={quality}
+              onValueChange={setQuality}
+              {...QUALITY_KNOB}
+              disabled={run.busy}
+            />
+          )}
+        </div>
       }
     >
       {source.file && hasFrames(source.file) && watermark && (
