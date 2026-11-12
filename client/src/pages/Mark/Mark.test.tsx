@@ -397,14 +397,14 @@ describe("Mark", () => {
 
     await user.click(copy);
     expect(await navigator.clipboard.readText()).toBe(
-      'video-tools mark "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
+      'npx @videotools/cli mark "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
     );
     expect(await screen.findByText(/command copied/i)).toHaveAttribute("role", "status");
 
     await pickSource(user, file("my shot.png", "image/png"));
     await user.click(copy);
     expect(await navigator.clipboard.readText()).toBe(
-      'video-tools mark "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
+      'npx @videotools/cli mark "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
     );
   });
 });

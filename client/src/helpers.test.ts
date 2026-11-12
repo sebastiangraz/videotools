@@ -89,7 +89,7 @@ describe("markCommand", () => {
 
   it("spells out every setting, the defaults too", () => {
     expect(markCommand(settings)).toBe(
-      'video-tools mark "clip.mp4" --logo "logo.svg" --position bottom-right --size medium --filter glass --quality 100',
+      'npx @videotools/cli mark "clip.mp4" --logo "logo.svg" --position bottom-right --size medium --filter glass --quality 100',
     );
   });
 
@@ -104,7 +104,7 @@ describe("markCommand", () => {
         quality: 42,
       }),
     ).toBe(
-      'video-tools mark "clip.mp4" --logo "logo.svg" --position top-left --size large --filter blur --shuffle --quality 42',
+      'npx @videotools/cli mark "clip.mp4" --logo "logo.svg" --position top-left --size large --filter blur --shuffle --quality 42',
     );
   });
 

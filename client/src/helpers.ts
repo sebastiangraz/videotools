@@ -99,10 +99,11 @@ export function verboseName(
 }
 
 // Mark's settings as the CLI command (cli/index.ts) that marks the same way,
-// every flag spelled out so it keeps its meaning if a default changes. The
-// browser knows only the files' names; each goes in double quotes, which hold
-// spaces in PowerShell and POSIX shells alike, and one that is not picked, or
-// has a character both shells read inside them, is a placeholder to fill in.
+// through npx so Node is all it needs, every flag spelled out so it keeps its
+// meaning if a default changes. The browser knows only the files' names; each
+// goes in double quotes, which hold spaces in PowerShell and POSIX shells
+// alike, and one that is not picked, or has a character both shells read
+// inside them, is a placeholder to fill in.
 export function markCommand({
   source,
   logo,
@@ -123,7 +124,7 @@ export function markCommand({
   const quoted = (name: string | undefined, placeholder: string) =>
     name && !/["$`]/.test(name) ? `"${name}"` : `"${placeholder}"`;
   return [
-    "video-tools mark",
+    "npx @videotools/cli mark",
     quoted(source, "<file|folder|glob>"),
     `--logo ${quoted(logo, "<png|svg>")}`,
     `--position ${position}`,

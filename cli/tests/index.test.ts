@@ -107,7 +107,8 @@ describe("video-tools", () => {
   });
 
   // Mark's page copies its settings as a command (client/src/helpers.ts); a
-  // spread of them must give only flags and values --help offers.
+  // spread of them must run this package and give only flags and values
+  // --help offers.
   it("takes the commands Mark's page copies", async () => {
     const { stdout } = await cli("mark", "--help");
     // "  --size <size>   small|medium|large (default: medium)"
@@ -129,8 +130,13 @@ describe("video-tools", () => {
         // The knob's ends and between
         quality: Math.round((n / (positions.length - 1)) * 100),
       });
-      const [program, tool, source, ...args] = command.match(/"[^"]*"|\S+/g)!;
-      expect([program, tool, source]).toEqual(["video-tools", "mark", expect.stringMatching(/^"/)]);
+      const [npx, name, tool, source, ...args] = command.match(/"[^"]*"|\S+/g)!;
+      expect([npx, name, tool, source]).toEqual([
+        "npx",
+        pkg.name,
+        "mark",
+        expect.stringMatching(/^"/),
+      ]);
       for (let i = 0; i < args.length; i++) {
         const flag = offered.get(args[i]);
         expect(flag, `${args[i]} in ${command}`).toBeDefined();
