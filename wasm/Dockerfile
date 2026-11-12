@@ -1,6 +1,6 @@
 # ffmpeg 9.0.2 and gifski 1.34.0 as WebAssembly, for the browser engine
 # (client/src/engine). Library commits are BtbN's for the native 9.0.2 build
-# (scripts/binaries.mjs), so both engines encode with the same code.
+# (cli/binaries.ts), so both engines encode with the same code.
 #
 #   docker build -f wasm/Dockerfile --output client/public/engine/<new> wasm
 #

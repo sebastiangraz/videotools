@@ -2,9 +2,6 @@ node_modules/
 dist/
 tmp/
 .smoke/
-# Fetched by the postinstall (scripts/binaries.mjs pins them)
-cli/bin/ffmpeg/
-cli/bin/gifski/*/
 
 .vercel
 .env*

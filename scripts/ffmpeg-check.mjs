@@ -4,7 +4,7 @@
 //   bun scripts/ffmpeg-check.mjs [<ffmpeg path>]    default: the pinned one
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { BINARIES, binaryPath } from "./binaries.mjs";
+import { BINARIES, binaryPath, install } from "../cli/binaries.ts";
 
 const NEEDS = {
   encoders: [
@@ -75,7 +75,7 @@ function ffmpegVersion(ffmpeg) {
 }
 
 // Exits listing what `ffmpeg` lacks; `pinned` also holds it to the version
-// binaries.mjs pins (off for another build). Returns the version it reports.
+// BINARIES pins (off for another build). Returns the version it reports.
 export function requireFfmpeg(ffmpeg, { pinned }) {
   const problems = [];
   const found = ffmpegVersion(ffmpeg);
@@ -83,7 +83,7 @@ export function requireFfmpeg(ffmpeg, { pinned }) {
   // BtbN builds say "n8.1.3-20260922", a branch head "n9.0.2-3-ga5923073bf-…".
   const bare = found.replace(/^n/, "");
   if (pinned && !(bare === version || bare.startsWith(`${version}-`))) {
-    problems.push(`version ${found}, binaries.mjs pins ${version}`);
+    problems.push(`version ${found}, cli/binaries.ts pins ${version}`);
   }
   for (const [kind, names] of Object.entries(NEEDS)) {
     const r = spawnSync(ffmpeg, ["-hide_banner", `-${kind}`], {
@@ -104,6 +104,7 @@ export function requireFfmpeg(ffmpeg, { pinned }) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (!process.argv[2]) await install("ffmpeg");
   const ffmpeg = process.argv[2] ?? binaryPath("ffmpeg");
   const version = requireFfmpeg(ffmpeg, { pinned: !process.argv[2] });
   console.log(`${ffmpeg}: ffmpeg ${version}, has everything core uses`);

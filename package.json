@@ -5,7 +5,8 @@
   "description": "A web application with video tools: seamless loops, image sequences to video, and more",
   "workspaces": [
     "core",
-    "client"
+    "client",
+    "cli"
   ],
   "type": "module",
   "scripts": {
@@ -13,7 +14,6 @@
     "build": "bun --filter client build",
     "test": "bun --filter client test",
     "smoke": "bun scripts/smoke/index.mjs",
-    "postinstall": "bun scripts/binaries-install.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p client",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",

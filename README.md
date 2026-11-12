@@ -5,7 +5,7 @@ Browser video tools: seamless loops, image sequences to video, speed changes, fo
 Bun 1.4: package manager and script runner. The app is a static site: every tool runs in the browser, on ffmpeg and gifski built as WebAssembly. That build is committed in `client/public/engine/`, in a folder named after its files that `GLUE_URL` (`client/src/engine/exec.ts`) points at: browsers keep an engine for good under its address. Rebuild it (`wasm/Dockerfile`, needs Docker) only when the engine changes, into a new folder that `GLUE_URL` then points at; `bun run test` gives the name to rename both to.
 
 ```bash
-bun install                                     # deps + pinned native ffmpeg/gifski for the smoke runs (postinstall)
+bun install                                     # deps
 docker build -f wasm/Dockerfile --output client/public/engine/<new> wasm   # rebuild the engine
 bun run dev                                     # Vite dev server
 
@@ -24,16 +24,16 @@ vercel --prod                                   # production deploy
 git config core.autocrlf false                  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
-Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `core/tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the tools themselves, natively on the pinned ffmpeg, over the assets in `scripts/smoke/assets/` (`images/`, `vectors/`, and `videos/`, where each suite lists the clips it uses by file name). `mark` lays its videos out as cropped tiles of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the light-tracking clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip. `quality` runs each tool over its videos at quality 100 and scores each result's SSIM, PSNR and VMAF against a lossless render of the same pictures (or against its input where the tool copies), failing when any frame falls below the floors in `quality.mjs`; round trips are also scored against the source.
+Unit tests run through vitest from the client config (two projects: jsdom for `client/src`, node for `core/tests` and `cli/tests`) and never spawn ffmpeg. `scripts/smoke/index.mjs` runs the smoke suites: the tools themselves, natively on the pinned ffmpeg and gifski (downloaded into the user's cache on the first run), over the assets in `scripts/smoke/assets/` (`images/`, `vectors/`, and `videos/`, where each suite lists the clips it uses by file name). `mark` lays its videos out as cropped tiles of one grid and marks all tiles with each vector in turn into `.smoke/<name>/mark/mark.mp4` for a look at the glass over each backdrop. `light` lays out the light-tracking clips the same way, each marked whole with the first vector, into `.smoke/<name>/light/light.mp4` to watch the light follow each clip. `quality` runs each tool over its videos at quality 100 and scores each result's SSIM, PSNR and VMAF against a lossless render of the same pictures (or against its input where the tool copies), failing when any frame falls below the floors in `quality.mjs`; round trips are also scored against the source.
 
 Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and opens Mark's debug panel (preview views, the dev size, a core gain knob). Dev servers also serve a `/test` scratch page for the shared components.
 
 ## Architecture
 
-A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool), deployed as a static site; there is no backend. The tools live in `core/`, a workspace package the client imports as `@videotools/core/*`: `tools/` holds one module per tool, `encode/` one encoder per output format. They are written against `node:fs/promises`, `node:path` and a command runner they are handed, so the same code runs in two places:
+A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool), deployed as a static site; there is no backend. The tools live in `core/`, a workspace package the client and `cli/` import as `@videotools/core/*`: `tools/` holds one module per tool, `encode/` one encoder per output format. They are written against `node:fs/promises`, `node:path` and a command runner they are handed, so the same code runs in two places:
 
 - In the browser, where Vite swaps the two modules for the engine's in-memory ones (`client/src/engine/`) and a command runs ffmpeg or gifski as WebAssembly.
-- Natively under Bun, for the smoke suites and scripts, against real binaries: `bun install`'s postinstall fetches the host's builds pinned in `scripts/binaries.mjs` into `cli/bin/` (gitignored, sha256-checked).
+- Natively, for the smoke suites and scripts, through `cli/` (the `video-tools` package): `exec.ts` runs real binaries, and the first native run downloads the host's builds pinned in `binaries.ts` into the user's cache (`~/.videotools/<tool>-<version>/`), sha256-checked.
 
 There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
 
@@ -58,7 +58,7 @@ ffmpeg's threads share memory, which needs cross-origin isolation: every respons
 
 ## ffmpeg
 
-One pinned ffmpeg (currently 9.0.2), built twice from the same tag with no version workarounds in code: as WebAssembly for the app (`wasm/Dockerfile`) and natively for the smoke suites (`scripts/binaries.mjs`). Upgrades are rare and manual. Native: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, update the URLs and binary sha256s in `BINARIES`, `bun install`. WebAssembly: move the tag and library commits in `wasm/Dockerfile` and rebuild. Then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `cli/bin/gifski/README.md`).
+One pinned ffmpeg, built twice from the same tag with no version workarounds in code: as WebAssembly for the app (`wasm/Dockerfile`) and natively for the smoke suites and scripts (`BINARIES` in `cli/binaries.ts`). Upgrades are rare and manual. Native: gzip each platform's new build (BtbN GPL builds for Windows/Linux, martin-riedl.de for macOS), attach them to a new `ffmpeg-<version>` release here, and update the version, URLs and binary sha256s in `BINARIES`; the next native run downloads the new build. WebAssembly: move the tag and library commits in `wasm/Dockerfile` and rebuild. Then `bun run test` and `bun run smoke <name>`. gifski is pinned the same way (see `cli/gifski/README.md`).
 
 ## Adding a tool
 

@@ -10,10 +10,10 @@
 //   bun run smoke before mark:depthmap,glass   only these parts, the rest kept
 import fs from "node:fs";
 import path from "node:path";
+import { binaryPath, install } from "../../cli/binaries.ts";
 import { execBinary } from "../../cli/exec.ts";
 import { FFmpeg } from "../../core/ffmpeg.ts";
 import { runTool as runToolOn } from "../../core/tools/index.ts";
-import { binaryPath, root } from "../binaries.mjs";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
 import { encodeLoss } from "./quality.mjs";
@@ -22,6 +22,7 @@ const SUITES = { mark: markGrid, light: lightGrid, quality: encodeLoss };
 // Subfolders a suite can run on their own.
 const PARTS = { mark: MARK_GRIDS };
 
+const root = path.join(import.meta.dirname, "..", "..");
 const assetsDir = path.join(root, "scripts", "smoke", "assets");
 const smokeDir = path.join(root, ".smoke");
 
@@ -42,6 +43,8 @@ if (!label || unknown.length) {
   process.exit(2);
 }
 
+await install("ffmpeg");
+await install("gifski");
 const ffmpegPath = binaryPath("ffmpeg");
 requireFfmpeg(ffmpegPath, { pinned: true });
 const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), execBinary);

@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => ({
         test: {
           name: "node",
           environment: "node",
-          include: ["../core/tests/**/*.test.ts"],
+          include: ["../core/tests/**/*.test.ts", "../cli/tests/**/*.test.ts"],
         },
       },
     ],

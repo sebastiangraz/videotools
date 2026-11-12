@@ -8,7 +8,7 @@ type RunOptions = {
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
-// Runs a binary to its end: native (binaries.ts) or WebAssembly (client/src/engine).
+// Runs a binary to its end: native (cli/exec.ts) or WebAssembly (client/src/engine).
 // Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
 // only when not started.
 export type Exec = (command: string, args: string[], options: RunOptions) => Promise<RunResult>;
