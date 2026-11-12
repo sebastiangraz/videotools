@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execBinary } from "../../cli/exec.ts";
 import { FFmpeg } from "../../core/ffmpeg.ts";
-import { TOOLS } from "../../core/tools/index.ts";
+import { runTool as runToolOn } from "../../core/tools/index.ts";
 import { binaryPath, root } from "../binaries.mjs";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
@@ -45,6 +45,7 @@ if (!label || unknown.length) {
 const ffmpegPath = binaryPath("ffmpeg");
 requireFfmpeg(ffmpegPath, { pinned: true });
 const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), execBinary);
+const runTool = (...args) => runToolOn(ff, ...args);
 
 const listed = (dir) =>
   fs
@@ -57,16 +58,6 @@ const assets = {
   vectors: listed("vectors"),
   videos: picked("videos"),
 };
-
-// One tool run: `files` in the order the tool takes them, results in `workDir`.
-async function runTool(tool, files, options, workDir) {
-  fs.mkdirSync(workDir, { recursive: true });
-  const inputs = files.map((file) => ({
-    name: path.basename(file),
-    save: async (destPath) => fs.copyFileSync(file, destPath),
-  }));
-  return TOOLS[tool]({ ff, workDir, inputs, options });
-}
 
 // Progress bar
 const BAR_WIDTH = 20;
