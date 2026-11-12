@@ -329,7 +329,8 @@ if (command.together && formats.size > 1) {
 const jobs = command.together ? [sources] : sources.map((source) => [source]);
 
 const out = (values.out as string | undefined) ?? ".";
-fs.mkdirSync(out, { recursive: true });
+// Resolved: on Windows, Bun's recursive mkdir throws for "." and "..".
+fs.mkdirSync(path.resolve(out), { recursive: true });
 
 // The folder of the job running, for Ctrl+C to remove.
 let workDir: string | undefined;
