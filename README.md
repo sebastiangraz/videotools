@@ -33,7 +33,7 @@ Debug mode press Shift+D to toggle it. It sets `[data-debug]` on `<body>` and op
 A Vite + React 19 client in `client/` (TanStack Router, one `/$tool` route per tool), deployed as a static site; there is no backend. The tools live in `core/`, a workspace package the client and `cli/` import as `@videotools/core/*`: `tools/` holds one module per tool, `encode/` one encoder per output format. They are written against `node:fs/promises`, `node:path`, and a command runner and resvg's WebAssembly they are handed, so the same code runs in two places:
 
 - In the browser, where Vite swaps the two modules for the engine's in-memory ones (`client/src/engine/`) and a command runs ffmpeg or gifski as WebAssembly.
-- Natively, for the CLI (below), the smoke suites and scripts, through `cli/` (the `video-tools` package): `exec.ts` runs real binaries, and the first native run downloads the host's builds pinned in `binaries.ts` into the user's cache (`~/.videotools/<tool>-<version>/`), sha256-checked.
+- Natively, for the CLI (below), the smoke suites and scripts, through `cli/` (the `@videotools/cli` package): `exec.ts` runs real binaries, and the first native run downloads the host's builds pinned in `binaries.ts` into the user's cache (`~/.videotools/<tool>-<version>/`), sha256-checked.
 
 There is no system ffmpeg dependency and no ffprobe (`ffmpeg -i` is the probe).
 
@@ -60,7 +60,7 @@ video-tools speed <file|folder|glob>... [--speed <n>]
 video-tools convert <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
 video-tools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
 video-tools <tool> --help                       # its flags, their values and defaults
-npx video-tools <tool> ...                      # from npm, on Node
+npx @videotools/cli <tool> ...                  # from npm, on Node
 bun cli/index.ts <tool> ...                     # from this repo
 ```
 

@@ -1,6 +1,6 @@
 {
-  "name": "video-tools",
-  "version": "0.1.0",
+  "name": "@videotools/cli",
+  "version": "0.1.1",
   "description": "Video tools on the command line: seamless loops, image sequences to video, speed changes, format conversion and watermarks, for many files at once",
   "repository": {
     "type": "git",
@@ -15,6 +15,9 @@
     "gifski"
   ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "bun build index.ts --target node --external @resvg/resvg-wasm --outfile dist/index.js"
   },

@@ -1,4 +1,4 @@
-# Publishes cli/ to npm as video-tools when a cli-v<version> tag is pushed.
+# Publishes cli/ to npm as @videotools/cli when a cli-v<version> tag is pushed.
 # npm trusted publishing: the OIDC token stands in for an npm token.
 name: cli
 
