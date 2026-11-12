@@ -11,7 +11,7 @@ import { openSource, preservedFormat, type Source } from "../source.js";
 import type { Tool } from "./types.js";
 
 // Mirrored in client/src/pages/Loop/Loop.tsx (TECHNIQUES)
-const VALID_TECHNIQUES = ["reverse", "crossfade"] as const;
+export const VALID_TECHNIQUES = ["reverse", "crossfade"] as const;
 
 const STREAM_COPY: FormatId[] = ["mp4", "mov", "webm"];
 

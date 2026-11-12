@@ -51,17 +51,24 @@ ffmpeg's threads share memory, which needs cross-origin isolation: every respons
 
 ## CLI
 
-`video-tools` (`cli/index.ts`) runs the tools natively over many files, on the same code as the app: one job per file, one after another. Its command so far is Mark:
+`video-tools` (`cli/index.ts`) runs the tools natively over many files, on the same code as the app, a job at a time: one per file, or one for all of a sequence's images.
 
 ```bash
-video-tools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <q>] [--out <dir>]
-npx video-tools mark ...                        # from npm, on Node
-bun cli/index.ts mark ...                       # from this repo
+video-tools loop <file|folder|glob>... [--technique <how>] [--fade <seconds>] [--start <seconds>] [--quality <n>]
+video-tools sequence <file|folder|glob>... [--frame-duration <seconds>] [--format <format>] [--quality <n>]
+video-tools speed <file|folder|glob>... [--speed <n>]
+video-tools convert <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
+video-tools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
+video-tools <tool> --help                       # its flags, their values and defaults
+npx video-tools <tool> ...                      # from npm, on Node
+bun cli/index.ts <tool> ...                     # from this repo
 ```
+
+Every tool also takes `--out <dir>`.
 
 `bun run build` in `cli/` bundles it, core included, into one Node script in `cli/dist/`; resvg's package stays a dependency, its WebAssembly read from where it is installed. To release, bump `version` in `cli/package.json` and push the tag `cli-v<version>`: `.github/workflows/cli.yml` tests, builds and publishes it to npm.
 
-The flags are Mark's controls: the page's values, starting where the page starts; any other value is refused (`--help` lists them). `--shuffle` draws a new route for each file, as the page does for each export. A folder means the files in it that Mark takes; a glob is expanded by the CLI itself, for shells that pass it on as typed. The first run downloads ffmpeg and gifski into the user's cache. Results go to `--out`, by default the current folder (never the sources', where a rerun would pick them up), named as the app names its downloads; a file whose result would take a name already written in the run fails instead. A failed file is reported (an `InputError` with its message) and the rest go on; the exit code says whether any failed. Ctrl+C stops the running ffmpeg or gifski and removes the job's temp folder.
+The flags are each page's controls: the page's values, starting where the page starts; any other value is refused, and so is a flag the page shows only beside another setting (`--fade` and `--start` with the crossfade technique, `--fps` and `--width` with GIF). Convert without `--to` picks as its page does: MP4, or WebM for an MP4. A negative `--speed` is written with `=`. `--shuffle` draws a new route for each file, as the page does for each export. A folder means the files in it that the tool takes, not its subfolders'; a glob is expanded by the CLI itself, for shells that pass it on as typed. Files go in natural filename order, except that a sequence takes its arguments in the order given (a folder's or glob's images in natural order) and is named after its first image; as on its page, its images must share a format. The first run downloads ffmpeg and gifski into the user's cache. Results go to `--out`, by default the current folder (never the sources', where a rerun would pick them up), named as the app names its downloads; a file whose result would take a name already written in the run fails instead. A failed file is reported (an `InputError` with its message) and the rest go on; the exit code says whether any failed. Ctrl+C stops the running ffmpeg or gifski and removes the job's temp folder.
 
 ## Principles
 
@@ -80,9 +87,10 @@ One pinned ffmpeg, built twice from the same tag with no version workarounds in 
 2. Add its entry to `TOOL_META` in `client/src/tools.ts` (label, description, input accept, action label).
 3. Write the tool in `core/tools/<tool>.ts` and register it in `TOOLS` in `core/tools/index.ts`.
 4. Add a page under `client/src/pages/<Tool>/` and register it in `PAGES` in `client/src/pages/index.ts`.
-5. Add a smoke suite in `scripts/smoke/` and register it in `SUITES` in `scripts/smoke/index.mjs`.
+5. Add its command to `COMMANDS` in `cli/index.ts`: the page's controls as flags.
+6. Add a smoke suite in `scripts/smoke/` and register it in `SUITES` in `scripts/smoke/index.mjs`.
 
-Steps 1–4 are type-checked against each other, so a missing registration fails to compile. Routes, tabs and the SPA rewrite need no changes.
+Steps 1–5 are type-checked against each other, so a missing registration fails to compile. Routes, tabs and the SPA rewrite need no changes.
 
 ## Limits
 

@@ -1,15 +1,25 @@
 #!/usr/bin/env node
-// The app's tools, run natively (binaries.ts, exec.ts) on many files: one
-// job per file, one at a time, each named as the app names its download.
+// The app's tools, run natively (binaries.ts, exec.ts) on many files, a job
+// at a time: one per file, or one for all of a sequence's images. Results are
+// named as the app names its downloads.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { InputError } from "@videotools/core/errors";
 import { FFmpeg } from "@videotools/core/ffmpeg";
-import { FORMATS, STILLS, resultFile } from "@videotools/core/formats";
+import {
+  FORMATS,
+  SEQUENCE_FORMATS,
+  STILLS,
+  TOOL_IDS,
+  isToolId,
+  resultFile,
+  type ToolId,
+} from "@videotools/core/formats";
 import { removeDir } from "@videotools/core/helpers";
 import { runTool } from "@videotools/core/tools/index";
+import { VALID_TECHNIQUES } from "@videotools/core/tools/loop";
 import {
   MARK_FILTERS,
   MARK_POSITIONS,
@@ -21,107 +31,307 @@ import { binaryPath, install, resvgUrl } from "./binaries.js";
 import { execBinary, running } from "./exec.js";
 import pkg from "./package.json" with { type: "json" };
 
-// What Mark's page offers. The tool takes any other value as its default, so
-// a typo is turned away here instead.
-const CHOICES: Record<"position" | "size" | "filter", readonly string[]> = {
-  position: Object.keys(MARK_POSITIONS),
-  size: Object.keys(MARK_SIZES).filter((size) => size !== "dev"),
-  filter: MARK_FILTERS,
+// A page's control. The tools take any value outside what the page offers as
+// their default, so a typo is turned away here instead.
+type Flag = {
+  // The value's name in --help; a flag without one is a switch.
+  arg?: string;
+  values?: readonly string[];
+  // A number's [min, max].
+  range?: readonly [number, number];
+  // Where the page starts.
+  default?: string;
+  required?: boolean;
+  // The page shows the control only while that flag has that value.
+  only?: readonly [string, string];
+  help?: string;
 };
+type Values = Record<string, string | boolean | undefined>;
 
-// Defaults are what the page starts on.
-const OPTIONS = {
-  logo: { type: "string" },
-  position: { type: "string", default: "bottom-right" },
-  size: { type: "string", default: "medium" },
-  filter: { type: "string", default: "glass" },
-  shuffle: { type: "boolean" },
-  // The page's slider starts at the top; the tool's own fallback is lower.
-  quality: { type: "string", default: "100" },
-  out: { type: "string", default: "." },
-  help: { type: "boolean" },
-  version: { type: "boolean" },
-} as const;
+// Every page's slider starts at the top, above some tools' own fallback; the
+// range is the one each tool clamps to.
+const QUALITY: Flag = { arg: "n", range: [1, 100], default: "100" };
 
-// The range mark.ts clamps quality to.
-const QUALITY = { min: 1, max: 100 };
+// What a folder gives a tool: the files its page's picker takes that the tool
+// reads, by extension.
+const VIDEOS = FORMATS.flatMap((format) => format.extensions);
+// Readable but written by no tool, so only Convert takes them (as the pickers'
+// list in client/src/tools.ts).
+const FOREIGN = ["avi", "mkv", "wmv", "mpg", "mpeg", "3gp", "ts"];
+// Sequence's picker takes image/*.
+const IMAGES = [...FORMATS, ...STILLS]
+  .filter((format) => format.mime.startsWith("image/"))
+  .flatMap((format) => format.extensions);
 
-const USAGE = `Usage: video-tools mark <file|folder|glob>... --logo <png|svg> [options]
-       video-tools --help | --version
+// Ranges and lists that live only in the pages or as literals in the tools
+// are written here, each once.
+const COMMANDS: Record<
+  ToolId,
+  {
+    about: string;
+    takes: readonly string[];
+    flags: Record<string, Flag>;
+    // The tool's options for a job whose first file is `file`.
+    options: (values: Values, file: string) => Record<string, unknown>;
+    // One job of all the files, in the order given.
+    together?: boolean;
+  }
+> = {
+  loop: {
+    about: "Loop each video seamlessly",
+    takes: VIDEOS,
+    flags: {
+      technique: { arg: "how", values: VALID_TECHNIQUES, default: "crossfade" },
+      fade: {
+        arg: "seconds",
+        range: [0, Infinity],
+        default: "0.5",
+        only: ["technique", "crossfade"],
+      },
+      start: {
+        arg: "seconds",
+        range: [0, Infinity],
+        default: "0",
+        only: ["technique", "crossfade"],
+        help: "where the loop starts",
+      },
+      quality: QUALITY,
+    },
+    options: (values) => ({
+      technique: values.technique,
+      fadeDuration: Number(values.fade),
+      startSecond: Number(values.start),
+      quality: Number(values.quality),
+    }),
+  },
+  sequence: {
+    about: "Make one video or animation of all the images, in the order given",
+    takes: IMAGES,
+    together: true,
+    flags: {
+      "frame-duration": {
+        arg: "seconds",
+        range: [0.1, Infinity],
+        default: "1",
+        help: "how long each image shows",
+      },
+      format: { arg: "format", values: SEQUENCE_FORMATS, default: "mp4" },
+      quality: QUALITY,
+    },
+    options: (values) => ({
+      frameDuration: Number(values["frame-duration"]),
+      format: values.format,
+      quality: Number(values.quality),
+    }),
+  },
+  speed: {
+    about: "Speed each video up or slow it down",
+    takes: VIDEOS,
+    flags: {
+      speed: {
+        arg: "n",
+        range: [-3, 3],
+        default: "0",
+        help: "1 is twice as fast, -1 half as fast, 3 and -3 four times; a negative as --speed=-1",
+      },
+    },
+    options: (values) => ({ speed: Number(values.speed) }),
+  },
+  convert: {
+    about: "Convert each video to another format",
+    takes: [...VIDEOS, ...FOREIGN],
+    flags: {
+      to: {
+        arg: "format",
+        values: FORMATS.map((format) => format.id),
+        help: "by default mp4, or webm for an mp4",
+      },
+      quality: QUALITY,
+      fps: { arg: "n", range: [1, 30], only: ["to", "gif"], help: "by default the source's" },
+      width: { arg: "px", range: [100, 800], default: "640", only: ["to", "gif"] },
+    },
+    options: (values, file) => ({
+      // The page never offers a file's own format, so starts on the next.
+      target:
+        values.to ?? FORMATS.find((format) => !format.extensions.includes(extension(file)))!.id,
+      quality: Number(values.quality),
+      // null: the source's, as the page's empty field.
+      fps: values.fps === undefined ? null : Number(values.fps),
+      width: Number(values.width),
+    }),
+  },
+  mark: {
+    about: "Watermark each video or image",
+    takes: [...VIDEOS, ...STILLS.flatMap((still) => still.extensions)],
+    flags: {
+      logo: { arg: "png|svg", required: true, help: "the watermark" },
+      position: { arg: "at", values: Object.keys(MARK_POSITIONS), default: "bottom-right" },
+      size: {
+        arg: "size",
+        values: Object.keys(MARK_SIZES).filter((size) => size !== "dev"),
+        default: "medium",
+      },
+      filter: { arg: "filter", values: MARK_FILTERS, default: "glass" },
+      shuffle: { help: "move the mark around a video, from --position on" },
+      quality: QUALITY,
+    },
+    options: (values) => ({
+      filter: values.filter,
+      size: values.size,
+      position: values.position,
+      // A new one each file, as the page draws one each export.
+      route: values.shuffle ? shuffleRoute(values.position as MarkPosition) : null,
+      quality: Number(values.quality),
+    }),
+  },
+};
+const OUT: Flag = { arg: "dir", help: "where results go, by default the current folder" };
 
-Watermarks each file as the web app's Mark does. A folder means the files in
-it that Mark takes; a glob is expanded. The first run downloads ffmpeg and
-gifski.
+const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
+const within = ([min, max]: readonly [number, number]) =>
+  max === Infinity ? `from ${min} up` : `from ${min} to ${max}`;
 
-Options:
-  --position <at>    ${CHOICES.position.join("|")}
-                     (default: ${OPTIONS.position.default})
-  --size <size>      ${CHOICES.size.join("|")} (default: ${OPTIONS.size.default})
-  --filter <filter>  ${CHOICES.filter.join("|")} (default: ${OPTIONS.filter.default})
-  --shuffle          move the mark around a video, from --position on
-  --quality <n>      ${QUALITY.min}-${QUALITY.max} (default: ${OPTIONS.quality.default})
-  --out <dir>        where results go (default: the current folder)
+// The tool's own once it is known.
+let help = `Usage: video-tools <tool> <file|folder|glob>... [options]
+       video-tools <tool> --help
+       video-tools --version
+
+The web app's tools on native ffmpeg, a job at a time: one per file, or one
+for all of a sequence's images. A folder means the files in it that the tool
+takes; a glob is expanded. Results are named as the app names its downloads.
+The first run downloads ffmpeg and gifski.
+
+Tools:
+${TOOL_IDS.map((id) => `  ${id.padEnd(10)}${COMMANDS[id].about}`).join("\n")}
 `;
 
 function usage(problem: string): never {
-  process.stderr.write(`${problem}\n\n${USAGE}`);
+  process.stderr.write(`${problem}\n\n${help}`);
   process.exit(2);
 }
 
-let args;
-try {
-  args = parseArgs({ options: OPTIONS, allowPositionals: true });
-} catch (err) {
-  usage((err as Error).message);
-}
-const { values, positionals } = args;
-if (values.help) {
-  process.stdout.write(USAGE);
+const [tool, ...args] = process.argv.slice(2);
+if (tool === "--help") {
+  process.stdout.write(help);
   process.exit(0);
 }
-if (values.version) {
+if (tool === "--version") {
   process.stdout.write(`${pkg.version}\n`);
   process.exit(0);
 }
+if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool}` : "No tool given");
+const command = COMMANDS[tool];
+const flags = { ...command.flags, out: OUT };
+const required = Object.entries(flags).filter(([, flag]) => flag.required);
+help = `Usage: video-tools ${tool} <file|folder|glob>...${required.map(([name, flag]) => ` --${name} <${flag.arg}>`).join("")} [options]
 
-const [tool, ...inputs] = positionals;
-if (tool !== "mark") usage(tool ? `Unknown tool: ${tool}` : "No tool given");
+${command.about}.
+
+Options:
+${Object.entries(flags)
+  .map(([name, flag]) => {
+    const notes = [
+      flag.default && `default: ${flag.default}`,
+      flag.required && "required",
+      flag.only && `only with --${flag.only[0]} ${flag.only[1]}`,
+    ].filter(Boolean);
+    return `  ${`--${name}${flag.arg ? ` <${flag.arg}>` : ""}`.padEnd(28)}${[
+      flag.values?.join("|"),
+      flag.range && within(flag.range),
+      flag.help,
+    ]
+      .filter(Boolean)
+      .join(": ")}${notes.length ? ` (${notes.join("; ")})` : ""}`;
+  })
+  .join("\n")}
+`;
+
+let parsed;
+try {
+  parsed = parseArgs({
+    args,
+    options: {
+      ...Object.fromEntries(
+        Object.entries(flags).map(([name, flag]) => [
+          name,
+          { type: flag.arg ? ("string" as const) : ("boolean" as const) },
+        ]),
+      ),
+      help: { type: "boolean" },
+    },
+    allowPositionals: true,
+  });
+} catch (err) {
+  usage((err as Error).message);
+}
+const given: Values = parsed.values;
+if (given.help) {
+  process.stdout.write(help);
+  process.exit(0);
+}
+const inputs = parsed.positionals;
 if (!inputs.length) usage("No files given");
-const logo = values.logo ?? usage("No --logo given");
-if (!fs.existsSync(logo)) usage(`No such logo: ${logo}`);
-for (const [flag, allowed] of Object.entries(CHOICES)) {
-  const value = values[flag as keyof typeof CHOICES];
-  if (!allowed.includes(value)) usage(`--${flag} must be one of ${allowed.join(", ")}`);
+const values: Values = {
+  ...Object.fromEntries(Object.entries(flags).map(([name, flag]) => [name, flag.default])),
+  ...given,
+};
+for (const [name, flag] of Object.entries(flags)) {
+  const value = given[name];
+  if (value === undefined) {
+    if (flag.required) usage(`No --${name} given`);
+    continue;
+  }
+  if (flag.values && !flag.values.includes(String(value))) {
+    usage(`--${name} must be one of ${flag.values.join(", ")}`);
+  }
+  if (flag.range && !(Number(value) >= flag.range[0] && Number(value) <= flag.range[1])) {
+    usage(`--${name} must be a number ${within(flag.range)}`);
+  }
+  if (flag.only && values[flag.only[0]] !== flag.only[1]) {
+    usage(`--${name} goes only with --${flag.only[0]} ${flag.only[1]}`);
+  }
 }
-const quality = Number(values.quality);
-if (!(quality >= QUALITY.min && quality <= QUALITY.max)) {
-  usage(`--quality must be a number from ${QUALITY.min} to ${QUALITY.max}`);
-}
+const logo = values.logo as string | undefined;
+if (logo !== undefined && !fs.existsSync(logo)) usage(`No such logo: ${logo}`);
 
-// The extensions Mark's page takes that the tool can read.
-const MARKABLE = [...FORMATS, ...STILLS].flatMap((format) => format.extensions);
-const files = new Set<string>();
-for (const input of inputs) {
+const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+const found = inputs.map((input) => {
   // A path that exists is that path, glob characters and all.
-  const found = (fs.existsSync(input) ? [input] : fs.globSync(input)).flatMap((name) =>
-    fs.statSync(name).isDirectory()
-      ? fs
-          .readdirSync(name, { withFileTypes: true })
-          .filter(
-            (entry) =>
-              entry.isFile() && MARKABLE.includes(path.extname(entry.name).slice(1).toLowerCase()),
-          )
-          .map((entry) => path.join(name, entry.name))
-      : [name],
-  );
-  if (!found.length) usage(`Nothing to mark in ${input}`);
-  for (const file of found) files.add(path.resolve(file));
+  const files = (fs.existsSync(input) ? [input] : fs.globSync(input))
+    .flatMap((name) =>
+      fs.statSync(name).isDirectory()
+        ? fs
+            .readdirSync(name, { withFileTypes: true })
+            .filter((entry) => entry.isFile() && command.takes.includes(extension(entry.name)))
+            .map((entry) => path.join(name, entry.name))
+        : [name],
+    )
+    .map((file) => path.resolve(file))
+    .sort(natural);
+  if (!files.length) usage(`Nothing for ${tool} in ${input}`);
+  return files;
+});
+// A sequence's images in the order given, repeats and all; any other tool
+// takes each file once.
+const sources = command.together ? found.flat() : [...new Set(found.flat())].sort(natural);
+// ffmpeg reads a sequence's images through one demuxer: a mix of formats comes
+// back blank or missing, so the page turns one away too.
+const formats = new Set(
+  sources.map(
+    (file) =>
+      [...FORMATS, ...STILLS].find((format) => format.extensions.includes(extension(file)))?.id ??
+      extension(file),
+  ),
+);
+if (command.together && formats.size > 1) {
+  usage(`Use images of one format, not ${[...formats].join(", ")}`);
 }
-const sources = [...files].sort();
+const jobs = command.together ? [sources] : sources.map((source) => [source]);
 
-fs.mkdirSync(values.out, { recursive: true });
+const out = (values.out as string | undefined) ?? ".";
+fs.mkdirSync(out, { recursive: true });
 
-// The folder of the file being marked, for Ctrl+C to remove.
+// The folder of the job running, for Ctrl+C to remove.
 let workDir: string | undefined;
 const abort = () => {
   for (const child of running) child.kill("SIGKILL");
@@ -145,8 +355,9 @@ console.log = console.error = () => {};
 const tty = process.stdout.isTTY;
 const written = new Set<string>();
 let failed = false;
-for (const [n, file] of sources.entries()) {
-  const label = `[${n + 1}/${sources.length}] ${path.basename(file)}`;
+for (const [n, job] of jobs.entries()) {
+  const more = job.length > 1 ? ` and ${job.length - 1} more` : "";
+  const label = `[${n + 1}/${jobs.length}] ${path.basename(job[0])}${more}`;
   process.stdout.write(tty ? label : `${label}\n`);
   const ff = new FFmpeg(binaryPath("ffmpeg"), binaryPath("gifski"), resvgUrl, execBinary);
   if (tty) {
@@ -155,19 +366,14 @@ for (const [n, file] of sources.entries()) {
   // Sync, so no Ctrl+C lands between the folder and workDir.
   workDir = fs.mkdtempSync(path.join(os.tmpdir(), "videotools-"));
   try {
-    const options = {
-      filter: values.filter,
-      size: values.size,
-      position: values.position,
-      // A new one each file, as the page draws one each export.
-      route: values.shuffle ? shuffleRoute(values.position as MarkPosition) : null,
-      quality,
-    };
-    const { outputPath, suffix, ext } = await runTool(ff, "mark", [file, logo], options, workDir);
-    const { name } = resultFile(path.basename(file), suffix, ext);
+    // Mark's logo is its last input.
+    const files = logo === undefined ? job : [...job, logo];
+    const options = command.options(values, job[0]);
+    const { outputPath, suffix, ext } = await runTool(ff, tool, files, options, workDir);
+    const { name } = resultFile(path.basename(job[0]), suffix, ext);
     if (written.has(name)) throw new Error(`An earlier file was written as ${name}`);
     written.add(name);
-    const result = path.join(values.out, name);
+    const result = path.join(out, name);
     // Sync, so Ctrl+C never leaves half a result.
     fs.copyFileSync(outputPath, result);
     process.stdout.write(`${tty ? "\n" : ""}  ${result}\n`);
