@@ -40,7 +40,7 @@ if (version) {
     "dist/videotools.rb",
     `class Videotools < Formula
   desc "Engine that runs videotools jobs on this machine"
-  homepage "https://videotools-client.vercel.app"
+  homepage "https://videotoo.ls"
   version "${version}"
 
   on_macos do

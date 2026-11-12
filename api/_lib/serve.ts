@@ -16,7 +16,7 @@ import { UPLOADS, errorResponse } from "./request.js";
 // Pages that may send jobs. Browsers send Origin with every cross-origin and
 // every POST request, so other sites are refused; tools like curl send none.
 const ORIGINS = [
-  /^https:\/\/videotools-client\.vercel\.app$/,
+  /^https:\/\/videotoo\.ls$/,
   /^https:\/\/videotools-[\w-]+-grazs-projects\.vercel\.app$/,
   /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
 ];
@@ -100,7 +100,7 @@ if (command === "--install" || command === "--uninstall") {
 // production site, never from the page, so a page can only pick code the site
 // has served. Run from source, it is logic.ts, whatever the page names. Its
 // default export starts it and resolves to the handler.
-const LOGIC_URL = "https://videotools-client.vercel.app/engine.js";
+const LOGIC_URL = "https://videotoo.ls/engine.js";
 type Logic = (request: Request, path: string) => Promise<Response> | Response;
 const logics = new Map<string, Promise<Logic>>();
 
