@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => ({
         : { "node:fs/promises": engine("fs.ts"), "node:path": engine("path.ts") },
   },
   worker: { format: "es" },
+  // Scan the engine worker too: deps found only on first use reload the page.
+  optimizeDeps: { entries: ["index.html", "src/engine/worker.ts"] },
   define: {
     __GIT_SHA__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? ""),
   },

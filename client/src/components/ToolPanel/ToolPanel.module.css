@@ -210,7 +210,6 @@
 }
 
 .prompt {
-  composes: label from "../../form.module.css";
   user-select: none;
   pointer-events: none;
   display: block;

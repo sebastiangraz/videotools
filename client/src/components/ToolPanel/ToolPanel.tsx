@@ -4,6 +4,8 @@ import { Tooltip } from "@src/components/Tooltip/Tooltip";
 import { Footer } from "@src/components/Footer/Footer";
 import type { Tool } from "@src/tools";
 import { CommandLine, VerboseNames, type ToolRun } from "@src/hooks/useToolRun";
+import { cx } from "@src/helpers";
+import form from "@src/form.module.css";
 import styles from "./ToolPanel.module.css";
 
 // The frame every tool page fills in: `inputs` (the drop zones) in the first
@@ -94,7 +96,7 @@ export const ToolPanel = ({
         {commandLine && (
           <div className={styles.command}>
             <div className={styles.commandFill}>
-              <span aria-hidden className={styles.prompt}>
+              <span aria-hidden className={cx(form.label, styles.prompt)}>
                 &gt;_ TERMINAL
               </span>
               <pre className={styles.commandText}>

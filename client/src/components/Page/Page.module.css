@@ -1,6 +1,4 @@
-/* The tool pages' column, view transitions included */
 .container {
-  composes: container from "../ToolPanel/ToolPanel.module.css";
   flex: 1;
 }
 
