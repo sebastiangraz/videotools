@@ -190,7 +190,7 @@ const COMMANDS: Record<
 };
 const OUT: Flag = { arg: "dir", help: "where results go, by default the current folder" };
 const VERBOSE_NAMES: Flag = {
-  help: "name results after their settings, as the app does with Verbose file names on",
+  help: "name results after the source's full name and their settings",
 };
 
 const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
@@ -205,7 +205,8 @@ let help = `Usage: videotools <tool> <file|folder|glob>... [options]
 The web app's tools on native ffmpeg, a job at a time: one per file, or one
 for all of a sequence's images. A folder means the files in it that the tool
 takes; a glob is expanded. Results are named as the app names its downloads,
-verbose ones with --verbose-names. The first run downloads ffmpeg and gifski.
+or after their settings with --verbose-names. The first run downloads ffmpeg
+and gifski.
 
 Tools:
 ${TOOL_IDS.map((id) => `  ${id.padEnd(10)}${COMMANDS[id].about}`).join("\n")}
@@ -377,10 +378,10 @@ for (const [n, job] of jobs.entries()) {
     const files = logo === undefined ? job : [...job, logo];
     const options = command.options(values, job[0]);
     const { outputPath, suffix, ext } = await runTool(ff, tool, files, options, workDir);
-    const source = path.basename(job[0]);
+    const source = path.parse(job[0]);
     const name = values["verbose-names"]
-      ? verboseName(source, logo === undefined ? [] : [path.basename(logo)], options, ext)
-      : resultFile(source, suffix, ext).name;
+      ? verboseName(source.name, logo === undefined ? [] : [path.basename(logo)], options, ext)
+      : resultFile(source.base, suffix, ext).name;
     if (written.has(name)) throw new Error(`An earlier file was written as ${name}`);
     written.add(name);
     const result = path.join(out, name);

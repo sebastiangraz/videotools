@@ -110,8 +110,7 @@ describe("videotools", () => {
 
   // Each page shows its settings as a command (client/src/helpers.ts); a
   // spread of them, its controls' ends among them, must run this package and
-  // give only flags and values the tool's --help offers, each beside what it
-  // goes with.
+  // pass its flags: each is turned away only for its files, which are not there.
   const positions = Object.keys(MARK_POSITIONS);
   const shown: Record<ToolId, Parameters<typeof cliCommand>[2][]> = {
     loop: [
@@ -141,51 +140,21 @@ describe("videotools", () => {
     })),
   };
   it.each(TOOL_IDS)("takes the commands %s's page shows", async (tool) => {
-    const { stdout } = await cli(tool, "--help");
-    // "  --size <size>   small|medium|large (default: medium)"
-    const offered = new Map(
-      [...stdout.matchAll(/^ {2}(--\S+)( <\S+>)? +(.*)$/gm)].map(([, flag, arg, about]) => [
-        flag,
-        { arg, about },
-      ]),
+    await Promise.all(
+      shown[tool].map(async (flags, n) => {
+        const command = cliCommand(tool, n % 2 ? [new File([], "my clip.mp4")] : [], {
+          ...flags,
+          // As ToolPanel adds it while verbose names are on.
+          "verbose-names": n % 2 === 0,
+        });
+        const [npx, name, ...args] = command
+          .match(/"[^"]*"|\S+/g)!
+          .map((arg) => arg.replace(/^"|"$/g, ""));
+        expect([npx, name]).toEqual(["npx", pkg.name]);
+        const { stderr } = await cli(...args);
+        expect(stderr, command).toMatch(new RegExp(`^(Nothing for ${tool} in|No such logo:) `));
+      }),
     );
-    for (const [n, flags] of shown[tool].entries()) {
-      const command = cliCommand(tool, n % 2 ? [new File([], "my clip.mp4")] : [], {
-        ...flags,
-        // As ToolPanel adds it while verbose names are on.
-        "verbose-names": n % 2 === 0,
-      });
-      const [npx, name, program, source, ...args] = command.match(/"[^"]*"|\S+/g)!;
-      expect([npx, name, program, source]).toEqual([
-        "npx",
-        pkg.name,
-        tool,
-        expect.stringMatching(/^"/),
-      ]);
-      for (let i = 0; i < args.length; i++) {
-        // --speed=-1
-        const [arg, inline] = args[i].split("=");
-        const flag = offered.get(arg);
-        expect(flag, `${arg} in ${command}`).toBeDefined();
-        if (!flag) continue;
-        // "(default: 640; only with --to gif)"
-        const only = /only with (--\S+ [^\s)]+)/.exec(flag.about)?.[1];
-        if (only) expect(command, arg).toContain(only);
-        if (!flag.arg) continue;
-        const value = inline ?? args[++i];
-        const [, min, max = "Infinity"] =
-          /^from ([-\d.]+) (?:to ([-\d.]+)|up)/.exec(flag.about) ?? [];
-        const values = /^[\w-]+(?:\|[\w-]+)+/.exec(flag.about)?.[0].split("|");
-        if (min) {
-          expect(Number(value) >= Number(min) && Number(value) <= Number(max), command).toBe(true);
-        } else if (values) {
-          expect(values, command).toContain(value);
-        } else {
-          // A file
-          expect(value, command).toMatch(/^".+"$/);
-        }
-      }
-    }
   });
 
   it("turns away a missing logo, naming it", async () => {

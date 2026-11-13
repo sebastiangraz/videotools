@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ToolId } from "@src/tools";
-import { extensionOf } from "@src/helpers";
+import { extensionOf, splitExtension } from "@src/helpers";
 import { runEngine } from "@src/engine";
 import { verboseName } from "@videotools/core/formats";
 
@@ -52,7 +52,7 @@ export function useToolRun(tool: ToolId) {
         href: objectUrl,
         download: verbose
           ? verboseName(
-              files[0].name,
+              splitExtension(files[0].name)[0].slice(0, 6),
               extras.map((file) => file.name),
               options,
               extensionOf(result.name),

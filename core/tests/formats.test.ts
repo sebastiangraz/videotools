@@ -29,10 +29,14 @@ describe("formats", () => {
 });
 
 describe("verboseName", () => {
-  it("joins 6 characters of the source, the extras and the options, with the result's extension", () => {
+  it("joins the base, the extras and the options, with the result's extension", () => {
     expect(
-      verboseName("holiday-clip.mov", ["logo.png"], { filter: "glass", quality: 100 }, "mp4"),
-    ).toBe("holida_logo.png_fGlass_q100.mp4");
+      verboseName("holiday-clip", ["logo.png"], { filter: "glass", quality: 100 }, "mp4"),
+    ).toBe("holiday-clip_logo.png_fGlass_q100.mp4");
+  });
+
+  it("tells apart bases that start alike", () => {
+    expect(verboseName("clip-01", [], {}, "mp4")).not.toBe(verboseName("clip-02", [], {}, "mp4"));
   });
 
   it.each([
@@ -44,10 +48,10 @@ describe("verboseName", () => {
     [{ route: ["top", "left"] }, "rY"],
     [{ tuning: { coreGain: 3 } }, "tY"],
   ])("writes %o as %s", (options, part) => {
-    expect(verboseName("clip.mp4", [], options, "mp4")).toBe(`clip_${part}.mp4`);
+    expect(verboseName("clip", [], options, "mp4")).toBe(`clip_${part}.mp4`);
   });
 
   it.each([false, null])("leaves out an option set to %s", (value) => {
-    expect(verboseName("clip.mp4", [], { route: value }, "mp4")).toBe("clip.mp4");
+    expect(verboseName("clip", [], { route: value }, "mp4")).toBe("clip.mp4");
   });
 });

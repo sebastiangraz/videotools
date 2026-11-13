@@ -98,19 +98,19 @@ export function resultFile(source: string, suffix: string, ext: FormatId | Still
   return { name: `${base}_${suffix}.${ext}`, mime };
 }
 
-// A result's verbose download name: 6 characters of the source's name, the
-// extras' names, then each option as key initials + value (fadeDuration 0.7 →
-// fd0.7, true, a list or a group → Y, false or null left out), with the
-// result's extension.
+// A result's verbose name: the base (the app's is the start of the source's
+// name, the CLI's all of it), the extras' names, then each option as key
+// initials + value (fadeDuration 0.7 → fd0.7, true, a list or a group → Y,
+// false or null left out), with the result's extension.
 export function verboseName(
-  source: string,
+  base: string,
   extraNames: string[],
   options: Record<string, unknown>,
   ext: string,
 ): string {
   return (
     [
-      source.replace(/\.[^.]+$/, "").slice(0, 6),
+      base,
       ...extraNames,
       ...Object.entries(options)
         .filter(([, value]) => value !== false && value !== null)
