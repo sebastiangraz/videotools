@@ -2,6 +2,7 @@ import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup as BaseToggleGroup } from "@base-ui/react/toggle-group";
 import type { CSSProperties } from "react";
 import { cx } from "@src/helpers";
+import group from "@src/components/ToggleGroup/ToggleGroup.module.css";
 import styles from "./ToggleGrid.module.css";
 
 export const ToggleGrid = <T extends string>({
@@ -24,7 +25,7 @@ export const ToggleGrid = <T extends string>({
     onValueChange={(next) => onValueChange(next.length > 0 ? (next[0] as T) : value)}
     disabled={disabled}
     aria-labelledby={labelledBy}
-    className={cx(styles.root, shuffling && styles.shuffling)}
+    className={cx(group.root, styles.root, shuffling && styles.shuffling)}
     style={{ "--at": options.indexOf(value) } as CSSProperties}
   >
     {options.map((option, i) => (

@@ -6,7 +6,8 @@ import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
-import { toList } from "@src/helpers";
+import { RANGES } from "@videotools/core/formats";
+import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("speed");
@@ -24,7 +25,7 @@ export const Speed = () => {
   const [speed, setSpeed] = useState<number>(0);
 
   // Signed speed ratio → playback multiplier: ±1 → 2× faster/slower,
-  // ±3 → 4×. Mirrored in api/_lib/tools/speed.ts.
+  // ±3 → 4×. Mirrored in core/tools/speed.ts.
   const speedMultiplier = speed >= 0 ? 1 + speed : 1 / (1 - speed);
 
   const pick = (picked: File[]) => {
@@ -49,6 +50,7 @@ export const Speed = () => {
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      command={cliCommand(TOOL.value, toList(source.file), { speed })}
     >
       <div className={form.formGroup}>
         <SliderRotary
@@ -62,8 +64,8 @@ export const Speed = () => {
           }
           value={speed}
           onValueChange={setSpeed}
-          min={-3}
-          max={3}
+          min={RANGES.speed[0]}
+          max={RANGES.speed[1]}
           step={0.1}
           disabled={run.busy}
           centered

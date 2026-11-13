@@ -10,7 +10,8 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { targetsFor } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { toList } from "@src/helpers";
+import { RANGES } from "@videotools/core/formats";
+import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("convert");
@@ -24,8 +25,9 @@ export const Convert = () => {
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the tool probes it, capped at 30)
   const [gifFps, setGifFps] = useState<number | null>(null);
-  // NumberField reports null while empty; submit falls back to the default.
+  // NumberField reports null while empty; the run and the command then take the default.
   const [gifWidth, setGifWidth] = useState<number | null>(640);
+  const width = gifWidth ?? 640;
 
   // `target` survives a file swap; if the new source claims it, fall to the
   // first remaining option.
@@ -44,7 +46,7 @@ export const Convert = () => {
     const options: Record<string, unknown> = { target: effectiveTarget, quality };
     if (effectiveTarget === "gif") {
       if (gifFps != null) options.fps = gifFps;
-      options.width = gifWidth ?? 640;
+      options.width = width;
     }
     run.start({ files: [source.file], options });
   };
@@ -67,6 +69,12 @@ export const Convert = () => {
           disabled={run.busy}
         />
       }
+      command={cliCommand(TOOL.value, toList(source.file), {
+        // No target until a file is picked; without --to the CLI picks as the page would.
+        to: source.file && effectiveTarget,
+        quality,
+        ...(effectiveTarget === "gif" && { fps: gifFps, width }),
+      })}
     >
       {source.file && (
         <>
@@ -93,8 +101,8 @@ export const Convert = () => {
                   id="gifFps"
                   value={gifFps}
                   onValueChange={setGifFps}
-                  min={1}
-                  max={30}
+                  min={RANGES.fps[0]}
+                  max={RANGES.fps[1]}
                   step={1}
                   largeStep={5}
                   disabled={run.busy}
@@ -111,8 +119,8 @@ export const Convert = () => {
                   id="gifWidth"
                   value={gifWidth}
                   onValueChange={setGifWidth}
-                  min={100}
-                  max={800}
+                  min={RANGES.width[0]}
+                  max={RANGES.width[1]}
                   step={20}
                   largeStep={100}
                   disabled={run.busy}

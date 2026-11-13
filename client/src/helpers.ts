@@ -1,3 +1,5 @@
+import type { ToolId } from "@videotools/core/formats";
+
 // Class names, falsy ones left out: cx(styles.a, on && styles.b).
 export const cx = (...names: (string | false | null | undefined)[]): string =>
   names.filter(Boolean).join(" ");
@@ -70,30 +72,32 @@ export function timeAgo(iso: string) {
   return "just now";
 }
 
-// 6 characters of the source, the extras' names, then each option as key
-// initials + value (fadeDuration 0.7 → fd0.7, true, a list or a group → Y, false or null
-// left out), with the extension of the result's name.
-export function verboseName(
-  base: string,
-  extraNames: string[],
-  options: Record<string, unknown>,
-  resultName: string,
+// A page's settings as the CLI command (cli/index.ts) that does the same,
+// through npx so Node is all it needs, every flag spelled out so it keeps its
+// meaning if a default changes. True is a switch; false, or null for a value
+// left to the tool, leaves the flag out.
+// The browser knows only the files' names; each goes in double quotes, which
+// hold spaces in PowerShell and POSIX shells alike, and one that is not picked,
+// or has a character both shells read inside them, is a placeholder to fill in.
+export function cliCommand(
+  tool: ToolId,
+  files: File[],
+  flags: Record<string, string | number | boolean | null | undefined>,
 ): string {
-  return (
-    [
-      base.slice(0, 6),
-      ...extraNames,
-      ...Object.entries(options)
-        .filter(([, value]) => value !== false && value !== null)
-        .map(
-          ([key, value]) =>
-            key.replace(/\B[a-z]+/g, "").toLowerCase() +
-            (typeof value === "string" || typeof value === "number"
-              ? String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())
-              : "Y"),
-        ),
-    ].join("_") + splitExtension(resultName)[1]
-  );
+  const quoted = (name: string | undefined, placeholder: string) =>
+    `"${name && !/["$`]/.test(name) ? name : placeholder}"`;
+  return [
+    `npx @videotools/cli ${tool.toUpperCase()}`,
+    ...(files.length ? files : [undefined]).map((file) => quoted(file?.name, "<file|folder|glob>")),
+    ...Object.entries(flags).flatMap(([name, value]) => {
+      // Mark's logo, the one flag that names a file.
+      if (name === "logo") return `--logo ${quoted(value as string | undefined, "<png|svg>")}`;
+      if (value === true) return `--${name}`;
+      if (value === false || value == null) return [];
+      // A negative number goes after "=", or it reads as a flag.
+      return Number(value) < 0 ? `--${name}=${value}` : `--${name} ${value}`;
+    }),
+  ].join(" ");
 }
 
 export function shortenFilename(file: File, length = 24): string {

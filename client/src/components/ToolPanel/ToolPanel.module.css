@@ -176,6 +176,69 @@
   margin-inline-start: auto;
 }
 
+.command {
+  --tab-h: round(down, 2.5em, 2px);
+  --tab-w: min(12em, 75%);
+  --outline: shape(
+    from 0 0,
+    hline to calc(var(--tab-w) - 4em),
+    curve to var(--tab-w) var(--tab-h) with calc(var(--tab-w) - 1.8em) 0 /
+      calc(var(--tab-w) - 1.8em) var(--tab-h),
+    hline to calc(100% - var(--radius)),
+    curve to 100% calc(var(--tab-h) + var(--radius)) with calc(100% - var(--radius) * 0.264)
+      var(--tab-h) / 100% calc(var(--tab-h) + var(--radius) * 0.264),
+    vline to calc(100% + 1px),
+    hline to 0,
+    close
+  );
+  font-size: var(--font-md);
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  clip-path: var(--outline);
+  background: linear-gradient(var(--border-subtle) 0 0), var(--bg-1);
+}
+
+.commandFill {
+  composes: input from global;
+  clip-path: var(--outline);
+  box-shadow: none;
+  translate: 0 var(--input-edge);
+  padding: 1.2em 1.5em 1em;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.prompt {
+  user-select: none;
+  pointer-events: none;
+  display: block;
+  margin-bottom: 1.4em;
+  line-height: 1;
+  .commandFill & {
+    color: var(--fg-tertiary);
+    font-family: var(--font-sans);
+  }
+}
+
+.commandText {
+  composes: eased from global;
+  --ease-from: hsla(0, 0%, 0%, 66%);
+  --ease-start: min((100% - 3lh) * 2, 0%);
+  --ease-end: calc(var(--ease-start) + max(100%, 3lh));
+  margin: 0;
+  line-height: 1.66;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  mask-image: linear-gradient(to top, var(--ease-in-out-stops));
+
+  &,
+  code {
+    color: var(--fg-secondary);
+    font-family: inherit;
+  }
+}
+
 .errorBox {
   padding: 0.75em 1em;
   border-radius: var(--radius);

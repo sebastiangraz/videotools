@@ -2,7 +2,7 @@ import { screen, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import { runEngine } from "@src/engine";
-import { decimal, engineRun, renderApp, stubEngine } from "@src/test/renderApp";
+import { decimal, engineRun, renderApp, showCommandLine, stubEngine } from "@src/test/renderApp";
 import {
   file,
   stubCanvas,
@@ -35,6 +35,22 @@ describe("Loop", () => {
       tool: "loop",
       options: { fadeDuration: 0.7, startSecond: 1.5 },
     });
+  });
+
+  it("runs an emptied field as its default and shows that in the command", async () => {
+    const user = userEvent.setup();
+    stubEngine();
+
+    await renderApp();
+    await showCommandLine(user);
+    await pick(user, file("tiny.mp4", "video/mp4"));
+    const fade = screen.getByLabelText(/fade duration/i);
+    fireEvent.change(fade, { target: { value: decimal(0, 7) } });
+    fireEvent.change(fade, { target: { value: "" } });
+    await user.click(loopButton());
+
+    expect(screen.getByText(/ --fade 0\.5 --start 0 /)).toBeInTheDocument();
+    expect(await engineRun()).toMatchObject({ options: { fadeDuration: 0.5 } });
   });
 
   it("shows a start-frame preview card when hovering the Start at input", async () => {

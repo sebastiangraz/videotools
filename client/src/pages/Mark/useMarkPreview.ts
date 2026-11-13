@@ -2,37 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { runEngine } from "@src/engine";
 import {
-  MARK_POSITIONS,
   markStays,
   type MARK_TUNING,
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
   type MarkView,
-} from "@api/tools/mark-config";
+} from "@videotools/core/tools/mark-config";
 
 export type MarkTuning = Record<keyof typeof MARK_TUNING, number>;
-const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 // Where the mark is `progress` (0 to 1) through a clip of `stays`.
 const stopAt = (route: MarkPosition[], stays: number, progress: number) =>
   route[Math.floor(progress * stays) % route.length];
-
-// Four bags of every position from `start`, each spent before the next, never
-// the same twice running, looping back to `start` included.
-export const shuffleRoute = (start: MarkPosition): MarkPosition[] => {
-  const route = [start];
-  let bag = POSITIONS.filter((at) => at !== start);
-  while (route.length < 4 * POSITIONS.length) {
-    if (bag.length === 0) bag = [...POSITIONS];
-    const draws = bag.filter((at) => at !== route.at(-1));
-    const next = draws[Math.floor(Math.random() * draws.length)];
-    bag.splice(bag.indexOf(next), 1);
-    route.push(next);
-  }
-  const end = route.length - 1;
-  if (route[end] === start) [route[end - 1], route[end]] = [route[end], route[end - 1]];
-  return route;
-};
 
 // The engine renders the preview with the real ffmpeg graph. Mark geometry is
 // relative to the frame, so a downscaled frame previews the same.

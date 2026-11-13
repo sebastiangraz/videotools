@@ -11,9 +11,9 @@ import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
-import { SEQUENCE_FORMATS, formatById } from "@api/formats";
+import { RANGES, SEQUENCE_FORMATS, formatById } from "@videotools/core/formats";
 import form from "@src/form.module.css";
-import { aspectRatioOf, byFilename, fitScale, formatBytes } from "@src/helpers";
+import { aspectRatioOf, byFilename, cliCommand, fitScale, formatBytes } from "@src/helpers";
 
 const TOOL = toolById("sequence");
 
@@ -84,15 +84,12 @@ export const Sequence = () => {
     files: File[];
     imageMeta: SourceMeta | null;
   }>({ files: [], imageMeta: null });
-  const formatBlocker = useFormatBlocker(files, {
-    stills: true,
-    foreign: false,
-    oneFormat: true,
-  });
-  // NumberField reports null while empty; submit falls back to the default.
+  const formatBlocker = useFormatBlocker(files, { stills: true, foreign: false });
+  // NumberField reports null while empty; the run and the command then take the default.
   const [frameDuration, setFrameDuration] = useState<number | null>(1);
   const [format, setFormat] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
+  const perFrame = frameDuration ?? 1;
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -122,7 +119,7 @@ export const Sequence = () => {
     run.start({
       files,
       options: {
-        frameDuration: frameDuration ?? 1,
+        frameDuration: perFrame,
         format,
         quality,
       },
@@ -149,6 +146,11 @@ export const Sequence = () => {
           disabled={run.busy}
         />
       }
+      command={cliCommand(TOOL.value, files, {
+        "frame-duration": perFrame,
+        format,
+        quality,
+      })}
     >
       <div className={form.formGroup}>
         <label htmlFor="frameDuration" className={form.label}>
@@ -158,12 +160,13 @@ export const Sequence = () => {
           id="frameDuration"
           value={frameDuration}
           onValueChange={setFrameDuration}
-          min={0.1}
+          min={RANGES.frameDuration[0]}
+          max={RANGES.frameDuration[1]}
           step={0.1}
           disabled={run.busy}
           preview={
             files.length > 0 && (
-              <SequencePreview files={files} frameDuration={frameDuration ?? 1} meta={imageMeta} />
+              <SequencePreview files={files} frameDuration={perFrame} meta={imageMeta} />
             )
           }
         />

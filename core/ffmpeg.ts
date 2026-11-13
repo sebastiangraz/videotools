@@ -1,0 +1,359 @@
+import { InputError } from "./errors.js";
+
+type RunOptions = {
+  cwd?: string;
+  // Each line of output as it's written; only the engine streams them.
+  onLine?: (line: string) => void;
+};
+
+type RunResult = { code: number | null; stdout: string; stderr: string };
+
+// Runs a binary to its end: native (cli/exec.ts) or WebAssembly (client/src/engine).
+// Non-zero exits resolve (`ffmpeg -i` probes always end in one); rejects
+// only when not started.
+export type Exec = (command: string, args: string[], options: RunOptions) => Promise<RunResult>;
+
+// How far (0–1) a run says it has got, line by line: ffmpeg's `-progress`
+// frames, at the rate of the last video stream it lists (the output's),
+// against the `seconds` it writes, or gifski's frame count. Not ffmpeg's
+// time: that follows the audio, which runs ahead of the video's encode.
+export function runProgress(seconds: number): (line: string) => number | null {
+  let fps = 0;
+  return (line) => {
+    fps = Number(/^\s*Stream #.*: Video: .*, ([\d.]+) fps\b/.exec(line)?.[1] ?? fps);
+    const frames = /^frame=(\d+)$/.exec(line);
+    if (frames) return fps && seconds > 0 ? Math.min(1, Number(frames[1]) / fps / seconds) : null;
+    const gifski = /\bFrame (\d+) \/ (\d+)\b/.exec(line);
+    return gifski ? Number(gifski[1]) / Number(gifski[2]) : null;
+  };
+}
+
+export const DEFAULT_FPS = 30;
+
+// `codec` is the decoder name (content, not file extension). `matrix` uses
+// scale's names; RGB inputs count as bt601, null is untagged YUV.
+export type MediaInfo = {
+  duration: number;
+  width: number;
+  height: number;
+  fps: number | null;
+  codec: string;
+  matrix: "bt709" | "bt601" | "bt2020" | null;
+  sar: number;
+};
+
+// An animated AVIF lists a one-frame cover stream before the animation, and
+// some files carry cover art as "attached pic". Prefer own bitrate, then fps.
+const OWN_BITRATE_SCORE = 1e6;
+function mainVideo(summary: string): { line: string; index: number } | null {
+  const streams = summary
+    .split("\n")
+    .filter((line) => /Stream #\d+:\d+.*: Video: /.test(line))
+    .map((line, index) => ({ line, index }));
+  const real = streams.filter((s) => !s.line.includes("(attached pic)"));
+  const score = ({ line }: { line: string }) =>
+    (/, \d+x\d+\b.*\b\d+ kb\/s/.test(line) ? OWN_BITRATE_SCORE : 0) +
+    Number(/, ([\d.]+) fps\b/.exec(line)?.[1] ?? 0);
+  return (real.length ? real : streams).reduce<(typeof streams)[number] | null>(
+    (best, s) => (best === null || score(s) > score(best) ? s : best),
+    null,
+  );
+}
+
+// e.g. "yuv420p(tv, bt709, progressive)" or "yuvj444p(pc, bt470bg/unknown/
+// unknown)": one name when all agree, else matrix/primaries/trc.
+const PIX_FMT = /, ([a-z]\w*)(?:\(([^)]*)\))?, \d+x\d+/;
+
+export const isRgb = (pixFmt: string) => /^(rgb|bgr|gbr|argb|abgr|pal8)/.test(pixFmt);
+
+function matrixOf(tags: string[], pixFmt: string): MediaInfo["matrix"] {
+  if (tags.includes("bt709")) return "bt709";
+  if (tags.some((t) => t === "bt470bg" || t === "smpte170m")) return "bt601";
+  if (isRgb(pixFmt) || /^(gray|ya|mono)/.test(pixFmt)) return "bt601";
+  if (tags.some((t) => t.startsWith("bt2020"))) return "bt2020";
+  return null;
+}
+
+// Split on ", " so WxH is matched as a whole field, never inside the codec
+// tag (`avc1 / 0x31637661`). Stills report "Duration: N/A" → 0.
+export function parseMediaInfo(summary: string): MediaInfo | null {
+  const video = mainVideo(summary)?.line;
+  if (!video) return null;
+  const fields = video.slice(video.indexOf(": Video: ")).split(", ");
+  const size = fields.map((f) => /^(\d+)x(\d+)\b/.exec(f)).find(Boolean);
+  if (!size) return null;
+  const codec = /: Video: (\w+)/.exec(video)?.[1] ?? "";
+  const [, pixFmt = "", tags = ""] = PIX_FMT.exec(video) ?? [];
+  const matrix = matrixOf(
+    tags.split(", ").map((t) => t.split("/")[0]),
+    pixFmt,
+  );
+
+  const rate =
+    fields.map((f) => /^([\d.]+) fps\b/.exec(f)).find(Boolean) ??
+    fields.map((f) => /^([\d.]+) tbr\b/.exec(f)).find(Boolean);
+  const fps = rate ? parseFloat(rate[1]) : NaN;
+
+  // A container SAR is printed after the codec's, and is the one ffmpeg uses.
+  const ratios = [...video.matchAll(/\bSAR (\d+):(\d+)/g)];
+  const [, num = 0, den = 0] = ratios.at(-1)?.map(Number) ?? [];
+
+  const dur = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(summary);
+  const duration = dur ? Number(dur[1]) * 3600 + Number(dur[2]) * 60 + Number(dur[3]) : 0;
+
+  return {
+    duration,
+    width: Number(size[1]),
+    height: Number(size[2]),
+    fps: Number.isFinite(fps) && fps > 0 ? fps : null,
+    codec,
+    matrix,
+    sar: num && den ? num / den : 1,
+  };
+}
+
+export function parseOutputSize(log: string): { width: number; height: number } | null {
+  const size = /^Output #0,[^]*?^\s*Stream #0:0.*: Video: .*?, (\d+)x(\d+)\b/m.exec(log);
+  return size ? { width: Number(size[1]), height: Number(size[2]) } : null;
+}
+
+type VideoPacket = {
+  time: number;
+  duration: number;
+  size: number;
+  key: boolean;
+  // Decoded but never shown: an edit list starts the video after it.
+  discard: boolean;
+};
+
+// From the first shown frame to the end of the last. The container's
+// duration can run past it, as when an edit list hides frames.
+export function shownDuration(packets: VideoPacket[]): number {
+  const shown = packets.filter((p) => !p.discard);
+  return Math.max(...shown.map((p) => p.time + p.duration)) - Math.min(...shown.map((p) => p.time));
+}
+
+export type SourceProfile = MediaInfo & {
+  // `0:v:N` of the main stream; "the first video stream" can be a cover image.
+  videoIndex: number;
+  // e.g. ["mov", "mp4", "m4a", ...]: a family, told apart by majorBrand.
+  formatNames: string[];
+  // mov family only; elsewhere it's a leftover (a webm from an mp4 keeps it).
+  majorBrand: string | null;
+  pixFmt: string;
+  audio: { codec: string } | null;
+};
+
+export function parseSourceProfile(output: string): SourceProfile | null {
+  // ffmpeg on Windows ends its lines in CRLF.
+  const summary = output.replace(/\r/g, "");
+  const info = parseMediaInfo(summary);
+  if (!info) return null;
+  const formatNames = /^Input #0, (.+?), from /m.exec(summary)?.[1].split(",") ?? [];
+  const brand = formatNames.includes("mov")
+    ? /^\s*major_brand\s*:\s*(\S+)/m.exec(summary)?.[1]
+    : undefined;
+  const main = mainVideo(summary);
+  const video = main?.line ?? "";
+  const audio = summary.split("\n").find((l) => /Stream #\d+:\d+.*: Audio: /.test(l));
+  return {
+    ...info,
+    videoIndex: main?.index ?? 0,
+    formatNames,
+    majorBrand: brand ?? null,
+    pixFmt: PIX_FMT.exec(video)?.[1] ?? "",
+    audio: audio ? { codec: /: Audio: (\w+)/.exec(audio)?.[1] ?? "" } : null,
+  };
+}
+
+// One job's binaries and probe cache; the only state a job has.
+export class FFmpeg {
+  ffmpeg: string;
+  gifski: string;
+  // The URL of resvg's WebAssembly (svg.ts), which the host bundles or installs.
+  resvg: string;
+  exec: Exec;
+  // Bytes a run can allocate where that is fixed: the browser engine's
+  // WebAssembly heap. Null for a native run.
+  heap: number | null;
+  // Time spent so far decides optional further passes (render.ts).
+  startedAt = Date.now();
+  // The engine's progress bar: how far (0–1) the result's encode has got.
+  onProgress: ((done: number) => void) | null = null;
+  // While the result is encoded (encodeRender): the seconds of it ffmpeg's
+  // runs write, and the part of the bar they, or gifski's, fill.
+  encoding: { seconds: number; from: number; to: number } | null = null;
+  private infoCache = new Map<string, SourceProfile>();
+
+  constructor(
+    ffmpegPath: string,
+    gifskiPath: string,
+    resvgUrl: string,
+    exec: Exec,
+    heap: number | null = null,
+  ) {
+    this.ffmpeg = ffmpegPath;
+    this.gifski = gifskiPath;
+    this.resvg = resvgUrl;
+    this.exec = exec;
+    this.heap = heap;
+  }
+
+  // Saves shipping ffprobe. `ffmpeg -i` with no output exits non-zero by design.
+  async summary(inputFile: string): Promise<string> {
+    const { stderr } = await this.run(this.ffmpeg, ["-hide_banner", "-i", inputFile]);
+    return stderr;
+  }
+
+  async mediaInfo(inputFile: string, summary?: string): Promise<SourceProfile> {
+    const cached = this.infoCache.get(inputFile);
+    if (cached) return cached;
+    const stderr = summary ?? (await this.summary(inputFile));
+    const info = parseSourceProfile(stderr);
+    // The client can't validate WebP, so a bad one is the user's error.
+    const unreadableWebp = () =>
+      new InputError("This WebP file can't be read.", "unreadable-source");
+    if (!info && /^Input #0, webp_(pipe|anim),/m.test(stderr)) throw unreadableWebp();
+    if (!info) throw new Error(`Could not read media info: ${stderr.trim()}`);
+    // The animated WebP demuxer prints "Duration: N/A"; sum the packets.
+    if (!info.duration && info.formatNames.includes("webp_anim")) {
+      const packets = await this.listPackets(inputFile, info.videoIndex);
+      if (!packets) throw unreadableWebp();
+      let start = Infinity;
+      let end = 0;
+      for (const p of packets) {
+        start = Math.min(start, p.time);
+        end = Math.max(end, p.time + p.duration);
+      }
+      info.duration = end - start;
+    }
+    this.infoCache.set(inputFile, info);
+    return info;
+  }
+
+  // ffmpeg applies a JPEG's EXIF rotation on decode but the summary gives the
+  // stored size, so decode one frame to learn the shown one.
+  async shownSize(inputFile: string): Promise<{ width: number; height: number } | null> {
+    const { stderr } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-i",
+      inputFile,
+      "-frames:v",
+      "1",
+      "-f",
+      "null",
+      "-",
+    ]);
+    return parseOutputSize(stderr.replace(/\r/g, ""));
+  }
+
+  // Stream copy to framecrc only demuxes (milliseconds). Lines are
+  // "stream, dts, pts, duration, size, crc[, F=flags]" (flags = not a
+  // keyframe; bit 4 = discard) under "#tb 0: 1/30000".
+  async videoPackets(inputFile: string): Promise<VideoPacket[] | null> {
+    const { videoIndex } = await this.mediaInfo(inputFile);
+    return this.listPackets(inputFile, videoIndex);
+  }
+
+  private async listPackets(inputFile: string, videoIndex: number): Promise<VideoPacket[] | null> {
+    const { code, stdout } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-i",
+      inputFile,
+      "-map",
+      `0:v:${videoIndex}`,
+      "-c",
+      "copy",
+      "-f",
+      "framecrc",
+      "-",
+    ]);
+    const tb = /^#tb 0: (\d+)\/(\d+)/m.exec(stdout);
+    if (code !== 0 || !tb) return null;
+    const timeBase = Number(tb[1]) / Number(tb[2]);
+    const packets = stdout
+      .split("\n")
+      .filter((line) => /^\d/.test(line))
+      .map((line) => {
+        const fields = line.split(",").map((f) => f.trim());
+        const flags = fields.find((f) => f.startsWith("F="));
+        return {
+          time: Number(fields[2]) * timeBase,
+          duration: Number(fields[3]) * timeBase,
+          size: Number(fields[4]),
+          key: !flags,
+          discard: flags !== undefined && (Number(flags.slice(2)) & 4) !== 0,
+        };
+      });
+    const readable = packets.every(
+      (p) => Number.isFinite(p.time) && Number.isFinite(p.duration) && Number.isFinite(p.size),
+    );
+    return packets.length && readable ? packets : null;
+  }
+
+  // Full decode: slow, unlike the packet count.
+  async decodedFrames(inputFile: string): Promise<number | null> {
+    const { videoIndex } = await this.mediaInfo(inputFile);
+    const { code, stderr } = await this.run(this.ffmpeg, [
+      "-hide_banner",
+      "-i",
+      inputFile,
+      "-map",
+      `0:v:${videoIndex}`,
+      "-fps_mode",
+      "passthrough",
+      "-f",
+      "null",
+      "-",
+    ]);
+    const frames = [...stderr.matchAll(/\bframe=\s*(\d+)/g)].pop();
+    return code === 0 && frames ? Number(frames[1]) : null;
+  }
+
+  runFFmpeg(args: string[], options: RunOptions = {}): Promise<string> {
+    // Its frames so far, on lines of their own (stats end in \r).
+    const progress = this.encoding && this.onProgress ? ["-progress", "pipe:2"] : [];
+    return this.runCommand(this.ffmpeg, [...progress, ...args], options);
+  }
+
+  runGifski(args: string[], options: RunOptions = {}): Promise<string> {
+    return this.runCommand(this.gifski, args, options);
+  }
+
+  // A run's lines, as how far the result's encode has got.
+  private progressLines(): RunOptions["onLine"] {
+    const { encoding, onProgress } = this;
+    if (!encoding || !onProgress) return undefined;
+    const { seconds, from, to } = encoding;
+    const read = runProgress(seconds);
+    return (line) => {
+      const done = read(line);
+      if (done !== null) onProgress(from + (to - from) * done);
+    };
+  }
+
+  private async runCommand(command: string, args: string[], options: RunOptions): Promise<string> {
+    const { code, stdout, stderr } = await this.run(command, args, {
+      ...options,
+      onLine: this.progressLines(),
+    });
+    if (code === 0) return stdout;
+    console.error(`Command failed with code ${code}`);
+    console.error(`Command: ${command} ${args.join(" ")}`);
+    if (options.cwd) {
+      console.error(`Working directory: ${options.cwd}`);
+    }
+    console.error(`stderr: ${stderr}`);
+    throw new Error(`Command failed: ${stderr || `Exit code ${code}`}`);
+  }
+
+  async run(command: string, args: string[], options: RunOptions = {}): Promise<RunResult> {
+    console.log(`Running: ${command} ${args.join(" ")}`);
+    if (options.cwd) {
+      console.log(`Working directory: ${options.cwd}`);
+    }
+    return this.exec(command, args, options);
+  }
+}

@@ -1,7 +1,6 @@
 .root {
   --gap: 1px;
   --corner: calc(var(--radius) / 2 - 1px);
-  composes: root from "../ToggleGroup/ToggleGroup.module.css";
   position: relative;
   overflow: hidden;
   display: grid;

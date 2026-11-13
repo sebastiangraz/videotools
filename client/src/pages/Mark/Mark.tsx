@@ -12,17 +12,19 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { aspectRatioOf, cx, formatClock, toList } from "@src/helpers";
+import { aspectRatioOf, cliCommand, cx, formatClock, toList } from "@src/helpers";
 import {
   MARK,
   MARK_POSITIONS,
   MARK_TUNING,
+  POSITIONS,
+  shuffleRoute,
   type MarkFilter,
   type MarkPosition,
   type MarkSize,
   type MarkView,
-} from "@api/tools/mark-config";
-import { shuffleRoute, useMarkPreview, type MarkTuning } from "./useMarkPreview";
+} from "@videotools/core/tools/mark-config";
+import { useMarkPreview, type MarkTuning } from "./useMarkPreview";
 import form from "@src/form.module.css";
 import styles from "./Mark.module.css";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
@@ -47,8 +49,6 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "glass", label: "Glass" },
   { value: "blur", label: "Blur" },
 ];
-
-const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // displacement red x, green y, olive no shift
@@ -177,6 +177,14 @@ export const Mark = () => {
           />
         )
       }
+      command={cliCommand(TOOL.value, toList(source.file), {
+        logo: watermark?.name,
+        position,
+        size: pickedSize,
+        filter: filterMode,
+        shuffle: shuffling,
+        quality,
+      })}
     >
       {source.file && hasFrames(source.file) && watermark && (
         <>
@@ -343,7 +351,7 @@ export const Mark = () => {
             )}
             <ToggleGrid
               labelledBy="markPosition"
-              options={POSITION_OPTIONS}
+              options={POSITIONS}
               value={position}
               onValueChange={pickPosition}
               disabled={run.busy}

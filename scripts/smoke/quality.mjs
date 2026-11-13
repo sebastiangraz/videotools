@@ -6,12 +6,13 @@
 // video bitrate is held to its rate cap and its frames to the reference's too.
 import fs from "node:fs";
 import path from "node:path";
-import { ENCODERS } from "../../api/_lib/encode/index.ts";
-import { shownDuration } from "../../api/_lib/ffmpeg.ts";
+import { ENCODERS } from "../../core/encode/index.ts";
+import { shownDuration } from "../../core/ffmpeg.ts";
 import { formatBytes } from "../../client/src/helpers.ts";
-import { graphArgs } from "../../api/_lib/encode/render.ts";
-import { FORMATS, SEQUENCE_FORMATS } from "../../api/_lib/formats.ts";
-import { LOOP_LIMITS } from "../../api/_lib/tools/loop.ts";
+import { graphArgs } from "../../core/encode/render.ts";
+import { FORMATS, SEQUENCE_FORMATS } from "../../core/formats.ts";
+import { runTool } from "../../core/tools/index.ts";
+import { LOOP_LIMITS } from "../../core/tools/loop.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
 // Worst frame of any step.
@@ -79,7 +80,7 @@ const CASES = {
   ),
 };
 
-export async function encodeLoss({ ff, assets, outDir, runTool, say, progress }) {
+export async function encodeLoss({ ff, assets, outDir, say, progress }) {
   const { images, videos, vectors } = assets;
   const stills = images(SEQUENCE_IMAGES);
   const encoders = { ...ENCODERS };
@@ -123,7 +124,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       for (const [i, [tool, options, length]] of steps.entries()) {
         const workDir = path.join(outDir, name, clip, String(i));
         const files = { mark: [input, vectors[0]], sequence: stills }[tool] ?? [input];
-        const { outputPath } = await runTool(tool, files, options, workDir);
+        const { outputPath } = await runTool(ff, tool, files, options, workDir);
         const reference = path.join(workDir, "reference.mkv");
         const against = fs.existsSync(reference) ? reference : input;
         const label = steps.length > 1 ? `${name} ${i + 1}` : name;

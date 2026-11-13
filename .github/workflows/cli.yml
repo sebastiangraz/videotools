@@ -1,0 +1,34 @@
+# Publishes cli/ to npm as @videotools/cli when a cli-v<version> tag is pushed.
+# npm trusted publishing: the OIDC token stands in for an npm token.
+name: cli
+
+on:
+  push:
+    tags:
+      - "cli-v*"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      # Node 24's npm is new enough for trusted publishing.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+        working-directory: cli
+      - name: The tag is cli-v and cli/package.json's version
+        run: test "$GITHUB_REF_NAME" = "cli-v$(node -p 'require("./cli/package.json").version')"
+      - run: npm publish
+        working-directory: cli

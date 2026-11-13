@@ -4,7 +4,9 @@
   "private": true,
   "description": "A web application with video tools: seamless loops, image sequences to video, and more",
   "workspaces": [
-    "client"
+    "core",
+    "client",
+    "cli"
   ],
   "type": "module",
   "scripts": {
@@ -12,15 +14,11 @@
     "build": "bun --filter client build",
     "test": "bun --filter client test",
     "smoke": "bun scripts/smoke/index.mjs",
-    "postinstall": "bun scripts/binaries-install.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p client",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check"
-  },
-  "dependencies": {
-    "@resvg/resvg-wasm": "2.6.2"
   },
   "devDependencies": {
     "@types/node": "^24.19.0",

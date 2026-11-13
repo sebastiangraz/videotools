@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ToolId } from "@src/tools";
-import { splitExtension, verboseName } from "@src/helpers";
+import { extensionOf, splitExtension } from "@src/helpers";
 import { runEngine } from "@src/engine";
+import { verboseName } from "@videotools/core/formats";
 
 // `extras`: further inputs after the sources (mark's logo).
 // `onDone`: once the result is saved.
@@ -14,6 +15,10 @@ interface RunRequest {
 
 // Temporary: the "verbose" setting names downloads after their settings.
 export const VerboseNames = createContext(false);
+
+// The "command line" setting shows each page's settings as the CLI's command
+// (ToolPanel).
+export const CommandLine = createContext(false);
 
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
@@ -47,10 +52,10 @@ export function useToolRun(tool: ToolId) {
         href: objectUrl,
         download: verbose
           ? verboseName(
-              splitExtension(files[0].name)[0],
+              splitExtension(files[0].name)[0].slice(0, 6),
               extras.map((file) => file.name),
               options,
-              result.name,
+              extensionOf(result.name),
             )
           : result.name,
       });

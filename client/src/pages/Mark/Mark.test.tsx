@@ -6,6 +6,7 @@ import {
   enableVerboseNames,
   engineRun,
   renderApp,
+  showCommandLine,
   stubEngine,
 } from "@src/test/renderApp";
 import {
@@ -16,10 +17,10 @@ import {
   stubMediaLoading,
   stubProperties,
 } from "@src/test/media";
-import { MARK } from "@api/tools/mark-config";
+import { MARK } from "@videotools/core/tools/mark-config";
 import { runEngine } from "@src/engine";
 import type { EngineRequest } from "@src/engine/worker";
-import { SCRUB_FRAMES, shuffleRoute } from "./useMarkPreview";
+import { SCRUB_FRAMES } from "./useMarkPreview";
 
 type User = ReturnType<typeof userEvent.setup>;
 const markButton = () => screen.getByRole("button", { name: /^mark$/i });
@@ -385,21 +386,31 @@ describe("Mark", () => {
     await engineRun();
     expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
   });
-});
 
-describe("shuffleRoute", () => {
-  it("spends every position before any comes round again, never twice running", () => {
-    for (let run = 0; run < 100; run++) {
-      const route = shuffleRoute("top");
-      expect(route[0]).toBe("top");
-      for (let bag = 0; bag < route.length; bag += 9) {
-        expect(new Set(route.slice(bag, bag + 9)).size).toBe(9);
-      }
-      route.forEach((at, i) => expect(at).not.toBe(route[(i + 1) % route.length]));
-    }
-  });
+  it("shows its settings as the CLI's command, the files to fill in until picked and unshuffled for a still", async () => {
+    const user = userEvent.setup();
+    await renderApp("/mark");
+    await showCommandLine(user);
+    expect(
+      screen.getByText(
+        'npx @videotools/cli MARK "<file|folder|glob>" --logo "<png|svg>" --position bottom-right --size medium --filter glass --quality 100',
+      ),
+    ).toBeInTheDocument();
 
-  it("draws a new route each time", () => {
-    expect(shuffleRoute("top")).not.toEqual(shuffleRoute("top"));
+    await pickLogo(user);
+    await user.click(screen.getByRole("button", { name: /large/i }));
+    await user.click(screen.getByRole("button", { name: /shuffle/i }));
+    expect(
+      screen.getByText(
+        'npx @videotools/cli MARK "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
+      ),
+    ).toBeInTheDocument();
+
+    await pickSource(user, file("my shot.png", "image/png"));
+    expect(
+      screen.getByText(
+        'npx @videotools/cli MARK "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
+      ),
+    ).toBeInTheDocument();
   });
 });

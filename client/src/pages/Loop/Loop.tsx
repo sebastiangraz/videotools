@@ -11,12 +11,13 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { toList } from "@src/helpers";
+import { RANGES } from "@videotools/core/formats";
+import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("loop");
 
-// Mirrored in api/_lib/tools/loop.ts (VALID_TECHNIQUES)
+// Mirrored in core/tools/loop.ts (VALID_TECHNIQUES)
 const TECHNIQUES = [
   { value: "crossfade", label: "Crossfade" },
   { value: "reverse", label: "Forward & reverse" },
@@ -27,12 +28,14 @@ export const Loop = () => {
   const source = useVideoSource();
   const formatBlocker = useFormatBlocker(source.file, {}, source.nonSquare);
   const [technique, setTechnique] = useState<string>("crossfade");
-  // NumberField reports null while empty; submit falls back to the default.
+  // NumberField reports null while empty; the run and the command then take the default.
   const [fadeDuration, setFadeDuration] = useState<number | null>(0.5);
   const [startSecond, setStartSecond] = useState<number | null>(0);
   const [quality, setQuality] = useState<number>(100);
+  const fade = fadeDuration ?? 0.5;
   // The tool clamps to the clip as well.
-  const start = clampStart(startSecond, source.duration);
+  const shownStart = clampStart(startSecond, source.duration);
+  const start = shownStart ?? 0;
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -45,8 +48,8 @@ export const Loop = () => {
       files: [source.file],
       options: {
         technique,
-        fadeDuration: fadeDuration ?? 0.5,
-        startSecond: start ?? 0,
+        fadeDuration: fade,
+        startSecond: start,
         quality,
       },
     });
@@ -70,6 +73,11 @@ export const Loop = () => {
           disabled={run.busy}
         />
       }
+      command={cliCommand(TOOL.value, toList(source.file), {
+        technique,
+        ...(technique === "crossfade" && { fade, start }),
+        quality,
+      })}
     >
       <div className={form.formGroup}>
         <label htmlFor="technique" className={form.label}>
@@ -94,7 +102,8 @@ export const Loop = () => {
               id="fadeDuration"
               value={fadeDuration}
               onValueChange={setFadeDuration}
-              min={0}
+              min={RANGES.fadeDuration[0]}
+              max={RANGES.fadeDuration[1]}
               step={0.1}
               largeStep={0.5}
               disabled={run.busy}
@@ -106,16 +115,16 @@ export const Loop = () => {
             </label>
             <NumberField
               id="startSecond"
-              value={start}
+              value={shownStart}
               onValueChange={setStartSecond}
-              min={0}
+              min={RANGES.startSecond[0]}
               max={maxStart(source.duration)}
               step={0.1}
               largeStep={0.5}
               disabled={run.busy}
               preview={
                 source.file &&
-                hasFrames(source.file) && <FramePreview file={source.file} second={start ?? 0} />
+                hasFrames(source.file) && <FramePreview file={source.file} second={start} />
               }
             />
           </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byFilename, cx, extensionOf, splitExtension, toList, verboseName } from "./helpers";
+import { byFilename, cliCommand, cx, extensionOf, splitExtension, toList } from "./helpers";
 import { file } from "./test/media";
 
 describe("cx", () => {
@@ -44,26 +44,71 @@ describe("byFilename", () => {
   });
 });
 
-describe("verboseName", () => {
-  it("joins 6 characters of the source, the extras and the options, with the result's extension", () => {
+describe("cliCommand", () => {
+  const clip = [file("clip.mp4")];
+
+  it("spells out every setting, the defaults too", () => {
     expect(
-      verboseName("holiday-clip", ["logo.png"], { filter: "glass", quality: 100 }, "clip_mark.mp4"),
-    ).toBe("holida_logo.png_fGlass_q100.mp4");
+      cliCommand("mark", clip, {
+        logo: "logo.svg",
+        position: "bottom-right",
+        size: "medium",
+        filter: "glass",
+        shuffle: false,
+        quality: 100,
+      }),
+    ).toBe(
+      'npx @videotools/cli MARK "clip.mp4" --logo "logo.svg" --position bottom-right --size medium --filter glass --quality 100',
+    );
+  });
+
+  it("gives a switch alone and leaves out an empty field", () => {
+    expect(cliCommand("mark", clip, { shuffle: true, quality: 42 })).toMatch(
+      / --shuffle --quality 42$/,
+    );
+    expect(cliCommand("convert", clip, { to: "gif", fps: null, width: 640 })).toMatch(
+      / --to gif --width 640$/,
+    );
   });
 
   it.each([
-    [{ fadeDuration: 0.5 }, "fd0.5"],
-    [{ startSecond: 0 }, "ss0"],
-    [{ technique: "crossfade" }, "tCrossfade"],
-    [{ position: "bottom-right" }, "pBottomRight"],
-    [{ shuffle: true }, "sY"],
-    [{ route: ["top", "left"] }, "rY"],
-    [{ tuning: { coreGain: 3 } }, "tY"],
-  ])("writes %o as %s", (options, part) => {
-    expect(verboseName("clip", [], options, "out.mp4")).toBe(`clip_${part}.mp4`);
+    [-1.5, "--speed=-1.5"],
+    [0, "--speed 0"],
+    [3, "--speed 3"],
+  ])("writes the speed %d as %s", (speed, flag) => {
+    expect(cliCommand("speed", clip, { speed })).toBe(
+      `npx @videotools/cli SPEED "clip.mp4" ${flag}`,
+    );
   });
 
-  it.each([false, null])("leaves out an option set to %s", (value) => {
-    expect(verboseName("clip", [], { route: value }, "out.mp4")).toBe("clip.mp4");
+  it("names the files in the order given, or one to fill in", () => {
+    expect(cliCommand("sequence", [file("b.png"), file("a 1.png")], {})).toBe(
+      'npx @videotools/cli SEQUENCE "b.png" "a 1.png"',
+    );
+    expect(cliCommand("sequence", [], {})).toBe(
+      'npx @videotools/cli SEQUENCE "<file|folder|glob>"',
+    );
+  });
+
+  it.each([
+    ["my clip.mp4", '"my clip.mp4"'],
+    ["it's.mp4", `"it's.mp4"`],
+    ['the "best".mp4', '"<file|folder|glob>"'],
+    ["$HOME.mp4", '"<file|folder|glob>"'],
+    ["`id`.mp4", '"<file|folder|glob>"'],
+  ])("quotes the source %j as %s", (name, quoted) => {
+    expect(cliCommand("mark", [file(name)], { logo: "logo.svg" })).toContain(
+      ` MARK ${quoted} --logo `,
+    );
+  });
+
+  it.each([
+    ["my logo.svg", '"my logo.svg"'],
+    ["$logo.png", '"<png|svg>"'],
+    [undefined, '"<png|svg>"'],
+  ])("quotes the logo %j as %s", (logo, quoted) => {
+    expect(cliCommand("mark", clip, { logo, quality: 100 })).toContain(
+      ` --logo ${quoted} --quality `,
+    );
   });
 });

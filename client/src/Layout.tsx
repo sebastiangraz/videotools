@@ -7,7 +7,7 @@ import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
 import { ToggleGroup } from "./components/ToggleGroup/ToggleGroup";
 import { useDebugMode } from "./hooks/useDebugMode";
-import { VerboseNames } from "./hooks/useToolRun";
+import { CommandLine, VerboseNames } from "./hooks/useToolRun";
 import { cx } from "./helpers";
 import form from "./form.module.css";
 import styles from "./Layout.module.css";
@@ -22,8 +22,13 @@ const VERBOSE_OPTIONS = [
   { value: "enabled", label: "Enabled" },
 ] as const;
 
+const COMMAND_LINE_OPTIONS = [
+  { value: "hide", label: "Hide" },
+  { value: "show", label: "Show" },
+] as const;
+
 // Persisted in localStorage; index.html also reads themeInvert before first paint.
-const DEFAULT_SETTINGS = { verbose: false, themeInvert: false };
+const DEFAULT_SETTINGS = { verbose: false, commandLine: false, themeInvert: false };
 
 const Logo = () => (
   <div className={styles.logo}>
@@ -68,7 +73,7 @@ export const Layout = () => {
         <header className={styles.header}>
           <Logo />
           <h1 ref={titleRef} className={styles.title}>
-            Video tools
+            videotoo.ls
             <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
               dev
             </span>
@@ -131,6 +136,22 @@ export const Layout = () => {
               />
             </div>
             <div className={styles.settingsRow}>
+              <span id="commandLine" className={form.label}>
+                Command line
+              </span>
+              <ToggleGroup
+                labelledBy="commandLine"
+                options={COMMAND_LINE_OPTIONS}
+                toggle
+                value={settings.commandLine ? "show" : "hide"}
+                onValueChange={(value) =>
+                  setSettings({ ...settings, commandLine: value === "show" })
+                }
+                disabled={false}
+                size="small"
+              />
+            </div>
+            <div className={styles.settingsRow}>
               <span id="theme" className={form.label}>
                 UI Theme
               </span>
@@ -150,7 +171,9 @@ export const Layout = () => {
         </Tabs>
         <main className={styles.main}>
           <VerboseNames value={settings.verbose}>
-            <Outlet />
+            <CommandLine value={settings.commandLine}>
+              <Outlet />
+            </CommandLine>
           </VerboseNames>
         </main>
       </div>

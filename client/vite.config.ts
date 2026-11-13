@@ -21,7 +21,7 @@ const engine = (file: string) => fileURLToPath(new URL(`src/engine/${file}`, imp
 
 export default defineConfig(({ mode }) => ({
   plugins: [react(), isolated],
-  // Aliases live in tsconfig.json paths; these two let the tools (api/_lib)
+  // Aliases live in tsconfig.json paths; these two let the tools (core/)
   // run in the engine worker, and stay out of tests, which run them on Node.
   resolve: {
     tsconfigPaths: true,
@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => ({
         : { "node:fs/promises": engine("fs.ts"), "node:path": engine("path.ts") },
   },
   worker: { format: "es" },
+  // Scan the engine worker too: deps found only on first use reload the page.
+  optimizeDeps: { entries: ["index.html", "src/engine/worker.ts"] },
   define: {
     __GIT_SHA__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? ""),
   },
@@ -51,7 +53,7 @@ export default defineConfig(({ mode }) => ({
         test: {
           name: "node",
           environment: "node",
-          include: ["../api/_tests/**/*.test.ts"],
+          include: ["../core/tests/**/*.test.ts", "../cli/tests/**/*.test.ts"],
         },
       },
     ],

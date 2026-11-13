@@ -1,11 +1,12 @@
-// One engine job: a tool (api/_lib), run against WebAssembly ffmpeg and
+// One engine job: a tool (core/), run against WebAssembly ffmpeg and
 // gifski (exec.ts).
-import { InputError } from "@api/errors";
-import { FFmpeg } from "@api/ffmpeg";
-import { resultFile, type ToolId } from "@api/formats";
-import { TOOLS } from "@api/tools/index";
-import { markLook, renderWatermarkFrames } from "@api/tools/mark";
-import type { MarkPosition } from "@api/tools/mark-config";
+import { InputError } from "@videotools/core/errors";
+import { FFmpeg } from "@videotools/core/ffmpeg";
+import { resultFile, type ToolId } from "@videotools/core/formats";
+import { TOOLS } from "@videotools/core/tools/index";
+import { markLook, renderWatermarkFrames } from "@videotools/core/tools/mark";
+import type { MarkPosition } from "@videotools/core/tools/mark-config";
+import resvgUrl from "@resvg/resvg-wasm/index_bg.wasm?url";
 import { exec, HEAP, ROOT as workDir } from "./exec";
 import fs from "./fs";
 import path from "./path";
@@ -31,7 +32,7 @@ export type EngineProgress = { progress: number };
 
 async function run(job: EngineJob): Promise<File[]> {
   await fs.mkdir(workDir);
-  const ff = new FFmpeg("ffmpeg", "gifski", exec(job.modules, "preview" in job), HEAP);
+  const ff = new FFmpeg("ffmpeg", "gifski", resvgUrl, exec(job.modules, "preview" in job), HEAP);
   ff.onProgress = (progress) => postMessage({ progress } satisfies EngineProgress);
   const write = async (file: string, blob: Blob) =>
     fs.writeFile(file, new Uint8Array(await blob.arrayBuffer()));

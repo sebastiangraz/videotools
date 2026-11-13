@@ -1,4 +1,4 @@
-// Runs the light tracker (api/_lib/light-track.ts) on a clip and prints where
+// Runs the light tracker (core/light-track.ts) on a clip and prints where
 // it put the light; with --out, also writes the clip with the tracked point
 // boxed, to see it follow (or not).
 //
@@ -6,9 +6,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { binaryPath, root } from "./binaries.mjs";
+import { binaryPath, install } from "../cli/binaries.ts";
+import { execBinary } from "../cli/exec.ts";
+import { FFmpeg } from "../core/ffmpeg.ts";
+import { trackLight } from "../core/light-track.ts";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -18,13 +20,11 @@ if (positionals.length !== 1) {
   console.error("Usage: bun scripts/light-track.mjs <video> [--out <mp4>] [--ffmpeg <path>]");
   process.exit(1);
 }
-const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
-const { FFmpeg } = await load("api/_lib/ffmpeg.ts");
-const { trackLight } = await load("api/_lib/light-track.ts");
-const { execBinary } = await load("api/_lib/binaries.ts");
+const root = path.join(import.meta.dirname, "..");
 
 const input = path.resolve(positionals[0]);
-const ff = new FFmpeg(values.ffmpeg ?? binaryPath("ffmpeg"), "", execBinary);
+if (!values.ffmpeg) await install("ffmpeg");
+const ff = new FFmpeg(values.ffmpeg ?? binaryPath("ffmpeg"), "", "", execBinary);
 // The runner logs every command; only the result matters here.
 console.log = () => {};
 const print = (line) => process.stdout.write(`${line}\n`);

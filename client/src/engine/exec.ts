@@ -2,7 +2,7 @@
 // fresh instance as each native run is a fresh process: globals, threads and
 // heap end with it. The job's files (fs.ts) are lent to the instance's
 // filesystem without copying and taken back, with what it wrote, at exit.
-import type { Exec } from "@api/ffmpeg";
+import type { Exec } from "@videotools/core/ffmpeg";
 import { dirs, files } from "./fs";
 
 // The glue must be same-origin: each of a run's threads loads it as its

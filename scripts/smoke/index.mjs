@@ -10,10 +10,10 @@
 //   bun run smoke before mark:depthmap,glass   only these parts, the rest kept
 import fs from "node:fs";
 import path from "node:path";
-import { execBinary } from "../../api/_lib/binaries.ts";
-import { FFmpeg } from "../../api/_lib/ffmpeg.ts";
-import { TOOLS } from "../../api/_lib/tools/index.ts";
-import { binaryPath, root } from "../binaries.mjs";
+import { binaryPath, install, resvgUrl } from "../../cli/binaries.ts";
+import { execBinary } from "../../cli/exec.ts";
+import { FFmpeg } from "../../core/ffmpeg.ts";
+import { progressBar } from "../../core/helpers.ts";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
 import { encodeLoss } from "./quality.mjs";
@@ -22,6 +22,7 @@ const SUITES = { mark: markGrid, light: lightGrid, quality: encodeLoss };
 // Subfolders a suite can run on their own.
 const PARTS = { mark: MARK_GRIDS };
 
+const root = path.join(import.meta.dirname, "..", "..");
 const assetsDir = path.join(root, "scripts", "smoke", "assets");
 const smokeDir = path.join(root, ".smoke");
 
@@ -42,9 +43,10 @@ if (!label || unknown.length) {
   process.exit(2);
 }
 
+await Promise.all([install("ffmpeg"), install("gifski")]);
 const ffmpegPath = binaryPath("ffmpeg");
 requireFfmpeg(ffmpegPath, { pinned: true });
-const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), execBinary);
+const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), resvgUrl, execBinary);
 
 const listed = (dir) =>
   fs
@@ -58,18 +60,7 @@ const assets = {
   videos: picked("videos"),
 };
 
-// One tool run: `files` in the order the tool takes them, results in `workDir`.
-async function runTool(tool, files, options, workDir) {
-  fs.mkdirSync(workDir, { recursive: true });
-  const inputs = files.map((file) => ({
-    name: path.basename(file),
-    save: async (destPath) => fs.copyFileSync(file, destPath),
-  }));
-  return TOOLS[tool]({ ff, workDir, inputs, options });
-}
-
 // Progress bar
-const BAR_WIDTH = 20;
 const tty = process.stdout.isTTY;
 let bar = "";
 const write = (text) => process.stdout.write(tty ? `\r\x1b[2K${text}${bar}` : text);
@@ -80,12 +71,11 @@ const progressFor = (name) => (total) => {
   let done = 0;
   let shown;
   const draw = () => {
-    const filled = Math.floor((done / total) * BAR_WIDTH);
-    const fill = filled && done < total ? `${"█".repeat(filled - 1)}▌` : "█".repeat(filled);
-    bar = `${name} ▕${fill.padEnd(BAR_WIDTH, "░")}▏ ${done}/${total}`;
+    const cells = progressBar(done / total);
+    bar = `${name} ${cells} ${done}/${total}`;
     if (tty) write("");
-    else if (filled !== shown) write(`${bar}\n`);
-    shown = filled;
+    else if (cells !== shown) write(`${bar}\n`);
+    shown = cells;
   };
   draw();
   return () => {
@@ -105,7 +95,7 @@ for (const { name, parts } of runs) {
   let result;
   try {
     const progress = progressFor(name);
-    const output = await SUITES[name]({ ff, assets, outDir, parts, runTool, say, progress });
+    const output = await SUITES[name]({ ff, assets, outDir, parts, say, progress });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
     result = `${name}: ${path.relative(root, output)} (${seconds}s)`;
   } catch (err) {
