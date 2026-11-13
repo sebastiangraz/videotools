@@ -74,8 +74,8 @@ export function timeAgo(iso: string) {
 
 // A page's settings as the CLI command (cli/index.ts) that does the same,
 // through npx so Node is all it needs, every flag spelled out so it keeps its
-// meaning if a default changes. True is a switch; false, or null for a field
-// left empty (which the page fills in as the CLI does), leaves the flag out.
+// meaning if a default changes. True is a switch; false, or null for a value
+// left to the tool, leaves the flag out.
 // The browser knows only the files' names; each goes in double quotes, which
 // hold spaces in PowerShell and POSIX shells alike, and one that is not picked,
 // or has a character both shells read inside them, is a placeholder to fill in.

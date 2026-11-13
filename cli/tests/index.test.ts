@@ -110,17 +110,18 @@ describe.concurrent("videotools", () => {
   const shown: Record<ToolId, Parameters<typeof cliCommand>[2][]> = {
     loop: [
       { technique: "crossfade", fade: 0, start: 12.5, quality: 1 },
-      { technique: "crossfade", fade: null, start: null, quality: 100 },
+      { technique: "crossfade", fade: 10, start: 0, quality: 100 },
       { technique: "reverse", quality: 50 },
     ],
     sequence: [
       ...SEQUENCE_FORMATS.map((format) => ({ "frame-duration": 0.1, format, quality: 1 })),
-      { "frame-duration": null, format: "mp4", quality: 100 },
+      { "frame-duration": 10, format: "mp4", quality: 100 },
     ],
     speed: [-3, -0.1, 0, 3].map((speed) => ({ speed })),
     convert: [
       { to: null, quality: 1 },
       ...FORMATS.map(({ id }) => ({ to: id, quality: 100 })),
+      { to: "gif", quality: 100, fps: null, width: 640 },
       { to: "gif", quality: 50, fps: 1, width: 100 },
       { to: "gif", quality: 50, fps: 30, width: 800 },
     ],

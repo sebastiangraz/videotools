@@ -28,12 +28,14 @@ export const Loop = () => {
   const source = useVideoSource();
   const formatBlocker = useFormatBlocker(source.file, {}, source.nonSquare);
   const [technique, setTechnique] = useState<string>("crossfade");
-  // NumberField reports null while empty; submit falls back to the default.
+  // NumberField reports null while empty; the run and the command then take the default.
   const [fadeDuration, setFadeDuration] = useState<number | null>(0.5);
   const [startSecond, setStartSecond] = useState<number | null>(0);
   const [quality, setQuality] = useState<number>(100);
+  const fade = fadeDuration ?? 0.5;
   // The tool clamps to the clip as well.
-  const start = clampStart(startSecond, source.duration);
+  const shownStart = clampStart(startSecond, source.duration);
+  const start = shownStart ?? 0;
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -46,8 +48,8 @@ export const Loop = () => {
       files: [source.file],
       options: {
         technique,
-        fadeDuration: fadeDuration ?? 0.5,
-        startSecond: start ?? 0,
+        fadeDuration: fade,
+        startSecond: start,
         quality,
       },
     });
@@ -73,7 +75,7 @@ export const Loop = () => {
       }
       command={cliCommand(TOOL.value, toList(source.file), {
         technique,
-        ...(technique === "crossfade" && { fade: fadeDuration, start }),
+        ...(technique === "crossfade" && { fade, start }),
         quality,
       })}
     >
@@ -113,7 +115,7 @@ export const Loop = () => {
             </label>
             <NumberField
               id="startSecond"
-              value={start}
+              value={shownStart}
               onValueChange={setStartSecond}
               min={RANGES.startSecond[0]}
               max={maxStart(source.duration)}
@@ -122,7 +124,7 @@ export const Loop = () => {
               disabled={run.busy}
               preview={
                 source.file &&
-                hasFrames(source.file) && <FramePreview file={source.file} second={start ?? 0} />
+                hasFrames(source.file) && <FramePreview file={source.file} second={start} />
               }
             />
           </div>

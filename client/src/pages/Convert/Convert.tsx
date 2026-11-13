@@ -25,8 +25,9 @@ export const Convert = () => {
   const [quality, setQuality] = useState<number>(100);
   // null = match the source framerate (the tool probes it, capped at 30)
   const [gifFps, setGifFps] = useState<number | null>(null);
-  // NumberField reports null while empty; submit falls back to the default.
+  // NumberField reports null while empty; the run and the command then take the default.
   const [gifWidth, setGifWidth] = useState<number | null>(640);
+  const width = gifWidth ?? 640;
 
   // `target` survives a file swap; if the new source claims it, fall to the
   // first remaining option.
@@ -45,7 +46,7 @@ export const Convert = () => {
     const options: Record<string, unknown> = { target: effectiveTarget, quality };
     if (effectiveTarget === "gif") {
       if (gifFps != null) options.fps = gifFps;
-      options.width = gifWidth ?? 640;
+      options.width = width;
     }
     run.start({ files: [source.file], options });
   };
@@ -72,7 +73,7 @@ export const Convert = () => {
         // No target until a file is picked; without --to the CLI picks as the page would.
         to: source.file && effectiveTarget,
         quality,
-        ...(effectiveTarget === "gif" && { fps: gifFps, width: gifWidth }),
+        ...(effectiveTarget === "gif" && { fps: gifFps, width }),
       })}
     >
       {source.file && (

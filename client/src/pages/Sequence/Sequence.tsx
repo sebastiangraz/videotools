@@ -89,10 +89,11 @@ export const Sequence = () => {
     foreign: false,
     oneFormat: true,
   });
-  // NumberField reports null while empty; submit falls back to the default.
+  // NumberField reports null while empty; the run and the command then take the default.
   const [frameDuration, setFrameDuration] = useState<number | null>(1);
   const [format, setFormat] = useState<string>("mp4");
   const [quality, setQuality] = useState<number>(100);
+  const perFrame = frameDuration ?? 1;
 
   const pick = (picked: File[]) => {
     run.clearError();
@@ -122,7 +123,7 @@ export const Sequence = () => {
     run.start({
       files,
       options: {
-        frameDuration: frameDuration ?? 1,
+        frameDuration: perFrame,
         format,
         quality,
       },
@@ -150,7 +151,7 @@ export const Sequence = () => {
         />
       }
       command={cliCommand(TOOL.value, files, {
-        "frame-duration": frameDuration,
+        "frame-duration": perFrame,
         format,
         quality,
       })}
@@ -169,7 +170,7 @@ export const Sequence = () => {
           disabled={run.busy}
           preview={
             files.length > 0 && (
-              <SequencePreview files={files} frameDuration={frameDuration ?? 1} meta={imageMeta} />
+              <SequencePreview files={files} frameDuration={perFrame} meta={imageMeta} />
             )
           }
         />
