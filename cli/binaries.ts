@@ -74,12 +74,13 @@ export const BINARIES: Record<Tool, { version: string; platforms: Record<string,
 
 const hostPlatform = `${process.platform}-${process.arch}`;
 
-// One folder per version, shared by every checkout and install.
+// One folder per pinned binary, shared by every checkout and install. Its name
+// ends in the start of the pin's sha256, so a binary in it is a verified one.
 export const binaryPath = (tool: Tool): string =>
   path.join(
     os.homedir(),
     ".videotools",
-    `${tool}-${BINARIES[tool].version}`,
+    `${tool}-${BINARIES[tool].version}-${BINARIES[tool].platforms[hostPlatform]?.sha256.slice(0, 8)}`,
     process.platform === "win32" ? `${tool}.exe` : tool,
   );
 
@@ -96,16 +97,12 @@ export async function install(tool: Tool): Promise<void> {
   }
 
   const binary = binaryPath(tool);
-  const dir = path.dirname(binary);
-  const stamp = path.join(dir, ".sha256");
-  const current =
-    fs.existsSync(binary) && fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8").trim();
-  if (current === pinned.sha256) return;
+  if (fs.existsSync(binary)) return;
 
-  console.log(`fetching ${tool} ${version} from ${pinned.url}`);
+  process.stdout.write(`fetching ${tool} ${version} from ${pinned.url}\n`);
   const res = await fetch(pinned.url);
   if (!res.ok || !res.body) throw new Error(`${pinned.url}: HTTP ${res.status}`);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.dirname(binary), { recursive: true });
   // Hashed while streaming into a temporary name, so an interrupted or
   // tampered download never sits where binaryPath points.
   const partial = `${binary}.partial`;
@@ -129,6 +126,4 @@ export async function install(tool: Tool): Promise<void> {
     );
   }
   fs.renameSync(partial, binary);
-  fs.chmodSync(binary, 0o755);
-  fs.writeFileSync(stamp, pinned.sha256 + "\n");
 }

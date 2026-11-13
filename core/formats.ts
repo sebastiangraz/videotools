@@ -69,6 +69,9 @@ export const FORMATS: readonly Format[] = [
   },
 ];
 
+// Extensions ffmpeg reads but no tool writes: sources for Convert only.
+export const FOREIGN = ["avi", "mkv", "wmv", "mpg", "mpeg", "3gp", "ts"];
+
 export const SEQUENCE_FORMATS: readonly FormatId[] = ["mp4", "gif", "webp", "avif"];
 
 export function formatById(id: FormatId): Format {

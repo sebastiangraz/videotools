@@ -33,7 +33,7 @@ The client is a Vite + React 19 static site in `client/`, using TanStack Router 
 The tools live in `core/` (`@videotools/core`), with one module per tool in `tools/` and one encoder per output format in `encode/`. They use `node:fs/promises` and `node:path`, and receive the command runner and resvg's WebAssembly as arguments. This lets the same code run in two places:
 
 - **In the browser.** Vite aliases `node:fs/promises` and `node:path` to an in-memory filesystem in `client/src/engine/`. Each job runs in a Web Worker, and each command runs in a fresh WebAssembly instance. ffmpeg's threads use shared memory, which requires cross-origin isolation, so every response sends COOP and COEP headers (`vercel.json`, and `client/vite.config.ts` for the dev server).
-- **Natively.** For the CLI, the smoke suites and scripts, `cli/exec.ts` spawns the binaries. They are downloaded on first use into `~/.videotools/<tool>-<version>/` and verified by sha256.
+- **Natively.** For the CLI, the smoke suites and scripts, `cli/exec.ts` spawns the binaries. They are downloaded on first use into `~/.videotools/<tool>-<version>-<hash>/` and verified by sha256.
 
 Both run the same pinned ffmpeg, built from the same tag with no version workarounds in code: as WebAssembly by `wasm/Dockerfile`, and natively from the builds pinned in `BINARIES` in `cli/binaries.ts`. gifski is pinned the same way (see `cli/gifski/README.md`). No system ffmpeg is needed, and ffprobe isn't used.
 

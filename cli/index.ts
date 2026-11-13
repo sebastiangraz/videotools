@@ -9,6 +9,7 @@ import { parseArgs } from "node:util";
 import { InputError } from "@videotools/core/errors";
 import { FFmpeg } from "@videotools/core/ffmpeg";
 import {
+  FOREIGN,
   FORMATS,
   SEQUENCE_FORMATS,
   STILLS,
@@ -56,9 +57,6 @@ const QUALITY: Flag = { arg: "n", range: [1, 100], default: "100" };
 // What a folder gives a tool: the files its page's picker takes that the tool
 // reads, by extension.
 const VIDEOS = FORMATS.flatMap((format) => format.extensions);
-// Readable but written by no tool, so only Convert takes them (as the pickers'
-// list in client/src/tools.ts).
-const FOREIGN = ["avi", "mkv", "wmv", "mpg", "mpeg", "3gp", "ts"];
 // Sequence's picker takes image/*.
 const IMAGES = [...FORMATS, ...STILLS]
   .filter((format) => format.mime.startsWith("image/"))
@@ -197,42 +195,19 @@ const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
 const within = ([min, max]: readonly [number, number]) =>
   max === Infinity ? `from ${min} up` : `from ${min} to ${max}`;
 
-// The tool's own once it is known.
-let help = `Usage: videotools <tool> <file|folder|glob>... [options]
-       videotools <tool> --help
-       videotools --version
-
-The web app's tools on native ffmpeg, a job at a time: one per file, or one
-for all of a sequence's images. A folder means the files in it that the tool
-takes; a glob is expanded. Results are named as the app names its downloads,
-or after their settings with --verbose-names. The first run downloads ffmpeg
-and gifski.
-
-Tools:
-${TOOL_IDS.map((id) => `  ${id.padEnd(10)}${COMMANDS[id].about}`).join("\n")}
-`;
-
-function usage(problem: string): never {
-  process.stderr.write(`${problem}\n\n${help}`);
-  process.exit(2);
-}
-
 const [tool, ...args] = process.argv.slice(2);
-if (tool === "--help") {
-  process.stdout.write(help);
-  process.exit(0);
-}
-if (tool === "--version") {
-  process.stdout.write(`${pkg.version}\n`);
-  process.exit(0);
-}
-if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool}` : "No tool given");
-const command = COMMANDS[tool];
-const flags = { ...command.flags, out: OUT, "verbose-names": VERBOSE_NAMES };
-const required = Object.entries(flags).filter(([, flag]) => flag.required);
-help = `Usage: videotools ${tool} <file|folder|glob>...${required.map(([name, flag]) => ` --${name} <${flag.arg}>`).join("")} [options]
+const flags = {
+  ...(isToolId(tool) && COMMANDS[tool].flags),
+  out: OUT,
+  "verbose-names": VERBOSE_NAMES,
+};
+const help = isToolId(tool)
+  ? `Usage: videotools ${tool} <file|folder|glob>...${Object.entries(flags)
+      .filter(([, flag]) => flag.required)
+      .map(([name, flag]) => ` --${name} <${flag.arg}>`)
+      .join("")} [options]
 
-${command.about}.
+${COMMANDS[tool].about}.
 
 Options:
 ${Object.entries(flags)
@@ -251,7 +226,36 @@ ${Object.entries(flags)
       .join(": ")}${notes.length ? ` (${notes.join("; ")})` : ""}`;
   })
   .join("\n")}
+`
+  : `Usage: videotools <tool> <file|folder|glob>... [options]
+       videotools <tool> --help
+       videotools --version
+
+The web app's tools on native ffmpeg, a job at a time: one per file, or one
+for all of a sequence's images. A folder means the files in it that the tool
+takes; a glob is expanded. Results are named as the app names its downloads,
+or after their settings with --verbose-names. The first run downloads ffmpeg
+and gifski.
+
+Tools:
+${TOOL_IDS.map((id) => `  ${id.padEnd(10)}${COMMANDS[id].about}`).join("\n")}
 `;
+
+function usage(problem: string): never {
+  process.stderr.write(`${problem}\n\n${help}`);
+  process.exit(2);
+}
+
+if (tool === "--help") {
+  process.stdout.write(help);
+  process.exit(0);
+}
+if (tool === "--version") {
+  process.stdout.write(`${pkg.version}\n`);
+  process.exit(0);
+}
+if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool}` : "No tool given");
+const command = COMMANDS[tool];
 
 let parsed;
 try {
@@ -323,15 +327,15 @@ const found = inputs.map((input) => {
 const sources = command.together ? found.flat() : [...new Set(found.flat())].sort(natural);
 // ffmpeg reads a sequence's images through one demuxer: a mix of formats comes
 // back blank or missing, so the page turns one away too.
-const formats = new Set(
-  sources.map(
-    (file) =>
-      [...FORMATS, ...STILLS].find((format) => format.extensions.includes(extension(file)))?.id ??
-      extension(file),
-  ),
-);
-if (command.together && formats.size > 1) {
-  usage(`Use images of one format, not ${[...formats].join(", ")}`);
+if (command.together) {
+  const formats = new Set(
+    sources.map(
+      (file) =>
+        [...FORMATS, ...STILLS].find((format) => format.extensions.includes(extension(file)))?.id ??
+        extension(file),
+    ),
+  );
+  if (formats.size > 1) usage(`Use images of one format, not ${[...formats].join(", ")}`);
 }
 const jobs = command.together ? [sources] : sources.map((source) => [source]);
 

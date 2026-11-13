@@ -3,7 +3,7 @@
 `BINARIES` in `cli/binaries.ts` pins the gifski CLI, from
 https://github.com/ImageOptim/gifski/releases. Its binaries are mirrored,
 gzipped, to this repo's `gifski-<version>` release, and the first native run
-downloads the host's into the user's cache (`~/.videotools/gifski-<version>/`),
+downloads the host's into the user's cache (`~/.videotools/gifski-<version>-<hash>/`),
 as it does for ffmpeg (the app runs the WebAssembly build from `wasm/Dockerfile`):
 
 - `linux-x64` — static-pie linked (no glibc dependency).

@@ -33,8 +33,6 @@ export const execBinary: Exec = (command, args, { cwd, onLine }) => {
       resolve({ code, ...output });
     });
     child.on("error", (error) => {
-      console.error(`Failed to start command: ${command} ${args.join(" ")}`);
-      console.error(`Error: ${error.message}`);
       reject(new Error(`Failed to start command: ${error.message}`, { cause: error }));
     });
   });
