@@ -14,7 +14,6 @@ import { binaryPath, install, resvgUrl } from "../../cli/binaries.ts";
 import { execBinary } from "../../cli/exec.ts";
 import { FFmpeg } from "../../core/ffmpeg.ts";
 import { progressBar } from "../../core/helpers.ts";
-import { runTool as runToolOn } from "../../core/tools/index.ts";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
 import { encodeLoss } from "./quality.mjs";
@@ -44,12 +43,10 @@ if (!label || unknown.length) {
   process.exit(2);
 }
 
-await install("ffmpeg");
-await install("gifski");
+await Promise.all([install("ffmpeg"), install("gifski")]);
 const ffmpegPath = binaryPath("ffmpeg");
 requireFfmpeg(ffmpegPath, { pinned: true });
 const ff = new FFmpeg(ffmpegPath, binaryPath("gifski"), resvgUrl, execBinary);
-const runTool = (...args) => runToolOn(ff, ...args);
 
 const listed = (dir) =>
   fs
@@ -98,7 +95,7 @@ for (const { name, parts } of runs) {
   let result;
   try {
     const progress = progressFor(name);
-    const output = await SUITES[name]({ ff, assets, outDir, parts, runTool, say, progress });
+    const output = await SUITES[name]({ ff, assets, outDir, parts, say, progress });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
     result = `${name}: ${path.relative(root, output)} (${seconds}s)`;
   } catch (err) {

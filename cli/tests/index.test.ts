@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { FORMATS, SEQUENCE_FORMATS, TOOL_IDS, type ToolId } from "@videotools/core/formats";
 import { VALID_TECHNIQUES } from "@videotools/core/tools/loop";
-import { MARK_FILTERS, MARK_POSITIONS } from "@videotools/core/tools/mark-config";
+import { MARK_FILTERS, POSITIONS } from "@videotools/core/tools/mark-config";
 import { cliCommand } from "../../client/src/helpers.js";
 import { execBinary } from "../exec.js";
 import pkg from "../package.json" with { type: "json" };
@@ -21,7 +21,7 @@ const logo = path.join(dir, "logo.svg");
 fs.writeFileSync(clip, "");
 fs.writeFileSync(logo, "");
 
-describe("videotools", () => {
+describe.concurrent("videotools", () => {
   it("lists every tool", async () => {
     const { code, stdout } = await cli("--help");
     expect(code).toBe(0);
@@ -33,12 +33,6 @@ describe("videotools", () => {
     const { code, stdout } = await cli(tool, "--help");
     expect(code).toBe(0);
     expect(stdout).toMatch(new RegExp(`^Usage: videotools ${tool.toUpperCase()} `));
-  });
-
-  it("takes --verbose-names", async () => {
-    const { code, stderr } = await cli("speed", "--verbose-names");
-    expect(code).toBe(2);
-    expect(stderr).toMatch(/^No files given\n/);
   });
 
   it("prints its version", async () => {
@@ -78,7 +72,6 @@ describe("videotools", () => {
     ],
     ["sequence", ["--format", "mov"], `--format must be one of ${SEQUENCE_FORMATS.join(", ")}`],
     ["sequence", ["--frame-duration", "0.05"], "--frame-duration must be a number from 0.1 up"],
-    ["sequence", ["--quality", "0"], "--quality must be a number from 1 to 100"],
     ["speed", ["--speed", "3.5"], "--speed must be a number from -3 to 3"],
     ["speed", ["--speed=-4"], "--speed must be a number from -3 to 3"],
     ["convert", ["--to", "mkv"], `--to must be one of ${FORMATS.map((f) => f.id).join(", ")}`],
@@ -89,7 +82,7 @@ describe("videotools", () => {
     [
       "mark",
       ["--logo", logo, "--position", "nowhere"],
-      `--position must be one of ${Object.keys(MARK_POSITIONS).join(", ")}`,
+      `--position must be one of ${POSITIONS.join(", ")}`,
     ],
     ["mark", ["--logo", logo, "--size", "dev"], "--size must be one of small, medium, large"],
     [
@@ -112,7 +105,6 @@ describe("videotools", () => {
   // Each page shows its settings as a command (client/src/helpers.ts); a
   // spread of them, its controls' ends among them, must run this package and
   // pass its flags: each is turned away only for its files, which are not there.
-  const positions = Object.keys(MARK_POSITIONS);
   const shown: Record<ToolId, Parameters<typeof cliCommand>[2][]> = {
     loop: [
       { technique: "crossfade", fade: 0, start: 12.5, quality: 0 },
@@ -130,14 +122,14 @@ describe("videotools", () => {
       { to: "gif", quality: 50, fps: 1, width: 100 },
       { to: "gif", quality: 50, fps: 30, width: 800 },
     ],
-    mark: positions.map((position, n) => ({
+    mark: POSITIONS.map((position, n) => ({
       logo: n % 2 ? undefined : "my logo.svg",
       position,
       size: ["small", "medium", "large"][n % 3],
       filter: MARK_FILTERS[(n + 1) % 3],
       shuffle: n % 2 === 0,
       // The knob's ends and between
-      quality: Math.round((n / (positions.length - 1)) * 100),
+      quality: Math.round((n / (POSITIONS.length - 1)) * 100),
     })),
   };
   it.each(TOOL_IDS)("takes the commands %s's page shows", async (tool) => {

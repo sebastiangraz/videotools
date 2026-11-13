@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { MARK_SIZES } from "../../core/tools/mark-config.ts";
+import { runTool } from "../../core/tools/index.ts";
 
 const ZOOM_OUT = 2;
 const FPS = 30;
@@ -123,10 +124,7 @@ export async function pool(items, limit, run) {
 }
 
 // `slot` in seconds; without one, a single slot as long as the longest clip.
-async function grid(
-  { ff, outDir, runTool, say, progress },
-  { name, videos, vectors, looks, slot },
-) {
+async function grid({ ff, outDir, say, progress }, { name, videos, vectors, looks, slot }) {
   if (!videos.length || !vectors.length) throw new Error("needs clips and vectors");
   const infos = await Promise.all(videos.map((file) => ff.mediaInfo(file)));
   const smallest = {
@@ -200,6 +198,7 @@ async function grid(
     const workDir = path.join(tileDirs[t], String(k));
     try {
       const { outputPath } = await runTool(
+        ff,
         "mark",
         [part, vector],
         { ...OPTIONS, ...look },

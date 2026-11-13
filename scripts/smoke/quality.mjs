@@ -11,6 +11,7 @@ import { shownDuration } from "../../core/ffmpeg.ts";
 import { formatBytes } from "../../client/src/helpers.ts";
 import { graphArgs } from "../../core/encode/render.ts";
 import { FORMATS, SEQUENCE_FORMATS } from "../../core/formats.ts";
+import { runTool } from "../../core/tools/index.ts";
 import { LOOP_LIMITS } from "../../core/tools/loop.ts";
 import { CONCURRENCY, pool } from "./mark.mjs";
 
@@ -79,7 +80,7 @@ const CASES = {
   ),
 };
 
-export async function encodeLoss({ ff, assets, outDir, runTool, say, progress }) {
+export async function encodeLoss({ ff, assets, outDir, say, progress }) {
   const { images, videos, vectors } = assets;
   const stills = images(SEQUENCE_IMAGES);
   const encoders = { ...ENCODERS };
@@ -123,7 +124,7 @@ export async function encodeLoss({ ff, assets, outDir, runTool, say, progress })
       for (const [i, [tool, options, length]] of steps.entries()) {
         const workDir = path.join(outDir, name, clip, String(i));
         const files = { mark: [input, vectors[0]], sequence: stills }[tool] ?? [input];
-        const { outputPath } = await runTool(tool, files, options, workDir);
+        const { outputPath } = await runTool(ff, tool, files, options, workDir);
         const reference = path.join(workDir, "reference.mkv");
         const against = fs.existsSync(reference) ? reference : input;
         const label = steps.length > 1 ? `${name} ${i + 1}` : name;

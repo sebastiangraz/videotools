@@ -17,6 +17,7 @@ import {
   MARK,
   MARK_POSITIONS,
   MARK_TUNING,
+  POSITIONS,
   shuffleRoute,
   type MarkFilter,
   type MarkPosition,
@@ -48,8 +49,6 @@ const FILTER_OPTIONS: { value: MarkFilter; label: string }[] = [
   { value: "glass", label: "Glass" },
   { value: "blur", label: "Blur" },
 ];
-
-const POSITION_OPTIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
 const DEBUG_VIEWS: { value: Exclude<MarkView, "render">; label: string }[] = [
   // displacement red x, green y, olive no shift
@@ -352,7 +351,7 @@ export const Mark = () => {
             )}
             <ToggleGrid
               labelledBy="markPosition"
-              options={POSITION_OPTIONS}
+              options={POSITIONS}
               value={position}
               onValueChange={pickPosition}
               disabled={run.busy}

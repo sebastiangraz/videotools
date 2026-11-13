@@ -24,8 +24,8 @@ import { runTool } from "@videotools/core/tools/index";
 import { VALID_TECHNIQUES } from "@videotools/core/tools/loop";
 import {
   MARK_FILTERS,
-  MARK_POSITIONS,
   MARK_SIZES,
+  POSITIONS,
   shuffleRoute,
   type MarkPosition,
 } from "@videotools/core/tools/mark-config";
@@ -166,7 +166,7 @@ const COMMANDS: Record<
     takes: [...VIDEOS, ...STILLS.flatMap((still) => still.extensions)],
     flags: {
       logo: { arg: "png|svg", required: true, help: "the watermark" },
-      position: { arg: "at", values: Object.keys(MARK_POSITIONS), default: "bottom-right" },
+      position: { arg: "at", values: POSITIONS, default: "bottom-right" },
       size: {
         arg: "size",
         values: Object.keys(MARK_SIZES).filter((size) => size !== "dev"),
@@ -186,22 +186,16 @@ const COMMANDS: Record<
     }),
   },
 };
-const OUT: Flag = { arg: "dir", help: "where results go, by default the current folder" };
-const VERBOSE_NAMES: Flag = {
-  help: "name results after the source's full name and their settings",
-};
-
 const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
 const within = ([min, max]: readonly [number, number]) =>
   max === Infinity ? `from ${min} up` : `from ${min} to ${max}`;
 
 // A tool in any case, as it's shown in capitals.
 const tool = process.argv[2]?.toLowerCase();
-const args = process.argv.slice(3);
-const flags = {
+const flags: Record<string, Flag> = {
   ...(isToolId(tool) && COMMANDS[tool].flags),
-  out: OUT,
-  "verbose-names": VERBOSE_NAMES,
+  out: { arg: "dir", help: "where results go, by default the current folder" },
+  "verbose-names": { help: "name results after the source's full name and their settings" },
 };
 const help = isToolId(tool)
   ? `Usage: videotools ${tool.toUpperCase()} <file|folder|glob>...${Object.entries(flags)
@@ -214,18 +208,16 @@ ${COMMANDS[tool].about}.
 Options:
 ${Object.entries(flags)
   .map(([name, flag]) => {
+    const spelled = `--${name}${flag.arg ? ` <${flag.arg}>` : ""}`;
+    const about = [flag.values?.join("|"), flag.range && within(flag.range), flag.help]
+      .filter(Boolean)
+      .join(": ");
     const notes = [
       flag.default && `default: ${flag.default}`,
       flag.required && "required",
       flag.only && `only with --${flag.only[0]} ${flag.only[1]}`,
     ].filter(Boolean);
-    return `  ${`--${name}${flag.arg ? ` <${flag.arg}>` : ""}`.padEnd(28)}${[
-      flag.values?.join("|"),
-      flag.range && within(flag.range),
-      flag.help,
-    ]
-      .filter(Boolean)
-      .join(": ")}${notes.length ? ` (${notes.join("; ")})` : ""}`;
+    return `  ${spelled.padEnd(28)}${about}${notes.length ? ` (${notes.join("; ")})` : ""}`;
   })
   .join("\n")}
 `
@@ -262,12 +254,12 @@ const command = COMMANDS[tool];
 let parsed;
 try {
   parsed = parseArgs({
-    args,
+    args: process.argv.slice(3),
     options: {
       ...Object.fromEntries(
         Object.entries(flags).map(([name, flag]) => [
           name,
-          { type: flag.arg ? ("string" as const) : ("boolean" as const) },
+          { type: flag.arg ? "string" : "boolean" } as const,
         ]),
       ),
       help: { type: "boolean" },
@@ -324,14 +316,16 @@ const found = inputs.map((input) => {
   if (!files.length) usage(`Nothing for ${tool.toUpperCase()} in ${input}`);
   return files;
 });
-// A sequence's images in the order given, repeats and all; any other tool
-// takes each file once.
-const sources = command.together ? found.flat() : [...new Set(found.flat())].sort(natural);
+// A sequence's images in the order given, repeats and all, as one job; any
+// other tool takes each file once, a job each.
+const jobs = command.together
+  ? [found.flat()]
+  : [...new Set(found.flat())].sort(natural).map((source) => [source]);
 // ffmpeg reads a sequence's images through one demuxer: a mix of formats comes
 // back blank or missing, so the page turns one away too.
 if (command.together) {
   const formats = new Set(
-    sources.map(
+    jobs[0].map(
       (file) =>
         [...FORMATS, ...STILLS].find((format) => format.extensions.includes(extension(file)))?.id ??
         extension(file),
@@ -339,7 +333,6 @@ if (command.together) {
   );
   if (formats.size > 1) usage(`Use images of one format, not ${[...formats].join(", ")}`);
 }
-const jobs = command.together ? [sources] : sources.map((source) => [source]);
 
 const out = (values.out as string | undefined) ?? ".";
 // Resolved: on Windows, Bun's recursive mkdir throws for "." and "..".
@@ -364,14 +357,12 @@ const abort = () => {
 };
 process.on("SIGINT", abort).on("SIGTERM", abort);
 
-await install("ffmpeg");
-await install("gifski");
+await Promise.all([install("ffmpeg"), install("gifski")]);
 // The runner logs every command; the lines below are the user's.
 console.log = console.error = () => {};
 
 const tty = process.stdout.isTTY;
 const written = new Set<string>();
-let failed = false;
 for (const [n, job] of jobs.entries()) {
   const more = job.length > 1 ? ` and ${job.length - 1} more` : "";
   const label = `[${n + 1}/${jobs.length}] ${path.basename(job[0])}${more}`;
@@ -398,10 +389,10 @@ for (const [n, job] of jobs.entries()) {
     written.add(name);
     const result = path.join(out, name);
     // Sync, so Ctrl+C never leaves half a result.
-    fs.copyFileSync(outputPath, result);
+    fs.copyFileSync(outputPath, result, fs.constants.COPYFILE_FICLONE);
     process.stdout.write(`${tty ? "\n" : ""}  ${result}\n`);
   } catch (err) {
-    failed = true;
+    process.exitCode = 1;
     // Short of an InputError's advice, the last line (ffmpeg's or the
     // system's) says what went wrong.
     const message =
@@ -411,7 +402,7 @@ for (const [n, job] of jobs.entries()) {
             .trim()
             .split(/[\r\n]+/)
             .at(-1)}`;
-    process.stdout.write(tty ? "\n" : "");
+    if (tty) process.stdout.write("\n");
     process.stderr.write(`  ${message}\n`);
   } finally {
     // A failed run can leave others going, and Windows won't delete a file a
@@ -420,4 +411,3 @@ for (const [n, job] of jobs.entries()) {
     await removeDir(workDir);
   }
 }
-process.exitCode = failed ? 1 : 0;

@@ -80,7 +80,7 @@ export const binaryPath = (tool: Tool): string =>
   path.join(
     os.homedir(),
     ".videotools",
-    `${tool}-${BINARIES[tool].version}-${BINARIES[tool].platforms[hostPlatform]?.sha256.slice(0, 8)}`,
+    `${tool}-${BINARIES[tool].version}-${BINARIES[tool].platforms[hostPlatform].sha256.slice(0, 8)}`,
     process.platform === "win32" ? `${tool}.exe` : tool,
   );
 

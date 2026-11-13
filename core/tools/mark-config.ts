@@ -137,7 +137,7 @@ export type MarkPosition = keyof typeof MARK_POSITIONS;
 export const isMarkPosition = (value: unknown): value is MarkPosition =>
   typeof value === "string" && Object.hasOwn(MARK_POSITIONS, value);
 
-const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
+export const POSITIONS = Object.keys(MARK_POSITIONS) as MarkPosition[];
 
 // Four bags of every position from `start`, each spent before the next, never
 // the same twice running, looping back to `start` included.

@@ -29,7 +29,7 @@ export async function runTool(
   await fs.mkdir(workDir, { recursive: true });
   const inputs: ToolInput[] = files.map((file) => ({
     name: path.basename(file),
-    save: (destPath) => fs.copyFile(file, destPath),
+    save: (destPath) => fs.copyFile(file, destPath, fs.constants.COPYFILE_FICLONE),
   }));
   return TOOLS[tool]({ ff, workDir, inputs, options });
 }

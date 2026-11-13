@@ -85,7 +85,7 @@ export function cliCommand(
   flags: Record<string, string | number | boolean | null | undefined>,
 ): string {
   const quoted = (name: string | undefined, placeholder: string) =>
-    name && !/["$`]/.test(name) ? `"${name}"` : `"${placeholder}"`;
+    `"${name && !/["$`]/.test(name) ? name : placeholder}"`;
   return [
     `npx @videotools/cli ${tool.toUpperCase()}`,
     ...(files.length ? files : [undefined]).map((file) => quoted(file?.name, "<file|folder|glob>")),
