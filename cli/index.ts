@@ -19,7 +19,7 @@ import {
   verboseName,
   type ToolId,
 } from "@videotools/core/formats";
-import { removeDir } from "@videotools/core/helpers";
+import { progressBar, removeDir } from "@videotools/core/helpers";
 import { runTool } from "@videotools/core/tools/index";
 import { VALID_TECHNIQUES } from "@videotools/core/tools/loop";
 import {
@@ -372,10 +372,13 @@ let failed = false;
 for (const [n, job] of jobs.entries()) {
   const more = job.length > 1 ? ` and ${job.length - 1} more` : "";
   const label = `[${n + 1}/${jobs.length}] ${path.basename(job[0])}${more}`;
-  process.stdout.write(tty ? label : `${label}\n`);
   const ff = new FFmpeg(binaryPath("ffmpeg"), binaryPath("gifski"), resvgUrl, execBinary);
   if (tty) {
-    ff.onProgress = (done) => process.stdout.write(`\r\x1b[2K${label} ${Math.floor(done * 100)}%`);
+    ff.onProgress = (done) =>
+      process.stdout.write(`\r\x1b[2K${label} ${progressBar(done)} ${Math.floor(done * 100)}%`);
+    ff.onProgress(0);
+  } else {
+    process.stdout.write(`${label}\n`);
   }
   // Sync, so no Ctrl+C lands between the folder and workDir.
   workDir = fs.mkdtempSync(path.join(os.tmpdir(), "videotools-"));

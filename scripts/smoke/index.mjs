@@ -13,6 +13,7 @@ import path from "node:path";
 import { binaryPath, install, resvgUrl } from "../../cli/binaries.ts";
 import { execBinary } from "../../cli/exec.ts";
 import { FFmpeg } from "../../core/ffmpeg.ts";
+import { progressBar } from "../../core/helpers.ts";
 import { runTool as runToolOn } from "../../core/tools/index.ts";
 import { requireFfmpeg } from "../ffmpeg-check.mjs";
 import { lightGrid, MARK_GRIDS, markGrid } from "./mark.mjs";
@@ -63,7 +64,6 @@ const assets = {
 };
 
 // Progress bar
-const BAR_WIDTH = 20;
 const tty = process.stdout.isTTY;
 let bar = "";
 const write = (text) => process.stdout.write(tty ? `\r\x1b[2K${text}${bar}` : text);
@@ -74,12 +74,11 @@ const progressFor = (name) => (total) => {
   let done = 0;
   let shown;
   const draw = () => {
-    const filled = Math.floor((done / total) * BAR_WIDTH);
-    const fill = filled && done < total ? `${"█".repeat(filled - 1)}▌` : "█".repeat(filled);
-    bar = `${name} ▕${fill.padEnd(BAR_WIDTH, "░")}▏ ${done}/${total}`;
+    const cells = progressBar(done / total);
+    bar = `${name} ${cells} ${done}/${total}`;
     if (tty) write("");
-    else if (filled !== shown) write(`${bar}\n`);
-    shown = filled;
+    else if (cells !== shown) write(`${bar}\n`);
+    shown = cells;
   };
   draw();
   return () => {

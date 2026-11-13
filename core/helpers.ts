@@ -33,6 +33,14 @@ export const floorEven = (n: number): number => Math.max(2, Math.floor(n / 2) * 
 export const sizeLabel = (width: number, height: number): string =>
   `${Math.round(width)}×${Math.round(height)}`;
 
+// For terminals: how far (0–1), as "▕█████████▌░░░░░░░░░░▏".
+export function progressBar(done: number): string {
+  const width = 20;
+  const filled = Math.floor(done * width);
+  const fill = filled && done < 1 ? `${"█".repeat(filled - 1)}▌` : "█".repeat(filled);
+  return `▕${fill.padEnd(width, "░")}▏`;
+}
+
 // Unit vector `deg` degrees clockwise from the top, y down.
 export const towards = (deg: number): [number, number] => {
   const angle = (deg * Math.PI) / 180;
