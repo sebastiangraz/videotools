@@ -179,14 +179,6 @@ describe.concurrent("videotools", () => {
     expect(stderr).toContain(`Nothing for ${tool.toUpperCase()} in ${folder}\n`);
   });
 
-  it("turns away a sequence of mixed formats, as its page does", async () => {
-    const images = ["a.png", "b.jpg", "c.jpeg"].map((name) => path.join(dir, name));
-    for (const image of images) fs.writeFileSync(image, "");
-    const { code, stderr } = await cli("sequence", ...images);
-    expect(code).toBe(2);
-    expect(stderr).toContain("Use images of one format, not png, jpg\n");
-  });
-
   it.each([
     ["a glob", path.join(dir, "*.webm")],
     ["a missing file", path.join(dir, "missing.mp4")],

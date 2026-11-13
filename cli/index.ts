@@ -319,18 +319,6 @@ const found = inputs.map((input) => {
 const jobs = command.together
   ? [found.flat()]
   : [...new Set(found.flat())].sort(natural).map((source) => [source]);
-// ffmpeg reads a sequence's images through one demuxer: a mix of formats comes
-// back blank or missing, so the page turns one away too.
-if (command.together) {
-  const formats = new Set(
-    jobs[0].map(
-      (file) =>
-        [...FORMATS, ...STILLS].find((format) => format.extensions.includes(extension(file)))?.id ??
-        extension(file),
-    ),
-  );
-  if (formats.size > 1) usage(`Use images of one format, not ${[...formats].join(", ")}`);
-}
 
 const out = (values.out as string | undefined) ?? ".";
 // Resolved: on Windows, Bun's recursive mkdir throws for "." and "..".

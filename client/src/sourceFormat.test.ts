@@ -8,7 +8,6 @@ import {
   isAnimatedWebp,
   isStillImage,
   mp4FrameCount,
-  pickedFormats,
   stillFormat,
   targetsFor,
 } from "./sourceFormat";
@@ -145,14 +144,5 @@ describe("targetsFor", () => {
       all.filter((id) => id !== "mov"),
     );
     expect(targetsFor(file("clip.avi", "video/x-msvideo"))).toHaveLength(all.length);
-  });
-});
-
-describe("pickedFormats", () => {
-  it("names each format once, a still's under its own label", () => {
-    const png = file("a.png", "image/png");
-    expect(pickedFormats([png, file("b.PNG")])).toEqual(["PNG"]);
-    expect(pickedFormats([file("c.jpg"), file("d.jpeg")])).toEqual(["JPEG"]);
-    expect(pickedFormats([png, file("b.jpg"), file("c.xyz")])).toEqual(["PNG", "JPEG", "XYZ"]);
   });
 });

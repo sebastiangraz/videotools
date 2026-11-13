@@ -4,7 +4,6 @@ import {
   blockerText,
   formatBlock,
   isAnimatedWebp,
-  pickedFormats,
   stillFormat,
   type FormatBlock,
   type FormatOptions,
@@ -17,7 +16,7 @@ import { useMessage } from "./useMessage";
 // is a still. nonSquare (from useVideoSource) blocks every tool.
 export const useFormatBlocker = (
   source: File | File[] | null,
-  { stills = false, foreign = true, oneFormat = false }: FormatOptions = {},
+  { stills = false, foreign = true }: FormatOptions = {},
   nonSquare = false,
 ): string | null => {
   const files = useMemo(() => toList(source), [source]);
@@ -42,16 +41,11 @@ export const useFormatBlocker = (
     };
   }, [files, stills, foreign]);
 
-  const mixed = (): FormatBlock | null => {
-    if (!oneFormat) return null;
-    const labels = pickedFormats(files);
-    return labels.length > 1 ? { state: "mixed", labels } : null;
-  };
   const block: FormatBlock | null = nonSquare
     ? { state: "nonSquare" }
     : (files
         .map((file) => formatBlock(file, { stills, foreign }, stillWebps.includes(file)))
-        .find(Boolean) ?? mixed());
+        .find(Boolean) ?? null);
 
   const text = block && blockerText(block);
   useMessage(

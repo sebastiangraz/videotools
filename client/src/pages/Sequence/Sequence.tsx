@@ -84,11 +84,7 @@ export const Sequence = () => {
     files: File[];
     imageMeta: SourceMeta | null;
   }>({ files: [], imageMeta: null });
-  const formatBlocker = useFormatBlocker(files, {
-    stills: true,
-    foreign: false,
-    oneFormat: true,
-  });
+  const formatBlocker = useFormatBlocker(files, { stills: true, foreign: false });
   // NumberField reports null while empty; the run and the command then take the default.
   const [frameDuration, setFrameDuration] = useState<number | null>(1);
   const [format, setFormat] = useState<string>("mp4");

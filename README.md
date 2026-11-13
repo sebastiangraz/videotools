@@ -55,7 +55,7 @@ bun cli/index.ts <TOOL> ...                     # repo
 The command flags mirror the tool pages, and share the same defaults. Tools are in caps for legibility but any case works.
 
 - **Inputs** can be files, folders or globs. A folder means the supported files directly inside it, not those in subfolders. The CLI expands globs itself, so they work in any shell.
-- **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given, requires all images to be the same format, and names the result after the first image.
+- **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given and names the result after the first image.
 - **Output.** Written to `--out <dir>`, which defaults to the current directory. add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork.
 - **Failures.** If a file fails, the remaining files are still processed and the exit code is non-zero. Each job works in a folder of its own under `videotools-cli` in the system temp folder, deleted when the job ends. Ctrl+C stops the running ffmpeg or gifski process and deletes the job's folder.
 

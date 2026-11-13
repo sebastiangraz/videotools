@@ -7,9 +7,9 @@ import { file, imageFile, stubCanvas, stubImageDecoder } from "@src/test/media";
 const createButton = () => screen.getByRole("button", { name: /create video/i });
 
 describe("Sequence", () => {
-  it("hands the engine the images and requests an image sequence", async () => {
+  it("hands the engine images of mixed formats and requests an image sequence", async () => {
     const user = userEvent.setup();
-    const images = [file("a.png", "image/png"), file("b.png", "image/png")];
+    const images = [file("a.png", "image/png"), file("b.jpg", "image/jpeg")];
     stubEngine("a_sequence.gif");
 
     await renderApp("/sequence");
@@ -55,17 +55,5 @@ describe("Sequence", () => {
     expect(preview.parentElement).toHaveStyle({ aspectRatio: "16 / 9" });
     await waitFor(() => expect(drawImage.mock.calls.length).toBeGreaterThanOrEqual(3));
     expect(preview).toHaveProperty("width", 480);
-  });
-
-  it("turns a pick of mixed formats away", async () => {
-    const user = userEvent.setup();
-    await renderApp("/sequence");
-    await user.upload(screen.getByLabelText(/choose images/i), [
-      file("a.png", "image/png"),
-      file("b.jpg", "image/jpeg"),
-    ]);
-
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(createButton()).toHaveAttribute("aria-disabled", "true");
   });
 });

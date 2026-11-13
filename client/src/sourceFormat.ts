@@ -106,20 +106,15 @@ export async function mp4FrameCount(file: File): Promise<number | null> {
 export type FormatBlock =
   // Readable but not a format the app writes, so there is none to hand back.
   | { state: "foreign"; name: string }
-  // ffmpeg reads a sequence through one image demuxer: mixed formats come
-  // back blank or missing.
-  | { state: "mixed"; labels: string[] }
   // Anamorphic video: GIF/WebP/AVIF can't show it in shape. Only known once
   // the video opens (useVideoSource).
   | { state: "nonSquare" };
 
 // stills: also takes raster images (mark). foreign: false when the tool
-// picks the output format itself (sequence). oneFormat: many files, one
-// format (sequence).
+// picks the output format itself (sequence).
 export type FormatOptions = {
   stills?: boolean;
   foreign?: boolean;
-  oneFormat?: boolean;
 };
 
 // stillWebp: the header proved a .webp is not animated; until then it passes
@@ -150,26 +145,12 @@ export function blockerText(block: FormatBlock): BlockerText {
         short: "Convert this file first",
         long: `${block.name} files need to be`,
       };
-    case "mixed":
-      return {
-        short: "Use images of one format",
-        long: "Mixed formats are not supported.",
-      };
     case "nonSquare":
       return {
         short: "Re-export with square pixels",
         long: "Non-square pixels are not supported.",
       };
   }
-}
-
-export function pickedFormats(files: readonly File[]): string[] {
-  const labels = new Set<string>();
-  for (const file of files) {
-    const known = stillFormat(file) ?? fileFormat(file);
-    labels.add(known?.label ?? (extensionOf(file.name).toUpperCase() || "Unknown"));
-  }
-  return [...labels];
 }
 
 export function formatBlocker(

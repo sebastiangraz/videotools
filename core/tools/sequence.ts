@@ -23,7 +23,8 @@ async function imageSequence(
   const W = floorEven(w * scaleFactor);
   const H = floorEven(h * scaleFactor);
 
-  // The image2 demuxer needs identical frames; PNG keeps this step lossless.
+  // Every frame one size and pixel format, or ffmpeg rebuilds the graph
+  // midway and loses frames. rgba holds any image's alpha; PNG is lossless.
   const framesDir = path.join(workDir, "frames");
   await fs.mkdir(framesDir, { recursive: true });
   const frames: string[] = [];
@@ -34,7 +35,7 @@ async function imageSequence(
       "-i",
       imagePaths[i],
       "-vf",
-      `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1`,
+      `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=rgba`,
       "-frames:v",
       "1",
       framePath,
