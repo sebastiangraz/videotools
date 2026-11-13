@@ -75,6 +75,7 @@ export const ToolPanel = ({
           <Tooltip
             disabled={!blocked}
             content={blocker}
+            side="top"
             render={<button onClick={click} aria-disabled={blocked} className={styles.submit} />}
           >
             <span className={styles.label}>{busy ? "Processing" : tool.actionLabel}</span>
