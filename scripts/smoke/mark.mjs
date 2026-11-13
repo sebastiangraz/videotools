@@ -52,7 +52,13 @@ export async function markGrid({ assets, outDir, parts = MARK_GRIDS, ...suite })
     const looks = MARK_LOOKS[dir];
     await grid(
       { ...suite, outDir: path.join(outDir, dir) },
-      { name: "mark", videos: videos(MARK_VIDEOS), vectors, looks, slot: LOGO_SECONDS / looks.length },
+      {
+        name: "mark",
+        videos: videos(MARK_VIDEOS),
+        vectors,
+        looks,
+        slot: LOGO_SECONDS / looks.length,
+      },
     );
   }
   return outDir;
@@ -193,7 +199,12 @@ async function grid(
     const part = path.join(tileDirs[t], `part${k}.mp4`);
     const workDir = path.join(tileDirs[t], String(k));
     try {
-      const { outputPath } = await runTool("mark", [part, vector], { ...OPTIONS, ...look }, workDir);
+      const { outputPath } = await runTool(
+        "mark",
+        [part, vector],
+        { ...OPTIONS, ...look },
+        workDir,
+      );
       tick();
       return outputPath;
     } catch (err) {
