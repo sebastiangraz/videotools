@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ToolId } from "@src/tools";
-import { splitExtension, verboseName } from "@src/helpers";
+import { extensionOf } from "@src/helpers";
 import { runEngine } from "@src/engine";
+import { verboseName } from "@videotools/core/formats";
 
 // `extras`: further inputs after the sources (mark's logo).
 // `onDone`: once the result is saved.
@@ -51,10 +52,10 @@ export function useToolRun(tool: ToolId) {
         href: objectUrl,
         download: verbose
           ? verboseName(
-              splitExtension(files[0].name)[0],
+              files[0].name,
               extras.map((file) => file.name),
               options,
-              result.name,
+              extensionOf(result.name),
             )
           : result.name,
       });

@@ -169,6 +169,16 @@ describe("App", () => {
     expect(screen.getByText(/^npx @videotools\/cli loop /)).toBeInTheDocument();
   });
 
+  it("adds --verbose-names to the command while verbose names are on", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await showCommandLine(user);
+    expect(screen.getByText(/^npx .* --quality 100$/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Enabled" }));
+    expect(screen.getByText(/^npx .* --quality 100 --verbose-names$/)).toBeInTheDocument();
+  });
+
   it("shows an error box when a run fails, until one succeeds", async () => {
     const user = userEvent.setup();
     vi.spyOn(console, "error").mockImplementation(() => {});

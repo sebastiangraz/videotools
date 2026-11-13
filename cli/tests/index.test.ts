@@ -34,6 +34,12 @@ describe("videotools", () => {
     expect(stdout).toMatch(new RegExp(`^Usage: videotools ${tool} `));
   });
 
+  it("takes --verbose-names", async () => {
+    const { code, stderr } = await cli("speed", "--verbose-names");
+    expect(code).toBe(2);
+    expect(stderr).toMatch(/^No files given\n/);
+  });
+
   it("prints its version", async () => {
     expect((await cli("--version")).stdout).toBe(`${pkg.version}\n`);
   });
@@ -144,7 +150,11 @@ describe("videotools", () => {
       ]),
     );
     for (const [n, flags] of shown[tool].entries()) {
-      const command = cliCommand(tool, n % 2 ? [new File([], "my clip.mp4")] : [], flags);
+      const command = cliCommand(tool, n % 2 ? [new File([], "my clip.mp4")] : [], {
+        ...flags,
+        // As ToolPanel adds it while verbose names are on.
+        "verbose-names": n % 2 === 0,
+      });
       const [npx, name, program, source, ...args] = command.match(/"[^"]*"|\S+/g)!;
       expect([npx, name, program, source]).toEqual([
         "npx",

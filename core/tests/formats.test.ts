@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FORMATS, SEQUENCE_FORMATS, STILLS, formatById } from "../formats.js";
+import { FORMATS, SEQUENCE_FORMATS, STILLS, formatById, verboseName } from "../formats.js";
 
 describe("formats", () => {
   it("lists every format once, each under extensions of its own", () => {
@@ -25,5 +25,29 @@ describe("formats", () => {
       const format = FORMATS.find((f) => f.id === still.id);
       if (format) expect(format.mime).toBe(still.mime);
     }
+  });
+});
+
+describe("verboseName", () => {
+  it("joins 6 characters of the source, the extras and the options, with the result's extension", () => {
+    expect(
+      verboseName("holiday-clip.mov", ["logo.png"], { filter: "glass", quality: 100 }, "mp4"),
+    ).toBe("holida_logo.png_fGlass_q100.mp4");
+  });
+
+  it.each([
+    [{ fadeDuration: 0.5 }, "fd0.5"],
+    [{ startSecond: 0 }, "ss0"],
+    [{ technique: "crossfade" }, "tCrossfade"],
+    [{ position: "bottom-right" }, "pBottomRight"],
+    [{ shuffle: true }, "sY"],
+    [{ route: ["top", "left"] }, "rY"],
+    [{ tuning: { coreGain: 3 } }, "tY"],
+  ])("writes %o as %s", (options, part) => {
+    expect(verboseName("clip.mp4", [], options, "mp4")).toBe(`clip_${part}.mp4`);
+  });
+
+  it.each([false, null])("leaves out an option set to %s", (value) => {
+    expect(verboseName("clip.mp4", [], { route: value }, "mp4")).toBe("clip.mp4");
   });
 });

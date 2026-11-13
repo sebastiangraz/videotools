@@ -49,7 +49,7 @@ npx @videotools/cli <tool> ...                  # from npm, on Node
 bun cli/index.ts <tool> ...                     # from this repo
 ```
 
-Flags are the page's controls and defaults; anything the page wouldn't offer is refused, except a `--start` past the clip's end, which the tool clamps. A folder means the files in it the tool takes (not subfolders); globs are expanded by the CLI. Files are deduplicated and sorted naturally by path, but a sequence takes its images in the order given, of one format, and is named after the first. Results are named as the app's downloads and go to `--out <dir>` (default: the current folder); a name collision fails the later file. A failed file doesn't stop the rest; the exit code is non-zero if any failed. Ctrl+C kills the running ffmpeg or gifski and removes the job's temp folder.
+Flags are the page's controls and defaults; anything the page wouldn't offer is refused, except a `--start` past the clip's end, which the tool clamps. A folder means the files in it the tool takes (not subfolders); globs are expanded by the CLI. Files are deduplicated and sorted naturally by path, but a sequence takes its images in the order given, of one format, and is named after the first. Results are named as the app's downloads, verbose ones with `--verbose-names`, and go to `--out <dir>` (default: the current folder); a name collision fails the later file. A failed file doesn't stop the rest; the exit code is non-zero if any failed. Ctrl+C kills the running ffmpeg or gifski and removes the job's temp folder.
 
 The app's Command line setting (off by default) shows each page's settings as an `npx @videotools/cli` command under its action button.
 

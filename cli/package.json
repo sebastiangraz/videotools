@@ -1,6 +1,6 @@
 {
   "name": "@videotools/cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Video tools on the command line: seamless loops, image sequences to video, speed changes, format conversion and watermarks, for many files at once",
   "repository": {
     "type": "git",

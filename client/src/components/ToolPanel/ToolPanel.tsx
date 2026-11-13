@@ -3,13 +3,14 @@ import { Progress } from "@base-ui/react/progress";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
 import { Footer } from "@src/components/Footer/Footer";
 import type { Tool } from "@src/tools";
-import { CommandLine, type ToolRun } from "@src/hooks/useToolRun";
+import { CommandLine, VerboseNames, type ToolRun } from "@src/hooks/useToolRun";
 import styles from "./ToolPanel.module.css";
 
 // The frame every tool page fills in: `inputs` (the drop zones) in the first
 // container, then the page's options (`children`), the action row (the action
 // button, which cancels a run in flight, on the left, `control` on the right),
-// the page's `command` while the command line setting shows it, the error box
+// the page's `command` while the command line setting shows it (with
+// --verbose-names while verbose names are on), the error box
 // and the footer in the second. The options must
 // land as direct children of their container — the tab-change transition
 // staggers them by position (see the stylesheet) — so pages pass a fragment,
@@ -37,6 +38,7 @@ export const ToolPanel = ({
 }) => {
   const { busy, progress, errorDetail } = run;
   const commandLine = useContext(CommandLine);
+  const verbose = useContext(VerboseNames);
   // Busy, the button cancels; otherwise it runs unless blocked.
   const blocked = !busy && blocker !== null;
 
@@ -90,7 +92,7 @@ export const ToolPanel = ({
 
         {commandLine && (
           <pre className={styles.command}>
-            <code>{command}</code>
+            <code>{verbose ? `${command} --verbose-names` : command}</code>
           </pre>
         )}
 

@@ -15,6 +15,7 @@ import {
   TOOL_IDS,
   isToolId,
   resultFile,
+  verboseName,
   type ToolId,
 } from "@videotools/core/formats";
 import { removeDir } from "@videotools/core/helpers";
@@ -155,9 +156,11 @@ const COMMANDS: Record<
       target:
         values.to ?? FORMATS.find((format) => !format.extensions.includes(extension(file)))!.id,
       quality: Number(values.quality),
-      // null: the source's, as the page's empty field.
-      fps: values.fps === undefined ? null : Number(values.fps),
-      width: Number(values.width),
+      ...(values.to === "gif" && {
+        // null: the source's, as the page's empty field.
+        fps: values.fps === undefined ? null : Number(values.fps),
+        width: Number(values.width),
+      }),
     }),
   },
   mark: {
@@ -186,6 +189,9 @@ const COMMANDS: Record<
   },
 };
 const OUT: Flag = { arg: "dir", help: "where results go, by default the current folder" };
+const VERBOSE_NAMES: Flag = {
+  help: "name results after their settings, as the app does with Verbose file names on",
+};
 
 const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
 const within = ([min, max]: readonly [number, number]) =>
@@ -198,8 +204,8 @@ let help = `Usage: videotools <tool> <file|folder|glob>... [options]
 
 The web app's tools on native ffmpeg, a job at a time: one per file, or one
 for all of a sequence's images. A folder means the files in it that the tool
-takes; a glob is expanded. Results are named as the app names its downloads.
-The first run downloads ffmpeg and gifski.
+takes; a glob is expanded. Results are named as the app names its downloads,
+verbose ones with --verbose-names. The first run downloads ffmpeg and gifski.
 
 Tools:
 ${TOOL_IDS.map((id) => `  ${id.padEnd(10)}${COMMANDS[id].about}`).join("\n")}
@@ -221,7 +227,7 @@ if (tool === "--version") {
 }
 if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool}` : "No tool given");
 const command = COMMANDS[tool];
-const flags = { ...command.flags, out: OUT };
+const flags = { ...command.flags, out: OUT, "verbose-names": VERBOSE_NAMES };
 const required = Object.entries(flags).filter(([, flag]) => flag.required);
 help = `Usage: videotools ${tool} <file|folder|glob>...${required.map(([name, flag]) => ` --${name} <${flag.arg}>`).join("")} [options]
 
@@ -371,7 +377,10 @@ for (const [n, job] of jobs.entries()) {
     const files = logo === undefined ? job : [...job, logo];
     const options = command.options(values, job[0]);
     const { outputPath, suffix, ext } = await runTool(ff, tool, files, options, workDir);
-    const { name } = resultFile(path.basename(job[0]), suffix, ext);
+    const source = path.basename(job[0]);
+    const name = values["verbose-names"]
+      ? verboseName(source, logo === undefined ? [] : [path.basename(logo)], options, ext)
+      : resultFile(source, suffix, ext).name;
     if (written.has(name)) throw new Error(`An earlier file was written as ${name}`);
     written.add(name);
     const result = path.join(out, name);

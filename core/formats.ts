@@ -97,3 +97,30 @@ export function resultFile(source: string, suffix: string, ext: FormatId | Still
   const mime = (STILLS.find((s) => s.id === ext) ?? formatById(ext as FormatId)).mime;
   return { name: `${base}_${suffix}.${ext}`, mime };
 }
+
+// A result's verbose download name: 6 characters of the source's name, the
+// extras' names, then each option as key initials + value (fadeDuration 0.7 →
+// fd0.7, true, a list or a group → Y, false or null left out), with the
+// result's extension.
+export function verboseName(
+  source: string,
+  extraNames: string[],
+  options: Record<string, unknown>,
+  ext: string,
+): string {
+  return (
+    [
+      source.replace(/\.[^.]+$/, "").slice(0, 6),
+      ...extraNames,
+      ...Object.entries(options)
+        .filter(([, value]) => value !== false && value !== null)
+        .map(
+          ([key, value]) =>
+            key.replace(/\B[a-z]+/g, "").toLowerCase() +
+            (typeof value === "string" || typeof value === "number"
+              ? String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())
+              : "Y"),
+        ),
+    ].join("_") + `.${ext}`
+  );
+}

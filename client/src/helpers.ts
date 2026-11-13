@@ -72,32 +72,6 @@ export function timeAgo(iso: string) {
   return "just now";
 }
 
-// 6 characters of the source, the extras' names, then each option as key
-// initials + value (fadeDuration 0.7 → fd0.7, true, a list or a group → Y, false or null
-// left out), with the extension of the result's name.
-export function verboseName(
-  base: string,
-  extraNames: string[],
-  options: Record<string, unknown>,
-  resultName: string,
-): string {
-  return (
-    [
-      base.slice(0, 6),
-      ...extraNames,
-      ...Object.entries(options)
-        .filter(([, value]) => value !== false && value !== null)
-        .map(
-          ([key, value]) =>
-            key.replace(/\B[a-z]+/g, "").toLowerCase() +
-            (typeof value === "string" || typeof value === "number"
-              ? String(value).replace(/(?:^|-)(.)/g, (_, c: string) => c.toUpperCase())
-              : "Y"),
-        ),
-    ].join("_") + splitExtension(resultName)[1]
-  );
-}
-
 // A page's settings as the CLI command (cli/index.ts) that does the same,
 // through npx so Node is all it needs, every flag spelled out so it keeps its
 // meaning if a default changes. True is a switch; false, or null for a field
