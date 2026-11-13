@@ -2,7 +2,7 @@ Browser video tools: seamless loops, image sequences to video, speed changes, fo
 
 ## Installation
 
-Bun 1.4. The WebAssembly ffmpeg and gifski are committed in `client/public/engine/`. The engine is cached by URL (immutable `Cache-Control`, Cache API), so a rebuild needs a new content-hashed folder for `GLUE_URL` (`client/src/engine/exec.ts`); `bun run test` reports the hash.
+Bun 1.4. The WebAssembly builds of ffmpeg and gifski are committed in `client/public/engine/`, in a folder named after a hash of its files. Browsers cache them by URL, through an immutable `Cache-Control` header (`vercel.json`) and the Cache API. A rebuild therefore goes into a new folder, and `GLUE_URL` in `client/src/engine/exec.ts` must point to it. If the folder name doesn't match the hash, `bun run test` fails and shows the expected name.
 
 ```bash
 bun install                                     # deps
@@ -24,19 +24,22 @@ vercel --prod                                   # production deploy
 git config core.autocrlf false                  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
 
-Unit tests never spawn ffmpeg. The smoke suites (`scripts/smoke/`) run the tools natively over `scripts/smoke/assets/`: `mark` and `light` render grids of marked clips for visual review; `quality` scores every tool's results (SSIM, PSNR, VMAF) against the floors in `quality.mjs`.
+Unit tests never spawn ffmpeg. The smoke suites in `scripts/smoke/` run the tools natively on the files in `scripts/smoke/assets/`. `mark` and `light` render grids of marked clips for visual review. `quality` scores every tool's results with SSIM, PSNR and VMAF, and fails if a score falls below the minimums in `quality.mjs`.
 
 ## Architecture
 
-A Vite + React 19 static site in `client/` (TanStack Router, a single `/$tool` route): no backend, and nothing leaves the browser. The tools live in `core/` (`@videotools/core`): one module per tool in `tools/`, one encoder per format in `encode/`. They use `node:fs/promises` and `node:path`, with the command runner and resvg's WebAssembly injected, so the same code runs:
+The client is a Vite + React 19 static site in `client/`, using TanStack Router with a single `/$tool` route. There is no backend, and files never leave the browser.
 
-- In the browser, where Vite aliases those two modules to an in-memory filesystem (`client/src/engine/`), a job runs in a worker and each command in a fresh WebAssembly instance. ffmpeg's threads share memory, hence the COOP and COEP headers (`vercel.json`, `client/vite.config.ts`).
-- Natively, for the CLI, smoke suites and scripts: `cli/exec.ts` spawns the binaries, downloaded on first use into `~/.videotools/<tool>-<version>/`, sha256-checked.
-- On one pinned ffmpeg, built twice from the same tag with no version workarounds: WebAssembly in `wasm/Dockerfile`, native in `BINARIES` (`cli/binaries.ts`); gifski likewise (`cli/gifski/README.md`). No system ffmpeg, no ffprobe.
+The tools live in `core/` (`@videotools/core`), with one module per tool in `tools/` and one encoder per output format in `encode/`. They use `node:fs/promises` and `node:path`, and receive the command runner and resvg's WebAssembly as arguments. This lets the same code run in two places:
+
+- **In the browser.** Vite aliases `node:fs/promises` and `node:path` to an in-memory filesystem in `client/src/engine/`. Each job runs in a Web Worker, and each command runs in a fresh WebAssembly instance. ffmpeg's threads use shared memory, which requires cross-origin isolation, so every response sends COOP and COEP headers (`vercel.json`, and `client/vite.config.ts` for the dev server).
+- **Natively.** For the CLI, the smoke suites and scripts, `cli/exec.ts` spawns the binaries. They are downloaded on first use into `~/.videotools/<tool>-<version>/` and verified by sha256.
+
+Both run the same pinned ffmpeg, built from the same tag with no version workarounds in code: as WebAssembly by `wasm/Dockerfile`, and natively from the builds pinned in `BINARIES` in `cli/binaries.ts`. gifski is pinned the same way (see `cli/gifski/README.md`). No system ffmpeg is needed, and ffprobe isn't used.
 
 ## CLI
 
-`videotools` (`cli/index.ts`, npm `@videotools/cli`) runs the tools natively over many files: a job per file, or one for all of a sequence's images.
+`videotools` (`cli/index.ts`, published on npm as `@videotools/cli`) runs the tools natively over many files. It runs one job per file, or a single job for all of a sequence's images.
 
 ```bash
 videotools loop <file|folder|glob>... [--technique <how>] [--fade <seconds>] [--start <seconds>] [--quality <n>]
@@ -44,20 +47,25 @@ videotools sequence <file|folder|glob>... [--frame-duration <seconds>] [--format
 videotools speed <file|folder|glob>... [--speed <n>]
 videotools convert <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
 videotools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
-videotools <tool> --help                        # its flags, their values and defaults
-npx @videotools/cli <tool> ...                  # from npm, on Node
-bun cli/index.ts <tool> ...                     # from this repo
+videotools <tool> --help                        # flags, values and defaults
+npx @videotools/cli <tool> ...                  # Node
+bun cli/index.ts <tool> ...                     # repo
 ```
 
-Flags are the page's controls and defaults; anything the page wouldn't offer is refused, except a `--start` past the clip's end, which the tool clamps. A folder means the files in it the tool takes (not subfolders); globs are expanded by the CLI. Files are deduplicated and sorted naturally by path, but a sequence takes its images in the order given, of one format, and is named after the first. Results are named as the app's downloads, verbose ones with `--verbose-names`, and go to `--out <dir>` (default: the current folder); a name collision fails the later file. A failed file doesn't stop the rest; the exit code is non-zero if any failed. Ctrl+C kills the running ffmpeg or gifski and removes the job's temp folder.
+The command flags mirror the tool pages, and sharing the same defaults.
 
-The app's Command line setting (off by default) shows each page's settings as an `npx @videotools/cli` command under its action button.
+- **Inputs** can be files, folders or globs. A folder means the supported files directly inside it, not those in subfolders. The CLI expands globs itself, so they work in any shell.
+- **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given, requires all images to be the same format, and names the result after the first image.
+- **Output.** Results get the same names as the app's downloads (add `--verbose-names` for the app's verbose names) and are written to `--out <dir>`, which defaults to the current directory. If two results would have the same name, the second one fails.
+- **Failures.** If a file fails, the remaining files are still processed and the exit code is non-zero. Ctrl+C stops the running ffmpeg or gifski process and deletes the job's temporary folder.
 
-`bun run build` in `cli/` bundles it with core into `cli/dist/` for Node; resvg stays a dependency. To release, bump `version` in `cli/package.json` and push the tag `cli-v<version>`; `.github/workflows/cli.yml` tests, builds and publishes it.
+Enabling `Command line` shows the equivalent `npx @videotools/cli` command on the tool page.
+
+`bun run build` in `cli/` bundles the CLI and core into a single Node script in `cli/dist/`. The bundle leaves `@resvg/resvg-wasm` external, as a regular dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag. `.github/workflows/cli.yml` then tests, builds and publishes the package to npm.
 
 ## Principles
 
-- **Format agnostic.** Loop, Speed and Mark return the format they're given and refuse formats the app doesn't write (AVI, MKV, etc.), pointing to Convert, the only tool that changes formats.
-- **Single encoder**, shared by every tool: a tool describes inputs and a filtergraph, and the format's encoder renders them in one pass. A retry for a smaller file re-encodes the render, never the result.
+- **Format agnostic.** Loop, Speed and Mark return the same format they're given, and refuse formats the app can't write (AVI, MKV, etc.) with a pointer to Convert. Only Convert changes formats.
+- **Single encoder**, shared by every tool. A tool describes its inputs and a filtergraph, and the output format's encoder renders them in one pass. If an encoder retries for a smaller file, it re-encodes from the same render, so retries add no generation loss.
 - **Quality capped to source.** Quality 100 means "match the source", not "maximum bytes".
-- **Non-square-pixel video is refused.** Anamorphic video is confusing, increasingly obsolete, and not this tool's job.
+- **Non-square-pixel video is refused.** Anamorphic video is confusing, increasingly obsolete, and out of scope for this tool.
