@@ -46,8 +46,8 @@ describe("videotools", () => {
   });
 
   it.each([
-    ["no tool", [], "<tool>"],
-    ["an unknown tool", ["blur", clip], "<tool>"],
+    ["no tool", [], "<TOOL>"],
+    ["an unknown tool", ["blur", clip], "<TOOL>"],
     ["an unknown flag", ["mark", clip, "--logo", logo, "--jobs", "2"], "MARK"],
     ["another tool's flag", ["speed", clip, "--quality", "50"], "SPEED"],
     ["no --logo", ["mark", clip], "MARK"],

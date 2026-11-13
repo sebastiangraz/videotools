@@ -229,8 +229,8 @@ ${Object.entries(flags)
   })
   .join("\n")}
 `
-  : `Usage: videotools <tool> <file|folder|glob>... [options]
-       videotools <tool> --help
+  : `Usage: videotools <TOOL> <file|folder|glob>... [options]
+       videotools <TOOL> --help
        videotools --version
 
 The web app's tools on native ffmpeg, a job at a time: one per file, or one

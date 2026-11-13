@@ -47,9 +47,9 @@ videotools SEQUENCE <file|folder|glob>... [--frame-duration <seconds>] [--format
 videotools SPEED <file|folder|glob>... [--speed <n>]
 videotools CONVERT <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
 videotools MARK <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
-videotools <tool> --help                        # flags, values and defaults
-npx @videotools/cli <tool> ...                  # Node
-bun cli/index.ts <tool> ...                     # repo
+videotools <TOOL> --help                        # flags, values and defaults
+npx @videotools/cli <TOOL> ...                  # Node
+bun cli/index.ts <TOOL> ...                     # repo
 ```
 
 The command flags mirror the tool pages, and share the same defaults. Tools are in caps for legibility but any case works.
