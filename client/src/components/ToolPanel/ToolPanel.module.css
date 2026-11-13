@@ -177,11 +177,11 @@
 }
 
 .command {
-  --tab-h: round(down, 3.3em, 2px);
+  --tab-h: round(down, 2.5em, 2px);
   --tab-w: min(18ch, 75%);
   --outline: shape(
     from 0 0,
-    hline to calc(var(--tab-w) - 4.5em),
+    hline to calc(var(--tab-w) - 4em),
     curve to var(--tab-w) var(--tab-h) with calc(var(--tab-w) - 1.8em) 0 /
       calc(var(--tab-w) - 1.8em) var(--tab-h),
     hline to calc(100% - var(--radius)),
@@ -203,7 +203,7 @@
   clip-path: var(--outline);
   box-shadow: none;
   translate: 0 var(--input-edge);
-  padding: 1.5em 1.5em 1em;
+  padding: 1.2em 1.5em 1em;
   letter-spacing: 0.05em;
   text-transform: none;
 }
@@ -213,7 +213,7 @@
   user-select: none;
   pointer-events: none;
   display: block;
-  margin-bottom: 2em;
+  margin-bottom: 1.25em;
   line-height: 1;
   color: var(--fg-tertiary);
 }

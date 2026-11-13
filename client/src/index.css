@@ -115,6 +115,11 @@ body {
   transition:
     color 0.2s ease,
     background-color 0.2s ease;
+  &::selection,
+  & ::selection {
+    background-color: var(--fg-tertiary);
+    color: var(--bg);
+  }
 }
 
 * {
