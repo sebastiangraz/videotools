@@ -195,14 +195,16 @@ const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
 const within = ([min, max]: readonly [number, number]) =>
   max === Infinity ? `from ${min} up` : `from ${min} to ${max}`;
 
-const [tool, ...args] = process.argv.slice(2);
+// A tool in any case, as it's shown in capitals.
+const tool = process.argv[2]?.toLowerCase();
+const args = process.argv.slice(3);
 const flags = {
   ...(isToolId(tool) && COMMANDS[tool].flags),
   out: OUT,
   "verbose-names": VERBOSE_NAMES,
 };
 const help = isToolId(tool)
-  ? `Usage: videotools ${tool} <file|folder|glob>...${Object.entries(flags)
+  ? `Usage: videotools ${tool.toUpperCase()} <file|folder|glob>...${Object.entries(flags)
       .filter(([, flag]) => flag.required)
       .map(([name, flag]) => ` --${name} <${flag.arg}>`)
       .join("")} [options]
@@ -238,7 +240,7 @@ or after their settings with --verbose-names. The first run downloads ffmpeg
 and gifski.
 
 Tools:
-${TOOL_IDS.map((id) => `  ${id.padEnd(10)}${COMMANDS[id].about}`).join("\n")}
+${TOOL_IDS.map((id) => `  ${id.toUpperCase().padEnd(10)}${COMMANDS[id].about}`).join("\n")}
 `;
 
 function usage(problem: string): never {
@@ -254,7 +256,7 @@ if (tool === "--version") {
   process.stdout.write(`${pkg.version}\n`);
   process.exit(0);
 }
-if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool}` : "No tool given");
+if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool.toUpperCase()}` : "No tool given");
 const command = COMMANDS[tool];
 
 let parsed;
@@ -319,7 +321,7 @@ const found = inputs.map((input) => {
     )
     .map((file) => path.resolve(file))
     .sort(natural);
-  if (!files.length) usage(`Nothing for ${tool} in ${input}`);
+  if (!files.length) usage(`Nothing for ${tool.toUpperCase()} in ${input}`);
   return files;
 });
 // A sequence's images in the order given, repeats and all; any other tool

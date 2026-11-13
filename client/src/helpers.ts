@@ -87,7 +87,7 @@ export function cliCommand(
   const quoted = (name: string | undefined, placeholder: string) =>
     name && !/["$`]/.test(name) ? `"${name}"` : `"${placeholder}"`;
   return [
-    `npx @videotools/cli ${tool}`,
+    `npx @videotools/cli ${tool.toUpperCase()}`,
     ...(files.length ? files : [undefined]).map((file) => quoted(file?.name, "<file|folder|glob>")),
     ...Object.entries(flags).flatMap(([name, value]) => {
       // Mark's logo, the one flag that names a file.

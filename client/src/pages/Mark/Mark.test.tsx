@@ -393,7 +393,7 @@ describe("Mark", () => {
     await showCommandLine(user);
     expect(
       screen.getByText(
-        'npx @videotools/cli mark "<file|folder|glob>" --logo "<png|svg>" --position bottom-right --size medium --filter glass --quality 100',
+        'npx @videotools/cli MARK "<file|folder|glob>" --logo "<png|svg>" --position bottom-right --size medium --filter glass --quality 100',
       ),
     ).toBeInTheDocument();
 
@@ -402,14 +402,14 @@ describe("Mark", () => {
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
     expect(
       screen.getByText(
-        'npx @videotools/cli mark "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
+        'npx @videotools/cli MARK "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
       ),
     ).toBeInTheDocument();
 
     await pickSource(user, file("my shot.png", "image/png"));
     expect(
       screen.getByText(
-        'npx @videotools/cli mark "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
+        'npx @videotools/cli MARK "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
       ),
     ).toBeInTheDocument();
   });

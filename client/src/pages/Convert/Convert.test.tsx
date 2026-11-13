@@ -50,18 +50,18 @@ describe("Convert", () => {
     await renderApp("/convert");
     await showCommandLine(user);
     expect(
-      screen.getByText('npx @videotools/cli convert "<file|folder|glob>" --quality 100'),
+      screen.getByText('npx @videotools/cli CONVERT "<file|folder|glob>" --quality 100'),
     ).toBeInTheDocument();
 
     await user.upload(screen.getByLabelText(/choose video/i), file("tiny.mp4", "video/mp4"));
     expect(
-      screen.getByText('npx @videotools/cli convert "tiny.mp4" --to webm --quality 100'),
+      screen.getByText('npx @videotools/cli CONVERT "tiny.mp4" --to webm --quality 100'),
     ).toBeInTheDocument();
 
     await user.click(screen.getByLabelText(/convert to/i));
     await user.click(await screen.findByRole("option", { name: /gif/i }));
     expect(
-      screen.getByText('npx @videotools/cli convert "tiny.mp4" --to gif --quality 100 --width 640'),
+      screen.getByText('npx @videotools/cli CONVERT "tiny.mp4" --to gif --quality 100 --width 640'),
     ).toBeInTheDocument();
   });
 

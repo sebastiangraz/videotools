@@ -25,13 +25,14 @@ describe("videotools", () => {
   it("lists every tool", async () => {
     const { code, stdout } = await cli("--help");
     expect(code).toBe(0);
-    for (const tool of TOOL_IDS) expect(stdout).toMatch(new RegExp(`^  ${tool} `, "m"));
+    for (const tool of TOOL_IDS)
+      expect(stdout).toMatch(new RegExp(`^  ${tool.toUpperCase()} `, "m"));
   });
 
   it.each(TOOL_IDS)("shows the usage of %s", async (tool) => {
     const { code, stdout } = await cli(tool, "--help");
     expect(code).toBe(0);
-    expect(stdout).toMatch(new RegExp(`^Usage: videotools ${tool} `));
+    expect(stdout).toMatch(new RegExp(`^Usage: videotools ${tool.toUpperCase()} `));
   });
 
   it("takes --verbose-names", async () => {
@@ -47,10 +48,10 @@ describe("videotools", () => {
   it.each([
     ["no tool", [], "<tool>"],
     ["an unknown tool", ["blur", clip], "<tool>"],
-    ["an unknown flag", ["mark", clip, "--logo", logo, "--jobs", "2"], "mark"],
-    ["another tool's flag", ["speed", clip, "--quality", "50"], "speed"],
-    ["no --logo", ["mark", clip], "mark"],
-    ["no files", ["mark", "--logo", logo], "mark"],
+    ["an unknown flag", ["mark", clip, "--logo", logo, "--jobs", "2"], "MARK"],
+    ["another tool's flag", ["speed", clip, "--quality", "50"], "SPEED"],
+    ["no --logo", ["mark", clip], "MARK"],
+    ["no files", ["mark", "--logo", logo], "MARK"],
   ])("shows the usage for %s", async (_, args, tool) => {
     const { code, stderr } = await cli(...args);
     expect(code).toBe(2);
@@ -152,7 +153,9 @@ describe("videotools", () => {
           .map((arg) => arg.replace(/^"|"$/g, ""));
         expect([npx, name]).toEqual(["npx", pkg.name]);
         const { stderr } = await cli(...args);
-        expect(stderr, command).toMatch(new RegExp(`^(Nothing for ${tool} in|No such logo:) `));
+        expect(stderr, command).toMatch(
+          new RegExp(`^(Nothing for ${tool.toUpperCase()} in|No such logo:) `),
+        );
       }),
     );
   });
@@ -178,7 +181,7 @@ describe("videotools", () => {
     }
     const { code, stderr } = await cli(tool, folder, ...(tool === "mark" ? ["--logo", logo] : []));
     expect(code).toBe(2);
-    expect(stderr).toContain(`Nothing for ${tool} in ${folder}\n`);
+    expect(stderr).toContain(`Nothing for ${tool.toUpperCase()} in ${folder}\n`);
   });
 
   it("turns away a sequence of mixed formats, as its page does", async () => {
@@ -195,6 +198,6 @@ describe("videotools", () => {
   ])("turns away %s that matches nothing", async (_, input) => {
     const { code, stderr } = await cli("mark", clip, input, "--logo", logo);
     expect(code).toBe(2);
-    expect(stderr).toContain(`Nothing for mark in ${input}\n`);
+    expect(stderr).toContain(`Nothing for MARK in ${input}\n`);
   });
 });

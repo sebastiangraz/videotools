@@ -58,7 +58,7 @@ describe("cliCommand", () => {
         quality: 100,
       }),
     ).toBe(
-      'npx @videotools/cli mark "clip.mp4" --logo "logo.svg" --position bottom-right --size medium --filter glass --quality 100',
+      'npx @videotools/cli MARK "clip.mp4" --logo "logo.svg" --position bottom-right --size medium --filter glass --quality 100',
     );
   });
 
@@ -81,16 +81,16 @@ describe("cliCommand", () => {
     [3, "--speed 3"],
   ])("writes the speed %d as %s", (speed, flag) => {
     expect(cliCommand("speed", clip, { speed })).toBe(
-      `npx @videotools/cli speed "clip.mp4" ${flag}`,
+      `npx @videotools/cli SPEED "clip.mp4" ${flag}`,
     );
   });
 
   it("names the files in the order given, or one to fill in", () => {
     expect(cliCommand("sequence", [file("b.png"), file("a 1.png")], {})).toBe(
-      'npx @videotools/cli sequence "b.png" "a 1.png"',
+      'npx @videotools/cli SEQUENCE "b.png" "a 1.png"',
     );
     expect(cliCommand("sequence", [], {})).toBe(
-      'npx @videotools/cli sequence "<file|folder|glob>"',
+      'npx @videotools/cli SEQUENCE "<file|folder|glob>"',
     );
   });
 
@@ -102,7 +102,7 @@ describe("cliCommand", () => {
     ["`id`.mp4", '"<file|folder|glob>"'],
   ])("quotes the source %j as %s", (name, quoted) => {
     expect(cliCommand("mark", [file(name)], { logo: "logo.svg" })).toContain(
-      ` mark ${quoted} --logo `,
+      ` MARK ${quoted} --logo `,
     );
   });
 

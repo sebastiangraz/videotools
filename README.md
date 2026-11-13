@@ -42,17 +42,17 @@ Both run the same pinned ffmpeg, built from the same tag with no version workaro
 `videotools` (`cli/index.ts`, published on npm as `@videotools/cli`) runs the tools natively over many files. It runs one job per file, or a single job for all of a sequence's images.
 
 ```bash
-videotools loop <file|folder|glob>... [--technique <how>] [--fade <seconds>] [--start <seconds>] [--quality <n>]
-videotools sequence <file|folder|glob>... [--frame-duration <seconds>] [--format <format>] [--quality <n>]
-videotools speed <file|folder|glob>... [--speed <n>]
-videotools convert <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
-videotools mark <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
+videotools LOOP <file|folder|glob>... [--technique <how>] [--fade <seconds>] [--start <seconds>] [--quality <n>]
+videotools SEQUENCE <file|folder|glob>... [--frame-duration <seconds>] [--format <format>] [--quality <n>]
+videotools SPEED <file|folder|glob>... [--speed <n>]
+videotools CONVERT <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
+videotools MARK <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
 videotools <tool> --help                        # flags, values and defaults
 npx @videotools/cli <tool> ...                  # Node
 bun cli/index.ts <tool> ...                     # repo
 ```
 
-The command flags mirror the tool pages, and share the same defaults.
+The command flags mirror the tool pages, and share the same defaults. Tools are in caps for legibility but any case works.
 
 - **Inputs** can be files, folders or globs. A folder means the supported files directly inside it, not those in subfolders. The CLI expands globs itself, so they work in any shell.
 - **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given, requires all images to be the same format, and names the result after the first image.

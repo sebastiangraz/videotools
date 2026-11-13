@@ -160,13 +160,13 @@ describe("App", () => {
 
     await showCommandLine(user);
     const command = screen.getByText(
-      'npx @videotools/cli loop "<file|folder|glob>" --technique crossfade --fade 0.5 --start 0 --quality 100',
+      'npx @videotools/cli LOOP "<file|folder|glob>" --technique crossfade --fade 0.5 --start 0 --quality 100',
     );
     expect(loopButton().closest("div")!.nextElementSibling).toContainElement(command);
     cleanup();
 
     await renderApp();
-    expect(screen.getByText(/^npx @videotools\/cli loop /)).toBeInTheDocument();
+    expect(screen.getByText(/^npx @videotools\/cli LOOP /)).toBeInTheDocument();
   });
 
   it("adds --verbose-names to the command while verbose names are on", async () => {
