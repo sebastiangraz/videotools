@@ -2,7 +2,7 @@
 node_modules
 dist
 .env*.local
-tmp
 .smoke
 core/tests
+cli/tests
 scripts/smoke/assets
