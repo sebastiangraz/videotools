@@ -215,7 +215,9 @@
   display: block;
   margin-bottom: 1.25em;
   line-height: 1;
-  color: var(--fg-tertiary);
+  .commandFill & {
+    color: var(--fg-tertiary);
+  }
 }
 
 .commandText {
@@ -223,8 +225,10 @@
   line-height: 2;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+
   &,
   code {
+    color: var(--fg-secondary);
     font-family: inherit;
   }
 }
