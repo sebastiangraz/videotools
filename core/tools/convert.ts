@@ -10,7 +10,7 @@ const TARGETS = FORMATS.map((f) => f.id);
 export const convert: Tool = async (job) => {
   const { inputs, options } = job;
   const target = pick(options.target, TARGETS, "mp4");
-  const quality = clampInt(options.quality, 1, 100, 90);
+  const quality = clampInt(options.quality, ...RANGES.quality, 90);
 
   // Unlike other tools, accepts any readable source (avi, mkv, ...).
   const source = await openSource(job, inputs[0]);

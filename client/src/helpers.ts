@@ -94,8 +94,6 @@ export function cliCommand(
       if (name === "logo") return `--logo ${quoted(value as string | undefined, "<png|svg>")}`;
       if (value === true) return `--${name}`;
       if (value === false || value == null) return [];
-      // The knob turns to 0, which the tools take as 1 and the CLI refuses.
-      if (name === "quality") value = Math.max(1, Number(value));
       // A negative number goes after "=", or it reads as a flag.
       return Number(value) < 0 ? `--${name}=${value}` : `--${name} ${value}`;
     }),

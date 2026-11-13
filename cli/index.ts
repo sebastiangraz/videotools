@@ -51,9 +51,8 @@ type Flag = {
 };
 type Values = Record<string, string | boolean | undefined>;
 
-// Every page's slider starts at the top, above some tools' own fallback; the
-// range is the one each tool clamps to.
-const QUALITY: Flag = { arg: "n", range: [1, 100], default: "100" };
+// Every page's slider starts at the top, above some tools' own fallback.
+const QUALITY: Flag = { arg: "n", range: RANGES.quality, default: "100" };
 
 // What a folder gives a tool: the files its page's picker takes that the tool
 // reads, by extension.

@@ -71,10 +71,6 @@ describe("cliCommand", () => {
     );
   });
 
-  it("asks for the tools' lowest quality where the knob turns below it", () => {
-    expect(cliCommand("loop", clip, { quality: 0 })).toMatch(/ --quality 1$/);
-  });
-
   it.each([
     [-1.5, "--speed=-1.5"],
     [0, "--speed 0"],

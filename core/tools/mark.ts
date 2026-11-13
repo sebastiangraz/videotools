@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { FormatId } from "../formats.js";
+import { RANGES, type FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
 import { svgToPng } from "../svg.js";
 import type { FFmpeg, MediaInfo, SourceProfile } from "../ffmpeg.js";
@@ -224,7 +224,7 @@ export const mark: Tool = async (job) => {
   const { filter, size, position, view, tuning } = markLook(options);
   const route =
     Array.isArray(options.route) && options.route.every(isMarkPosition) ? options.route : [];
-  const quality = clampInt(options.quality, 1, 100, 90);
+  const quality = clampInt(options.quality, ...RANGES.quality, 90);
 
   const source = await openSource(job, inputs[0]);
   // mark is the only tool that takes stills.

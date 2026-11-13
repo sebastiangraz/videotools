@@ -248,7 +248,7 @@ export const loop: Tool = async (job) => {
   const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
   const fadeDuration = clamp(options.fadeDuration, ...RANGES.fadeDuration, 0.5);
   const startSeconds = clamp(options.startSecond, ...RANGES.startSecond, 0);
-  const quality = clampInt(options.quality, 1, 100, 100);
+  const quality = clampInt(options.quality, ...RANGES.quality, 100);
 
   const source = await openSource(job, inputs[0]);
   const format = preservedFormat(source);

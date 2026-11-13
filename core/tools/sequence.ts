@@ -70,7 +70,7 @@ export const sequence: Tool = async (job) => {
   }
   const frameDuration = clamp(options.frameDuration, ...RANGES.frameDuration, 1);
   const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
-  const quality = clampInt(options.quality, 1, 100, 100);
+  const quality = clampInt(options.quality, ...RANGES.quality, 100);
 
   const imagePaths: string[] = [];
   for (let i = 0; i < inputs.length; i++) {
