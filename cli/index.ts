@@ -344,6 +344,9 @@ const jobs = command.together ? [sources] : sources.map((source) => [source]);
 const out = (values.out as string | undefined) ?? ".";
 // Resolved: on Windows, Bun's recursive mkdir throws for "." and "..".
 fs.mkdirSync(path.resolve(out), { recursive: true });
+// Every job's folder, in one, so a leftover is easy to find.
+const workDirs = path.join(os.tmpdir(), "videotools-cli");
+fs.mkdirSync(workDirs, { recursive: true });
 
 // The folder of the job running, for Ctrl+C to remove.
 let workDir: string | undefined;
@@ -381,7 +384,7 @@ for (const [n, job] of jobs.entries()) {
     process.stdout.write(`${label}\n`);
   }
   // Sync, so no Ctrl+C lands between the folder and workDir.
-  workDir = fs.mkdtempSync(path.join(os.tmpdir(), "videotools-"));
+  workDir = fs.mkdtempSync(path.join(workDirs, "job-"));
   try {
     // Mark's logo is its last input.
     const files = logo === undefined ? job : [...job, logo];
@@ -411,6 +414,9 @@ for (const [n, job] of jobs.entries()) {
     process.stdout.write(tty ? "\n" : "");
     process.stderr.write(`  ${message}\n`);
   } finally {
+    // A failed run can leave others going, and Windows won't delete a file a
+    // child has open.
+    await Promise.all([...running].map((child) => new Promise((done) => child.on("close", done))));
     await removeDir(workDir);
   }
 }
