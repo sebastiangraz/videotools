@@ -43,16 +43,6 @@
   margin: 0;
 }
 
-/* Phantom title for SEO */
-.phantom {
-  composes: title;
-  white-space: nowrap;
-  width: 0;
-  contain: strict;
-  opacity: 0.01;
-  color: var(--bg);
-}
-
 .main {
   composes: eased from global;
   grid-area: main;

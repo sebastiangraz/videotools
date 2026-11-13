@@ -52,11 +52,11 @@ npx @videotools/cli <tool> ...                  # Node
 bun cli/index.ts <tool> ...                     # repo
 ```
 
-The command flags mirror the tool pages, and sharing the same defaults.
+The command flags mirror the tool pages, and share the same defaults.
 
 - **Inputs** can be files, folders or globs. A folder means the supported files directly inside it, not those in subfolders. The CLI expands globs itself, so they work in any shell.
 - **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given, requires all images to be the same format, and names the result after the first image.
-- **Output.** Results get the same names as the app's downloads (add `--verbose-names` for the app's verbose names, with the source's full name in place of its start) and are written to `--out <dir>`, which defaults to the current directory. If two results would have the same name, the second one fails.
+- **Output.** Written to `--out <dir>`, which defaults to the current directory. add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork.
 - **Failures.** If a file fails, the remaining files are still processed and the exit code is non-zero. Ctrl+C stops the running ffmpeg or gifski process and deletes the job's temporary folder.
 
 Enabling `Command line` shows the equivalent `npx @videotools/cli` command on the tool page.

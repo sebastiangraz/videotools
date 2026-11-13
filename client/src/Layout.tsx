@@ -72,7 +72,6 @@ export const Layout = () => {
       <div className={styles.frame}>
         <header className={styles.header}>
           <Logo />
-          <h1 className={styles.phantom}>Video Tools</h1>
           <h1 ref={titleRef} className={styles.title}>
             videotoo.ls
             <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
