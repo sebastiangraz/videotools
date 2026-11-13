@@ -91,9 +91,16 @@ export const ToolPanel = ({
         </div>
 
         {commandLine && (
-          <pre className={styles.command}>
-            <code>{verbose ? `${command} --verbose-names` : command}</code>
-          </pre>
+          <div className={styles.command}>
+            <div className={styles.commandFill}>
+              <span aria-hidden className={styles.prompt}>
+                &gt;_ TERMINAL
+              </span>
+              <pre className={styles.commandText}>
+                <code>{verbose ? `${command} --verbose-names` : command}</code>
+              </pre>
+            </div>
+          </div>
         )}
 
         {errorDetail && (

@@ -177,18 +177,56 @@
 }
 
 .command {
-  margin: 0;
-  padding: 0.75em 1em;
+  --tab-h: round(down, 3.3em, 2px);
+  --tab-w: min(18ch, 75%);
+  --outline: shape(
+    from 0 0,
+    hline to calc(var(--tab-w) - 4.5em),
+    curve to var(--tab-w) var(--tab-h) with calc(var(--tab-w) - 1.8em) 0 /
+      calc(var(--tab-w) - 1.8em) var(--tab-h),
+    hline to calc(100% - var(--radius)),
+    curve to 100% calc(var(--tab-h) + var(--radius)) with calc(100% - var(--radius) * 0.264)
+      var(--tab-h) / 100% calc(var(--tab-h) + var(--radius) * 0.264),
+    vline to calc(100% + 1px),
+    hline to 0,
+    close
+  );
+  font-size: var(--font-md);
   border-radius: var(--radius);
   corner-shape: superellipse(1.45);
-  background-color: var(--bg-1);
-  font-family: var(--font-mono);
-  font-size: var(--font-md);
-  line-height: 1.5;
+  clip-path: var(--outline);
+  background: linear-gradient(var(--border-subtle) 0 0), var(--bg-1);
+}
+
+.commandFill {
+  composes: input from global;
+  clip-path: var(--outline);
+  box-shadow: none;
+  translate: 0 var(--input-edge);
+  padding: 1.5em 1.5em 1em;
+  letter-spacing: 0.05em;
   text-transform: none;
-  color: var(--fg-secondary);
+}
+
+.prompt {
+  composes: label from "../../form.module.css";
+  user-select: none;
+  pointer-events: none;
+  display: block;
+  margin-bottom: 2em;
+  line-height: 1;
+  color: var(--fg-tertiary);
+}
+
+.commandText {
+  margin: 0;
+  line-height: 2;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  &,
+  code {
+    font-family: inherit;
+  }
 }
 
 .errorBox {
