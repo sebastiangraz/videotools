@@ -98,10 +98,10 @@ describe.concurrent("videotools", () => {
     expect(stderr).toContain(`${message}\n`);
   });
 
-  it.each(["0", "101", "high", ""])("turns away --quality %j", async (quality) => {
-    const { code, stderr } = await cli("mark", clip, "--logo", logo, "--quality", quality);
+  it.each(["-1", "101", "high", ""])("turns away --quality %j", async (quality) => {
+    const { code, stderr } = await cli("mark", clip, "--logo", logo, `--quality=${quality}`);
     expect(code).toBe(2);
-    expect(stderr).toContain("--quality must be a number from 1 to 100\n");
+    expect(stderr).toContain("--quality must be a number from 0 to 100\n");
   });
 
   // Each page shows its settings as a command (client/src/helpers.ts); a
@@ -109,17 +109,17 @@ describe.concurrent("videotools", () => {
   // pass its flags: each is turned away only for its files, which are not there.
   const shown: Record<ToolId, Parameters<typeof cliCommand>[2][]> = {
     loop: [
-      { technique: "crossfade", fade: 0, start: 12.5, quality: 1 },
+      { technique: "crossfade", fade: 0, start: 12.5, quality: 0 },
       { technique: "crossfade", fade: 10, start: 0, quality: 100 },
       { technique: "reverse", quality: 50 },
     ],
     sequence: [
-      ...SEQUENCE_FORMATS.map((format) => ({ "frame-duration": 0.1, format, quality: 1 })),
+      ...SEQUENCE_FORMATS.map((format) => ({ "frame-duration": 0.1, format, quality: 0 })),
       { "frame-duration": 10, format: "mp4", quality: 100 },
     ],
     speed: [-3, -0.1, 0, 3].map((speed) => ({ speed })),
     convert: [
-      { to: null, quality: 1 },
+      { to: null, quality: 0 },
       ...FORMATS.map(({ id }) => ({ to: id, quality: 100 })),
       { to: "gif", quality: 100, fps: null, width: 640 },
       { to: "gif", quality: 50, fps: 1, width: 100 },
@@ -132,7 +132,7 @@ describe.concurrent("videotools", () => {
       filter: MARK_FILTERS[(n + 1) % 3],
       shuffle: n % 2 === 0,
       // The knob's ends and between
-      quality: 1 + Math.round((n / (POSITIONS.length - 1)) * 99),
+      quality: Math.round((n / (POSITIONS.length - 1)) * 100),
     })),
   };
   it.each(TOOL_IDS)("takes the commands %s's page shows", async (tool) => {

@@ -82,7 +82,7 @@ export const RANGES = {
   speed: [-3, 3],
   fps: [1, 30],
   width: [100, 800],
-  quality: [1, 100],
+  quality: [0, 100],
 } as const;
 
 export function formatById(id: FormatId): Format {

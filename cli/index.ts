@@ -287,7 +287,9 @@ for (const [name, flag] of Object.entries(flags)) {
   if (flag.values && !flag.values.includes(String(value))) {
     usage(`--${name} must be one of ${flag.values.join(", ")}`);
   }
-  if (flag.range && !(Number(value) >= flag.range[0] && Number(value) <= flag.range[1])) {
+  // Number("") is 0.
+  const n = Number(value || NaN);
+  if (flag.range && !(n >= flag.range[0] && n <= flag.range[1])) {
     usage(`--${name} must be a number ${within(flag.range)}`);
   }
   if (flag.only && values[flag.only[0]] !== flag.only[1]) {

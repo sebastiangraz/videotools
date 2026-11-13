@@ -67,6 +67,9 @@ export async function encodeRender(
   render: Render,
   { format: target, ...options }: EncodeOptions & { format: FormatId },
 ): Promise<string> {
+  // Quality 0 encodes as 1: gifski's lowest, and the rate cap's smallest share
+  // of the source.
+  options.quality = Math.max(1, options.quality);
   if (target !== "gif") {
     console.log(`Encoding ${target} (quality ${options.quality})...`);
   }
