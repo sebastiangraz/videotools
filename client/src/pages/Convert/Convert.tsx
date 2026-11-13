@@ -10,6 +10,7 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { targetsFor } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
+import { RANGES } from "@videotools/core/formats";
 import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
@@ -99,8 +100,8 @@ export const Convert = () => {
                   id="gifFps"
                   value={gifFps}
                   onValueChange={setGifFps}
-                  min={1}
-                  max={30}
+                  min={RANGES.fps[0]}
+                  max={RANGES.fps[1]}
                   step={1}
                   largeStep={5}
                   disabled={run.busy}
@@ -117,8 +118,8 @@ export const Convert = () => {
                   id="gifWidth"
                   value={gifWidth}
                   onValueChange={setGifWidth}
-                  min={100}
-                  max={800}
+                  min={RANGES.width[0]}
+                  max={RANGES.width[1]}
                   step={20}
                   largeStep={100}
                   disabled={run.busy}

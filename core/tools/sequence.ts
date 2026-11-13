@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { SEQUENCE_FORMATS, type FormatId } from "../formats.js";
+import { RANGES, SEQUENCE_FORMATS, type FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
 import { encodeRender } from "../encode/index.js";
 import { clamp, clampInt, fileExt, floorEven, pick } from "../helpers.js";
@@ -68,7 +68,7 @@ export const sequence: Tool = async (job) => {
   if (inputs.length > MAX_IMAGES) {
     throw new InputError(`A sequence takes at most ${MAX_IMAGES} images.`, "too-large");
   }
-  const frameDuration = clamp(options.frameDuration, 0.02, 10, 1);
+  const frameDuration = clamp(options.frameDuration, ...RANGES.frameDuration, 1);
   const format = pick(options.format, SEQUENCE_FORMATS, "mp4");
   const quality = clampInt(options.quality, 1, 100, 100);
 

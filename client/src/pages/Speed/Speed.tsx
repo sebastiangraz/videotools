@@ -6,6 +6,7 @@ import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
+import { RANGES } from "@videotools/core/formats";
 import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
@@ -63,8 +64,8 @@ export const Speed = () => {
           }
           value={speed}
           onValueChange={setSpeed}
-          min={-3}
-          max={3}
+          min={RANGES.speed[0]}
+          max={RANGES.speed[1]}
           step={0.1}
           disabled={run.busy}
           centered

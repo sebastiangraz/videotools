@@ -1,4 +1,4 @@
-import { FORMATS } from "../formats.js";
+import { FORMATS, RANGES } from "../formats.js";
 import { encodeRender } from "../encode/index.js";
 import { sourceRender } from "../encode/render.js";
 import { clampInt, pick } from "../helpers.js";
@@ -23,8 +23,8 @@ export const convert: Tool = async (job) => {
       ? {
           // null = source fps. GIF delays are centiseconds (30fps alternates
           // 3/4cs) and browsers clamp ≥50fps, so 30 is the practical cap.
-          fps: options.fps == null ? null : clampInt(options.fps, 1, 30, 15),
-          width: clampInt(options.width, 100, 800, 640),
+          fps: options.fps == null ? null : clampInt(options.fps, ...RANGES.fps, 15),
+          width: clampInt(options.width, ...RANGES.width, 640),
         }
       : {}),
   });

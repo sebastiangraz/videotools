@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { FormatId } from "../formats.js";
+import { RANGES, type FormatId } from "../formats.js";
 import { InputError } from "../errors.js";
 import { clamp, clampInt, pick, removeDir, sizeLabel } from "../helpers.js";
 import { DEFAULT_FPS, isRgb, shownDuration, type FFmpeg } from "../ffmpeg.js";
@@ -246,8 +246,8 @@ async function reorderCopy(
 export const loop: Tool = async (job) => {
   const { ff, workDir, inputs, options } = job;
   const technique = pick(options.technique, VALID_TECHNIQUES, "reverse");
-  const fadeDuration = clamp(options.fadeDuration, 0, 10, 0.5);
-  const startSeconds = clamp(options.startSecond, 0, Infinity, 0);
+  const fadeDuration = clamp(options.fadeDuration, ...RANGES.fadeDuration, 0.5);
+  const startSeconds = clamp(options.startSecond, ...RANGES.startSecond, 0);
   const quality = clampInt(options.quality, 1, 100, 100);
 
   const source = await openSource(job, inputs[0]);

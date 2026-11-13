@@ -1,4 +1,4 @@
-import type { FormatId } from "../formats.js";
+import { RANGES, type FormatId } from "../formats.js";
 import { encodePreserved } from "../encode/index.js";
 import { DEFAULT_FPS } from "../ffmpeg.js";
 import { MAX_AVIF_FPS } from "../encode/avif.js";
@@ -35,7 +35,7 @@ export const speed: Tool = async (job) => {
   const { inputs, options } = job;
   // Signed ratio: ±1 → 2× faster/slower, ±3 → 4×. Mirrored in
   // client/src/pages/Speed/Speed.tsx.
-  const ratio = clamp(options.speed, -3, 3, 0);
+  const ratio = clamp(options.speed, ...RANGES.speed, 0);
   const multiplier = ratio >= 0 ? 1 + ratio : 1 / (1 - ratio);
 
   const source = await openSource(job, inputs[0]);

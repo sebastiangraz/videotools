@@ -11,6 +11,7 @@ import { FFmpeg } from "@videotools/core/ffmpeg";
 import {
   FOREIGN,
   FORMATS,
+  RANGES,
   SEQUENCE_FORMATS,
   STILLS,
   TOOL_IDS,
@@ -33,8 +34,8 @@ import { binaryPath, install, resvgUrl } from "./binaries.js";
 import { execBinary, running } from "./exec.js";
 import pkg from "./package.json" with { type: "json" };
 
-// A page's control. The tools take any value outside what the page offers as
-// their default, so a typo is turned away here instead.
+// A page's control. A tool runs a value its page doesn't offer as its default,
+// or a number as the nearest end, so a typo is turned away here instead.
 type Flag = {
   // The value's name in --help; a flag without one is a switch.
   arg?: string;
@@ -62,8 +63,6 @@ const IMAGES = [...FORMATS, ...STILLS]
   .filter((format) => format.mime.startsWith("image/"))
   .flatMap((format) => format.extensions);
 
-// Ranges and lists that live only in the pages or as literals in the tools
-// are written here, each once.
 const COMMANDS: Record<
   ToolId,
   {
@@ -83,13 +82,13 @@ const COMMANDS: Record<
       technique: { arg: "how", values: VALID_TECHNIQUES, default: "crossfade" },
       fade: {
         arg: "seconds",
-        range: [0, Infinity],
+        range: RANGES.fadeDuration,
         default: "0.5",
         only: ["technique", "crossfade"],
       },
       start: {
         arg: "seconds",
-        range: [0, Infinity],
+        range: RANGES.startSecond,
         default: "0",
         only: ["technique", "crossfade"],
         help: "where the loop starts",
@@ -110,7 +109,7 @@ const COMMANDS: Record<
     flags: {
       "frame-duration": {
         arg: "seconds",
-        range: [0.1, Infinity],
+        range: RANGES.frameDuration,
         default: "1",
         help: "how long each image shows",
       },
@@ -129,7 +128,7 @@ const COMMANDS: Record<
     flags: {
       speed: {
         arg: "n",
-        range: [-3, 3],
+        range: RANGES.speed,
         default: "0",
         help: "1 is twice as fast, -1 half as fast, 3 and -3 four times; a negative as --speed=-1",
       },
@@ -146,8 +145,8 @@ const COMMANDS: Record<
         help: "by default mp4, or webm for an mp4",
       },
       quality: QUALITY,
-      fps: { arg: "n", range: [1, 30], only: ["to", "gif"], help: "by default the source's" },
-      width: { arg: "px", range: [100, 800], default: "640", only: ["to", "gif"] },
+      fps: { arg: "n", range: RANGES.fps, only: ["to", "gif"], help: "by default the source's" },
+      width: { arg: "px", range: RANGES.width, default: "640", only: ["to", "gif"] },
     },
     options: (values, file) => ({
       // The page never offers a file's own format, so starts on the next.

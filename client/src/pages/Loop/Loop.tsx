@@ -11,6 +11,7 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
+import { RANGES } from "@videotools/core/formats";
 import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
@@ -99,7 +100,8 @@ export const Loop = () => {
               id="fadeDuration"
               value={fadeDuration}
               onValueChange={setFadeDuration}
-              min={0}
+              min={RANGES.fadeDuration[0]}
+              max={RANGES.fadeDuration[1]}
               step={0.1}
               largeStep={0.5}
               disabled={run.busy}
@@ -113,7 +115,7 @@ export const Loop = () => {
               id="startSecond"
               value={start}
               onValueChange={setStartSecond}
-              min={0}
+              min={RANGES.startSecond[0]}
               max={maxStart(source.duration)}
               step={0.1}
               largeStep={0.5}

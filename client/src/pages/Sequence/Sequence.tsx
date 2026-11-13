@@ -11,7 +11,7 @@ import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
-import { SEQUENCE_FORMATS, formatById } from "@videotools/core/formats";
+import { RANGES, SEQUENCE_FORMATS, formatById } from "@videotools/core/formats";
 import form from "@src/form.module.css";
 import { aspectRatioOf, byFilename, cliCommand, fitScale, formatBytes } from "@src/helpers";
 
@@ -163,7 +163,8 @@ export const Sequence = () => {
           id="frameDuration"
           value={frameDuration}
           onValueChange={setFrameDuration}
-          min={0.1}
+          min={RANGES.frameDuration[0]}
+          max={RANGES.frameDuration[1]}
           step={0.1}
           disabled={run.busy}
           preview={

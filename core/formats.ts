@@ -74,6 +74,16 @@ export const FOREIGN = ["avi", "mkv", "wmv", "mpg", "mpeg", "3gp", "ts"];
 
 export const SEQUENCE_FORMATS: readonly FormatId[] = ["mp4", "gif", "webp", "avif"];
 
+// Number options' [min, max]: the tools clamp to them, the pages and CLI offer them.
+export const RANGES = {
+  fadeDuration: [0, 10],
+  startSecond: [0, Infinity],
+  frameDuration: [0.1, 10],
+  speed: [-3, 3],
+  fps: [1, 30],
+  width: [100, 800],
+} as const;
+
 export function formatById(id: FormatId): Format {
   return FORMATS.find((f) => f.id === id) as Format;
 }
