@@ -176,6 +176,21 @@
   margin-inline-start: auto;
 }
 
+.command {
+  margin: 0;
+  padding: 0.75em 1em;
+  border-radius: var(--radius);
+  corner-shape: superellipse(1.45);
+  background-color: var(--bg-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-md);
+  line-height: 1.5;
+  text-transform: none;
+  color: var(--fg-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .errorBox {
   padding: 0.75em 1em;
   border-radius: var(--radius);

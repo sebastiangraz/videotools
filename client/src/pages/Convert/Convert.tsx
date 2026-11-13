@@ -10,7 +10,7 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { targetsFor } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { toList } from "@src/helpers";
+import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("convert");
@@ -67,6 +67,12 @@ export const Convert = () => {
           disabled={run.busy}
         />
       }
+      command={cliCommand(TOOL.value, toList(source.file), {
+        // No target until a file is picked; without --to the CLI picks as the page would.
+        to: source.file && effectiveTarget,
+        quality,
+        ...(effectiveTarget === "gif" && { fps: gifFps, width: gifWidth }),
+      })}
     >
       {source.file && (
         <>

@@ -6,6 +6,7 @@ import {
   enableVerboseNames,
   engineRun,
   renderApp,
+  showCommandLine,
   stubEngine,
 } from "@src/test/renderApp";
 import {
@@ -386,25 +387,30 @@ describe("Mark", () => {
     expect(downloadedName()).toBe("clip_logo.png_fGlass_sMedium_pBottomRight_q100.mp4");
   });
 
-  it("copies its settings as the CLI's command and says so, the source to fill in until picked and unshuffled for a still", async () => {
-    // userEvent.setup() stands in for the clipboard
+  it("shows its settings as the CLI's command, the files to fill in until picked and unshuffled for a still", async () => {
     const user = userEvent.setup();
     await renderApp("/mark");
+    await showCommandLine(user);
+    expect(
+      screen.getByText(
+        'npx @videotools/cli mark "<file|folder|glob>" --logo "<png|svg>" --position bottom-right --size medium --filter glass --quality 100',
+      ),
+    ).toBeInTheDocument();
+
     await pickLogo(user);
     await user.click(screen.getByRole("button", { name: /large/i }));
     await user.click(screen.getByRole("button", { name: /shuffle/i }));
-    const copy = screen.getByRole("button", { name: /copy as command/i });
-
-    await user.click(copy);
-    expect(await navigator.clipboard.readText()).toBe(
-      'npx @videotools/cli mark "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
-    );
-    expect(await screen.findByText(/command copied/i)).toHaveAttribute("role", "status");
+    expect(
+      screen.getByText(
+        'npx @videotools/cli mark "<file|folder|glob>" --logo "logo.png" --position bottom-right --size large --filter glass --shuffle --quality 100',
+      ),
+    ).toBeInTheDocument();
 
     await pickSource(user, file("my shot.png", "image/png"));
-    await user.click(copy);
-    expect(await navigator.clipboard.readText()).toBe(
-      'npx @videotools/cli mark "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
-    );
+    expect(
+      screen.getByText(
+        'npx @videotools/cli mark "my shot.png" --logo "logo.png" --position bottom-right --size large --filter glass --quality 100',
+      ),
+    ).toBeInTheDocument();
   });
 });

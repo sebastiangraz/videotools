@@ -15,6 +15,10 @@ interface RunRequest {
 // Temporary: the "verbose" setting names downloads after their settings.
 export const VerboseNames = createContext(false);
 
+// The "command line" setting shows each page's settings as the CLI's command
+// (ToolPanel).
+export const CommandLine = createContext(false);
+
 export function useToolRun(tool: ToolId) {
   const verbose = useContext(VerboseNames);
   const [busy, setBusy] = useState(false);

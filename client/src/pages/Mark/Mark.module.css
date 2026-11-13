@@ -287,24 +287,3 @@
 .markPosition[data-shuffling] .markPlace {
   color: var(--fg);
 }
-
-.markControl {
-  display: flex;
-  align-items: end;
-  gap: 1.5rem;
-}
-
-/* As tall as the action button, so the two labels line up. */
-.markCopy {
-  min-height: 3rem;
-  margin: 0;
-  padding-block: 0;
-  border: 0;
-  background: none;
-  white-space: nowrap;
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: var(--fg);
-  }
-}

@@ -6,7 +6,7 @@ import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
-import { toList } from "@src/helpers";
+import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("speed");
@@ -49,6 +49,7 @@ export const Speed = () => {
       blocker={source.file ? formatBlocker : "Upload a file"}
       run={run}
       onSubmit={submit}
+      command={cliCommand(TOOL.value, toList(source.file), { speed })}
     >
       <div className={form.formGroup}>
         <SliderRotary

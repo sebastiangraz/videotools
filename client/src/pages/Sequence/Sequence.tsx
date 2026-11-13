@@ -13,7 +13,7 @@ import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
 import { SEQUENCE_FORMATS, formatById } from "@videotools/core/formats";
 import form from "@src/form.module.css";
-import { aspectRatioOf, byFilename, fitScale, formatBytes } from "@src/helpers";
+import { aspectRatioOf, byFilename, cliCommand, fitScale, formatBytes } from "@src/helpers";
 
 const TOOL = toolById("sequence");
 
@@ -149,6 +149,11 @@ export const Sequence = () => {
           disabled={run.busy}
         />
       }
+      command={cliCommand(TOOL.value, files, {
+        "frame-duration": frameDuration,
+        format,
+        quality,
+      })}
     >
       <div className={form.formGroup}>
         <label htmlFor="frameDuration" className={form.label}>

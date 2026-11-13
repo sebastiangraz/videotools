@@ -18,6 +18,11 @@ export const enableVerboseNames = async (user: UserEvent) => {
   await user.click(await screen.findByRole("button", { name: "Enabled" }));
 };
 
+export const showCommandLine = async (user: UserEvent) => {
+  await user.click(screen.getByRole("button", { name: "Settings" }));
+  await user.click(await screen.findByRole("button", { name: "Show" }));
+};
+
 // The result is saved through a clicked link (setup.ts stubs the click).
 export const downloadedName = () =>
   (vi.spyOn(HTMLAnchorElement.prototype, "click").mock.contexts.at(-1) as HTMLAnchorElement)

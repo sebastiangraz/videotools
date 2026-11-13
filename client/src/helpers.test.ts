@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   byFilename,
+  cliCommand,
   cx,
   extensionOf,
-  markCommand,
   splitExtension,
   toList,
   verboseName,
@@ -76,40 +76,54 @@ describe("verboseName", () => {
   });
 });
 
-describe("markCommand", () => {
-  const settings = {
-    source: "clip.mp4",
-    logo: "logo.svg",
-    position: "bottom-right",
-    size: "medium",
-    filter: "glass",
-    shuffle: false,
-    quality: 100,
-  } as const;
+describe("cliCommand", () => {
+  const clip = [file("clip.mp4")];
 
   it("spells out every setting, the defaults too", () => {
-    expect(markCommand(settings)).toBe(
+    expect(
+      cliCommand("mark", clip, {
+        logo: "logo.svg",
+        position: "bottom-right",
+        size: "medium",
+        filter: "glass",
+        shuffle: false,
+        quality: 100,
+      }),
+    ).toBe(
       'npx @videotools/cli mark "clip.mp4" --logo "logo.svg" --position bottom-right --size medium --filter glass --quality 100',
     );
   });
 
-  it("gives each flag its setting, and --shuffle when the page would shuffle", () => {
-    expect(
-      markCommand({
-        ...settings,
-        position: "top-left",
-        size: "large",
-        filter: "blur",
-        shuffle: true,
-        quality: 42,
-      }),
-    ).toBe(
-      'npx @videotools/cli mark "clip.mp4" --logo "logo.svg" --position top-left --size large --filter blur --shuffle --quality 42',
+  it("gives a switch alone and leaves out an empty field", () => {
+    expect(cliCommand("mark", clip, { shuffle: true, quality: 42 })).toMatch(
+      / --shuffle --quality 42$/,
+    );
+    expect(cliCommand("convert", clip, { to: "gif", fps: null, width: 640 })).toMatch(
+      / --to gif --width 640$/,
     );
   });
 
   it("asks for the tools' lowest quality where the knob turns below it", () => {
-    expect(markCommand({ ...settings, quality: 0 })).toMatch(/ --quality 1$/);
+    expect(cliCommand("loop", clip, { quality: 0 })).toMatch(/ --quality 1$/);
+  });
+
+  it.each([
+    [-1.5, "--speed=-1.5"],
+    [0, "--speed 0"],
+    [3, "--speed 3"],
+  ])("writes the speed %d as %s", (speed, flag) => {
+    expect(cliCommand("speed", clip, { speed })).toBe(
+      `npx @videotools/cli speed "clip.mp4" ${flag}`,
+    );
+  });
+
+  it("names the files in the order given, or one to fill in", () => {
+    expect(cliCommand("sequence", [file("b.png"), file("a 1.png")], {})).toBe(
+      'npx @videotools/cli sequence "b.png" "a 1.png"',
+    );
+    expect(cliCommand("sequence", [], {})).toBe(
+      'npx @videotools/cli sequence "<file|folder|glob>"',
+    );
   });
 
   it.each([
@@ -118,9 +132,10 @@ describe("markCommand", () => {
     ['the "best".mp4', '"<file|folder|glob>"'],
     ["$HOME.mp4", '"<file|folder|glob>"'],
     ["`id`.mp4", '"<file|folder|glob>"'],
-    [undefined, '"<file|folder|glob>"'],
-  ])("quotes the source %j as %s", (source, quoted) => {
-    expect(markCommand({ ...settings, source })).toContain(` mark ${quoted} --logo `);
+  ])("quotes the source %j as %s", (name, quoted) => {
+    expect(cliCommand("mark", [file(name)], { logo: "logo.svg" })).toContain(
+      ` mark ${quoted} --logo `,
+    );
   });
 
   it.each([
@@ -128,6 +143,8 @@ describe("markCommand", () => {
     ["$logo.png", '"<png|svg>"'],
     [undefined, '"<png|svg>"'],
   ])("quotes the logo %j as %s", (logo, quoted) => {
-    expect(markCommand({ ...settings, logo })).toContain(` --logo ${quoted} --position `);
+    expect(cliCommand("mark", clip, { logo, quality: 100 })).toContain(
+      ` --logo ${quoted} --quality `,
+    );
   });
 });

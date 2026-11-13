@@ -1,4 +1,4 @@
-import type { MarkFilter, MarkPosition, MarkSize } from "@videotools/core/tools/mark-config";
+import type { ToolId } from "@videotools/core/formats";
 
 // Class names, falsy ones left out: cx(styles.a, on && styles.b).
 export const cx = (...names: (string | false | null | undefined)[]): string =>
@@ -98,41 +98,33 @@ export function verboseName(
   );
 }
 
-// Mark's settings as the CLI command (cli/index.ts) that marks the same way,
+// A page's settings as the CLI command (cli/index.ts) that does the same,
 // through npx so Node is all it needs, every flag spelled out so it keeps its
-// meaning if a default changes. The browser knows only the files' names; each
-// goes in double quotes, which hold spaces in PowerShell and POSIX shells
-// alike, and one that is not picked, or has a character both shells read
-// inside them, is a placeholder to fill in.
-export function markCommand({
-  source,
-  logo,
-  position,
-  size,
-  filter,
-  shuffle,
-  quality,
-}: {
-  source?: string;
-  logo?: string;
-  position: MarkPosition;
-  size: Exclude<MarkSize, "dev">;
-  filter: MarkFilter;
-  shuffle: boolean;
-  quality: number;
-}): string {
+// meaning if a default changes. True is a switch; false, or null for a field
+// left empty (which the page fills in as the CLI does), leaves the flag out.
+// The browser knows only the files' names; each goes in double quotes, which
+// hold spaces in PowerShell and POSIX shells alike, and one that is not picked,
+// or has a character both shells read inside them, is a placeholder to fill in.
+export function cliCommand(
+  tool: ToolId,
+  files: File[],
+  flags: Record<string, string | number | boolean | null | undefined>,
+): string {
   const quoted = (name: string | undefined, placeholder: string) =>
     name && !/["$`]/.test(name) ? `"${name}"` : `"${placeholder}"`;
   return [
-    "npx @videotools/cli mark",
-    quoted(source, "<file|folder|glob>"),
-    `--logo ${quoted(logo, "<png|svg>")}`,
-    `--position ${position}`,
-    `--size ${size}`,
-    `--filter ${filter}`,
-    ...(shuffle ? ["--shuffle"] : []),
-    // The knob turns to 0, which the tools take as 1 and the CLI refuses.
-    `--quality ${Math.max(1, quality)}`,
+    `npx @videotools/cli ${tool}`,
+    ...(files.length ? files : [undefined]).map((file) => quoted(file?.name, "<file|folder|glob>")),
+    ...Object.entries(flags).flatMap(([name, value]) => {
+      // Mark's logo, the one flag that names a file.
+      if (name === "logo") return `--logo ${quoted(value as string | undefined, "<png|svg>")}`;
+      if (value === true) return `--${name}`;
+      if (value === false || value == null) return [];
+      // The knob turns to 0, which the tools take as 1 and the CLI refuses.
+      if (name === "quality") value = Math.max(1, Number(value));
+      // A negative number goes after "=", or it reads as a flag.
+      return Number(value) < 0 ? `--${name}=${value}` : `--${name} ${value}`;
+    }),
   ].join(" ");
 }
 

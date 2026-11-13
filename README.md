@@ -64,7 +64,7 @@ npx @videotools/cli <tool> ...                  # from npm, on Node
 bun cli/index.ts <tool> ...                     # from this repo
 ```
 
-Every tool also takes `--out <dir>`. Mark's page copies its settings as an `npx @videotools/cli mark` command (Copy as command), naming the picked files or leaving placeholders to fill in, so a folder can be marked as the page marks one file.
+Every tool also takes `--out <dir>`. With Command line set to Show in the settings, each page shows its settings under its action button as an `npx @videotools/cli` command, naming the picked files or leaving placeholders to fill in, so the CLI can do to a folder what the page does to a file.
 
 `bun run build` in `cli/` bundles it, core included, into one Node script in `cli/dist/`; resvg's package stays a dependency, its WebAssembly read from where it is installed. To release, bump `version` in `cli/package.json` and push the tag `cli-v<version>`: `.github/workflows/cli.yml` tests, builds and publishes it to npm.
 

@@ -2,14 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { FORMATS, SEQUENCE_FORMATS, TOOL_IDS } from "@videotools/core/formats";
+import { FORMATS, SEQUENCE_FORMATS, TOOL_IDS, type ToolId } from "@videotools/core/formats";
 import { VALID_TECHNIQUES } from "@videotools/core/tools/loop";
-import {
-  MARK_FILTERS,
-  MARK_POSITIONS,
-  type MarkPosition,
-} from "@videotools/core/tools/mark-config";
-import { markCommand } from "../../client/src/helpers.js";
+import { MARK_FILTERS, MARK_POSITIONS } from "@videotools/core/tools/mark-config";
+import { cliCommand } from "../../client/src/helpers.js";
 import { execBinary } from "../exec.js";
 import pkg from "../package.json" with { type: "json" };
 
@@ -106,11 +102,40 @@ describe("videotools", () => {
     expect(stderr).toContain("--quality must be a number from 1 to 100\n");
   });
 
-  // Mark's page copies its settings as a command (client/src/helpers.ts); a
-  // spread of them must run this package and give only flags and values
-  // --help offers.
-  it("takes the commands Mark's page copies", async () => {
-    const { stdout } = await cli("mark", "--help");
+  // Each page shows its settings as a command (client/src/helpers.ts); a
+  // spread of them, its controls' ends among them, must run this package and
+  // give only flags and values the tool's --help offers, each beside what it
+  // goes with.
+  const positions = Object.keys(MARK_POSITIONS);
+  const shown: Record<ToolId, Parameters<typeof cliCommand>[2][]> = {
+    loop: [
+      { technique: "crossfade", fade: 0, start: 12.5, quality: 0 },
+      { technique: "crossfade", fade: null, start: null, quality: 100 },
+      { technique: "reverse", quality: 50 },
+    ],
+    sequence: [
+      ...SEQUENCE_FORMATS.map((format) => ({ "frame-duration": 0.1, format, quality: 0 })),
+      { "frame-duration": null, format: "mp4", quality: 100 },
+    ],
+    speed: [-3, -0.1, 0, 3].map((speed) => ({ speed })),
+    convert: [
+      { to: null, quality: 0 },
+      ...FORMATS.map(({ id }) => ({ to: id, quality: 100 })),
+      { to: "gif", quality: 50, fps: 1, width: 100 },
+      { to: "gif", quality: 50, fps: 30, width: 800 },
+    ],
+    mark: positions.map((position, n) => ({
+      logo: n % 2 ? undefined : "my logo.svg",
+      position,
+      size: ["small", "medium", "large"][n % 3],
+      filter: MARK_FILTERS[(n + 1) % 3],
+      shuffle: n % 2 === 0,
+      // The knob's ends and between
+      quality: Math.round((n / (positions.length - 1)) * 100),
+    })),
+  };
+  it.each(TOOL_IDS)("takes the commands %s's page shows", async (tool) => {
+    const { stdout } = await cli(tool, "--help");
     // "  --size <size>   small|medium|large (default: medium)"
     const offered = new Map(
       [...stdout.matchAll(/^ {2}(--\S+)( <\S+>)? +(.*)$/gm)].map(([, flag, arg, about]) => [
@@ -118,32 +143,29 @@ describe("videotools", () => {
         { arg, about },
       ]),
     );
-    const positions = Object.keys(MARK_POSITIONS) as MarkPosition[];
-    for (const [n, position] of positions.entries()) {
-      const command = markCommand({
-        source: n % 2 ? "my clip.mp4" : undefined,
-        logo: n % 2 ? undefined : "my logo.svg",
-        position,
-        size: (["small", "medium", "large"] as const)[n % 3],
-        filter: MARK_FILTERS[(n + 1) % 3],
-        shuffle: n % 2 === 0,
-        // The knob's ends and between
-        quality: Math.round((n / (positions.length - 1)) * 100),
-      });
-      const [npx, name, tool, source, ...args] = command.match(/"[^"]*"|\S+/g)!;
-      expect([npx, name, tool, source]).toEqual([
+    for (const [n, flags] of shown[tool].entries()) {
+      const command = cliCommand(tool, n % 2 ? [new File([], "my clip.mp4")] : [], flags);
+      const [npx, name, program, source, ...args] = command.match(/"[^"]*"|\S+/g)!;
+      expect([npx, name, program, source]).toEqual([
         "npx",
         pkg.name,
-        "mark",
+        tool,
         expect.stringMatching(/^"/),
       ]);
       for (let i = 0; i < args.length; i++) {
-        const flag = offered.get(args[i]);
-        expect(flag, `${args[i]} in ${command}`).toBeDefined();
-        if (!flag?.arg) continue;
-        const value = args[++i];
-        const [, min, max] = /^from (\S+) to (\S+)/.exec(flag.about) ?? [];
-        const values = /^\S+\|\S+/.exec(flag.about)?.[0].split("|");
+        // --speed=-1
+        const [arg, inline] = args[i].split("=");
+        const flag = offered.get(arg);
+        expect(flag, `${arg} in ${command}`).toBeDefined();
+        if (!flag) continue;
+        // "(default: 640; only with --to gif)"
+        const only = /only with (--\S+ [^\s)]+)/.exec(flag.about)?.[1];
+        if (only) expect(command, arg).toContain(only);
+        if (!flag.arg) continue;
+        const value = inline ?? args[++i];
+        const [, min, max = "Infinity"] =
+          /^from ([-\d.]+) (?:to ([-\d.]+)|up)/.exec(flag.about) ?? [];
+        const values = /^[\w-]+(?:\|[\w-]+)+/.exec(flag.about)?.[0].split("|");
         if (min) {
           expect(Number(value) >= Number(min) && Number(value) <= Number(max), command).toBe(true);
         } else if (values) {

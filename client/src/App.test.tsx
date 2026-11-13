@@ -7,6 +7,7 @@ import {
   enableVerboseNames,
   engineRun,
   renderApp,
+  showCommandLine,
   stubEngine,
 } from "./test/renderApp";
 import { file } from "./test/media";
@@ -150,6 +151,22 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("shows the page's command below the action button once Command line is set to Show, across reloads", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    expect(screen.queryByText(/^npx /)).not.toBeInTheDocument();
+
+    await showCommandLine(user);
+    const command = screen.getByText(
+      'npx @videotools/cli loop "<file|folder|glob>" --technique crossfade --fade 0.5 --start 0 --quality 100',
+    );
+    expect(loopButton().closest("div")!.nextElementSibling).toContainElement(command);
+    cleanup();
+
+    await renderApp();
+    expect(screen.getByText(/^npx @videotools\/cli loop /)).toBeInTheDocument();
   });
 
   it("shows an error box when a run fails, until one succeeds", async () => {

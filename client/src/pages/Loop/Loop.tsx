@@ -11,7 +11,7 @@ import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
 import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
-import { toList } from "@src/helpers";
+import { cliCommand, toList } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOOL = toolById("loop");
@@ -70,6 +70,11 @@ export const Loop = () => {
           disabled={run.busy}
         />
       }
+      command={cliCommand(TOOL.value, toList(source.file), {
+        technique,
+        ...(technique === "crossfade" && { fade: fadeDuration, start }),
+        quality,
+      })}
     >
       <div className={form.formGroup}>
         <label htmlFor="technique" className={form.label}>
