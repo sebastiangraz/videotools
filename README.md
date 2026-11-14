@@ -48,6 +48,7 @@ videotools SPEED <file|folder|glob>... [--speed <n>]
 videotools CONVERT <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
 videotools MARK <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
 videotools <TOOL> --help                        # flags, values and defaults
+videotools mcp                                  # MCP server over stdio, for AI assistants
 npx @videotools/cli <TOOL> ...                  # Node
 bun cli/index.ts <TOOL> ...                     # repo
 ```

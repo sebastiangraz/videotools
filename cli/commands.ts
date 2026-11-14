@@ -47,7 +47,12 @@ export type Flag = {
 export type Values = Record<string, string | boolean | undefined>;
 
 // Every page's slider starts at the top, above some tools' own fallback.
-const QUALITY: Flag = { arg: "n", range: RANGES.quality, default: "100" };
+const QUALITY: Flag = {
+  arg: "n",
+  range: RANGES.quality,
+  default: "100",
+  help: "100 keeps the source's quality, lower makes a smaller file",
+};
 
 // What a folder gives a tool: the files its page's picker takes that the tool
 // reads, by extension.
@@ -73,11 +78,17 @@ export const COMMANDS: Record<
     about: "Loop each video seamlessly",
     takes: VIDEOS,
     flags: {
-      technique: { arg: "how", values: VALID_TECHNIQUES, default: "crossfade" },
+      technique: {
+        arg: "how",
+        values: VALID_TECHNIQUES,
+        default: "crossfade",
+        help: "reverse plays forwards then backwards, crossfade fades the end into the start",
+      },
       fade: {
         arg: "seconds",
         range: RANGES.fadeDuration,
         default: "0.5",
+        help: "how long the fade lasts",
         only: ["technique", "crossfade"],
       },
       start: {
@@ -158,14 +169,19 @@ export const COMMANDS: Record<
     about: "Watermark each video or image",
     takes: [...VIDEOS, ...STILLS.flatMap((still) => still.extensions)],
     flags: {
-      logo: { arg: "png|svg", required: true, help: "the watermark" },
+      logo: { arg: "png|svg", required: true, help: "the watermark, a PNG or SVG" },
       position: { arg: "at", values: POSITIONS, default: "bottom-right" },
       size: {
         arg: "size",
         values: Object.keys(MARK_SIZES).filter((size) => size !== "dev"),
         default: "medium",
       },
-      filter: { arg: "filter", values: MARK_FILTERS, default: "glass" },
+      filter: {
+        arg: "filter",
+        values: MARK_FILTERS,
+        default: "glass",
+        help: "plain lays the logo on as it is, glass turns it into frosted glass that bends what is behind it, blur into a blur of what is behind it",
+      },
       shuffle: { help: "move the mark around a video, from --position on" },
       quality: QUALITY,
     },

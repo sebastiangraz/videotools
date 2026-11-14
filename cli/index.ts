@@ -40,13 +40,14 @@ ${Object.entries(flags)
 `
   : `Usage: videotools <TOOL> <file|folder|glob>... [options]
        videotools <TOOL> --help
+       videotools mcp
        videotools --version
 
 The web app's tools on native ffmpeg, a job at a time: one per file, or one
 for all of a sequence's images. A folder means the files in it that the tool
 takes; a glob is expanded. Results are named as the app names its downloads,
 or after their settings with --verbose-names. The first run downloads ffmpeg
-and gifski.
+and gifski. With mcp, the tools are served to AI assistants over MCP.
 
 Tools:
 ${TOOL_IDS.map((id) => `  ${id.toUpperCase().padEnd(10)}${COMMANDS[id].about}`).join("\n")}
@@ -63,6 +64,11 @@ if (tool === "--help") {
 }
 if (tool === "--version") {
   process.stdout.write(`${pkg.version}\n`);
+  process.exit(0);
+}
+if (tool === "mcp") {
+  // Loaded only here: the MCP library adds a beat to every start.
+  await (await import("./mcp.js")).serve();
   process.exit(0);
 }
 if (!isToolId(tool)) usage(tool ? `Unknown tool: ${tool.toUpperCase()}` : "No tool given");
