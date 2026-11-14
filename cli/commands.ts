@@ -203,11 +203,42 @@ export const flagsOf = (tool: ToolId): Record<string, Flag> => ({
   "verbose-names": { help: "name results after the source's full name and their settings" },
 });
 
-const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
+export const extension = (file: string) => path.extname(file).slice(1).toLowerCase();
 export const within = ([min, max]: readonly [number, number]) =>
   max === Infinity ? `from ${min} up` : `from ${min} to ${max}`;
 const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 const refuse = (problem: string) => new InputError(problem, "invalid-option");
+
+// What went wrong: short of an InputError's advice, the last line (ffmpeg's or
+// the system's).
+export const failure = (err: unknown) =>
+  err instanceof InputError
+    ? err.message
+    : `Failed: ${String(err instanceof Error ? err.message : err)
+        .trim()
+        .split(/[\r\n]+/)
+        .at(-1)}`;
+
+// The files `input` names: itself, the files directly in a folder that one of
+// `tools` takes, or a glob's. Throws an InputError for none.
+export function expand(input: string, tools: readonly ToolId[]): string[] {
+  const takes = tools.flatMap((tool) => COMMANDS[tool].takes);
+  // A path that exists is that path, glob characters and all.
+  const files = (fs.existsSync(input) ? [input] : fs.globSync(input))
+    .flatMap((name) =>
+      fs.statSync(name).isDirectory()
+        ? fs
+            .readdirSync(name, { withFileTypes: true })
+            .filter((entry) => entry.isFile() && takes.includes(extension(entry.name)))
+            .map((entry) => path.join(name, entry.name))
+        : [name],
+    )
+    .map((file) => path.resolve(file))
+    .sort(natural);
+  const who = tools.length > 1 ? "any tool" : tools[0].toUpperCase();
+  if (!files.length) throw refuse(`Nothing for ${who} in ${input}`);
+  return files;
+}
 
 // The flags given over their defaults, and the jobs for `inputs`. Throws an
 // InputError for a value the tool's page doesn't offer, or a missing file.
@@ -239,34 +270,17 @@ export function prepare(tool: ToolId, given: Values, inputs: string[]) {
   const logo = values.logo as string | undefined;
   if (logo !== undefined && !fs.existsSync(logo)) throw refuse(`No such logo: ${logo}`);
 
-  const found = inputs.map((input) => {
-    // A path that exists is that path, glob characters and all.
-    const files = (fs.existsSync(input) ? [input] : fs.globSync(input))
-      .flatMap((name) =>
-        fs.statSync(name).isDirectory()
-          ? fs
-              .readdirSync(name, { withFileTypes: true })
-              .filter(
-                (entry) => entry.isFile() && COMMANDS[tool].takes.includes(extension(entry.name)),
-              )
-              .map((entry) => path.join(name, entry.name))
-          : [name],
-      )
-      .map((file) => path.resolve(file))
-      .sort(natural);
-    if (!files.length) throw refuse(`Nothing for ${tool.toUpperCase()} in ${input}`);
-    return files;
-  });
+  const found = inputs.flatMap((input) => expand(input, [tool]));
   // A sequence's images in the order given, repeats and all, as one job; any
   // other tool takes each file once, a job each.
   const jobs = COMMANDS[tool].together
-    ? [found.flat()]
-    : [...new Set(found.flat())].sort(natural).map((source) => [source]);
+    ? [found]
+    : [...new Set(found)].sort(natural).map((source) => [source]);
   return { values, jobs };
 }
 
-// Every job's folder, in one, so a leftover is easy to find.
-const workDirs = path.join(os.tmpdir(), "videotools-cli");
+// Every job's and preview's folder, in one, so a leftover is easy to find.
+export const workDirs = path.join(os.tmpdir(), "videotools-cli");
 
 // One job: its result's path, or what went wrong. `signal` stops it, its
 // folder removed all the same.
@@ -304,17 +318,7 @@ export async function runJob(
     fs.copyFileSync(outputPath, result, fs.constants.COPYFILE_FICLONE);
     return { file: result };
   } catch (err) {
-    // Short of an InputError's advice, the last line (ffmpeg's or the
-    // system's) says what went wrong.
-    return {
-      error:
-        err instanceof InputError
-          ? err.message
-          : `Failed: ${String(err instanceof Error ? err.message : err)
-              .trim()
-              .split(/[\r\n]+/)
-              .at(-1)}`,
-    };
+    return { error: failure(err) };
   } finally {
     // A failed run can leave others going, and Windows won't delete a file a
     // child has open.

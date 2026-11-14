@@ -18,7 +18,7 @@ type Result = {
 };
 
 // As a client starts it, on Bun as in index.test.ts. Every call is turned away
-// before a batch starts, so the binaries are never fetched.
+// before it needs the binaries, so they are never fetched.
 const server = spawn("bun", [path.join(import.meta.dirname, "..", "index.ts"), "mcp"], {
   stdio: ["pipe", "pipe", "inherit"],
 });
@@ -60,10 +60,16 @@ fs.writeFileSync(clip, "");
 fs.writeFileSync(logo, "");
 
 describe("videotools mcp", () => {
-  it("serves every tool, wait and stop, and how to use them", async () => {
+  it("serves every tool, inspect, preview_mark, wait and stop, and how to use them", async () => {
     expect((await opened).instructions).toContain("call wait");
     const { tools } = await request("tools/list");
-    expect(tools!.map((tool) => tool.name)).toEqual([...TOOL_IDS, "wait", "stop"]);
+    expect(tools!.map((tool) => tool.name)).toEqual([
+      ...TOOL_IDS,
+      "inspect",
+      "preview_mark",
+      "wait",
+      "stop",
+    ]);
   });
 
   it("spells out a tool's flags as the command line takes them", async () => {
@@ -73,6 +79,14 @@ describe("videotools mcp", () => {
     expect(mark.properties.filter).toMatchObject({ enum: MARK_FILTERS, default: "glass" });
     expect(mark.properties.quality).toMatchObject({ type: "number", maximum: 100, default: 100 });
     expect(mark.properties.shuffle).toMatchObject({ type: "boolean" });
+  });
+
+  it("previews a mark with only the flags that change its look", async () => {
+    const { tools } = await request("tools/list");
+    const preview = tools!.find((tool) => tool.name === "preview_mark")!.inputSchema;
+    expect(preview.required).toEqual(["file", "logo"]);
+    expect(Object.keys(preview.properties)).toEqual(["file", "logo", "position", "size", "filter"]);
+    expect(preview.properties.filter).toMatchObject({ enum: MARK_FILTERS, default: "glass" });
   });
 
   it.each([
@@ -105,6 +119,18 @@ describe("videotools mcp", () => {
       "sequence",
       { inputs: [dir], out: dir },
       `Nothing for SEQUENCE in ${dir}`,
+    ],
+    [
+      "nothing to inspect",
+      "inspect",
+      { inputs: [path.join(dir, "missing.mp4")] },
+      `Nothing for any tool in ${path.join(dir, "missing.mp4")}`,
+    ],
+    [
+      "a relative path to preview",
+      "preview_mark",
+      { file: "clip.mp4", logo },
+      "Not an absolute path: clip.mp4",
     ],
   ])("turns away %s, saying why", async (_, tool, args, message) => {
     expect(await call(tool, args)).toEqual({ error: true, text: message });

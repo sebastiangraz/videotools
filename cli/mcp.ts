@@ -1,15 +1,38 @@
 // The tools for AI assistants (`videotools mcp`): an MCP server over stdio. A
 // batch runs in the background, and a call waits on it for a while at most,
 // as a client may give up on a call long before a batch ends.
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { McpServer, fromJsonSchema, type ServerContext } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { InputError } from "@videotools/core/errors";
+import { FFmpeg } from "@videotools/core/ffmpeg";
 import { TOOL_IDS, type ToolId } from "@videotools/core/formats";
-import { install } from "./binaries.js";
-import { COMMANDS, flagsOf, prepare, runJob, type Flag, type Values } from "./commands.js";
+import { fileExt, removeDir, sizeLabel } from "@videotools/core/helpers";
+import {
+  checkSquarePixels,
+  preservedFormat,
+  sourceFormat,
+  sourceStill,
+} from "@videotools/core/source";
+import { markLook, renderWatermarkFrames } from "@videotools/core/tools/mark";
+import { PREVIEW_MAX_WIDTH } from "@videotools/core/tools/mark-config";
+import { binaryPath, install, resvgUrl } from "./binaries.js";
+import {
+  COMMANDS,
+  expand,
+  extension,
+  failure,
+  flagsOf,
+  prepare,
+  runJob,
+  workDirs,
+  type Flag,
+  type Values,
+} from "./commands.js";
+import { execBinary } from "./exec.js";
 import pkg from "./package.json" with { type: "json" };
 
 // How long a call waits on a batch: Claude Desktop gives up on one at about 80 s.
@@ -18,7 +41,9 @@ const SLICE = 50_000;
 const INSTRUCTIONS = `videotools edits the user's videos and images on this computer: seamless loops, image sequences to video, speed changes, format conversion and watermarks. Each tool takes files, folders or globs and writes new files, never changing or replacing one.
 
 Before you start a batch:
+- See what's in the user's files and folders with inspect before you ask anything.
 - Settle what the user wants. Ask about each choice that changes the result and that they haven't made, in plain words, with the options the tool offers: for a watermark, the logo file, its style, position and size. Leave settings they're unlikely to care about at their defaults, which match the web app's.
+- For a watermark, offer a preview_mark of one of their files in the chosen look, and adjust it until they're happy.
 - Ask where results should go, suggesting a new folder next to the sources.
 - Use absolute paths; ~ is the home folder.
 - Sum up what will run (files, settings, folder) and start once the user agrees.
@@ -41,6 +66,8 @@ type Batch = {
 };
 // The running batch, or the last.
 let batch: Batch | undefined;
+// Previews under way, each until its folder is removed.
+let previews = 0;
 
 const text = (value: unknown, isError = false) => ({
   content: [
@@ -73,23 +100,26 @@ const property = (flag: Flag) => ({
   }),
 });
 
-function inputSchema(tool: ToolId) {
-  const flags: Record<string, Flag> = {
-    ...flagsOf(tool),
-    out: { arg: "dir", required: true, help: "the folder results go to, made if missing" },
-  };
+// The arguments: with a `taker`, the files, folders or globs to take files
+// from; then the flags.
+function inputSchema(taker: string | null, flags: Record<string, Flag> = {}) {
   return {
     type: "object",
     properties: {
-      inputs: {
-        type: "array",
-        items: { type: "string" },
-        minItems: 1,
-        description: "files, folders (the files directly in one that the tool takes) or globs",
-      },
+      ...(taker && {
+        inputs: {
+          type: "array",
+          items: { type: "string" },
+          minItems: 1,
+          description: `files, folders (the files directly in one that ${taker} takes) or globs`,
+        },
+      }),
       ...Object.fromEntries(Object.entries(flags).map(([name, flag]) => [name, property(flag)])),
     },
-    required: ["inputs", ...Object.keys(flags).filter((name) => flags[name].required)],
+    required: [
+      ...(taker ? ["inputs"] : []),
+      ...Object.keys(flags).filter((name) => flags[name].required),
+    ],
     additionalProperties: false,
   };
 }
@@ -177,7 +207,10 @@ function server() {
       {
         description: `${about}. Takes ${[...new Set(takes)].join(", ")} files; ${together ? "one result of them all" : "one result each"}.`,
         inputSchema: fromJsonSchema<{ inputs: string[] } & Record<string, unknown>>(
-          inputSchema(tool),
+          inputSchema("the tool", {
+            ...flagsOf(tool),
+            out: { arg: "dir", required: true, help: "the folder results go to, made if missing" },
+          }),
         ),
         annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       },
@@ -209,6 +242,139 @@ function server() {
     );
   }
   mcp.registerTool(
+    "inspect",
+    {
+      description:
+        "Show what's in files, folders or globs: each file a tool takes, with the tools that take it, its format, resolution and size in bytes, and a clip's seconds, fps and audio.",
+      inputSchema: fromJsonSchema<{ inputs: string[] }>(inputSchema("some tool")),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ inputs }) => {
+      try {
+        const files = new Set(inputs.map(local).flatMap((input) => expand(input, TOOL_IDS)));
+        await install("ffmpeg");
+        const ff = new FFmpeg(binaryPath("ffmpeg"), binaryPath("gifski"), resvgUrl, execBinary);
+        const listing = [];
+        for (const file of files) {
+          const tools = TOOL_IDS.filter((tool) => COMMANDS[tool].takes.includes(extension(file)));
+          try {
+            const profile = await ff.mediaInfo(file);
+            const still = sourceStill(profile);
+            listing.push({
+              file,
+              tools,
+              format: still ?? sourceFormat(profile) ?? extension(file),
+              resolution: sizeLabel(profile.width, profile.height),
+              ...(!still && {
+                seconds: profile.duration,
+                fps: profile.fps,
+                audio: profile.audio !== null,
+              }),
+              bytes: fs.statSync(file).size,
+            });
+          } catch (err) {
+            listing.push({ file, tools, error: failure(err) });
+          }
+        }
+        return text(listing);
+      } catch (err) {
+        return text(failure(err), true);
+      }
+    },
+  );
+  const { logo, position, size, filter } = COMMANDS.mark.flags;
+  mcp.registerTool(
+    "preview_mark",
+    {
+      description:
+        "Show how mark will watermark a video or image: a frame from its middle (an image's only one), marked as a batch would mark it.",
+      inputSchema: fromJsonSchema<{ file: string; logo: string } & Values>(
+        inputSchema(null, {
+          file: { arg: "file", required: true, help: "the video or image to show it on" },
+          logo,
+          position,
+          size,
+          filter,
+        }),
+      ),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ file, ...flags }) => {
+      fs.mkdirSync(workDirs, { recursive: true });
+      const workDir = fs.mkdtempSync(path.join(workDirs, "preview-"));
+      // Its own runs, not a batch's, to wait on before the folder goes: a
+      // failed step can leave another going, and Windows won't delete a file
+      // a child has open.
+      const runs: ReturnType<typeof execBinary>[] = [];
+      previews++;
+      try {
+        const { values, jobs } = prepare("mark", { ...flags, logo: local(flags.logo) }, [
+          local(file),
+        ]);
+        const source = jobs[0][0];
+        await install("ffmpeg");
+        const ff = new FFmpeg(
+          binaryPath("ffmpeg"),
+          binaryPath("gifski"),
+          resvgUrl,
+          (command, args, options) => {
+            const run = execBinary(command, args, options);
+            runs.push(run);
+            return run;
+          },
+        );
+        const profile = await ff.mediaInfo(source);
+        const opened = {
+          path: source,
+          profile,
+          format: sourceFormat(profile),
+          still: sourceStill(profile),
+        };
+        // Turned away as mark turns it away.
+        checkSquarePixels(opened);
+        if (!opened.still) preservedFormat(opened);
+        // From the middle, downscaled as the page's preview.
+        const frame = path.join(workDir, "frame.png");
+        await ff.runFFmpeg([
+          "-ss",
+          String(profile.duration / 2),
+          "-i",
+          source,
+          "-map",
+          `0:v:${profile.videoIndex}`,
+          "-frames:v",
+          "1",
+          "-vf",
+          `scale='min(iw,${PREVIEW_MAX_WIDTH})':-1`,
+          frame,
+        ]);
+        // Copied as mark copies it: an SVG's raster goes next to it.
+        const logoFile = path.join(workDir, `logo${fileExt(flags.logo, ".png")}`);
+        fs.copyFileSync(values.logo as string, logoFile);
+        const look = markLook(values);
+        const [preview] = await renderWatermarkFrames(
+          { ff, workDir },
+          { ...look, logoFile, frames: [{ file: frame, position: look.position }] },
+        );
+        return {
+          content: [
+            {
+              type: "image" as const,
+              data: fs.readFileSync(preview, "base64"),
+              mimeType: "image/jpeg",
+            },
+          ],
+        };
+      } catch (err) {
+        return text(failure(err), true);
+      } finally {
+        await Promise.allSettled(runs);
+        await removeDir(workDir);
+        previews--;
+      }
+    },
+  );
+  mcp.registerTool(
     "wait",
     {
       description:
@@ -234,7 +400,8 @@ function server() {
   return mcp;
 }
 
-// Until the client closes stdin; a batch then stops, its folder removed.
+// Until the client closes stdin; a batch then stops and a preview ends, their
+// folders removed.
 export async function serve(): Promise<void> {
   // stdout carries the protocol, so the runner's lines go to stderr.
   console.log = console.error;
@@ -242,4 +409,5 @@ export async function serve(): Promise<void> {
   await new Promise((closed) => process.stdin.on("end", closed));
   batch?.stop.abort();
   await batch?.ended;
+  while (previews) await sleep(100);
 }
