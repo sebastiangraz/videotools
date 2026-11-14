@@ -26,6 +26,7 @@
     "@resvg/resvg-wasm": "2.6.2"
   },
   "devDependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
     "@videotools/core": "workspace:*"
   },
   "engines": {

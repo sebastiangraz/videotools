@@ -99,7 +99,8 @@ export async function install(tool: Tool): Promise<void> {
   const binary = binaryPath(tool);
   if (fs.existsSync(binary)) return;
 
-  process.stdout.write(`fetching ${tool} ${version} from ${pinned.url}\n`);
+  // stderr: an MCP client reads stdout.
+  process.stderr.write(`fetching ${tool} ${version} from ${pinned.url}\n`);
   const res = await fetch(pinned.url);
   if (!res.ok || !res.body) throw new Error(`${pinned.url}: HTTP ${res.status}`);
   fs.mkdirSync(path.dirname(binary), { recursive: true });
