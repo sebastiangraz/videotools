@@ -37,18 +37,25 @@ import pkg from "./package.json" with { type: "json" };
 
 // How long a call waits on a batch: Claude Desktop gives up on one at about 80 s.
 const SLICE = 50_000;
+// Files inspect probes at once: a probe is mostly ffmpeg's start.
+const PROBES = 8;
 
-const INSTRUCTIONS = `videotools edits the user's videos and images on this computer: seamless loops, image sequences to video, speed changes, format conversion and watermarks. Each tool takes files, folders or globs and writes new files, never changing or replacing one.
+// Claude Desktop's chat loads tools as it needs them and acted without these,
+// so how to go about a batch is in each tool's description.
+const INSTRUCTIONS = `videotools edits the user's videos and images on this computer: seamless loops, image sequences to video, speed changes, format conversion and watermarks. Each tool's description says how to go about it.`;
 
-Before you start a batch:
-- See what's in the user's files and folders with inspect before you ask anything.
-- Settle what the user wants. Ask about each choice that changes the result and that they haven't made, in plain words, with the options the tool offers: for a watermark, the logo file, its style, position and size. Leave settings they're unlikely to care about at their defaults, which match the web app's.
-- For a watermark, offer a preview_mark of one of their files in the chosen look, and adjust it until they're happy.
+// How to go about a batch of `tool`.
+const howTo = (
+  tool: ToolId,
+) => `It writes new files, never changing or replacing one: a result that already exists fails.
+
+Before you call it:
+- See what's in the user's files and folders with inspect.
+- Ask about each choice that changes the result and that the user hasn't made, in plain words, with the options this tool offers${tool === "mark" ? ": the logo file, its style, position and size. Then offer a preview_mark of one of their files in that look, and adjust it until they're happy" : ""}. Leave settings they're unlikely to care about at their defaults, which match the web app's.
 - Ask where results should go, suggesting a new folder next to the sources.
-- Use absolute paths; ~ is the home folder.
-- Sum up what will run (files, settings, folder) and start once the user agrees.
+- Sum up what will run (the files, settings and folder) and call it only once the user agrees to that.
 
-A batch runs in the background, one at a time. A call returns within a minute: while the status is "running", tell the user how far it got and call wait. Call stop only when the user asks to.`;
+A batch runs in the background, one at a time. A call returns within a minute: while the status is "running", tell the user how far it got and call wait.`;
 
 type Outcome = { source: string; file?: string; error?: string };
 type Batch = {
@@ -111,7 +118,7 @@ function inputSchema(taker: string | null, flags: Record<string, Flag> = {}) {
           type: "array",
           items: { type: "string" },
           minItems: 1,
-          description: `files, folders (the files directly in one that ${taker} takes) or globs`,
+          description: `files, folders (the files directly in one that ${taker} takes) or globs, as absolute paths; ~ is the home folder`,
         },
       }),
       ...Object.fromEntries(Object.entries(flags).map(([name, flag]) => [name, property(flag)])),
@@ -176,7 +183,8 @@ function status(run: Batch) {
 }
 
 // Waits on the batch for a slice at most, telling a client that asks for
-// progress how far it got. A cancelled call only stops the waiting.
+// progress how far it got. A cancelled call stops the batch too: that's what
+// the user means by an app's stop button.
 async function report(run: Batch, ctx: ServerContext) {
   const token = ctx.mcpReq._meta?.progressToken;
   const until = Date.now() + SLICE;
@@ -192,6 +200,10 @@ async function report(run: Batch, ctx: ServerContext) {
       });
     }
   }
+  if (ctx.mcpReq.signal.aborted && !run.done) {
+    run.stop.abort();
+    await run.ended;
+  }
   return text(status(run));
 }
 
@@ -205,7 +217,7 @@ function server() {
     mcp.registerTool(
       tool,
       {
-        description: `${about}. Takes ${[...new Set(takes)].join(", ")} files; ${together ? "one result of them all" : "one result each"}.`,
+        description: `${about}. Takes ${[...new Set(takes)].join(", ")} files; ${together ? "one result of them all" : "one result each"}. ${howTo(tool)}`,
         inputSchema: fromJsonSchema<{ inputs: string[] } & Record<string, unknown>>(
           inputSchema("the tool", {
             ...flagsOf(tool),
@@ -245,37 +257,53 @@ function server() {
     "inspect",
     {
       description:
-        "Show what's in files, folders or globs: each file a tool takes, with the tools that take it, its format, resolution and size in bytes, and a clip's seconds, fps and audio.",
+        "Show what's in files, folders or globs: by folder, each file a tool takes, with its format, resolution, a clip's seconds, fps and audio, its size in bytes and the tools that take it, and each SVG, which mark takes as a logo.",
       inputSchema: fromJsonSchema<{ inputs: string[] }>(inputSchema("some tool")),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ inputs }) => {
       try {
-        const files = new Set(inputs.map(local).flatMap((input) => expand(input, TOOL_IDS)));
+        // SVGs too: no tool takes one, but mark takes one as its logo.
+        const takes = [...TOOL_IDS.flatMap((tool) => COMMANDS[tool].takes), "svg"];
+        const files = [
+          ...new Set(inputs.map(local).flatMap((input) => expand(input, takes, "any tool"))),
+        ];
         await install("ffmpeg");
         const ff = new FFmpeg(binaryPath("ffmpeg"), binaryPath("gifski"), resvgUrl, execBinary);
-        const listing = [];
-        for (const file of files) {
-          const tools = TOOL_IDS.filter((tool) => COMMANDS[tool].takes.includes(extension(file)));
-          try {
-            const profile = await ff.mediaInfo(file);
-            const still = sourceStill(profile);
-            listing.push({
-              file,
-              tools,
-              format: still ?? sourceFormat(profile) ?? extension(file),
-              resolution: sizeLabel(profile.width, profile.height),
-              ...(!still && {
-                seconds: profile.duration,
-                fps: profile.fps,
-                audio: profile.audio !== null,
-              }),
-              bytes: fs.statSync(file).size,
-            });
-          } catch (err) {
-            listing.push({ file, tools, error: failure(err) });
-          }
+        const lines: string[] = [];
+        for (let i = 0; i < files.length; i += PROBES) {
+          const probed = files.slice(i, i + PROBES).map(async (file) => {
+            if (extension(file) === "svg") {
+              return `svg; ${fs.statSync(file).size} bytes; a logo for mark`;
+            }
+            try {
+              const profile = await ff.mediaInfo(file);
+              const still = sourceStill(profile);
+              // A still goes where a PNG goes.
+              const takes = still ? "png" : extension(file);
+              const tools = TOOL_IDS.filter((tool) => COMMANDS[tool].takes.includes(takes));
+              return [
+                still ?? sourceFormat(profile) ?? extension(file),
+                sizeLabel(profile.width, profile.height),
+                !still && `${profile.duration} s`,
+                !still && profile.fps && `${profile.fps} fps`,
+                !still && (profile.audio ? "audio" : "no audio"),
+                `${fs.statSync(file).size} bytes`,
+                `tools: ${tools.join(", ")}`,
+              ]
+                .filter(Boolean)
+                .join("; ");
+            } catch (err) {
+              return failure(err);
+            }
+          });
+          lines.push(...(await Promise.all(probed)));
         }
+        // A line a file, by folder, so a few hundred files fit in a reply.
+        const listing: Record<string, Record<string, string>> = {};
+        files.forEach((file, n) => {
+          (listing[path.dirname(file)] ??= {})[path.basename(file)] = lines[n];
+        });
         return text(listing);
       } catch (err) {
         return text(failure(err), true);
@@ -287,7 +315,7 @@ function server() {
     "preview_mark",
     {
       description:
-        "Show how mark will watermark a video or image: a frame from its middle (an image's only one), marked as a batch would mark it.",
+        "Show how mark will watermark a video or image: a frame from its middle (an image's only one), marked as a batch would mark it. Not every app shows the user the image, so say what it shows.",
       inputSchema: fromJsonSchema<{ file: string; logo: string } & Values>(
         inputSchema(null, {
           file: { arg: "file", required: true, help: "the video or image to show it on" },
@@ -311,6 +339,12 @@ function server() {
         const { values, jobs } = prepare("mark", { ...flags, logo: local(flags.logo) }, [
           local(file),
         ]);
+        if (jobs.length > 1) {
+          throw new InputError(
+            `Preview one file, not the ${jobs.length} in ${file}`,
+            "invalid-option",
+          );
+        }
         const source = jobs[0][0];
         await install("ffmpeg");
         const ff = new FFmpeg(
@@ -387,7 +421,7 @@ function server() {
     "stop",
     {
       description:
-        "Stop the running batch. Its finished results stay; the file it's on is dropped.",
+        "Stop the running batch, only when the user asks to. Its finished results stay; the file it's on is dropped.",
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async () => {

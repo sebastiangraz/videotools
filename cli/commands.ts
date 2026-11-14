@@ -75,7 +75,7 @@ export const COMMANDS: Record<
   }
 > = {
   loop: {
-    about: "Loop each video seamlessly",
+    about: "Loop each video seamlessly, dropping its audio",
     takes: VIDEOS,
     flags: {
       technique: {
@@ -128,7 +128,7 @@ export const COMMANDS: Record<
     }),
   },
   speed: {
-    about: "Speed each video up or slow it down",
+    about: "Speed each video up or slow it down, dropping its audio",
     takes: VIDEOS,
     flags: {
       speed: {
@@ -219,10 +219,9 @@ export const failure = (err: unknown) =>
         .split(/[\r\n]+/)
         .at(-1)}`;
 
-// The files `input` names: itself, the files directly in a folder that one of
-// `tools` takes, or a glob's. Throws an InputError for none.
-export function expand(input: string, tools: readonly ToolId[]): string[] {
-  const takes = tools.flatMap((tool) => COMMANDS[tool].takes);
+// The files `input` names: itself, the files directly in a folder with one of
+// the extensions `takes`, or a glob's. For none, throws an InputError naming `who`.
+export function expand(input: string, takes: readonly string[], who: string): string[] {
   // A path that exists is that path, glob characters and all.
   const files = (fs.existsSync(input) ? [input] : fs.globSync(input))
     .flatMap((name) =>
@@ -235,7 +234,6 @@ export function expand(input: string, tools: readonly ToolId[]): string[] {
     )
     .map((file) => path.resolve(file))
     .sort(natural);
-  const who = tools.length > 1 ? "any tool" : tools[0].toUpperCase();
   if (!files.length) throw refuse(`Nothing for ${who} in ${input}`);
   return files;
 }
@@ -270,7 +268,7 @@ export function prepare(tool: ToolId, given: Values, inputs: string[]) {
   const logo = values.logo as string | undefined;
   if (logo !== undefined && !fs.existsSync(logo)) throw refuse(`No such logo: ${logo}`);
 
-  const found = inputs.flatMap((input) => expand(input, [tool]));
+  const found = inputs.flatMap((input) => expand(input, COMMANDS[tool].takes, tool.toUpperCase()));
   // A sequence's images in the order given, repeats and all, as one job; any
   // other tool takes each file once, a job each.
   const jobs = COMMANDS[tool].together

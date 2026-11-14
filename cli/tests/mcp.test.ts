@@ -8,6 +8,7 @@ import { MARK_FILTERS } from "@videotools/core/tools/mark-config";
 
 type Tool = {
   name: string;
+  description: string;
   inputSchema: { required: string[]; properties: Record<string, object> };
 };
 type Result = {
@@ -61,7 +62,7 @@ fs.writeFileSync(logo, "");
 
 describe("videotools mcp", () => {
   it("serves every tool, inspect, preview_mark, wait and stop, and how to use them", async () => {
-    expect((await opened).instructions).toContain("call wait");
+    expect((await opened).instructions).toContain("description");
     const { tools } = await request("tools/list");
     expect(tools!.map((tool) => tool.name)).toEqual([
       ...TOOL_IDS,
@@ -70,6 +71,11 @@ describe("videotools mcp", () => {
       "wait",
       "stop",
     ]);
+    // In the descriptions, as a client may load tools without the instructions.
+    for (const tool of tools!.slice(0, TOOL_IDS.length)) {
+      expect(tool.description).toContain("call wait");
+    }
+    expect(tools!.find((tool) => tool.name === "mark")!.description).toContain("preview_mark");
   });
 
   it("spells out a tool's flags as the command line takes them", async () => {
@@ -131,6 +137,12 @@ describe("videotools mcp", () => {
       "preview_mark",
       { file: "clip.mp4", logo },
       "Not an absolute path: clip.mp4",
+    ],
+    [
+      "more than one file to preview",
+      "preview_mark",
+      { file: path.join(dir, "*"), logo },
+      `Preview one file, not the 2 in ${path.join(dir, "*")}`,
     ],
   ])("turns away %s, saying why", async (_, tool, args, message) => {
     expect(await call(tool, args)).toEqual({ error: true, text: message });
