@@ -62,7 +62,17 @@ The command flags mirror the tool pages, and share the same defaults. Tools are 
 
 Enabling `Command line` shows the equivalent `npx @videotools/cli` command on the tool page.
 
-`bun run build` in `cli/` bundles the CLI and core into a single Node script in `cli/dist/`. The bundle leaves `@resvg/resvg-wasm` external, as a regular dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag. `.github/workflows/cli.yml` then tests, builds and publishes the package to npm.
+`videotools mcp` (`cli/mcp.ts`) serves the tools to AI assistants over MCP. Claude asks about the choices that change the result, previews a watermark on one of the user's files, and starts once they agree. Batches run in the background, one at a time, while Claude reports how far they got. Stopping one, in the app or by asking Claude, keeps the results already written.
+
+- **Claude Desktop.** Download `videotools.mcpb` from the newest [CLI release](https://github.com/sebastiangraz/videotools/releases?q=cli&expanded=true) and open it.
+- **Claude Code.** `claude mcp add --scope user videotools -- npx -y @videotools/cli mcp`
+- **Other MCP clients.** Add a stdio server that runs `npx -y @videotools/cli mcp`:
+
+```json
+{ "mcpServers": { "videotools": { "command": "npx", "args": ["-y", "@videotools/cli", "mcp"] } } }
+```
+
+`bun run build` in `cli/` bundles the CLI and core into a single Node script in `cli/dist/`. The bundle leaves `@resvg/resvg-wasm` external, as a regular dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag. `.github/workflows/cli.yml` then tests and builds the package, packs Claude Desktop's extension from `cli/manifest.json` with the package's version, attaches it to the tag's GitHub release as `videotools.mcpb`, and publishes the package to npm.
 
 ## Principles
 

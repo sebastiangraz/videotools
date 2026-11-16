@@ -310,7 +310,7 @@ export async function runJob(
       : resultFile(source.base, suffix, ext).name;
     const out = (values.out as string | undefined) ?? ".";
     const result = path.join(out, name);
-    if (fs.existsSync(result)) throw refuse(`${result} already exists`);
+    if (fs.existsSync(result)) throw refuse(`${name} already exists`);
     // Resolved: on Windows, Bun's recursive mkdir throws for "." and "..".
     fs.mkdirSync(path.resolve(out), { recursive: true });
     fs.copyFileSync(outputPath, result, fs.constants.COPYFILE_FICLONE);

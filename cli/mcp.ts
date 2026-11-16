@@ -57,11 +57,15 @@ Before you call it:
 
 A batch runs in the background, one at a time. A call returns within a minute: while the status is "running", tell the user how far it got and call wait.`;
 
-type Outcome = { source: string; file?: string; error?: string };
+// Files by folder, a line each, so a few hundred fit in a reply.
+type Listing = Record<string, Record<string, string>>;
 type Batch = {
   tool: ToolId;
+  // The folder results go to.
+  out: string;
   jobs: string[][];
-  outcomes: Outcome[];
+  // Each finished job's, in order.
+  outcomes: ({ file: string } | { error: string })[];
   // How far the running job has got, 0–1.
   progress: number;
   stop: AbortController;
@@ -82,7 +86,8 @@ const text = (value: unknown, isError = false) => ({
   ],
   isError,
 });
-const label = (job: string[]) => (job.length > 1 ? `${job[0]} and ${job.length - 1} more` : job[0]);
+const label = (job: string[]) =>
+  `${path.basename(job[0])}${job.length > 1 ? ` and ${job.length - 1} more` : ""}`;
 
 // `~` is the home folder, as a shell would have it. A relative path would be
 // the client's working folder's, which is anyone's guess.
@@ -134,8 +139,9 @@ function inputSchema(taker: string | null, flags: Record<string, Flag> = {}) {
 function start(tool: ToolId, values: Values, jobs: string[][]): Batch {
   const run = {
     tool,
+    out: values.out as string,
     jobs,
-    outcomes: [] as Outcome[],
+    outcomes: [] as Batch["outcomes"],
     progress: 0,
     stop: new AbortController(),
     done: false,
@@ -153,16 +159,25 @@ function start(tool: ToolId, values: Values, jobs: string[][]): Batch {
       const outcome = await runJob(tool, values, job, run.stop.signal, (done) => {
         run.progress = done;
       });
-      if (!run.stop.signal.aborted) run.outcomes.push({ source: label(job), ...outcome });
+      if (!run.stop.signal.aborted) run.outcomes.push(outcome);
     }
     run.done = true;
   })();
   return Object.assign(run, { ended });
 }
 
-// The batch's state. Results are listed once it's done, failures as they come.
+// The batch's state, by source folder: each result's name in `out` once the
+// batch is done, and why a job failed as they come.
 function status(run: Batch) {
   const now = run.jobs[run.outcomes.length];
+  const results: Listing = {};
+  const failed: Listing = {};
+  run.outcomes.forEach((outcome, n) => {
+    const job = run.jobs[n];
+    const folder = path.dirname(job[0]);
+    if ("file" in outcome) (results[folder] ??= {})[label(job)] = path.basename(outcome.file);
+    else (failed[folder] ??= {})[label(job)] = outcome.error;
+  });
   return {
     status: run.error
       ? "failed"
@@ -176,9 +191,9 @@ function status(run: Batch) {
     done: run.outcomes.length,
     of: run.jobs.length,
     ...(!run.done && now && { now: label(now), progress: Math.floor(run.progress * 100) / 100 }),
-    ...(run.done
-      ? { results: run.outcomes }
-      : { failed: run.outcomes.filter((outcome) => outcome.error) }),
+    out: run.out,
+    ...(run.done && { results }),
+    failed,
   };
 }
 
@@ -299,8 +314,7 @@ function server() {
           });
           lines.push(...(await Promise.all(probed)));
         }
-        // A line a file, by folder, so a few hundred files fit in a reply.
-        const listing: Record<string, Record<string, string>> = {};
+        const listing: Listing = {};
         files.forEach((file, n) => {
           (listing[path.dirname(file)] ??= {})[path.basename(file)] = lines[n];
         });

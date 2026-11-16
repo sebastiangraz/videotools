@@ -14,7 +14,7 @@
     },
     "cli": {
       "name": "@videotools/cli",
-      "version": "0.1.7",
+      "version": "0.2.0",
       "bin": {
         "videotools": "dist/index.js",
       },

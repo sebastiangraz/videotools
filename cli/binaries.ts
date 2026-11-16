@@ -109,29 +109,35 @@ export async function install(tool: Tool): Promise<void> {
     const res = await fetch(pinned.url);
     if (!res.ok || !res.body) throw new Error(`${pinned.url}: HTTP ${res.status}`);
     fs.mkdirSync(path.dirname(binary), { recursive: true });
-    // Hashed while streaming into a temporary name, so an interrupted or
-    // tampered download never sits where binaryPath points.
-    const partial = `${binary}.partial`;
+    // Hashed while streaming into this process's own temporary name, so an
+    // interrupted or tampered download never sits where binaryPath points, and
+    // processes fetching at once (as an app starts several servers) don't clash.
+    const partial = `${binary}.${process.pid}.partial`;
     const hash = createHash("sha256");
-    await pipeline(
-      res.body,
-      zlib.createGunzip(),
-      async function* (source: AsyncIterable<Buffer>) {
-        for await (const chunk of source) {
-          hash.update(chunk);
-          yield chunk;
-        }
-      },
-      fs.createWriteStream(partial, { mode: 0o755 }),
-    );
-    const got = hash.digest("hex");
-    if (got !== pinned.sha256) {
-      fs.rmSync(partial, { force: true });
-      throw new Error(
-        `${pinned.url}: sha256 of the binary is ${got}, BINARIES pins ${pinned.sha256}`,
+    try {
+      await pipeline(
+        res.body,
+        zlib.createGunzip(),
+        async function* (source: AsyncIterable<Buffer>) {
+          for await (const chunk of source) {
+            hash.update(chunk);
+            yield chunk;
+          }
+        },
+        fs.createWriteStream(partial, { mode: 0o755 }),
       );
+      const got = hash.digest("hex");
+      if (got !== pinned.sha256) {
+        throw new Error(
+          `${pinned.url}: sha256 of the binary is ${got}, BINARIES pins ${pinned.sha256}`,
+        );
+      }
+      // Another process's may be there already, and Windows won't replace a
+      // binary that runs.
+      if (!fs.existsSync(binary)) fs.renameSync(partial, binary);
+    } finally {
+      fs.rmSync(partial, { force: true });
     }
-    fs.renameSync(partial, binary);
   })().finally(() => {
     // A failed one is tried afresh next time.
     downloads[tool] = undefined;
