@@ -21,4 +21,13 @@ describe("execBinary", () => {
     });
     expect(lines.sort()).toEqual(["Frame 1 / 2", "Frame 2 / 2", "frame=1", "frame=2"]);
   });
+
+  it("kills a run its signal stops", async () => {
+    const stop = new AbortController();
+    const run = execBinary(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], {
+      signal: stop.signal,
+    });
+    stop.abort();
+    await expect(run).rejects.toThrow();
+  });
 });

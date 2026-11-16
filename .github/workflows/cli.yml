@@ -1,4 +1,5 @@
-# Publishes cli/ to npm as @videotools/cli when a cli-v<version> tag is pushed.
+# Publishes cli/ to npm as @videotools/cli when a cli-v<version> tag is pushed,
+# and Claude Desktop's extension, videotools.mcpb, as that tag's release.
 # npm trusted publishing: the OIDC token stands in for an npm token.
 name: cli
 
@@ -9,7 +10,8 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  # The release.
+  contents: write
 
 jobs:
   publish:
@@ -30,5 +32,20 @@ jobs:
         working-directory: cli
       - name: The tag is cli-v and cli/package.json's version
         run: test "$GITHUB_REF_NAME" = "cli-v$(node -p 'require("./cli/package.json").version')"
+      # The package as npm ships it, the dependency the bundle leaves out, the
+      # site's icon, and the manifest with the package's version and Node range.
+      # Packing checks the manifest.
+      - name: Pack videotools.mcpb
+        run: |
+          mkdir -p mcpb/node_modules/@resvg
+          cp -r cli/dist cli/gifski cli/package.json cli/LICENSE client/public/favicon.png mcpb/
+          cp -r node_modules/@resvg/resvg-wasm mcpb/node_modules/@resvg/
+          node -p 'const pkg = require("./cli/package.json"); JSON.stringify({ ...require("./cli/manifest.json"), version: pkg.version, compatibility: { runtimes: pkg.engines } })' > mcpb/manifest.json
+          npx -y @anthropic-ai/mcpb@2 pack mcpb videotools.mcpb
+      # Before npm, which never takes a version back: a failed run's release can
+      # be deleted and the run re-run. Not Latest, which stays the engine's.
+      - run: gh release create "$GITHUB_REF_NAME" videotools.mcpb --title "cli ${GITHUB_REF_NAME#cli-v}" --latest=false
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: npm publish
         working-directory: cli

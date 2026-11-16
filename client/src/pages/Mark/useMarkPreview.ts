@@ -3,6 +3,7 @@ import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource"
 import { runEngine } from "@src/engine";
 import {
   markStays,
+  PREVIEW_MAX_WIDTH,
   type MARK_TUNING,
   type MarkFilter,
   type MarkPosition,
@@ -14,10 +15,6 @@ export type MarkTuning = Record<keyof typeof MARK_TUNING, number>;
 // Where the mark is `progress` (0 to 1) through a clip of `stays`.
 const stopAt = (route: MarkPosition[], stays: number, progress: number) =>
   route[Math.floor(progress * stays) % route.length];
-
-// The engine renders the preview with the real ffmpeg graph. Mark geometry is
-// relative to the frame, so a downscaled frame previews the same.
-const PREVIEW_MAX_WIDTH = 1280;
 
 export const SCRUB_FRAMES = 7;
 

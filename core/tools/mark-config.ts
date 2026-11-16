@@ -161,6 +161,10 @@ export type MarkFilter = (typeof MARK_FILTERS)[number];
 export const isMarkFilter = (value: unknown): value is MarkFilter =>
   MARK_FILTERS.includes(value as MarkFilter);
 
+// A preview renders the real ffmpeg graph on frames this wide at most. Mark
+// geometry is relative to the frame, so a downscaled frame previews the same.
+export const PREVIEW_MAX_WIDTH = 1280;
+
 export const MARK_VIEWS = ["render", "displacement", "clear", "rim"] as const;
 export type MarkView = (typeof MARK_VIEWS)[number];
 export const isMarkView = (value: unknown): value is MarkView =>

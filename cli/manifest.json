@@ -1,0 +1,14 @@
+{
+  "manifest_version": "0.3",
+  "name": "videotools",
+  "description": "Video tools on your computer: seamless loops, image sequences to video, speed changes, format conversion and watermarks, for many files at once",
+  "author": { "name": "Sebastian Graz" },
+  "license": "Elastic-2.0",
+  "repository": { "type": "git", "url": "https://github.com/sebastiangraz/videotools" },
+  "icon": "favicon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": { "command": "node", "args": ["${__dirname}/dist/index.js", "mcp"] }
+  }
+}

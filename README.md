@@ -48,6 +48,7 @@ videotools SPEED <file|folder|glob>... [--speed <n>]
 videotools CONVERT <file|folder|glob>... [--to <format>] [--quality <n>] [--fps <n>] [--width <px>]
 videotools MARK <file|folder|glob>... --logo <png|svg> [--position <at>] [--size <size>] [--filter <filter>] [--shuffle] [--quality <n>]
 videotools <TOOL> --help                        # flags, values and defaults
+videotools mcp                                  # MCP server over stdio, for AI assistants
 npx @videotools/cli <TOOL> ...                  # Node
 bun cli/index.ts <TOOL> ...                     # repo
 ```
@@ -56,12 +57,22 @@ The command flags mirror the tool pages, and share the same defaults. Tools are 
 
 - **Inputs** can be files, folders or globs. A folder means the supported files directly inside it, not those in subfolders. The CLI expands globs itself, so they work in any shell.
 - **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given and names the result after the first image.
-- **Output.** Written to `--out <dir>`, which defaults to the current directory. add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork.
+- **Output.** Written to `--out <dir>`, which defaults to the current directory. A result never replaces an existing file: that file fails instead. Add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork.
 - **Failures.** If a file fails, the remaining files are still processed and the exit code is non-zero. Each job works in a folder of its own under `videotools-cli` in the system temp folder, deleted when the job ends. Ctrl+C stops the running ffmpeg or gifski process and deletes the job's folder.
 
 Enabling `Command line` shows the equivalent `npx @videotools/cli` command on the tool page.
 
-`bun run build` in `cli/` bundles the CLI and core into a single Node script in `cli/dist/`. The bundle leaves `@resvg/resvg-wasm` external, as a regular dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag. `.github/workflows/cli.yml` then tests, builds and publishes the package to npm.
+`videotools mcp` (`cli/mcp.ts`) serves the tools to AI assistants over MCP. Claude asks about the choices that change the result, previews a watermark on one of the user's files, and starts once they agree. Batches run in the background, one at a time, while Claude reports how far they got. Stopping one, in the app or by asking Claude, keeps the results already written.
+
+- **Claude Desktop.** Download `videotools.mcpb` from the newest [CLI release](https://github.com/sebastiangraz/videotools/releases?q=cli&expanded=true) and open it.
+- **Claude Code.** `claude mcp add --scope user videotools -- npx -y @videotools/cli mcp`
+- **Other MCP clients.** Add a stdio server that runs `npx -y @videotools/cli mcp`:
+
+```json
+{ "mcpServers": { "videotools": { "command": "npx", "args": ["-y", "@videotools/cli", "mcp"] } } }
+```
+
+`bun run build` in `cli/` bundles the CLI and core into a single Node script in `cli/dist/`. The bundle leaves `@resvg/resvg-wasm` external, as a regular dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag. `.github/workflows/cli.yml` then tests and builds the package, packs Claude Desktop's extension from `cli/manifest.json` with the package's version, attaches it to the tag's GitHub release as `videotools.mcpb`, and publishes the package to npm.
 
 ## Principles
 
