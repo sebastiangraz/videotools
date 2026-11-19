@@ -26,20 +26,22 @@ const WarningIcon = () => (
 );
 
 // Pulls the card back up over its anchor so it sits centred on the anchor
-// instead of below it. A body and its margin are left out, so the card grows
+// instead of below it. A body and its margins are left out, so the card grows
 // down as it unfolds.
 const centerOverAnchor = (
   { anchor, positioner }: { anchor: { height: number }; positioner: { height: number } },
   body: HTMLElement | null,
 ) => {
-  const below = body
-    ? body.getBoundingClientRect().height + parseFloat(getComputedStyle(body).marginTop)
-    : 0;
+  let below = 0;
+  if (body) {
+    const { marginTop, marginBottom } = getComputedStyle(body);
+    below = body.getBoundingClientRect().height + parseFloat(marginTop) + parseFloat(marginBottom);
+  }
   return -(anchor.height + positioner.height - below) / 2;
 };
 
 // Where every message shows (see messageStore.ts): one card over `anchor`,
-// the layout's title, so it never moves whoever is speaking. It is open while
+// the layout's title, so it never moves whatever it shows. It is open while
 // a <Message> is up or a MessageTrigger is hovered or focused; the message
 // wins, so it stays put until it is gone.
 export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> }) => {
@@ -70,12 +72,12 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
       }}
     >
       {({ payload }) => {
-        // A trigger only gets a word in while no message is up. With neither,
+        // A trigger's excerpt only shows while no message is up. With neither,
         // the card is on its way out and keeps what it was showing: the
-        // message it had, else the last trigger's say (Base UI keeps the
-        // payload, so that alone doesn't tell a trigger is speaking).
-        const triggerSpeaks = !active && (triggered || !message);
-        const error = !triggerSpeaks && message?.kind === "error";
+        // message it had, else the last trigger's excerpt (Base UI keeps the
+        // payload, so that alone doesn't tell a trigger's excerpt is shown).
+        const triggerShown = !active && (triggered || !message);
+        const error = !triggerShown && message?.kind === "error";
         return (
           <PreviewCardPopup
             popupClassName={cx(styles.message, error && styles.error, expanded && styles.expanded)}
@@ -90,7 +92,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
               fallbackAxisSide: "none",
             }}
           >
-            {triggerSpeaks ? (
+            {triggerShown ? (
               <div className={styles.excerpt}>{payload}</div>
             ) : (
               message && (

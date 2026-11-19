@@ -1,7 +1,7 @@
 /* Size and place are the PreviewCard's; the background covers the title
    underneath. The transitions repeat the PreviewCard's to add the colour. */
 .message {
-  --unfold: 0.3s cubic-bezier(0.7, 0, 0.175, 1);
+  --unfold: 0.5s cubic-bezier(0.7, 0, 0.175, 1);
   padding: 2px;
   color: var(--fg);
   letter-spacing: 0.05em;
@@ -12,7 +12,7 @@
   transition:
     opacity 150ms,
     translate 150ms,
-    background-color 0.3s ease,
+    background-color var(--unfold),
     padding var(--unfold),
     border-radius var(--unfold);
 }
@@ -45,8 +45,11 @@
   text-box: cap alphabetic;
 }
 
+/* fit-content, not auto, so it grows from the excerpt's width like the card
+   around it rather than from the card's own, which runs ahead of it. */
 .content {
   --body-width: calc(18rem - 2 * var(--radius));
+  width: fit-content;
   overflow-x: clip;
   transition: width var(--unfold);
   .expanded & {
@@ -54,8 +57,12 @@
   }
 }
 
+/* The bottom line fades out, so the body reveals lines as it grows and hides
+   them as it shrinks. Unfolded, a line of padding takes the fade, hanging
+   into the card's padding. */
 .body {
   composes: eased from global;
+  --ease-end: 2lh;
   width: var(--body-width);
   color: var(--fg-secondary);
   height: 1lh;
@@ -68,11 +75,13 @@
   transition:
     height var(--unfold),
     translate var(--unfold),
-    --ease-from 0.3s ease;
+    padding-bottom var(--unfold),
+    margin-bottom var(--unfold);
 
   .expanded & {
-    --ease-from: #000;
     height: auto;
     translate: none;
+    padding-bottom: 2lh;
+    margin-bottom: -2lh;
   }
 }

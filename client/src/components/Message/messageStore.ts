@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { PreviewCard } from "@base-ui/react/preview-card";
 
 // The app's one spot for in-app messages: a card over the header's title
-// (MessageArea). Two things speak through it. A MessageTrigger says something
-// for as long as it is hovered or focused — the tabs' descriptions — and a
-// <Message> anywhere in the app says something for as long as it is mounted,
-// which overrides the former: the page that has a problem to report renders
-// one, and stops when the problem is gone.
+// (MessageArea). Two things show in it: a MessageTrigger's excerpt for as
+// long as it is hovered or focused — the tabs' descriptions — and a <Message>
+// from anywhere in the app for as long as it is mounted, which overrides the
+// former: the page that has a problem to report renders one, and stops when
+// the problem is gone.
 //
 // There is one title, so both halves are module singletons rather than
 // context. Lives in its own module (not next to the components) so Vite Fast
