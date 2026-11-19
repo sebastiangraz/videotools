@@ -12,11 +12,10 @@ import styles from "./ToolPanel.module.css";
 // container, then the page's options (`children`), the action row (the action
 // button, which cancels a run in flight, on the left, `control` on the right),
 // the page's `command` while the command line setting shows it (with
-// --verbose-names while verbose names are on), the error box
-// and the footer in the second. The options must
-// land as direct children of their container — the tab-change transition
-// staggers them by position (see the stylesheet) — so pages pass a fragment,
-// not a wrapper.
+// --verbose-names while verbose names are on) and the footer in the second.
+// The options must land as direct children of their container — the
+// tab-change transition staggers them by position (see the stylesheet) — so
+// pages pass a fragment, not a wrapper.
 // `blocker` says what is still missing before a run can start (it is the
 // action button's tooltip); null = ready.
 export const ToolPanel = ({
@@ -38,7 +37,7 @@ export const ToolPanel = ({
   command: string;
   children?: ReactNode;
 }) => {
-  const { busy, progress, errorDetail } = run;
+  const { busy, progress } = run;
   const commandLine = useContext(CommandLine);
   const verbose = useContext(VerboseNames);
   // Busy, the button cancels; otherwise it runs unless blocked.
@@ -103,17 +102,6 @@ export const ToolPanel = ({
                 <code>{verbose ? `${command} --verbose-names` : command}</code>
               </pre>
             </div>
-          </div>
-        )}
-
-        {errorDetail && (
-          <div role="alert" className={styles.errorBox}>
-            <details open>
-              <summary className={styles.errorSummary}>
-                <span>You broke it my dude.</span>
-              </summary>
-              <p className={styles.errorDetail}>{errorDetail}</p>
-            </details>
           </div>
         )}
 

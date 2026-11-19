@@ -238,37 +238,3 @@
     font-family: inherit;
   }
 }
-
-.errorBox {
-  padding: 0.75em 1em;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: color-mix(in srgb, var(--error) 6%, transparent);
-  font-size: var(--font-sm);
-  letter-spacing: 0.05em;
-  text-transform: none;
-  color: var(--error);
-}
-
-.errorSummary {
-  cursor: pointer;
-  &::marker {
-    margin-right: 0.25em;
-    color: color-mix(in srgb, var(--error) 60%, transparent);
-  }
-  &:focus-visible {
-    outline: 1px solid color-mix(in srgb, var(--error) 40%, transparent);
-    outline-offset: 2px;
-  }
-  span {
-    margin-left: 0.25em;
-  }
-}
-
-.errorDetail {
-  margin: 0.75em 0 0;
-  color: color-mix(in srgb, var(--error) 75%, transparent);
-  overflow-wrap: anywhere;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}

@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ToolId } from "@src/tools";
 import { extensionOf, splitExtension } from "@src/helpers";
 import { runEngine } from "@src/engine";
+import { InputError } from "@videotools/core/errors";
 import { verboseName } from "@videotools/core/formats";
+import { useMessage } from "./useMessage";
 
 // `extras`: further inputs after the sources (mark's logo).
 // `onDone`: once the result is saved.
@@ -12,6 +14,17 @@ interface RunRequest {
   options: Record<string, unknown>;
   onDone?: () => void;
 }
+
+// A failed run's message names what kind of InputError stopped it; its text
+// is the body. Any other failure says what it is in one line.
+const ERROR_EXCERPTS: Record<InputError["code"], string> = {
+  "unsupported-source": "Unsupported file",
+  "unreadable-source": "Unreadable file",
+  "too-long": "Video too long",
+  "too-large": "Too large to encode",
+  "invalid-option": "Invalid setting",
+  "invalid-watermark": "Unusable watermark",
+};
 
 // Temporary: the "verbose" setting names downloads after their settings.
 export const VerboseNames = createContext(false);
@@ -25,7 +38,14 @@ export function useToolRun(tool: ToolId) {
   const [busy, setBusy] = useState(false);
   // How far (0–1) the run's encode has got.
   const [progress, setProgress] = useState(0);
-  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  // Why the last run failed, posted as an error message until the next run
+  // or pick.
+  const [error, setError] = useState<Error | null>(null);
+  useMessage({
+    kind: "error",
+    excerpt: error && (error instanceof InputError ? ERROR_EXCERPTS[error.code] : error.message),
+    body: error instanceof InputError && error.message,
+  });
 
   // Also aborted on unmount: a tab switch unmounts the page.
   const abortRef = useRef<AbortController | null>(null);
@@ -35,7 +55,7 @@ export function useToolRun(tool: ToolId) {
     if (abortRef.current) return;
     setBusy(true);
     setProgress(0);
-    setErrorDetail(null);
+    setError(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -64,10 +84,10 @@ export function useToolRun(tool: ToolId) {
 
       onDone?.();
     } catch (err: unknown) {
-      // Aborted = cancelled on purpose: no error box.
+      // Aborted = cancelled on purpose: no error message.
       if (!signal.aborted) {
         console.error(err);
-        setErrorDetail(err instanceof Error ? err.message : String(err));
+        setError(err instanceof Error ? err : new Error(String(err)));
       }
     } finally {
       abortRef.current = null;
@@ -75,14 +95,14 @@ export function useToolRun(tool: ToolId) {
     }
   };
 
-  // Never rejects: a failure ends up in errorDetail.
+  // Never rejects: a failure ends up in error.
   const start = (request: RunRequest) => void run(request);
 
   const cancel = () => abortRef.current?.abort();
 
-  const clearError = () => setErrorDetail(null);
+  const clearError = () => setError(null);
 
-  return { busy, progress, errorDetail, clearError, start, cancel };
+  return { busy, progress, clearError, start, cancel };
 }
 
 export type ToolRun = ReturnType<typeof useToolRun>;
