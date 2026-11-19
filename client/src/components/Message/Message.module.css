@@ -71,6 +71,7 @@
   translate: 0 -4px;
   overflow: clip;
   text-transform: none;
+  text-wrap: pretty;
   mask-image: linear-gradient(to top, var(--ease-in-out-stops));
   transition:
     height var(--unfold),
@@ -78,6 +79,10 @@
     padding-bottom var(--unfold),
     margin-bottom var(--unfold),
     --ease-end var(--unfold);
+
+  .error & {
+    color: color-mix(in srgb, var(--error) 64%, transparent);
+  }
 
   .message:hover:not(.expanded) & {
     --ease-end: 1.25lh;
