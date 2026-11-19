@@ -90,27 +90,31 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
               fallbackAxisSide: "none",
             }}
           >
-            {triggerSpeaks
-              ? payload
-              : message && (
-                  <div
-                    role={error ? "alert" : "status"}
-                    className={styles.content}
-                    onClick={(event) => {
-                      if (message.body && !(event.target as Element).closest("a")) {
-                        setExpanded(!expanded);
-                      }
-                    }}
-                  >
+            {triggerSpeaks ? (
+              <div className={styles.excerpt}>{payload}</div>
+            ) : (
+              message && (
+                <div
+                  role={error ? "alert" : "status"}
+                  className={styles.content}
+                  onClick={(event) => {
+                    if (message.body && !(event.target as Element).closest("a")) {
+                      setExpanded(!expanded);
+                    }
+                  }}
+                >
+                  <div className={styles.excerpt}>
                     {error && <WarningIcon />}
                     {message.excerpt}
-                    {message.body && (
-                      <div ref={body} className={styles.body}>
-                        {message.body}
-                      </div>
-                    )}
                   </div>
-                )}
+                  {message.body && (
+                    <div ref={body} className={styles.body}>
+                      {message.body}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
           </PreviewCardPopup>
         );
       }}
