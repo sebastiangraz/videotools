@@ -82,8 +82,7 @@ export const Test = () => {
               A message with{" "}
               <Link to="/$tool" params={{ tool: "convert" }}>
                 a link
-              </Link>{" "}
-              and more to say
+              </Link>
             </>
           }
           body={

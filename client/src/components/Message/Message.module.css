@@ -1,11 +1,9 @@
 /* Size, place and animation are the PreviewCard's; the background covers the
    title underneath. */
 .message {
-  position: relative;
   padding: 2px;
   color: var(--fg);
   letter-spacing: 0.05em;
-  text-align: right;
   text-wrap: balance;
   font-size: var(--font-md);
   background-color: var(--bg);
@@ -29,25 +27,29 @@
   margin-inline-end: 0.5ch;
 }
 
+.content {
+  --body-width: calc(18rem - 4px);
+  overflow: clip;
+  transition: width 0.3s cubic-bezier(0.7, 0, 0.175, 1);
+  .expanded & {
+    width: var(--body-width);
+  }
+}
+
 .body {
   composes: eased from global;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  width: 100%;
+  width: var(--body-width);
   height: 1lh;
-  padding: 0 2px 2px;
+  margin-inline-end: calc(-1 * var(--body-width));
   overflow: clip;
-  background-color: var(--bg);
+  text-transform: none;
   mask-image: linear-gradient(to top, var(--ease-in-out-stops));
   transition:
-    width 0.3s cubic-bezier(0.7, 0, 0.175, 1),
     height 0.3s cubic-bezier(0.7, 0, 0.175, 1),
     --ease-from 0.3s ease;
 
   .expanded & {
     --ease-from: #000;
-    width: min(30rem, var(--available-width));
     height: auto;
   }
 }

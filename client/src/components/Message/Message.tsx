@@ -1,4 +1,4 @@
-import { ReactNode, RefObject, useEffect, useState, useSyncExternalStore } from "react";
+import { ReactNode, RefObject, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   PreviewCard as BasePreviewCard,
   type PreviewCardTriggerProps,
@@ -26,14 +26,12 @@ const WarningIcon = () => (
 );
 
 // Pulls the card back up over its anchor so it sits centred on the anchor
-// instead of below it
-const centerOverAnchor = ({
-  anchor,
-  positioner,
-}: {
-  anchor: { height: number };
-  positioner: { height: number };
-}) => -(anchor.height + positioner.height) / 2;
+// instead of below it. A body is left out, so the card grows down as it
+// unfolds.
+const centerOverAnchor = (
+  { anchor, positioner }: { anchor: { height: number }; positioner: { height: number } },
+  body: HTMLElement | null,
+) => -(anchor.height + positioner.height - (body?.getBoundingClientRect().height ?? 0)) / 2;
 
 // Where every message shows (see messageStore.ts): one card over `anchor`,
 // the layout's title, so it never moves whoever is speaking. It is open while
@@ -46,6 +44,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
   // click outside, Escape or the message going folds it.
   const [expanded, setExpanded] = useState(false);
   if (expanded && !message) setExpanded(false);
+  const body = useRef<HTMLDivElement>(null);
 
   // A message that goes while a trigger holds the card open hands over to
   // it, and must not come back when the card closes.
@@ -78,7 +77,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
             anchor={anchor}
             side="bottom"
             align="end"
-            sideOffset={centerOverAnchor}
+            sideOffset={(data) => centerOverAnchor(data, body.current)}
             alignOffset={-2}
             collisionAvoidance={{
               side: "none",
@@ -91,6 +90,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
               : message && (
                   <div
                     role={error ? "alert" : "status"}
+                    className={styles.content}
                     onClick={(event) => {
                       if (message.body && !(event.target as Element).closest("a")) {
                         setExpanded(!expanded);
@@ -99,7 +99,11 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
                   >
                     {error && <WarningIcon />}
                     {message.excerpt}
-                    {message.body && <div className={styles.body}>{message.body}</div>}
+                    {message.body && (
+                      <div ref={body} className={styles.body}>
+                        {message.body}
+                      </div>
+                    )}
                   </div>
                 )}
           </PreviewCardPopup>
