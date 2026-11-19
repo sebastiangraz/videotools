@@ -252,18 +252,17 @@ describe("Mark", () => {
     expect(tuning(2)).toEqual(tuned);
   });
 
-  it("shows the frame's own note, and asks the engine for nothing, when the browser can't decode the source", async () => {
+  it("shows no preview, says why, and asks the engine for nothing, when the browser can't decode the source", async () => {
     const user = userEvent.setup();
     stubMediaLoading("fails");
     const renderMock = stubPreview();
 
     await renderApp("/mark");
-    await pickSource(user, file("clip.avi", "video/x-msvideo"));
+    await pickSource(user, file("clip.mp4", "video/mp4"));
     await pickLogo(user);
 
-    const preview = screen.getByLabelText(/watermark preview/i);
-    expect(await within(preview).findByRole("status")).toBeInTheDocument();
-    await waitFor(() => expect(preview).toHaveAttribute("aria-busy", "false"));
+    expect(await screen.findByRole("status")).toHaveTextContent(/can.t preview this format/i);
+    expect(screen.queryByLabelText(/watermark preview/i)).not.toBeInTheDocument();
     expect(renderMock).not.toHaveBeenCalled();
   });
 

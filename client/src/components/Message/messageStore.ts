@@ -26,7 +26,8 @@ export const messageHandle = PreviewCard.createHandle<ReactNode>();
 type Snapshot = {
   // A <Message> is up.
   active: boolean;
-  // The newest one. It outlives `active` so the card still has something to
+  // The newest error, else the newest one: a problem to fix is never hidden
+  // by a remark. It outlives `active` so the card still has something to
   // show while it animates out; the area forgets it once the card is closed.
   message: MessageEntry | null;
 };
@@ -42,8 +43,9 @@ const publish = (next: Snapshot) => {
 };
 
 const update = () => {
-  const newest = [...entries.values()].pop() ?? null;
-  publish({ active: newest !== null, message: newest ?? snapshot.message });
+  const all = [...entries.values()];
+  const shown = all.findLast((entry) => entry.kind === "error") ?? all.at(-1) ?? null;
+  publish({ active: shown !== null, message: shown ?? snapshot.message });
 };
 
 export const messages = {

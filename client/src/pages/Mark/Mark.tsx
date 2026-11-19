@@ -186,7 +186,7 @@ export const Mark = () => {
         quality,
       })}
     >
-      {source.file && hasFrames(source.file) && watermark && (
+      {source.file && hasFrames(source.file) && watermark && !preview.unreadable && (
         <>
           <Tooltip
             content={
@@ -242,6 +242,7 @@ export const Mark = () => {
                 second={0}
                 label="first frame"
                 className={styles.markPreviewFrame}
+                fallback={null}
               />
             </figure>
             <div className={styles.markPreviewLoading} hidden={!preview.loading}>
@@ -253,9 +254,6 @@ export const Mark = () => {
                   <div key={i} onPointerEnter={() => preview.setScrubIndex(i)} />
                 ))}
               </div>
-            )}
-            {preview.previewError && (
-              <figcaption className={styles.markPreviewNote}>Preview unavailable</figcaption>
             )}
           </Tooltip>
           <Popover

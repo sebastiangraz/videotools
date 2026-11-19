@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { runEngine } from "@src/engine";
-import { useErrorMessage } from "@src/hooks/useMessage";
+import { useErrorMessage, useMessage } from "@src/hooks/useMessage";
 import {
   markStays,
   type MARK_TUNING,
@@ -147,6 +147,10 @@ export function useMarkPreview(
     };
   }, [source]);
 
+  // The browser can't draw the source: no preview at all.
+  const unreadable = source !== null && failedSource === source;
+  useMessage({ excerpt: unreadable && "Can’t preview this format." });
+
   // Only for the current inputs; a round for new ones clears it. The engine
   // is the first to read the watermark, so this is where a bad one shows.
   const previewError = (settled?.request === request && settled.error) || null;
@@ -165,12 +169,8 @@ export function useMarkPreview(
       shownRender < 0
         ? position
         : stopAt(route ?? [position], stays, shownRender / frameBlobs.length),
-    loading:
-      source !== null &&
-      watermark !== null &&
-      failedSource !== source &&
-      settled?.request !== request,
-    previewError,
+    loading: source !== null && watermark !== null && !unreadable && settled?.request !== request,
+    unreadable,
     setScrubIndex,
   };
 }
