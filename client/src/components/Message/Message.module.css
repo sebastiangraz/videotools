@@ -57,9 +57,9 @@
   }
 }
 
-/* The bottom line fades out, so the body reveals lines as it grows and hides
-   them as it shrinks. Unfolded, a line of padding takes the fade, hanging
-   into the card's padding. */
+/* The bottom fades out, so the body reveals lines as it grows and hides them
+   as it shrinks. Unfolded, padding takes the fade, hanging into the card's
+   padding. Hovered while folded, the fade narrows so the peek line reads. */
 .body {
   composes: eased from global;
   --ease-end: 2lh;
@@ -76,7 +76,12 @@
     height var(--unfold),
     translate var(--unfold),
     padding-bottom var(--unfold),
-    margin-bottom var(--unfold);
+    margin-bottom var(--unfold),
+    --ease-end var(--unfold);
+
+  .message:hover:not(.expanded) & {
+    --ease-end: 1.25lh;
+  }
 
   .expanded & {
     height: auto;
