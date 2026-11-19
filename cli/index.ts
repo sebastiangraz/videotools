@@ -141,7 +141,7 @@ const COMMANDS: Record<
       to: {
         arg: "format",
         values: FORMATS.map((format) => format.id),
-        help: "by default mp4, or webm for an mp4",
+        default: "mp4",
       },
       quality: QUALITY,
       fps: { arg: "n", range: RANGES.fps, only: ["to", "gif"], help: "by default the source's" },
@@ -171,7 +171,7 @@ const COMMANDS: Record<
         default: "medium",
       },
       filter: { arg: "filter", values: MARK_FILTERS, default: "glass" },
-      shuffle: { help: "move the mark around a video, from --position on" },
+      shuffle: { help: "randomly shuffle the --position value over time" },
       quality: QUALITY,
     },
     options: (values) => ({
@@ -192,8 +192,8 @@ const within = ([min, max]: readonly [number, number]) =>
 const tool = process.argv[2]?.toLowerCase();
 const flags: Record<string, Flag> = {
   ...(isToolId(tool) && COMMANDS[tool].flags),
-  out: { arg: "dir", help: "where results go, by default the current folder" },
-  "verbose-names": { help: "name results after the source's full name and their settings" },
+  out: { arg: "dir", help: "Override the default output directory", default: "." },
+  "verbose-names": { help: "Append settings to the file name", default: "false" },
 };
 const help = isToolId(tool)
   ? `Usage: videotools ${tool.toUpperCase()} <file|folder|glob>...${Object.entries(flags)
