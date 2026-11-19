@@ -198,6 +198,25 @@ describe("App", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
+  it("says any other failure is the run's, with the error's text, if any, as the body", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(runEngine).mockRejectedValue(new Error("Failed to fetch"));
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), mp4());
+    await user.click(loopButton());
+
+    const message = await screen.findByRole("alert");
+    expect(within(message).getByText("Processing failed")).toBeInTheDocument();
+    expect(within(message).getByText("Failed to fetch")).toBeInTheDocument();
+
+    // A worker that fails to load reports no message at all.
+    vi.mocked(runEngine).mockRejectedValue(new Error());
+    await user.click(loopButton());
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/^Processing failed$/));
+  });
+
   // A run that only ends when cancelled; hands back its signal.
   const hangEngine = () => {
     vi.mocked(runEngine).mockImplementation(

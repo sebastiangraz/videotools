@@ -20,8 +20,8 @@ export const useMessage = (message: MessageEntry) => {
 export const useUndecodableMessage = (undecodable: boolean) =>
   useMessage({ excerpt: undecodable && "Can’t preview this format." });
 
-// An InputError's message names its kind; its text is the body. Any other
-// error says what it is in one line.
+// An InputError's message names its kind; any other error only says the
+// run failed. Its text, if it has any, is the body.
 const INPUT_ERROR_EXCERPTS: Record<InputError["code"], string> = {
   "unsupported-source": "Unsupported file",
   "unreadable-source": "Unreadable file",
@@ -36,6 +36,7 @@ export const useErrorMessage = (error: Error | null) =>
   useMessage({
     kind: "error",
     excerpt:
-      error && (error instanceof InputError ? INPUT_ERROR_EXCERPTS[error.code] : error.message),
-    body: error instanceof InputError && error.message,
+      error &&
+      (error instanceof InputError ? INPUT_ERROR_EXCERPTS[error.code] : "Processing failed"),
+    body: error?.message,
   });

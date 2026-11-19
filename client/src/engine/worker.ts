@@ -24,7 +24,8 @@ export type EngineRequest =
 
 type EngineJob = EngineRequest & { modules: Record<string, WebAssembly.Module> };
 
-// A tool's one result, or a preview per frame. An InputError keeps its code.
+// A tool's one result, or a preview per frame. An InputError keeps its code;
+// any other error's text (ffmpeg's whole log, say) stays in the console.
 export type EngineResult = { files: File[] } | { error: string; code?: InputError["code"] };
 
 // Posted while the result is encoded: how far (0–1) it has got.
@@ -83,7 +84,7 @@ self.onmessage = async ({ data }: MessageEvent<EngineJob>) => {
     postMessage(
       (err instanceof InputError
         ? { error: err.message, code: err.code }
-        : { error: "Processing failed" }) satisfies EngineResult,
+        : { error: "" }) satisfies EngineResult,
     );
   }
 };

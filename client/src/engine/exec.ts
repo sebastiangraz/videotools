@@ -104,7 +104,10 @@ export const exec =
     let aborted = "";
     let memory: WebAssembly.Memory | undefined;
     const { promise: exited, resolve: exit } = Promise.withResolvers<number | null>();
-    const instance = await factory({
+    // The glue waits on `ready` alone: an instance that fails to start fails
+    // the run rather than leaving it waiting for good.
+    const { promise: unstartable, reject: fail } = Promise.withResolvers<never>();
+    const starting = factory({
       instantiateWasm(
         imports: WebAssembly.Imports,
         ready: (instance: WebAssembly.Instance, module: WebAssembly.Module) => void,
@@ -113,7 +116,7 @@ export const exec =
         memory = Object.values(imports)
           .flatMap((module) => Object.values(module))
           .find((value) => value instanceof WebAssembly.Memory);
-        void WebAssembly.instantiate(wasm, imports).then((instance) => ready(instance, wasm));
+        WebAssembly.instantiate(wasm, imports).then((instance) => ready(instance, wasm), fail);
         return {};
       },
       stdout: stdout.write,
@@ -125,6 +128,7 @@ export const exec =
         exit(null);
       },
     });
+    const instance = await Promise.race([starting, unstartable]);
     const lent = lend(instance);
     instance.FS.chdir(cwd);
     instance.callMain(
