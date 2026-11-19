@@ -26,12 +26,17 @@ const WarningIcon = () => (
 );
 
 // Pulls the card back up over its anchor so it sits centred on the anchor
-// instead of below it. A body is left out, so the card grows down as it
-// unfolds.
+// instead of below it. A body and its margin are left out, so the card grows
+// down as it unfolds.
 const centerOverAnchor = (
   { anchor, positioner }: { anchor: { height: number }; positioner: { height: number } },
   body: HTMLElement | null,
-) => -(anchor.height + positioner.height - (body?.getBoundingClientRect().height ?? 0)) / 2;
+) => {
+  const below = body
+    ? body.getBoundingClientRect().height + parseFloat(getComputedStyle(body).marginTop)
+    : 0;
+  return -(anchor.height + positioner.height - below) / 2;
+};
 
 // Where every message shows (see messageStore.ts): one card over `anchor`,
 // the layout's title, so it never moves whoever is speaking. It is open while

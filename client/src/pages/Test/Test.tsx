@@ -77,6 +77,7 @@ export const Test = () => {
       {error && <Message kind="error" excerpt="An error over the title" />}
       {long && (
         <Message
+          kind="error"
           excerpt={
             <>
               A message with{" "}

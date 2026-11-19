@@ -1,12 +1,26 @@
-/* Size, place and animation are the PreviewCard's; the background covers the
-   title underneath. */
+/* Size and place are the PreviewCard's; the background covers the title
+   underneath. The transitions repeat the PreviewCard's to add the colour. */
 .message {
+  --unfold: 0.3s cubic-bezier(0.7, 0, 0.175, 1);
   padding: 2px;
   color: var(--fg);
   letter-spacing: 0.05em;
   text-wrap: balance;
   font-size: var(--font-md);
   background-color: var(--bg);
+  corner-shape: superellipse(1.45);
+  transition:
+    opacity 150ms,
+    translate 150ms,
+    background-color 0.3s ease,
+    padding var(--unfold),
+    border-radius var(--unfold);
+}
+
+.expanded {
+  padding: var(--radius);
+  border-radius: var(--radius);
+  background-color: var(--bg-1);
 }
 
 .message:has(.body) {
@@ -28,9 +42,9 @@
 }
 
 .content {
-  --body-width: calc(18rem - 4px);
+  --body-width: calc(18rem - 2 * var(--radius));
   overflow: clip;
-  transition: width 0.3s cubic-bezier(0.7, 0, 0.175, 1);
+  transition: width var(--unfold);
   .expanded & {
     width: var(--body-width);
   }
@@ -39,17 +53,22 @@
 .body {
   composes: eased from global;
   width: var(--body-width);
+  color: var(--fg-secondary);
   height: 1lh;
+  margin-top: 4px;
   margin-inline-end: calc(-1 * var(--body-width));
+  translate: 0 -4px;
   overflow: clip;
   text-transform: none;
   mask-image: linear-gradient(to top, var(--ease-in-out-stops));
   transition:
-    height 0.3s cubic-bezier(0.7, 0, 0.175, 1),
+    height var(--unfold),
+    translate var(--unfold),
     --ease-from 0.3s ease;
 
   .expanded & {
     --ease-from: #000;
     height: auto;
+    translate: none;
   }
 }
