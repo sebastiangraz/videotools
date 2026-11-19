@@ -161,6 +161,9 @@
     transition-delay: 0s;
     translate: 0 0;
   }
+  @media (max-width: 480px) {
+    display: none;
+  }
 }
 
 .settings {
