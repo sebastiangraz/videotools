@@ -10,6 +10,7 @@ import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { useVideoSource } from "@src/hooks/useVideoSource";
+import { useUndecodableMessage } from "@src/hooks/useMessage";
 import { hasFrames, isStillImage, stillFormat } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
 import { aspectRatioOf, cliCommand, cx, formatClock, toList } from "@src/helpers";
@@ -71,6 +72,7 @@ const TUNING_KNOBS = (
 export const Mark = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
+  useUndecodableMessage(source.undecodable);
   const formatBlocker = useFormatBlocker(source.file, { stills: true }, source.nonSquare);
   const [watermark, setWatermark] = useState<File | null>(null);
   const [filterMode, setFilterMode] = useState<MarkFilter>("glass");
@@ -186,7 +188,7 @@ export const Mark = () => {
         quality,
       })}
     >
-      {source.file && hasFrames(source.file) && watermark && !preview.unreadable && (
+      {source.file && hasFrames(source.file) && watermark && !source.undecodable && (
         <>
           <Tooltip
             content={
@@ -242,7 +244,6 @@ export const Mark = () => {
                 second={0}
                 label="first frame"
                 className={styles.markPreviewFrame}
-                fallback={null}
               />
             </figure>
             <div className={styles.markPreviewLoading} hidden={!preview.loading}>

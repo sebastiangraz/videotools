@@ -21,12 +21,20 @@ type VideoSource = {
   duration: number;
   meta: SourceMeta | null;
   nonSquare: boolean;
+  undecodable: boolean;
 };
 
-const NO_SOURCE: VideoSource = { file: null, duration: 0, meta: null, nonSquare: false };
+const NO_SOURCE: VideoSource = {
+  file: null,
+  duration: 0,
+  meta: null,
+  nonSquare: false,
+  undecodable: false,
+};
 
 // A still has no duration, and its size is the EXIF-rotated one. nonSquare:
-// the browser saw non-square pixels, which no tool takes.
+// the browser saw non-square pixels, which no tool takes. undecodable: the
+// browser can't open it, so there is no frame of it to preview.
 export function useVideoSource() {
   const [source, setSource] = useState(NO_SOURCE);
 
@@ -49,14 +57,16 @@ export function useVideoSource() {
           const nonSquare = frames.nonSquare?.() ?? false;
           // A probe answers late, and must not answer for a file since replaced.
           setSource((picked) =>
-            picked.file === file ? { file, duration, meta, nonSquare } : picked,
+            picked.file === file ? { ...picked, duration, meta, nonSquare } : picked,
           );
         } finally {
           frames.close();
         }
       })
-      // Undecodable here: the length and size stay unknown.
-      .catch(() => {});
+      // The length and size stay unknown.
+      .catch(() =>
+        setSource((picked) => (picked.file === file ? { ...picked, undecodable: true } : picked)),
+      );
   };
 
   return { ...source, pick };

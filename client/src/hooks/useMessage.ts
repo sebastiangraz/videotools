@@ -16,6 +16,10 @@ export const useMessage = (message: MessageEntry) => {
   useEffect(() => () => messages.remove(id), [id]);
 };
 
+// Says the browser can't decode a picked file, so its page shows no preview.
+export const useUndecodableMessage = (undecodable: boolean) =>
+  useMessage({ excerpt: undecodable && "Can’t preview this format." });
+
 // An InputError's message names its kind; its text is the body. Any other
 // error says what it is in one line.
 const INPUT_ERROR_EXCERPTS: Record<InputError["code"], string> = {

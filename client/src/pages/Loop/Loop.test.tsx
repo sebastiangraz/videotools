@@ -108,16 +108,18 @@ describe("Loop", () => {
     expect(within(upload).getByLabelText("thumbnail").tagName).toBe("CANVAS");
   });
 
-  it("shows an error in the preview card when the browser can't decode the video", async () => {
+  it("offers no preview card, and says why, when the browser can't decode the video", async () => {
     const user = userEvent.setup();
-    // What browsers report for containers <video> can't play (AVI, WMV, …)
+    // What browsers report for videos <video> can't play (HEVC, say)
     stubMediaLoading("fails");
     await renderApp();
-    await pick(user, file("clip.avi", "video/x-msvideo"));
+    await pick(user, file("clip.mp4", "video/mp4"));
 
+    expect(await screen.findByRole("status")).toHaveTextContent(/can.t preview this format/i);
     await user.hover(screen.getByLabelText(/start at/i));
-    expect(await screen.findByRole("status")).toBeInTheDocument();
-    expect(screen.queryByLabelText(/start frame preview/i)).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    // The field's card opens above it.
+    expect(document.querySelector('[data-side="top"]')).not.toBeInTheDocument();
   });
 
   it("refuses a video with non-square pixels before any run, and takes a square one", async () => {

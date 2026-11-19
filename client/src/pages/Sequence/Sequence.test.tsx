@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { it, expect, describe } from "vitest";
 import { decimal, engineRun, renderApp, stubEngine } from "@src/test/renderApp";
-import { file, imageFile, stubCanvas, stubImageDecoder } from "@src/test/media";
+import { file, imageFile, stubCanvas, stubImageDecoder, stubMediaLoading } from "@src/test/media";
 
 const createButton = () => screen.getByRole("button", { name: /create video/i });
 
@@ -55,5 +55,18 @@ describe("Sequence", () => {
     expect(preview.parentElement).toHaveStyle({ aspectRatio: "16 / 9" });
     await waitFor(() => expect(drawImage.mock.calls.length).toBeGreaterThanOrEqual(3));
     expect(preview).toHaveProperty("width", 480);
+  });
+
+  it("offers no preview card, and says why, when the browser can't decode the first image", async () => {
+    const user = userEvent.setup();
+    stubMediaLoading("fails");
+    await renderApp("/sequence");
+    await user.upload(screen.getByLabelText(/choose images/i), [file("scan.tiff", "image/tiff")]);
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/can.t preview this format/i);
+    await user.hover(screen.getByLabelText(/time per frame/i));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    // The field's card opens above it.
+    expect(document.querySelector('[data-side="top"]')).not.toBeInTheDocument();
   });
 });
