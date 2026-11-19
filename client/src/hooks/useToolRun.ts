@@ -2,9 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ToolId } from "@src/tools";
 import { extensionOf, splitExtension } from "@src/helpers";
 import { runEngine } from "@src/engine";
-import { InputError } from "@videotools/core/errors";
 import { verboseName } from "@videotools/core/formats";
-import { useMessage } from "./useMessage";
+import { useErrorMessage } from "./useMessage";
 
 // `extras`: further inputs after the sources (mark's logo).
 // `onDone`: once the result is saved.
@@ -14,17 +13,6 @@ interface RunRequest {
   options: Record<string, unknown>;
   onDone?: () => void;
 }
-
-// A failed run's message names what kind of InputError stopped it; its text
-// is the body. Any other failure says what it is in one line.
-const ERROR_EXCERPTS: Record<InputError["code"], string> = {
-  "unsupported-source": "Unsupported file",
-  "unreadable-source": "Unreadable file",
-  "too-long": "Video too long",
-  "too-large": "Too large to encode",
-  "invalid-option": "Invalid setting",
-  "invalid-watermark": "Unusable watermark",
-};
 
 // Temporary: the "verbose" setting names downloads after their settings.
 export const VerboseNames = createContext(false);
@@ -41,11 +29,7 @@ export function useToolRun(tool: ToolId) {
   // Why the last run failed, posted as an error message until the next run
   // or pick.
   const [error, setError] = useState<Error | null>(null);
-  useMessage({
-    kind: "error",
-    excerpt: error && (error instanceof InputError ? ERROR_EXCERPTS[error.code] : error.message),
-    body: error instanceof InputError && error.message,
-  });
+  useErrorMessage(error);
 
   // Also aborted on unmount: a tab switch unmounts the page.
   const abortRef = useRef<AbortController | null>(null);

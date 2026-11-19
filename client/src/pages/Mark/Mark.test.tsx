@@ -17,6 +17,7 @@ import {
   stubMediaLoading,
   stubProperties,
 } from "@src/test/media";
+import { InputError } from "@videotools/core/errors";
 import { MARK } from "@videotools/core/tools/mark-config";
 import { runEngine } from "@src/engine";
 import type { EngineRequest } from "@src/engine/worker";
@@ -264,6 +265,26 @@ describe("Mark", () => {
     expect(await within(preview).findByRole("status")).toBeInTheDocument();
     await waitFor(() => expect(preview).toHaveAttribute("aria-busy", "false"));
     expect(renderMock).not.toHaveBeenCalled();
+  });
+
+  it("says why the preview turned a watermark down, until another is picked", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    stubVideo();
+    stubPreview().mockRejectedValueOnce(
+      new InputError("Watermark must be a PNG or SVG image (got av1)", "invalid-watermark"),
+    );
+
+    await renderApp("/mark");
+    await pickSource(user, file("clip.mp4", "video/mp4"));
+    await pickLogo(user);
+
+    const message = await screen.findByRole("alert");
+    expect(message).toHaveTextContent("Unusable watermark");
+    expect(message).toHaveTextContent("got av1");
+
+    await pickLogo(user, file("logo.svg", "image/svg+xml"));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
   it("grabs a set of frames and scrubs through their renders as the pointer crosses the preview", async () => {

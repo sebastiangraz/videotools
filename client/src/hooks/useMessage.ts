@@ -1,4 +1,5 @@
 import { useEffect, useId } from "react";
+import { InputError } from "@videotools/core/errors";
 import { messages, type MessageEntry } from "@src/components/Message/messageStore";
 
 // Shows `message` in the message area until its excerpt is empty or the
@@ -14,3 +15,23 @@ export const useMessage = (message: MessageEntry) => {
   });
   useEffect(() => () => messages.remove(id), [id]);
 };
+
+// An InputError's message names its kind; its text is the body. Any other
+// error says what it is in one line.
+const INPUT_ERROR_EXCERPTS: Record<InputError["code"], string> = {
+  "unsupported-source": "Unsupported file",
+  "unreadable-source": "Unreadable file",
+  "too-long": "Video too long",
+  "too-large": "Too large to encode",
+  "invalid-option": "Invalid setting",
+  "invalid-watermark": "Unusable watermark",
+};
+
+// Shows `error` as an error message while it is set.
+export const useErrorMessage = (error: Error | null) =>
+  useMessage({
+    kind: "error",
+    excerpt:
+      error && (error instanceof InputError ? INPUT_ERROR_EXCERPTS[error.code] : error.message),
+    body: error instanceof InputError && error.message,
+  });
