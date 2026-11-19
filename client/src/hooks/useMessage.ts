@@ -1,16 +1,16 @@
-import { useEffect, useId, type ReactNode } from "react";
-import { messages, type MessageKind } from "@src/components/Message/messageStore";
+import { useEffect, useId } from "react";
+import { messages, type MessageEntry } from "@src/components/Message/messageStore";
 
-// Shows `content` in the message area until it is empty or the caller
-// unmounts. The hook form of <Message>.
-export const useMessage = (content: ReactNode, kind: MessageKind = "default") => {
+// Shows `message` in the message area until its excerpt is empty or the
+// caller unmounts. The hook form of <Message>.
+export const useMessage = (message: MessageEntry) => {
   const id = useId();
-  const silent = content == null || content === false;
-  // Every render, so content follows props; the area is no ancestor of the
-  // caller, so this can't loop.
+  const silent = message.excerpt == null || message.excerpt === false;
+  // Every render, so the message follows props; the area is no ancestor of
+  // the caller, so this can't loop.
   useEffect(() => {
     if (silent) messages.remove(id);
-    else messages.set(id, { kind, content });
+    else messages.set(id, message);
   });
   useEffect(() => () => messages.remove(id), [id]);
 };

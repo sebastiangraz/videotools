@@ -1,6 +1,7 @@
 /* Size, place and animation are the PreviewCard's; the background covers the
    title underneath. */
 .message {
+  position: relative;
   padding: 2px;
   color: var(--fg);
   letter-spacing: 0.05em;
@@ -8,6 +9,10 @@
   text-wrap: balance;
   font-size: var(--font-md);
   background-color: var(--bg);
+}
+
+.message:has(.body) {
+  cursor: pointer;
 }
 
 .message a {
@@ -22,4 +27,27 @@
 
 .icon {
   margin-inline-end: 0.5ch;
+}
+
+.body {
+  composes: eased from global;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 100%;
+  height: 1lh;
+  padding: 0 2px 2px;
+  overflow: clip;
+  background-color: var(--bg);
+  mask-image: linear-gradient(to top, var(--ease-in-out-stops));
+  transition:
+    width 0.3s cubic-bezier(0.7, 0, 0.175, 1),
+    height 0.3s cubic-bezier(0.7, 0, 0.175, 1),
+    --ease-from 0.3s ease;
+
+  .expanded & {
+    --ease-from: #000;
+    width: min(30rem, var(--available-width));
+    height: auto;
+  }
 }

@@ -15,10 +15,12 @@ import { PreviewCard } from "@base-ui/react/preview-card";
 // `default` just says something; `error` names a problem the user has to fix
 // and gets the warning mark in front.
 export type MessageKind = "default" | "error";
-export type MessageEntry = { kind: MessageKind; content: ReactNode };
+// `excerpt` is the one line the card has room for. `body` is the rest, if
+// there is more to say: the card hints at it and shows it when clicked.
+export type MessageEntry = { kind?: MessageKind; excerpt: ReactNode; body?: ReactNode };
 
-// Ties the MessageTriggers to the area's card; a trigger's payload is what it
-// has to say.
+// Ties the MessageTriggers to the area's card; a trigger's payload is its
+// excerpt.
 export const messageHandle = PreviewCard.createHandle<ReactNode>();
 
 type Snapshot = {

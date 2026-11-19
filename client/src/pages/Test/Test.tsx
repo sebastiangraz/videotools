@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Page } from "@src/components/Page/Page";
 import { Upload } from "@src/components/Upload/Upload";
 import { Message } from "@src/components/Message/Message";
@@ -35,6 +36,7 @@ export const Test = () => {
   const [disabled, setDisabled] = useState(false);
   const [message, setMessage] = useState(false);
   const [error, setError] = useState(false);
+  const [long, setLong] = useState(false);
   const [option, setOption] = useState("one");
   const [toggle, setToggle] = useState("on");
   const [toggleGrid, setToggleGrid] = useState("one");
@@ -64,9 +66,39 @@ export const Test = () => {
             Error
           </label>
         </div>
+        <div className={form.switchRow}>
+          <Switch id="long" checked={long} onCheckedChange={setLong} disabled={disabled} />
+          <label htmlFor="long" className={form.label}>
+            Long
+          </label>
+        </div>
       </div>
-      {message && <Message>A message over the title</Message>}
-      {error && <Message kind="error">An error over the title</Message>}
+      {message && <Message excerpt="A message over the title" />}
+      {error && <Message kind="error" excerpt="An error over the title" />}
+      {long && (
+        <Message
+          excerpt={
+            <>
+              A message with{" "}
+              <Link to="/$tool" params={{ tool: "convert" }}>
+                a link
+              </Link>{" "}
+              and more to say
+            </>
+          }
+          body={
+            <>
+              Click the message to read the rest. It unfolds over the page, wider and taller than
+              the title has room for, and folds back with another click, a click outside or Escape.
+              Links work here too, like{" "}
+              <Link to="/$tool" params={{ tool: "loop" }}>
+                this one to loop
+              </Link>
+              . A body can run to as many lines as it needs.
+            </>
+          }
+        />
+      )}
 
       <Upload accept="*" multiple pickerLabel="choose files" files={files} onFiles={setFiles} />
 
