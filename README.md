@@ -1,6 +1,6 @@
-Browser video tools: seamless loops, image sequences to video, speed changes, format conversion and watermarking. Built on ffmpeg.
+### Browser video tools: seamless loops, image sequences to video, speed changes, format conversion and watermarking. Built on ffmpeg.
 
-## Installation
+**Installation**
 
 Bun 1.4. The WebAssembly builds of ffmpeg and gifski are committed in `client/public/engine/`, in a folder named after a hash of its files. Browsers cache them by URL, through an immutable `Cache-Control` header (`vercel.json`) and the Cache API. A rebuild therefore goes into a new folder, and `GLUE_URL` in `client/src/engine/exec.ts` must point to it. If the folder name doesn't match the hash, `bun run test` fails and shows the expected name.
 
@@ -26,7 +26,7 @@ git config core.autocrlf false                  # Windows: keep LF checkouts (ox
 
 Unit tests never spawn ffmpeg. The smoke suites in `scripts/smoke/` run the tools natively on the files in `scripts/smoke/assets/`. `mark` and `light` render grids of marked clips for visual review. `quality` scores every tool's results with SSIM, PSNR and VMAF, and fails if a score falls below the minimums in `quality.mjs`.
 
-## CLI
+**CLI**
 
 `videotools` (`cli/index.ts`, published on npm as `@videotools/cli`) runs the tools natively over many files. It runs one job per file, or a single job for all of a sequence's images.
 
@@ -45,27 +45,27 @@ The command flags mirror the tool pages, and share the same defaults. Tools are 
 
 - **Inputs** can be files, folders or globs. A folder means the supported files directly inside it, not those in subfolders. The CLI expands globs itself, so they work in any shell.
 - **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given and names the result after the first image.
-- **Output.** Written to `--out <dir>`, which defaults to the current directory. add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork.
+- **Output.** Written to `--out <dir>`, which defaults to the current directory. add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork. Name collisions append a number: `dupe.mp4 -> dupe_1.mp4`.
 - **Failures.** If a file fails, the remaining files are still processed and the exit code is non-zero. Each job works in a folder of its own under `videotools-cli` in the system temp folder, deleted when the job ends. Ctrl+C stops the running ffmpeg or gifski process and deletes the job's folder.
 
 Enabling `Command line` shows the equivalent `npx @videotools/cli` command on the tool page.
 
 `bun run build` in `cli/` bundles the CLI and core into a single Node script in `cli/dist/`. The bundle leaves `@resvg/resvg-wasm` external, as a regular dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag. `.github/workflows/cli.yml` then tests, builds and publishes the package to npm.
 
-## FAQ
+**FAQ**
 
 - **Why are my files coming out way larger than my input?** · To retain fidelity the app measures quality loss with techniques like PSNR and VMAF. These values take precedence over file sizes. This is to ensure the quality remains stable if you run the same video through multiple jobs.
 - **How can I bulk process videos?** · Use the CLI and use a folder directory as input.
 - **Is there an MCP?** · No, but if you prefer using natural language ask your agent to get aquainted with the CLI.
 - **Why are non-square-pixel inputs refused?** Anamorphic video formats are confusing, increasingly obsolete, and out of scope for this tool. Use Handbrake to convert them to square-pixel formats.
 
-## Principles
+**Principles**
 
 - **Format agnostic** · Loop, Speed and Mark return the same format they're given, and refuse formats the app can't write.
 - **Simple & Extensible** · The web UI handles the one-off tasks, while the CLI does the heavy lifting for more advanced use cases.
 - **Quality at any cost** · By default the quality output value is set to 100 to retain fidelity throughout multiple jobs, even if it means larger files.
 
-## Architecture
+**Architecture**
 
 The client is a Vite + React 19 static site in `client/`, using TanStack Router with a single `/$tool` route. There is no backend, and files never leave the browser.
 

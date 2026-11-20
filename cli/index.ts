@@ -346,7 +346,6 @@ await Promise.all([install("ffmpeg"), install("gifski")]);
 console.log = console.error = () => {};
 
 const tty = process.stdout.isTTY;
-const written = new Set<string>();
 for (const [n, job] of jobs.entries()) {
   const more = job.length > 1 ? ` and ${job.length - 1} more` : "";
   const label = `[${n + 1}/${jobs.length}] ${path.basename(job[0])}${more}`;
@@ -369,9 +368,11 @@ for (const [n, job] of jobs.entries()) {
     const name = values["verbose-names"]
       ? verboseName(source.name, logo === undefined ? [] : [path.basename(logo)], options, ext)
       : resultFile(source.base, suffix, ext).name;
-    if (written.has(name)) throw new Error(`An earlier file was written as ${name}`);
-    written.add(name);
-    const result = path.join(out, name);
+    let result = path.join(out, name);
+    // Never over a file already there: numbered instead.
+    for (let copy = 1; fs.existsSync(result); copy++) {
+      result = path.join(out, name.replace(/(?=\.[^.]+$)/, `_${copy}`));
+    }
     // Sync, so Ctrl+C never leaves half a result.
     fs.copyFileSync(outputPath, result, fs.constants.COPYFILE_FICLONE);
     process.stdout.write(`${tty ? "\n" : ""}  ${result}\n`);
