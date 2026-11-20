@@ -6,3 +6,4 @@ dist
 core/tests
 cli/tests
 scripts/smoke/assets
+scripts/icons/assets

@@ -14,6 +14,7 @@
     "build": "bun --filter client build",
     "test": "bun --filter client test",
     "smoke": "bun scripts/smoke/index.mjs",
+    "icons": "bun scripts/icons/index.ts",
     "typecheck": "tsc -p tsconfig.json && tsc -p client",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",

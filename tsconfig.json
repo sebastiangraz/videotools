@@ -10,5 +10,5 @@
     "noEmit": true
   },
   // vite.config.ts runs in Node, so it is checked here, not in client/.
-  "include": ["core", "cli", "client/vite.config.ts"]
+  "include": ["core", "cli", "client/vite.config.ts", "scripts/icons"]
 }

@@ -70,3 +70,6 @@ export const TOOLS = TOOL_IDS.map((value) => ({ value, ...TOOL_META[value] }));
 export type Tool = (typeof TOOLS)[number];
 
 export const toolById = (id: ToolId): Tool => ({ value: id, ...TOOL_META[id] });
+
+// Header icon atlases (scripts/icons): every frame, row-major, `columns` per row.
+export const ICON = { fps: 60, columns: 12 };

@@ -1,7 +1,7 @@
 import { HeadContent, Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
-import { TOOLS, type ToolId } from "./tools";
+import { ICON, TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
 import { Popover } from "./components/Popover/Popover";
@@ -48,6 +48,59 @@ const Logo = () => (
   </div>
 );
 
+// Per tool and theme, an atlas of the icon's frames (scripts/icons).
+const ICONS = import.meta.glob<string>("./icons/*.webp", {
+  eager: true,
+  query: "?url",
+  import: "default",
+});
+
+const ToolIcon = ({ src }: { src: string }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let request = 0;
+    const atlas = new Image();
+    atlas.onload = () =>
+      atlas.decode().then(() => {
+        if (cancelled) return;
+        const canvas = canvasRef.current!;
+        const side = atlas.naturalWidth / ICON.columns;
+        const count = (atlas.naturalHeight / side) * ICON.columns;
+        canvas.width = canvas.height = side;
+        const context = canvas.getContext("2d")!;
+        const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        let start: number | undefined;
+        let shown = -1;
+        const draw = (now: number) => {
+          start ??= now;
+          const index = Math.floor(((now - start) / 1000) * ICON.fps) % count;
+          if (index !== shown) {
+            shown = index;
+            const x = (index % ICON.columns) * side;
+            const y = Math.floor(index / ICON.columns) * side;
+            context.clearRect(0, 0, side, side);
+            context.drawImage(atlas, x, y, side, side, 0, 0, side, side);
+          }
+          if (!still) request = requestAnimationFrame(draw);
+        };
+        request = requestAnimationFrame(draw);
+      });
+    atlas.src = src;
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(request);
+    };
+  }, [src]);
+
+  return (
+    <div className={styles.logo}>
+      <canvas ref={canvasRef} aria-hidden="true" />
+    </div>
+  );
+};
+
 export const Layout = () => {
   // Tab descriptions show in the title message area, not at the tab, so the
   // card never moves.
@@ -66,13 +119,15 @@ export const Layout = () => {
     document.documentElement.toggleAttribute("data-theme-invert", settings.themeInvert);
   }, [settings]);
   const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const dark = systemDark !== settings.themeInvert;
+  const icon = ICONS[`./icons/${tool}-${dark ? "dark" : "light"}.webp`];
 
   return (
     <div className={styles.app}>
       <HeadContent />
       <div className={styles.frame}>
         <header className={styles.header}>
-          <Logo />
+          {icon ? <ToolIcon key={icon} src={icon} /> : <Logo />}
           <h1 ref={titleRef} className={styles.title}>
             videotoo.ls
             <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
@@ -160,7 +215,7 @@ export const Layout = () => {
                 labelledBy="theme"
                 options={THEME_OPTIONS}
                 toggle
-                value={systemDark !== settings.themeInvert ? "dark" : "light"}
+                value={dark ? "dark" : "light"}
                 onValueChange={(theme) =>
                   setSettings({ ...settings, themeInvert: (theme === "dark") !== systemDark })
                 }

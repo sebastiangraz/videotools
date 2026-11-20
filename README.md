@@ -16,6 +16,7 @@ bun run typecheck               # core + cli + client
 bun run smoke name              # → .smoke/name/
 bun run smoke name mark         # → .smoke/name/mark · [mark|light|quality] multiple allowed
 bun run smoke name mark:debug   # → .smoke/name/mark/debug · [:debug|depthmap|glass] comma-separated
+bun run icons [tool...]         # header icons → client/src/icons/, from scripts/icons/<tool>.ts
 
 bun add -g vercel               # Vercel CLI
 vercel --prod                   # production deploy

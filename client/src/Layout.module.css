@@ -51,14 +51,22 @@
   flex-direction: column;
 }
 
+/* One slot for the logo and the tool icons, which bleed out of it. */
 .logo {
-  width: 2rem;
-  height: var(--quantize);
-  display: flex;
+  width: 4.5rem;
+  height: 4.5rem;
+  display: grid;
+  place-items: center;
   svg {
-    width: 100%;
+    width: 2rem;
     height: auto;
     overflow: visible;
+  }
+  canvas {
+    width: 150%;
+    height: 150%;
+    margin: -25%;
+    pointer-events: none;
   }
 }
 
