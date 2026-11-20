@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { Button } from "@src/components/Button/Button";
 import { Page } from "@src/components/Page/Page";
 import { Upload } from "@src/components/Upload/Upload";
 import { Message } from "@src/components/Message/Message";
@@ -265,9 +266,12 @@ export const Test = () => {
         />
       </div>
 
-      {/* <div className={form.horizontal}>
-      <button onClick={()=>{}} disabled={disabled} className={} />
-      </div> */}
+      <div className={form.horizontal}>
+        <Button disabled={disabled}>Primary</Button>
+        <Button variant="secondary" disabled={disabled}>
+          Secondary
+        </Button>
+      </div>
 
       <div className={form.switchRow}>
         <Tooltip content="Tooltip content" render={<span />}>

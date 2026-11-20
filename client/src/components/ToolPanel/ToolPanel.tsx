@@ -1,5 +1,6 @@
 import { MouseEvent, ReactNode, useContext, useEffect, useState } from "react";
 import { Progress } from "@base-ui/react/progress";
+import { Button } from "@src/components/Button/Button";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
 import { Footer } from "@src/components/Footer/Footer";
 import type { Tool } from "@src/tools";
@@ -55,14 +56,11 @@ export const ToolPanel = ({
   }, [busy]);
 
   // Busy, the button cancels the run; not on a double click's second click,
-  // which would undo the first. It is only aria-disabled, so a run that
-  // can't start yet is turned away here rather than by the browser.
+  // which would undo the first. Blocked, it stays focusable so its tooltip
+  // can show.
   const click = (e: MouseEvent<HTMLButtonElement>) => {
-    if (busy) {
-      if (e.detail < 2) run.cancel();
-    } else if (!blocked) {
-      onSubmit();
-    }
+    if (!busy) onSubmit();
+    else if (e.detail < 2) run.cancel();
   };
 
   return (
@@ -77,7 +75,14 @@ export const ToolPanel = ({
             disabled={!blocked}
             content={blocker}
             side="top"
-            render={<button onClick={click} aria-disabled={blocked} className={styles.submit} />}
+            render={
+              <Button
+                onClick={click}
+                disabled={blocked}
+                focusableWhenDisabled
+                className={styles.submit}
+              />
+            }
           >
             <span className={styles.label}>{busy ? "Processing" : tool.actionLabel}</span>
             {busy && (

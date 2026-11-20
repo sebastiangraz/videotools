@@ -1,0 +1,21 @@
+.button {
+  composes: input from global;
+  padding: 0.5em 2em;
+  min-height: 2.5rem;
+  cursor: pointer;
+  transition: --input-bg-2 0.25s ease;
+}
+
+.button[data-variant="primary"] {
+  --border-subtle: var(--fg);
+  --input-bg-1: color-mix(in srgb, var(--fg), var(--bg) 32%);
+  --input-bg-2: color-mix(in srgb, var(--fg) 20%, var(--input-bg-1));
+  color: var(--bg);
+  &:hover:not([data-disabled]) {
+    --input-bg-2: color-mix(in srgb, var(--fg) 80%, var(--bg));
+  }
+}
+
+.button[data-variant="secondary"]:hover:not([data-disabled]) {
+  --input-bg-2: var(--border-solid);
+}
