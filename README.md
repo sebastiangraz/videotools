@@ -30,7 +30,7 @@ git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 
 **CLI**
 
-Full [documentation here](https://www.npmjs.com/package/@videotools/cli). The CLI runs the tools natively, approximately 1-4x faster than [videotoo.ls](https://videotoo.ls/) and supports bulk processing.
+Full [documentation here](https://www.npmjs.com/package/@videotools/cli). The CLI runs the tools natively, approximately 1.5-4x faster than [videotoo.ls](https://videotoo.ls/) and supports bulk processing.
 
 ```bash
 npx @videotools/cli --help # get started page
@@ -41,9 +41,9 @@ npm install -g @videotools/cli
 videotools MARK <img.png|folder|glob> <options> --logo logo.svg
 ```
 
-- **Inputs** · Can be files, folders or globs. Contents of nested folders are ignored.
+- **Inputs** · Can be files, folders or globs. Contents of nested folders are ignored by default.
 - **Order** · Duplicates are removed and files are processed in natural sort order by path.
-- **Output** · Written to `--out <dir>`, which defaults to `.` collisions get numbered: `dupe.mp4 -> dupe_1.mp4`.
+- **Output** · Written to `--out <dir>`, which defaults to `.` and collisions get numbered: `dupe.mp4 -> dupe_1.mp4`.
 - **Verbosity** · `--verbose-names` appends abbreviated settings to the output, to keep track of the applied settings.
 - **Failures** · A failed file doesn't stop the rest, but the exit code is non-zero. Temp files are cleaned up.
 
