@@ -34,7 +34,7 @@ jobs:
       # The file changes for its dependencies too: only a version npm lacks.
       - run: |
           version=$(node -p 'require("./package.json").version')
-          npm view "@videotools/cli@$version" version | grep -q . && exit 0
+          npm view "@videotools/cli@$version" version 2>/dev/null | grep -q . && exit 0
           npm publish
           git tag "cli-v$version"
           git push origin "cli-v$version"
