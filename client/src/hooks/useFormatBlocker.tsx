@@ -48,8 +48,10 @@ export const useFormatBlocker = (
         .find(Boolean) ?? null);
 
   const text = block && blockerText(block);
-  useMessage(
-    text &&
+  useMessage({
+    kind: "error",
+    excerpt:
+      text &&
       (block?.state === "foreign" ? (
         <>
           {text.long}{" "}
@@ -60,7 +62,6 @@ export const useFormatBlocker = (
       ) : (
         text.long
       )),
-    "error",
-  );
+  });
   return text ? text.short : null;
 };

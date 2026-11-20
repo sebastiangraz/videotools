@@ -1,4 +1,4 @@
-import { ReactNode, RefObject, useEffect, useState, useSyncExternalStore } from "react";
+import { ReactNode, RefObject, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   PreviewCard as BasePreviewCard,
   type PreviewCardTriggerProps,
@@ -6,7 +6,7 @@ import {
 import { PreviewCardPopup } from "@src/components/PreviewCard/PreviewCard";
 import { useMessage } from "@src/hooks/useMessage";
 import { cx } from "@src/helpers";
-import { messageHandle, messages, type MessageKind } from "./messageStore";
+import { messageHandle, messages, type MessageEntry } from "./messageStore";
 import styles from "./Message.module.css";
 
 // Placeholder until the real SVG lands.
@@ -26,22 +26,32 @@ const WarningIcon = () => (
 );
 
 // Pulls the card back up over its anchor so it sits centred on the anchor
-// instead of below it
-const centerOverAnchor = ({
-  anchor,
-  positioner,
-}: {
-  anchor: { height: number };
-  positioner: { height: number };
-}) => -(anchor.height + positioner.height) / 2;
+// instead of below it. A body and its margins are left out, so the card grows
+// down as it unfolds.
+const centerOverAnchor = (
+  { anchor, positioner }: { anchor: { height: number }; positioner: { height: number } },
+  body: HTMLElement | null,
+) => {
+  let below = 0;
+  if (body) {
+    const { marginTop, marginBottom } = getComputedStyle(body);
+    below = body.getBoundingClientRect().height + parseFloat(marginTop) + parseFloat(marginBottom);
+  }
+  return -(anchor.height + positioner.height - below) / 2;
+};
 
 // Where every message shows (see messageStore.ts): one card over `anchor`,
-// the layout's title, so it never moves whoever is speaking. It is open while
+// the layout's title, so it never moves whatever it shows. It is open while
 // a <Message> is up or a MessageTrigger is hovered or focused; the message
 // wins, so it stays put until it is gone.
 export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> }) => {
   const { active, message } = useSyncExternalStore(messages.subscribe, messages.getSnapshot);
   const [triggered, setTriggered] = useState(false);
+  // The body is unfolded. A click on the message, links aside, toggles it; a
+  // click outside, Escape or the message going folds it.
+  const [expanded, setExpanded] = useState(false);
+  if (expanded && !message) setExpanded(false);
+  const body = useRef<HTMLDivElement>(null);
 
   // A message that goes while a trigger holds the card open hands over to
   // it, and must not come back when the card closes.
@@ -53,25 +63,28 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
     <BasePreviewCard.Root
       handle={messageHandle}
       open={active || triggered}
-      onOpenChange={setTriggered}
+      onOpenChange={(open, { reason }) => {
+        setTriggered(open);
+        if (reason === "outside-press" || reason === "escape-key") setExpanded(false);
+      }}
       onOpenChangeComplete={(open) => {
         if (!open) messages.forget();
       }}
     >
       {({ payload }) => {
-        // A trigger only gets a word in while no message is up. With neither,
+        // A trigger's excerpt only shows while no message is up. With neither,
         // the card is on its way out and keeps what it was showing: the
-        // message it had, else the last trigger's say (Base UI keeps the
-        // payload, so that alone doesn't tell a trigger is speaking).
-        const triggerSpeaks = !active && (triggered || !message);
-        const error = !triggerSpeaks && message?.kind === "error";
+        // message it had, else the last trigger's excerpt (Base UI keeps the
+        // payload, so that alone doesn't tell a trigger's excerpt is shown).
+        const triggerShown = !active && (triggered || !message);
+        const error = !triggerShown && message?.kind === "error";
         return (
           <PreviewCardPopup
-            popupClassName={cx(styles.message, error && styles.error)}
+            popupClassName={cx(styles.message, error && styles.error, expanded && styles.expanded)}
             anchor={anchor}
             side="bottom"
             align="end"
-            sideOffset={centerOverAnchor}
+            sideOffset={(data) => centerOverAnchor(data, body.current)}
             alignOffset={-2}
             collisionAvoidance={{
               side: "none",
@@ -79,14 +92,31 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
               fallbackAxisSide: "none",
             }}
           >
-            {triggerSpeaks
-              ? payload
-              : message && (
-                  <div role={error ? "alert" : "status"}>
+            {triggerShown ? (
+              <div className={styles.excerpt}>{payload}</div>
+            ) : (
+              message && (
+                <div
+                  role={error ? "alert" : "status"}
+                  className={styles.content}
+                  onClick={(event) => {
+                    if (message.body && !(event.target as Element).closest("a")) {
+                      setExpanded(!expanded);
+                    }
+                  }}
+                >
+                  <div className={styles.excerpt}>
                     {error && <WarningIcon />}
-                    {message.content}
+                    {message.excerpt}
                   </div>
-                )}
+                  {message.body && (
+                    <div ref={body} className={styles.body}>
+                      {message.body}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
           </PreviewCardPopup>
         );
       }}
@@ -94,30 +124,24 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
   );
 };
 
-// Says `message` in the area while it is hovered or focused.
+// Says `excerpt` in the area while it is hovered or focused.
 export const MessageTrigger = ({
-  message,
+  excerpt,
   render,
   children,
 }: {
-  message: ReactNode;
+  excerpt: ReactNode;
   render: PreviewCardTriggerProps["render"];
   children: ReactNode;
 }) => (
-  <BasePreviewCard.Trigger handle={messageHandle} payload={message} delay={200} render={render}>
+  <BasePreviewCard.Trigger handle={messageHandle} payload={excerpt} delay={200} render={render}>
     {children}
   </BasePreviewCard.Trigger>
 );
 
 // useMessage as markup: the message is up while this is mounted, so render it
 // for as long as what it says holds. It renders nothing where it stands.
-export const Message = ({
-  kind = "default",
-  children,
-}: {
-  kind?: MessageKind;
-  children: ReactNode;
-}) => {
-  useMessage(children, kind);
+export const Message = (message: MessageEntry) => {
+  useMessage(message);
   return null;
 };

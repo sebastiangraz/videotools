@@ -9,6 +9,8 @@ import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
+import { useUndecodableMessage } from "@src/hooks/useMessage";
+import { openFrameSource } from "@src/frameSource";
 import type { SourceMeta } from "@src/hooks/useVideoSource";
 import { toolById } from "@src/tools";
 import { RANGES, SEQUENCE_FORMATS, formatById } from "@videotools/core/formats";
@@ -79,11 +81,14 @@ const SequencePreview = ({
 
 export const Sequence = () => {
   const run = useToolRun(TOOL.value);
-  // imageMeta: the first image's size, once read.
-  const [{ files, imageMeta }, setPicked] = useState<{
+  // imageMeta: the first image's size, once read. undecodable: the browser
+  // can't open the first image, so there is no preview.
+  const [{ files, imageMeta, undecodable }, setPicked] = useState<{
     files: File[];
     imageMeta: SourceMeta | null;
-  }>({ files: [], imageMeta: null });
+    undecodable: boolean;
+  }>({ files: [], imageMeta: null, undecodable: false });
+  useUndecodableMessage(undecodable);
   const formatBlocker = useFormatBlocker(files, { stills: true, foreign: false });
   // NumberField reports null while empty; the run and the command then take the default.
   const [frameDuration, setFrameDuration] = useState<number | null>(1);
@@ -94,16 +99,24 @@ export const Sequence = () => {
   const pick = (picked: File[]) => {
     run.clearError();
     const sorted = [...picked].sort(byFilename);
-    setPicked({ files: sorted, imageMeta: null });
+    setPicked({ files: sorted, imageMeta: null, undecodable: false });
 
+    // Both answers come late, and must not answer for a pick since replaced.
     const first = sorted[0];
+    // Opened as the preview opens it.
+    openFrameSource(first).then(
+      (frames) => frames.close(),
+      () =>
+        setPicked((current) =>
+          current.files === sorted ? { ...current, undecodable: true } : current,
+        ),
+    );
     if (first.type.startsWith("image/")) {
-      // The first image sets the output frame size. It loads late, and must
-      // not answer for a pick since replaced.
+      // The first image sets the output frame size.
       const img = new Image();
       img.onload = () => {
         const imageMeta = { w: img.naturalWidth, h: img.naturalHeight };
-        setPicked((current) => (current.files === sorted ? { files: sorted, imageMeta } : current));
+        setPicked((current) => (current.files === sorted ? { ...current, imageMeta } : current));
         URL.revokeObjectURL(img.src);
       };
       img.src = URL.createObjectURL(first);
@@ -165,7 +178,8 @@ export const Sequence = () => {
           step={0.1}
           disabled={run.busy}
           preview={
-            files.length > 0 && (
+            files.length > 0 &&
+            !undecodable && (
               <SequencePreview files={files} frameDuration={perFrame} meta={imageMeta} />
             )
           }

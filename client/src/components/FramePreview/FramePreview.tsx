@@ -1,30 +1,27 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { openFrameSource, type FrameSource } from "@src/frameSource";
-import { cx, fitScale } from "@src/helpers";
+import { fitScale } from "@src/helpers";
 import styles from "./FramePreview.module.css";
 
 // The frame of `file` at `second`, drawn on a canvas. Video, animated images
 // and stills alike come through a frame source (see frameSource.ts), so there
 // is one element and one set of states for all of them. The accept list is
 // broader than what browsers can decode (ffmpeg handles the rest),
-// so a file the source can't open or seek swaps the frame for a short note, or
-// for `fallback` (null for nothing at all). Tracking the failed file rather
-// than a boolean resets the error when a new file is picked. `maxSide` scales
-// the drawing down to fit (px).
+// so a file the source can't open or seek draws nothing. Tracking the failed
+// file rather than a boolean resets the error when a new file is picked.
+// `maxSide` scales the drawing down to fit (px).
 export const FramePreview = ({
   file,
   second,
   label = "start frame preview",
   className = styles.framePreview,
   maxSide = Infinity,
-  fallback,
 }: {
   file: File;
   second: number;
   label?: string;
   className?: string;
   maxSide?: number;
-  fallback?: ReactNode;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [failedFile, setFailedFile] = useState<File | null>(null);
@@ -75,14 +72,7 @@ export const FramePreview = ({
     };
   }, [opened, file, second, maxSide]);
 
-  if (failedFile === file) {
-    if (fallback !== undefined) return fallback;
-    return (
-      <p role="status" className={cx(className, styles.framePreviewError)}>
-        Can&rsquo;t preview this format.
-      </p>
-    );
-  }
+  if (failedFile === file) return null;
 
   return <canvas ref={canvasRef} role="img" aria-label={label} className={className} />;
 };

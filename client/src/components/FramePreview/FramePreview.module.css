@@ -20,14 +20,3 @@
   height: 100%;
   object-fit: contain;
 }
-
-.framePreviewError {
-  font-size: var(--font-md);
-  padding: 2em;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 9;
-  text-align: left;
-  text-wrap: balance;
-  margin: 0;
-}

@@ -1,5 +1,6 @@
 // The browser engine: a tool run or a round of Mark previews in a worker of
 // its own (worker.ts), so stopping a job is terminating its worker.
+import { InputError } from "@videotools/core/errors";
 import { PROGRAMS, WASM_URL } from "./exec";
 import type { EngineProgress, EngineRequest, EngineResult } from "./worker";
 
@@ -68,7 +69,7 @@ export async function runEngine(
       worker.onmessage = ({ data }: MessageEvent<EngineResult | EngineProgress>) => {
         if ("progress" in data) onProgress?.(data.progress);
         else if ("files" in data) resolve(data.files);
-        else reject(new Error(data.error));
+        else reject(data.code ? new InputError(data.error, data.code) : new Error(data.error));
       };
       worker.onerror = (event) => reject(new Error(event.message));
       worker.postMessage({ ...request, modules });

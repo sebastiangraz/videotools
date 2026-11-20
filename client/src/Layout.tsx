@@ -91,7 +91,7 @@ export const Layout = () => {
           {TOOLS.map((t) => (
             <MessageTrigger
               key={t.value}
-              message={t.description}
+              excerpt={t.description}
               render={
                 <Tab
                   value={t.value}

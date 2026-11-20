@@ -38,6 +38,7 @@
 
 .title {
   font-size: var(--font-md);
+  text-box: cap alphabetic;
   letter-spacing: 0.05em;
   font-weight: normal;
   margin: 0;
@@ -159,6 +160,9 @@
     opacity: 1;
     transition-delay: 0s;
     translate: 0 0;
+  }
+  @media (max-width: 480px) {
+    display: none;
   }
 }
 

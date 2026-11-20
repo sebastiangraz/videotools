@@ -2,6 +2,7 @@ import { act, cleanup, screen, waitFor, within, fireEvent } from "@testing-libra
 import userEvent from "@testing-library/user-event";
 import { vi, it, expect, describe } from "vitest";
 import { runEngine } from "@src/engine";
+import { InputError } from "@videotools/core/errors";
 import {
   downloadedName,
   enableVerboseNames,
@@ -179,20 +180,41 @@ describe("App", () => {
     expect(screen.getByText(/^npx .* --quality 100 --verbose-names$/)).toBeInTheDocument();
   });
 
-  it("shows an error box when a run fails, until one succeeds", async () => {
+  it("shows an error message when a run fails, until one succeeds", async () => {
     const user = userEvent.setup();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(runEngine).mockRejectedValue(new Error("Processing failed"));
+    vi.mocked(runEngine).mockRejectedValue(new InputError("Too many images.", "too-large"));
 
     await renderApp("/sequence");
     await user.upload(screen.getByLabelText(/choose images/i), file("anim.gif", "image/gif"));
     await user.click(screen.getByRole("button", { name: /create video/i }));
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    const message = await screen.findByRole("alert");
+    expect(message).toHaveTextContent("Too large to encode");
+    expect(message).toHaveTextContent("Too many images.");
 
     stubEngine();
     await user.click(screen.getByRole("button", { name: /create video/i }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("says any other failure is the run's, with the error's text, if any, as the body", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(runEngine).mockRejectedValue(new Error("Failed to fetch"));
+
+    await renderApp();
+    await user.upload(screen.getByLabelText(/choose video/i), mp4());
+    await user.click(loopButton());
+
+    const message = await screen.findByRole("alert");
+    expect(within(message).getByText("Processing failed")).toBeInTheDocument();
+    expect(within(message).getByText("Failed to fetch")).toBeInTheDocument();
+
+    // A worker that fails to load reports no message at all.
+    vi.mocked(runEngine).mockRejectedValue(new Error());
+    await user.click(loopButton());
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/^Processing failed$/));
   });
 
   // A run that only ends when cancelled; hands back its signal.

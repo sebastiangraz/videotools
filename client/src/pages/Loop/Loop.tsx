@@ -9,6 +9,7 @@ import { QUALITY_KNOB } from "@src/components/SliderRotary/presets";
 import { useFormatBlocker } from "@src/hooks/useFormatBlocker";
 import { useToolRun } from "@src/hooks/useToolRun";
 import { clampStart, maxStart, useVideoSource } from "@src/hooks/useVideoSource";
+import { useUndecodableMessage } from "@src/hooks/useMessage";
 import { hasFrames } from "@src/sourceFormat";
 import { toolById } from "@src/tools";
 import { RANGES } from "@videotools/core/formats";
@@ -26,6 +27,7 @@ const TECHNIQUES = [
 export const Loop = () => {
   const run = useToolRun(TOOL.value);
   const source = useVideoSource();
+  useUndecodableMessage(source.undecodable);
   const formatBlocker = useFormatBlocker(source.file, {}, source.nonSquare);
   const [technique, setTechnique] = useState<string>("crossfade");
   // NumberField reports null while empty; the run and the command then take the default.
@@ -124,7 +126,8 @@ export const Loop = () => {
               disabled={run.busy}
               preview={
                 source.file &&
-                hasFrames(source.file) && <FramePreview file={source.file} second={start} />
+                hasFrames(source.file) &&
+                !source.undecodable && <FramePreview file={source.file} second={start} />
               }
             />
           </div>

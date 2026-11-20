@@ -52,10 +52,7 @@
   }
   &:disabled {
     opacity: 0.4;
-    cursor: not-allowed;
-  }
-  &:first-child {
-    /* border-bottom: 1px solid var(--border-subtle); */
+    cursor: auto;
   }
 }
 

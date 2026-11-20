@@ -33,7 +33,6 @@ const UploadThumb = ({ file }: { file: File }) => {
           label="thumbnail"
           className={styles.uploadThumb}
           maxSide={THUMB_SIDE}
-          fallback={null}
         />
       </div>
     );

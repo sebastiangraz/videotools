@@ -137,6 +137,6 @@
   opacity: 0.4;
   & .knob,
   & .pipHit {
-    cursor: not-allowed;
+    cursor: auto;
   }
 }

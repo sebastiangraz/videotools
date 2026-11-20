@@ -79,8 +79,6 @@
   }
 }
 
-/* A line for the label, padded to 3rem; below it, the progress bar grows the
-   button by its gap and height. */
 .submit {
   display: grid;
   grid-template-rows: 1lh;
@@ -90,20 +88,46 @@
   padding: calc((3rem - 1lh) / 2) 2em;
   min-height: 3rem;
   height: 3rem;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: var(--fg);
-  color: var(--bg);
-  border: none;
-  cursor: pointer;
   transition:
     height var(--fade) ease,
-    background-color var(--fade) ease;
-  &:hover:not([aria-disabled="true"]) {
-    background-color: color-mix(in srgb, var(--fg) 80%, var(--bg));
-  }
+    --input-bg-2 var(--fade) ease;
   &:has(> .progress:not([hidden])) {
     height: auto;
+  }
+  &[data-disabled] {
+    /* override global disabled opacity */
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &[data-shake] {
+      --shake-distance: 3px;
+      animation: shakeMotion 520ms cubic-bezier(0.37, 0, 0.63, 1);
+    }
+  }
+}
+
+@keyframes shakeMotion {
+  0% {
+    translate: 0;
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  10% {
+    translate: calc(var(--shake-distance) * -1);
+  }
+  28% {
+    translate: calc(var(--shake-distance) * 0.57);
+  }
+  46% {
+    translate: calc(var(--shake-distance) * -0.29);
+  }
+  64% {
+    translate: calc(var(--shake-distance) * 0.11);
+  }
+  82% {
+    translate: calc(var(--shake-distance) * -0.04);
+  }
+  100% {
+    translate: 0;
   }
 }
 
@@ -158,10 +182,6 @@
 .indicator {
   background-color: currentColor;
   transition: width 0.5s linear;
-}
-
-.submit[aria-disabled="true"] {
-  cursor: not-allowed;
 }
 
 .actions {
@@ -237,38 +257,4 @@
     color: var(--fg-secondary);
     font-family: inherit;
   }
-}
-
-.errorBox {
-  padding: 0.75em 1em;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: color-mix(in srgb, var(--error) 6%, transparent);
-  font-size: var(--font-sm);
-  letter-spacing: 0.05em;
-  text-transform: none;
-  color: var(--error);
-}
-
-.errorSummary {
-  cursor: pointer;
-  &::marker {
-    margin-right: 0.25em;
-    color: color-mix(in srgb, var(--error) 60%, transparent);
-  }
-  &:focus-visible {
-    outline: 1px solid color-mix(in srgb, var(--error) 40%, transparent);
-    outline-offset: 2px;
-  }
-  span {
-    margin-left: 0.25em;
-  }
-}
-
-.errorDetail {
-  margin: 0.75em 0 0;
-  color: color-mix(in srgb, var(--error) 75%, transparent);
-  overflow-wrap: anywhere;
-  line-height: 1.5;
-  white-space: pre-wrap;
 }

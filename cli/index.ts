@@ -171,7 +171,7 @@ const COMMANDS: Record<
         default: "medium",
       },
       filter: { arg: "filter", values: MARK_FILTERS, default: "glass" },
-      shuffle: { help: "move the mark around a video, from --position on" },
+      shuffle: { help: "randomly shuffle the --position value over time" },
       quality: QUALITY,
     },
     options: (values) => ({
@@ -192,8 +192,8 @@ const within = ([min, max]: readonly [number, number]) =>
 const tool = process.argv[2]?.toLowerCase();
 const flags: Record<string, Flag> = {
   ...(isToolId(tool) && COMMANDS[tool].flags),
-  out: { arg: "dir", help: "where results go, by default the current folder" },
-  "verbose-names": { help: "name results after the source's full name and their settings" },
+  out: { arg: "dir", help: "Override the default output directory", default: "." },
+  "verbose-names": { help: "Append settings to the file name" },
 };
 const help = isToolId(tool)
   ? `Usage: videotools ${tool.toUpperCase()} <file|folder|glob>...${Object.entries(flags)
@@ -223,11 +223,7 @@ ${Object.entries(flags)
        videotools <TOOL> --help
        videotools --version
 
-The web app's tools on native ffmpeg, a job at a time: one per file, or one
-for all of a sequence's images. A folder means the files in it that the tool
-takes; a glob is expanded. Results are named as the app names its downloads,
-or after their settings with --verbose-names. The first run downloads ffmpeg
-and gifski.
+The CLI for videotoo.ls, allows individual & bulk processing of videos and images. The first run downloads ffmpeg and gifski.
 
 Tools:
 ${TOOL_IDS.map((id) => `  ${id.toUpperCase().padEnd(10)}${COMMANDS[id].about}`).join("\n")}
@@ -322,7 +318,7 @@ const jobs = command.together
   ? [found.flat()]
   : [...new Set(found.flat())].sort(natural).map((source) => [source]);
 
-const out = (values.out as string | undefined) ?? ".";
+const out = values.out as string;
 // Resolved: on Windows, Bun's recursive mkdir throws for "." and "..".
 fs.mkdirSync(path.resolve(out), { recursive: true });
 // Every job's folder, in one, so a leftover is easy to find.
@@ -350,7 +346,6 @@ await Promise.all([install("ffmpeg"), install("gifski")]);
 console.log = console.error = () => {};
 
 const tty = process.stdout.isTTY;
-const written = new Set<string>();
 for (const [n, job] of jobs.entries()) {
   const more = job.length > 1 ? ` and ${job.length - 1} more` : "";
   const label = `[${n + 1}/${jobs.length}] ${path.basename(job[0])}${more}`;
@@ -373,9 +368,11 @@ for (const [n, job] of jobs.entries()) {
     const name = values["verbose-names"]
       ? verboseName(source.name, logo === undefined ? [] : [path.basename(logo)], options, ext)
       : resultFile(source.base, suffix, ext).name;
-    if (written.has(name)) throw new Error(`An earlier file was written as ${name}`);
-    written.add(name);
-    const result = path.join(out, name);
+    let result = path.join(out, name);
+    // Never over a file already there: numbered instead.
+    for (let copy = 1; fs.existsSync(result); copy++) {
+      result = path.join(out, name.replace(/(?=\.[^.]+$)/, `_${copy}`));
+    }
     // Sync, so Ctrl+C never leaves half a result.
     fs.copyFileSync(outputPath, result, fs.constants.COPYFILE_FICLONE);
     process.stdout.write(`${tty ? "\n" : ""}  ${result}\n`);

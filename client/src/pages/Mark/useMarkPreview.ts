@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { openFrameSource, type Frame, type FrameSource } from "@src/frameSource";
 import { runEngine } from "@src/engine";
+import { useErrorMessage } from "@src/hooks/useMessage";
 import {
   markStays,
   type MARK_TUNING,
@@ -55,7 +56,7 @@ export function useMarkPreview(
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [scrubIndex, setScrubIndex] = useState(0);
   // The last round to finish, landed or failed.
-  const [settled, setSettled] = useState<{ request: object; failed: boolean } | null>(null);
+  const [settled, setSettled] = useState<{ request: object; error: Error | null } | null>(null);
   const [failedSource, setFailedSource] = useState<File | null>(null);
 
   // A new source starts over: none of the last one's frames, length or renders.
@@ -104,11 +105,11 @@ export function useMarkPreview(
         const renders = await runEngine({ preview: request });
         if (stale) return;
         setPreviewUrls(renders.map((render) => URL.createObjectURL(render)));
-        setSettled({ request, failed: false });
+        setSettled({ request, error: null });
       } catch (err: unknown) {
         if (stale) return;
         console.error(err);
-        setSettled({ request, failed: true });
+        setSettled({ request, error: err instanceof Error ? err : new Error(String(err)) });
       }
     });
     return () => {
@@ -146,6 +147,11 @@ export function useMarkPreview(
     };
   }, [source]);
 
+  // Only for the current inputs; a round for new ones clears it. The engine
+  // is the first to read the watermark, so this is where a bad one shows.
+  const previewError = (settled?.request === request && settled.error) || null;
+  useErrorMessage(previewError);
+
   // -1 = no set yet (the bare frame shows).
   const shownRender = previewUrls[scrubIndex] ? scrubIndex : previewUrls.findIndex(Boolean);
 
@@ -164,8 +170,6 @@ export function useMarkPreview(
       watermark !== null &&
       failedSource !== source &&
       settled?.request !== request,
-    // Only for the current inputs; a round for new ones clears it.
-    previewError: settled?.request === request && settled.failed,
     setScrubIndex,
   };
 }

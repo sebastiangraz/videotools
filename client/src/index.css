@@ -203,8 +203,28 @@ button {
   }
 }
 
+@property --input-bg-1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --input-bg-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+:root {
+  --input-bg-1: color-mix(in srgb, var(--bg) 60%, var(--bg-1));
+  --input-bg-2: var(--bg-1);
+}
+
+:root[data-theme-invert] {
+  --input-bg-1: color-mix(in srgb, var(--fg) 8%, var(--bg));
+}
+
 .input {
-  --input-bg: color-mix(in srgb, var(--bg) 60%, var(--bg-1));
   --input-edge: calc(var(--shadow-dir) * 0.75px);
   border: none;
   box-shadow: 0 var(--input-edge) 0 0 var(--border-subtle) inset;
@@ -212,25 +232,17 @@ button {
   corner-shape: superellipse(1.45);
   appearance: none;
   background:
-    radial-gradient(farthest-side at top center, var(--input-bg) -20%, var(--bg-1) 100%) top center
-      / max(10rem, 160%) 100% no-repeat,
-    var(--bg-1);
+    radial-gradient(farthest-side at top center, var(--input-bg-1) -20%, var(--input-bg-2) 100%) top
+      center / max(10rem, 160%) 100% no-repeat,
+    var(--input-bg-2);
   @media (resolution >= 2x) {
     --input-edge: calc(var(--shadow-dir) * 1px);
   }
   &:disabled,
   &[data-disabled] {
     opacity: 0.4;
-    cursor: not-allowed;
+    cursor: auto;
   }
-}
-
-:root[data-theme-invert] .input {
-  --input-bg: color-mix(in srgb, var(--fg) 8%, var(--bg));
-  background:
-    radial-gradient(farthest-side at top center, var(--input-bg) -20%, var(--bg-1) 100%) top center
-      / max(10rem, 160%) 100% no-repeat,
-    var(--bg-1);
 }
 
 /* composes can't be state-scoped, so the active-state gating lives here */

@@ -3,6 +3,7 @@ import type { ToolId } from "@src/tools";
 import { extensionOf, splitExtension } from "@src/helpers";
 import { runEngine } from "@src/engine";
 import { verboseName } from "@videotools/core/formats";
+import { useErrorMessage } from "./useMessage";
 
 // `extras`: further inputs after the sources (mark's logo).
 // `onDone`: once the result is saved.
@@ -25,7 +26,10 @@ export function useToolRun(tool: ToolId) {
   const [busy, setBusy] = useState(false);
   // How far (0–1) the run's encode has got.
   const [progress, setProgress] = useState(0);
-  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  // Why the last run failed, posted as an error message until the next run
+  // or pick.
+  const [error, setError] = useState<Error | null>(null);
+  useErrorMessage(error);
 
   // Also aborted on unmount: a tab switch unmounts the page.
   const abortRef = useRef<AbortController | null>(null);
@@ -35,7 +39,7 @@ export function useToolRun(tool: ToolId) {
     if (abortRef.current) return;
     setBusy(true);
     setProgress(0);
-    setErrorDetail(null);
+    setError(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -64,10 +68,10 @@ export function useToolRun(tool: ToolId) {
 
       onDone?.();
     } catch (err: unknown) {
-      // Aborted = cancelled on purpose: no error box.
+      // Aborted = cancelled on purpose: no error message.
       if (!signal.aborted) {
         console.error(err);
-        setErrorDetail(err instanceof Error ? err.message : String(err));
+        setError(err instanceof Error ? err : new Error(String(err)));
       }
     } finally {
       abortRef.current = null;
@@ -75,14 +79,14 @@ export function useToolRun(tool: ToolId) {
     }
   };
 
-  // Never rejects: a failure ends up in errorDetail.
+  // Never rejects: a failure ends up in error.
   const start = (request: RunRequest) => void run(request);
 
   const cancel = () => abortRef.current?.abort();
 
-  const clearError = () => setErrorDetail(null);
+  const clearError = () => setError(null);
 
-  return { busy, progress, errorDetail, clearError, start, cancel };
+  return { busy, progress, clearError, start, cancel };
 }
 
 export type ToolRun = ReturnType<typeof useToolRun>;
