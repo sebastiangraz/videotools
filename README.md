@@ -1,30 +1,30 @@
 ### Browser video tools: seamless loops, image sequences to video, speed changes, format conversion and watermarking. Built on ffmpeg.
 
+---
+
 **Installation**
 
-Bun 1.4. The WebAssembly builds of ffmpeg and gifski are committed in `client/public/engine/`, in a folder named after a hash of its files. Browsers cache them by URL, through an immutable `Cache-Control` header (`vercel.json`) and the Cache API. A rebuild therefore goes into a new folder, and `GLUE_URL` in `client/src/engine/exec.ts` must point to it. If the folder name doesn't match the hash, `bun run test` fails and shows the expected name.
-
 ```bash
-bun install                                     # deps
-docker build -f wasm/Dockerfile --output client/public/engine/<new> wasm   # rebuild the engine
-bun run dev                                     # Vite dev server
+bun install                     # dependencies (Bun 1.4)
+bun run dev                     # Vite dev server
 
-bun run test                                    # vitest (client tests + core and cli unit tests)
-bun run lint                                    # oxlint (type-aware)
-bun run format                                  # oxfmt
-bun run typecheck                               # core + cli + client
+bun run test                    # vitest (client tests + core and cli unit tests)
+bun run lint                    # oxlint (type-aware)
+bun run format                  # oxfmt
+bun run typecheck               # core + cli + client
 
-bun run smoke name                              # outputs .smoke/name/
-bun run smoke name mark                         # outputs .smoke/name/mark · [mark|light|quality], several allowed
-bun run smoke name mark:debug                   # outputs .smoke/name/mark/debug · [:debug|depthmap|glass], comma-separated
+bun run smoke name              # → .smoke/name/
+bun run smoke name mark         # → .smoke/name/mark · [mark|light|quality] multiple allowed
+bun run smoke name mark:debug   # → .smoke/name/mark/debug · [:debug|depthmap|glass] comma-separated
 
-bun add -g vercel                               # Vercel CLI
-vercel --prod                                   # production deploy
+bun add -g vercel               # Vercel CLI
+vercel --prod                   # production deploy
 
-git config core.autocrlf false                  # Windows: keep LF checkouts (oxfmt writes LF)
+# rebuild the engine
+docker build -f wasm/Dockerfile --output client/public/engine/<new> wasm
+
+git config core.autocrlf false  # Windows: keep LF checkouts (oxfmt writes LF)
 ```
-
-Unit tests never spawn ffmpeg. The smoke suites in `scripts/smoke/` run the tools natively on the files in `scripts/smoke/assets/`. `mark` and `light` render grids of marked clips for visual review. `quality` scores every tool's results with SSIM, PSNR and VMAF, and fails if a score falls below the minimums in `quality.mjs`.
 
 **CLI**
 
@@ -41,12 +41,10 @@ npx @videotools/cli <TOOL> ...                  # Node
 bun cli/index.ts <TOOL> ...                     # repo
 ```
 
-The command flags mirror the tool pages, and share the same defaults. Tools are in caps for legibility but any case works.
-
 - **Inputs** can be files, folders or globs. A folder means the supported files directly inside it, not those in subfolders. The CLI expands globs itself, so they work in any shell.
 - **Order.** Duplicates are removed and files are processed in natural sort order by path. Sequence is the exception: it keeps the order given and names the result after the first image.
-- **Output.** Written to `--out <dir>`, which defaults to the current directory. add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork. Name collisions append a number: `dupe.mp4 -> dupe_1.mp4`.
-- **Failures.** If a file fails, the remaining files are still processed and the exit code is non-zero. Each job works in a folder of its own under `videotools-cli` in the system temp folder, deleted when the job ends. Ctrl+C stops the running ffmpeg or gifski process and deletes the job's folder.
+- **Output.** Written to `--out <dir>`, which defaults to the current directory. add `--verbose-names` to append abbreviated settings to the name, useful for comparing output without guesswork. Collisions get numbered: `dupe.mp4 -> dupe_1.mp4`.
+- **Failures.** A failed file doesn't stop the rest, but the exit code is non-zero. Temp files are cleaned up, also on Ctrl+C.
 
 Enabling `Command line` shows the equivalent `npx @videotools/cli` command on the tool page.
 
@@ -75,3 +73,7 @@ The tools live in `core/` (`@videotools/core`), with one module per tool in `too
 - **Natively.** For the CLI, the smoke suites and scripts, `cli/exec.ts` spawns the binaries. They are downloaded on first use into `~/.videotools/<tool>-<version>-<hash>/` and verified by sha256.
 
 Both run the same pinned ffmpeg, built from the same tag with no version workarounds in code: as WebAssembly by `wasm/Dockerfile`, and natively from the builds pinned in `BINARIES` in `cli/binaries.ts`. gifski is pinned the same way (see `cli/gifski/README.md`). No system ffmpeg is needed, and ffprobe isn't used.
+
+The WebAssembly builds are committed in `client/public/engine/`, in a folder named after a hash of its files. Browsers cache them as immutable, so a rebuild goes into a new folder and `GLUE_URL` in `client/src/engine/exec.ts` must point to it. `bun run test` fails on a mismatch and shows the expected name.
+
+Unit tests never spawn the binaries. The smoke suites in `scripts/smoke/` do, on the files in `scripts/smoke/assets/`: `mark` and `light` render grids of marked clips for visual review, and `quality` scores every tool's results with SSIM, PSNR and VMAF, failing below the minimums in `quality.mjs`.
