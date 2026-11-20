@@ -30,15 +30,13 @@ const toolRoute = createRoute({
   component: ToolPage,
 });
 
-const siteRoutes = (Object.keys(SITE_PAGES) as SitePath[])
-  .filter((path) => import.meta.env.DEV || !SITE_PAGES[path].devOnly)
-  .map((path) =>
-    createRoute({
-      getParentRoute: () => rootRoute,
-      path,
-      component: SITE_PAGES[path].component,
-    }),
-  );
+const siteRoutes = (Object.keys(SITE_PAGES) as SitePath[]).map((path) =>
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path,
+    component: SITE_PAGES[path],
+  }),
+);
 
 const routeTree = rootRoute.addChildren([indexRoute, toolRoute, ...siteRoutes]);
 

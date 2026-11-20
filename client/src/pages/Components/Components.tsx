@@ -32,8 +32,8 @@ const OPTIONS = [
   { value: "nine", label: "Nine" },
 ];
 
-// Dev-only scratch page for the shared components (pages/site.ts).
-export const Test = () => {
+// Scratch page for the shared components (pages/site.ts).
+export const Components = () => {
   const [disabled, setDisabled] = useState(false);
   const [message, setMessage] = useState(false);
   const [error, setError] = useState(false);
