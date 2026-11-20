@@ -265,6 +265,10 @@ export const Test = () => {
         />
       </div>
 
+      {/* <div className={form.horizontal}>
+      <button onClick={()=>{}} disabled={disabled} className={} />
+      </div> */}
+
       <div className={form.switchRow}>
         <Tooltip content="Tooltip content" render={<span />}>
           <span className={form.label}>Hover for a tooltip</span>

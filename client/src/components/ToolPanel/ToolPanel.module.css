@@ -79,9 +79,11 @@
   }
 }
 
-/* A line for the label, padded to 3rem; below it, the progress bar grows the
-   button by its gap and height. */
 .submit {
+  composes: input from global;
+  --border-subtle: var(--fg);
+  --input-bg-1: color-mix(in srgb, var(--fg), var(--bg) 32%);
+  --input-bg-2: color-mix(in srgb, var(--fg) 20%, var(--input-bg-1));
   display: grid;
   grid-template-rows: 1lh;
   justify-content: center;
@@ -90,17 +92,13 @@
   padding: calc((3rem - 1lh) / 2) 2em;
   min-height: 3rem;
   height: 3rem;
-  border-radius: var(--radius);
-  corner-shape: superellipse(1.45);
-  background-color: var(--fg);
   color: var(--bg);
-  border: none;
   cursor: pointer;
   transition:
     height var(--fade) ease,
-    background-color var(--fade) ease;
+    --input-bg-2 var(--fade) ease;
   &:hover:not([aria-disabled="true"]) {
-    background-color: color-mix(in srgb, var(--fg) 80%, var(--bg));
+    --input-bg-2: color-mix(in srgb, var(--fg) 80%, var(--bg));
   }
   &:has(> .progress:not([hidden])) {
     height: auto;
