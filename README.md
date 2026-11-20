@@ -47,7 +47,7 @@ videotools MARK <img.png|folder|glob> <options> --logo logo.svg
 - **Verbosity** · `--verbose-names` appends abbreviated settings to the output, to keep track of the applied settings.
 - **Failures** · A failed file doesn't stop the rest, but the exit code is non-zero. Temp files are cleaned up.
 
-`bun run build` in `cli/` bundles the CLI and core into one Node script in `cli/dist/`, leaving `@resvg/resvg-wasm` as an external dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag; `.github/workflows/cli.yml` tests, builds and publishes to npm.
+`bun run build` in `cli/` bundles the CLI and core into one Node script in `cli/dist/`, leaving `@resvg/resvg-wasm` as an external dependency. To release, bump `version` in `cli/package.json`; once that reaches `main`, `.github/workflows/cli.yml` tests, builds, publishes to npm and tags the commit `cli-v<version>`.
 
 ---
 

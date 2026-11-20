@@ -1,15 +1,18 @@
-# Publishes cli/ to npm as @videotools/cli when a cli-v<version> tag is pushed.
+# Publishes cli/ to npm as @videotools/cli when main gets a new version in
+# cli/package.json, and tags the commit cli-v<version>.
 # npm trusted publishing: the OIDC token stands in for an npm token.
 name: cli
 
 on:
   push:
-    tags:
-      - "cli-v*"
+    branches:
+      - main
+    paths:
+      - cli/package.json
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -28,7 +31,11 @@ jobs:
       - run: bun run test
       - run: bun run build
         working-directory: cli
-      - name: The tag is cli-v and cli/package.json's version
-        run: test "$GITHUB_REF_NAME" = "cli-v$(node -p 'require("./cli/package.json").version')"
-      - run: npm publish
+      # The file changes for its dependencies too: only a version npm lacks.
+      - run: |
+          version=$(node -p 'require("./package.json").version')
+          npm view "@videotools/cli@$version" version | grep -q . && exit 0
+          npm publish
+          git tag "cli-v$version"
+          git push origin "cli-v$version"
         working-directory: cli
