@@ -236,7 +236,7 @@
   transition: color var(--fade) ease;
 
   &:disabled {
-    cursor: not-allowed;
+    cursor: auto;
   }
 }
 

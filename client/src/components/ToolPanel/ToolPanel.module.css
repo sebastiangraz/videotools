@@ -94,6 +94,10 @@
   &:has(> .progress:not([hidden])) {
     height: auto;
   }
+  &[data-disabled] {
+    /* override global disabled opacity */
+    opacity: 1;
+  }
 }
 
 .label,

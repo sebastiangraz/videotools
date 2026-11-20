@@ -59,7 +59,11 @@
   }
 
   &[data-disabled] {
-    cursor: not-allowed;
+    cursor: auto;
+  }
+
+  &[data-disabled]:hover:after {
+    background-color: var(--border-solid);
   }
 
   &:focus-visible {
