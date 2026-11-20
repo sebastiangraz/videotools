@@ -141,7 +141,7 @@ const COMMANDS: Record<
       to: {
         arg: "format",
         values: FORMATS.map((format) => format.id),
-        default: "mp4",
+        help: "by default mp4, or webm for an mp4",
       },
       quality: QUALITY,
       fps: { arg: "n", range: RANGES.fps, only: ["to", "gif"], help: "by default the source's" },
@@ -193,7 +193,7 @@ const tool = process.argv[2]?.toLowerCase();
 const flags: Record<string, Flag> = {
   ...(isToolId(tool) && COMMANDS[tool].flags),
   out: { arg: "dir", help: "Override the default output directory", default: "." },
-  "verbose-names": { help: "Append settings to the file name", default: "false" },
+  "verbose-names": { help: "Append settings to the file name" },
 };
 const help = isToolId(tool)
   ? `Usage: videotools ${tool.toUpperCase()} <file|folder|glob>...${Object.entries(flags)
@@ -318,7 +318,7 @@ const jobs = command.together
   ? [found.flat()]
   : [...new Set(found.flat())].sort(natural).map((source) => [source]);
 
-const out = (values.out as string | undefined) ?? ".";
+const out = values.out as string;
 // Resolved: on Windows, Bun's recursive mkdir throws for "." and "..".
 fs.mkdirSync(path.resolve(out), { recursive: true });
 // Every job's folder, in one, so a leftover is easy to find.

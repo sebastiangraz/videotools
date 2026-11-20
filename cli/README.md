@@ -34,7 +34,7 @@ npx @videotools/cli LOOP <video.mp4|folder|glob> …
 --start <seconds>           from 0 up: where the loop starts (default: 0; only with --technique crossfade)
 --quality <n>               from 0 to 100 (default: 100)
 --out <dir>                 Override the default output directory (default: .)
---verbose-names             Append settings to the file name (default: false)
+--verbose-names             Append settings to the file name
 ```
 
 ---
@@ -50,7 +50,7 @@ npx @videotools/cli SEQUENCE <img.png|folder|glob> …
 --format <format>           mp4|gif|webp|avif (default: mp4)
 --quality <n>               from 0 to 100 (default: 100)
 --out <dir>                 Override the default output directory (default: .)
---verbose-names             Append settings to the file name (default: false)
+--verbose-names             Append settings to the file name
 ```
 
 ---
@@ -64,7 +64,7 @@ npx @videotools/cli SPEED <video.mp4|folder|glob> …
 ```text
 --speed <n>                 from -3 to 3: 1 is twice as fast, -1 half as fast, 3 and -3 four times; a negative as --speed=-1 (default: 0)
 --out <dir>                 Override the default output directory (default: .)
---verbose-names             Append settings to the file name (default: false)
+--verbose-names             Append settings to the file name
 ```
 
 ---
@@ -76,12 +76,12 @@ npx @videotools/cli CONVERT <video.mp4|folder|glob> …
 ```
 
 ```text
---to <format>               mp4|webm|mov|gif|webp|avif (default: mp4)
+--to <format>               mp4|webm|mov|gif|webp|avif: by default mp4, or webm for an mp4
 --quality <n>               from 0 to 100 (default: 100)
 --fps <n>                   from 1 to 30: by default the source's (only with --to gif)
 --width <px>                from 100 to 800 (default: 640; only with --to gif)
 --out <dir>                 Override the default output directory (default: .)
---verbose-names             Append settings to the file name (default: false)
+--verbose-names             Append settings to the file name
 ```
 
 ---
@@ -100,5 +100,5 @@ npx @videotools/cli MARK <img.png|folder|glob> … --logo logo.svg
 --shuffle                   randomly shuffle the --position value over time
 --quality <n>               from 0 to 100 (default: 100)
 --out <dir>                 Override the default output directory (default: .)
---verbose-names             Append settings to the file name (default: false)
+--verbose-names             Append settings to the file name
 ```
