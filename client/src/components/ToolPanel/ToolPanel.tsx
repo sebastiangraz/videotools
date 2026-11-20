@@ -1,4 +1,4 @@
-import { MouseEvent, ReactNode, useContext, useEffect, useState } from "react";
+import { AnimationEvent, MouseEvent, ReactNode, useContext, useEffect, useState } from "react";
 import { Progress } from "@base-ui/react/progress";
 import { Button } from "@src/components/Button/Button";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
@@ -63,6 +63,16 @@ export const ToolPanel = ({
     else if (e.detail < 2) run.cancel();
   };
 
+  // Clicking while blocked shakes the button. Base UI swallows a disabled
+  // button's clicks, so this listens in the capture phase.
+  const [shaking, setShaking] = useState(false);
+  const shake = () => {
+    if (blocked) setShaking(true);
+  };
+  const shakeEnd = (e: AnimationEvent<HTMLButtonElement>) => {
+    if (e.target === e.currentTarget) setShaking(false);
+  };
+
   return (
     <>
       <div className={styles.container}>{inputs}</div>
@@ -78,6 +88,9 @@ export const ToolPanel = ({
             render={
               <Button
                 onClick={click}
+                onClickCapture={shake}
+                onAnimationEnd={shakeEnd}
+                data-shake={shaking || undefined}
                 disabled={blocked}
                 focusableWhenDisabled
                 className={styles.submit}
