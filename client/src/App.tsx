@@ -38,7 +38,7 @@ const toolRoute = createRoute({
         { title: `${description} · videotoo.ls` },
         {
           name: "description",
-          content: `${description} in your browser. Free, private and built on ffmpeg: files never leave your device.`,
+          content: `${description} in your browser. Files never leave your device.`,
         },
       ],
       links: [{ rel: "canonical", href: `https://videotoo.ls/${params.tool}` }],
