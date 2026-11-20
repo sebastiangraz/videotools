@@ -223,11 +223,7 @@ ${Object.entries(flags)
        videotools <TOOL> --help
        videotools --version
 
-The web app's tools on native ffmpeg, a job at a time: one per file, or one
-for all of a sequence's images. A folder means the files in it that the tool
-takes; a glob is expanded. Results are named as the app names its downloads,
-or after their settings with --verbose-names. The first run downloads ffmpeg
-and gifski.
+The CLI for videotoo.ls, allows individual & bulk processing of videos and images. The first run downloads ffmpeg and gifski.
 
 Tools:
 ${TOOL_IDS.map((id) => `  ${id.toUpperCase().padEnd(10)}${COMMANDS[id].about}`).join("\n")}
