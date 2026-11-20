@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /components
+
+Sitemap: https://videotoo.ls/sitemap.xml

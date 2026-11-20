@@ -1,4 +1,4 @@
-import { Link, Outlet, useParams } from "@tanstack/react-router";
+import { HeadContent, Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
 import { TOOLS, type ToolId } from "./tools";
@@ -69,6 +69,7 @@ export const Layout = () => {
 
   return (
     <div className={styles.app}>
+      <HeadContent />
       <div className={styles.frame}>
         <header className={styles.header}>
           <Logo />
