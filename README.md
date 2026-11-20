@@ -26,17 +26,6 @@ git config core.autocrlf false                  # Windows: keep LF checkouts (ox
 
 Unit tests never spawn ffmpeg. The smoke suites in `scripts/smoke/` run the tools natively on the files in `scripts/smoke/assets/`. `mark` and `light` render grids of marked clips for visual review. `quality` scores every tool's results with SSIM, PSNR and VMAF, and fails if a score falls below the minimums in `quality.mjs`.
 
-## Architecture
-
-The client is a Vite + React 19 static site in `client/`, using TanStack Router with a single `/$tool` route. There is no backend, and files never leave the browser.
-
-The tools live in `core/` (`@videotools/core`), with one module per tool in `tools/` and one encoder per output format in `encode/`. They use `node:fs/promises` and `node:path`, and receive the command runner and resvg's WebAssembly as arguments. This lets the same code run in two places:
-
-- **In the browser.** Vite aliases `node:fs/promises` and `node:path` to an in-memory filesystem in `client/src/engine/`. Each job runs in a Web Worker, and each command runs in a fresh WebAssembly instance. ffmpeg's threads use shared memory, which requires cross-origin isolation, so every response sends COOP and COEP headers (`vercel.json`, and `client/vite.config.ts` for the dev server).
-- **Natively.** For the CLI, the smoke suites and scripts, `cli/exec.ts` spawns the binaries. They are downloaded on first use into `~/.videotools/<tool>-<version>-<hash>/` and verified by sha256.
-
-Both run the same pinned ffmpeg, built from the same tag with no version workarounds in code: as WebAssembly by `wasm/Dockerfile`, and natively from the builds pinned in `BINARIES` in `cli/binaries.ts`. gifski is pinned the same way (see `cli/gifski/README.md`). No system ffmpeg is needed, and ffprobe isn't used.
-
 ## CLI
 
 `videotools` (`cli/index.ts`, published on npm as `@videotools/cli`) runs the tools natively over many files. It runs one job per file, or a single job for all of a sequence's images.
@@ -63,9 +52,26 @@ Enabling `Command line` shows the equivalent `npx @videotools/cli` command on th
 
 `bun run build` in `cli/` bundles the CLI and core into a single Node script in `cli/dist/`. The bundle leaves `@resvg/resvg-wasm` external, as a regular dependency. To release, bump `version` in `cli/package.json` and push a `cli-v<version>` tag. `.github/workflows/cli.yml` then tests, builds and publishes the package to npm.
 
+## FAQ
+
+- **Why are my files coming out way larger than my input?** · To retain fidelity the app measures quality loss with techniques like PSNR and VMAF. These values take precedence over file sizes. This is to ensure the quality remains stable if you run the same video through multiple jobs.
+- **How can I bulk process videos?** · Use the CLI and use a folder directory as input.
+- **Is there an MCP?** · No, but if you prefer using natural language ask your agent to get aquainted with the CLI.
+- **Why are non-square-pixel inputs refused?** Anamorphic video formats are confusing, increasingly obsolete, and out of scope for this tool. Use Handbrake to convert them to square-pixel formats.
+
 ## Principles
 
-- **Format agnostic.** Loop, Speed and Mark return the same format they're given, and refuse formats the app can't write (AVI, MKV, etc.) with a pointer to Convert. Only Convert changes formats.
-- **Single encoder**, shared by every tool. A tool describes its inputs and a filtergraph, and the output format's encoder renders them in one pass. If an encoder retries for a smaller file, it re-encodes from the same render, so retries add no generation loss.
-- **Quality capped to source.** Quality 100 means "match the source", not "maximum bytes".
-- **Non-square-pixel video is refused.** Anamorphic video is confusing, increasingly obsolete, and out of scope for this tool.
+- **Format agnostic** · Loop, Speed and Mark return the same format they're given, and refuse formats the app can't write.
+- **Simple & Extensible** · The web UI handles the one-off tasks, while the CLI does the heavy lifting for more advanced use cases.
+- **Quality at any cost** · By default the quality output value is set to 100 to retain fidelity throughout multiple jobs, even if it means larger files.
+
+## Architecture
+
+The client is a Vite + React 19 static site in `client/`, using TanStack Router with a single `/$tool` route. There is no backend, and files never leave the browser.
+
+The tools live in `core/` (`@videotools/core`), with one module per tool in `tools/` and one encoder per output format in `encode/`. They use `node:fs/promises` and `node:path`, and receive the command runner and resvg's WebAssembly as arguments. This lets the same code run in two places:
+
+- **In the browser.** Vite aliases `node:fs/promises` and `node:path` to an in-memory filesystem in `client/src/engine/`. Each job runs in a Web Worker, and each command runs in a fresh WebAssembly instance. ffmpeg's threads use shared memory, which requires cross-origin isolation, so every response sends COOP and COEP headers (`vercel.json`, and `client/vite.config.ts` for the dev server).
+- **Natively.** For the CLI, the smoke suites and scripts, `cli/exec.ts` spawns the binaries. They are downloaded on first use into `~/.videotools/<tool>-<version>-<hash>/` and verified by sha256.
+
+Both run the same pinned ffmpeg, built from the same tag with no version workarounds in code: as WebAssembly by `wasm/Dockerfile`, and natively from the builds pinned in `BINARIES` in `cli/binaries.ts`. gifski is pinned the same way (see `cli/gifski/README.md`). No system ffmpeg is needed, and ffprobe isn't used.
