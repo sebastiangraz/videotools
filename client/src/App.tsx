@@ -7,9 +7,13 @@ import {
 } from "@tanstack/react-router";
 import { Layout, ToolPage } from "./Layout";
 import { SITE_PAGES, type SitePath } from "./pages/site";
+import { toolById, type ToolId } from "./tools";
 import { TOOL_IDS, isToolId } from "@videotools/core/formats";
 
-const rootRoute = createRootRoute({ component: Layout });
+const rootRoute = createRootRoute({
+  head: () => ({ meta: [{ title: "videotoo.ls · Video tools in your browser" }] }),
+  component: Layout,
+});
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -26,6 +30,19 @@ const toolRoute = createRoute({
     if (!isToolId(params.tool)) {
       throw redirect({ to: "/$tool", params: { tool: TOOL_IDS[0] } });
     }
+  },
+  head: ({ params }) => {
+    const { description } = toolById(params.tool as ToolId);
+    return {
+      meta: [
+        { title: `${description} · videotoo.ls` },
+        {
+          name: "description",
+          content: `${description} in your browser. Free, private and built on ffmpeg: files never leave your device.`,
+        },
+      ],
+      links: [{ rel: "canonical", href: `https://videotoo.ls/${params.tool}` }],
+    };
   },
   component: ToolPage,
 });

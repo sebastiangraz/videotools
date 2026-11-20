@@ -105,6 +105,23 @@ describe("App", () => {
     expect(router.state.location.pathname).toBe("/loop");
   });
 
+  it("titles, describes and canonicalizes each tool's page", async () => {
+    const user = userEvent.setup();
+    await renderApp("/speed");
+    await user.click(screen.getByRole("tab", { name: /mark/i }));
+
+    await waitFor(() => expect(document.title).toBe("Watermark a video or image · videotoo.ls"));
+    expect(document.querySelectorAll("title")).toHaveLength(1);
+    expect(document.querySelector('meta[name="description"]')).toHaveAttribute(
+      "content",
+      expect.stringMatching(/^Watermark a video or image in your browser/),
+    );
+    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://videotoo.ls/mark",
+    );
+  });
+
   it("runs the tool on the picked file and saves the result under the engine's name", async () => {
     const user = userEvent.setup();
     const video = mp4();
