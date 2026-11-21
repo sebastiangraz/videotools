@@ -5,7 +5,7 @@ import type { Storyboard } from "./index.js";
 // below with the crossfade, on top without, cutting hard where the fade ends.
 // In frames; the loop is the clip less the fade, as its first frames only
 // exist blended.
-const CLIP = 3 * ICON.fps;
+const CLIP = 6 * ICON.fps;
 const FADE = ICON.fps / 2;
 const START = CLIP / 2;
 const PERIOD = CLIP - FADE;
