@@ -5,7 +5,7 @@ import type { Storyboard } from "./index.js";
 // below with the crossfade, on top without, cutting hard where the fade ends.
 // In frames; the loop is the clip less the fade, as its first frames only
 // exist blended.
-const CLIP = 6 * ICON.fps;
+const CLIP = 3 * ICON.fps;
 const FADE = ICON.fps / 2;
 const START = CLIP / 2;
 const PERIOD = CLIP - FADE;
@@ -25,11 +25,11 @@ export default {
     // corners. The line below is its playhead.
     const pane = (y: number, images: string) =>
       `<g transform="translate(26 ${y})" fill="${fg}"><g clip-path="url(#loop${i})">${images}</g>` +
-      `<rect ${PANE} rx="3" fill="none" stroke="${fg}" stroke-opacity="0.16"/>` +
+      `<rect ${PANE} rx="6" fill="none" stroke="${fg}" stroke-opacity="0.16"/>` +
       `<rect y="33.5" width="56" height="1" fill-opacity="0.16"/>` +
       `<rect y="33.5" width="${(56 * i) / PERIOD}" height="1" fill-opacity="0.4"/></g>`;
     return (
-      `<clipPath id="loop${i}"><rect ${PANE} rx="3"/></clipPath>` +
+      `<clipPath id="loop${i}"><rect ${PANE} rx="6"/></clipPath>` +
       pane(17.5, image(frame)) +
       pane(56, image(frame) + (k >= 0 && k < FADE ? image(k, k / FADE) : ""))
     );
