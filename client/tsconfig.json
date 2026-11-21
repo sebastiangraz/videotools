@@ -6,7 +6,7 @@
     "module": "ESNext",
     "skipLibCheck": true,
     // The tools (@videotools/core) are written against node:fs/promises and node:path.
-    "types": ["node"],
+    "types": ["node", "@webgpu/types"],
 
     "moduleResolution": "bundler",
     "resolveJsonModule": true,

@@ -38,9 +38,7 @@ export const stubProperties = (proto: object, stubs: Record<string, PropertyDesc
 // Returns the context's `drawImage`.
 export const stubCanvas = () => {
   const drawImage = vi.fn();
-  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
-    drawImage,
-  } as unknown as CanvasRenderingContext2D);
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage } as never);
   vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (callback) {
     callback(new Blob(["jpg"], { type: "image/jpeg" }));
   });
