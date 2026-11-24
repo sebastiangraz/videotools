@@ -20,7 +20,8 @@ export type Layer = {
   opacity?: number;
   // What fills it: a clip's frame, mixed into its `next` by `mix`; glass,
   // whitened by `glass` (below 0 darkened and lit as if recessed), with a
-  // `label` on it; or the text colour at `ink` opacity (black below 0).
+  // `label` on it; or what's under it blurred, under the text colour at `ink`
+  // opacity (black below 0).
   clip?: string;
   frame?: number;
   next?: number;
@@ -62,7 +63,7 @@ export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
       size: [half, high],
       radius: high,
       z: 1,
-      ink: -0.2,
+      ink: -0.1,
     },
     { at: [x - half + lit, y + h - 8.6], size: [lit, high], radius: high, z: 1.1, glass: 0.4 },
   ];
@@ -126,6 +127,9 @@ const SETTINGS = {
   rimSaturation: 2.4,
   // Label text opacity.
   label: 0.25,
+  // Ink blurs what's under it as CSS's `backdrop-filter: blur()` does by
+  // this.
+  inkBlur: 4,
 };
 
 const SHADER = /* wgsl */ `
@@ -154,7 +158,7 @@ struct Layer {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 @group(0) @binding(1) var<storage> layers: array<Layer>;
 @group(0) @binding(2) var bilinear: sampler;
-// The canvas as the layers below a glass one left it.
+// The canvas as the layers below a glass or ink one left it.
 @group(0) @binding(3) var backdrop: texture_2d<f32>;
 // The icon's clip frames, then its labels.
 @group(1) @binding(0) var images: texture_2d_array<f32>;
@@ -194,6 +198,9 @@ struct Out {
   } else if (l.kind == GLASS) {
     c = vec4f(glass(l, p, d), 1);
     shade = ${SETTINGS.glassShadow};
+  } else {
+    // A disc twice the deviation spreads as far as a CSS blur.
+    c = over(vec4f(frost(p, ${2 * SETTINGS.inkBlur}), 1), c);
   }
   c = mix(c, u.bg * c.a, clamp(-l.z * ${SETTINGS.fog}, 0, 1));
   let blur = ${SETTINGS.shadowBlur};
@@ -466,8 +473,8 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
       };
       let pass = begin("clear");
       draws.forEach(({ entry, layer }, n) => {
-        // Glass sees what's under it.
-        if (layer.glass !== undefined) {
+        // Glass and ink see what's under them.
+        if ((layer.glass ?? layer.ink) !== undefined) {
           pass.end();
           encoder.copyTextureToTexture({ texture }, { texture: backdrop! }, [side, side]);
           pass = begin("load");
