@@ -31,7 +31,7 @@ export default {
     // Out from behind the key as the icon comes in.
     const cards = [0, 1, 2, 3].map((i): Layer => {
       const place = (i + 1 - step) * show;
-      const n = Math.min(Math.floor(place), 3);
+      const n = Math.min(Math.max(Math.floor(place), 0), 3);
       const [half, top] = mix(places[n], places[n + 1], place - n);
       return {
         at: [x, y - h + top + 0.75 * half],

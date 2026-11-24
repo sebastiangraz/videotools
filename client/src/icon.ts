@@ -42,7 +42,7 @@ export type Icon = {
   labels?: string[];
   // Where the key rests, in a CELL square around the header's logo slot.
   key: Box;
-  // The layers at t, the key's filling `key` as it is now. `show` runs from
+  // The layers at t, the key's filling `key` as it is now. `show` eases from
   // 0 to 1 as the icon comes in and back as it goes, moving layers but never
   // adding or dropping one; `frames` counts each clip's.
   layers: (t: number, show: number, key: Box, frames: Record<string, number>) => Layer[];
@@ -51,7 +51,21 @@ export type Icon = {
 export const mix = <T extends number[]>(a: T, b: T, f: number) =>
   a.map((v, i) => v + (b[i] - v) * f) as T;
 
-export const ease = (f: number) => f * f * (3 - 2 * f);
+// The curve from 0 through control points a and b to 1, at s.
+const bezier = (a: number, b: number, s: number) =>
+  3 * s * (1 - s) * (a * (1 - s) + b * s) + s ** 3;
+
+// EASING at f: the curve's y where its x is f, found by halving.
+export const ease = (f: number) => {
+  const [x1, y1, x2, y2] = EASING;
+  let [lo, hi] = [0, 1];
+  while (hi - lo > 1e-6) {
+    const s = (lo + hi) / 2;
+    if (bezier(x1, x2, s) < f) lo = s;
+    else hi = s;
+  }
+  return bezier(y1, y2, lo);
+};
 
 // CSS's round(): v to the nearest multiple of step, halfway up.
 const round = (v: number, step: number) => Math.round(v / step) * step;
@@ -76,6 +90,9 @@ export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
 const CELL = 144;
 // Seconds an icon takes to come in, or to go.
 const TRANSITION = 0.6;
+// How every icon motion eases, as CSS's cubic-bezier() takes it. Going plays
+// it backwards; y past 0 or 1 overshoots where layers rest.
+const EASING = [0.65, 0, 0.35, 1];
 // Texels per icon unit in a label's texture layer at most; below that one per
 // device pixel, so its text is drawn at the size it shows.
 const TEXELS = 4;
@@ -206,7 +223,7 @@ struct Out {
     c = over(vec4f(frost(p, ${2 * SETTINGS.inkBlur}), 1), c);
   }
   c = mix(c, u.bg * c.a, clamp(-l.z * ${SETTINGS.fog}, 0, 1));
-  return c * fill(d) * l.opacity;
+  return c * fill(d) * saturate(l.opacity);
 }
 
 // Glass over the backdrop.
@@ -473,10 +490,11 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         const [y0, y1] = w > c ? [round(y - h, px), round(y + h, px)] : [y - h, y + h];
         return [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2, r];
       };
-      // The keys mix into one, each over the ones before by its share so far.
+      // The keys mix into one, each over the ones before by its share so far,
+      // eased so a lone morph follows the curve.
       const weights = shown.map((entry) => ease(entry.show));
       let total = 0;
-      const shares = weights.map((weight) => weight / (total += weight) || 0);
+      const shares = shown.map(({ show }) => ease(show / (total += show) || 0));
       const key = shown.reduce(
         (key, entry, i) => mix(key, snap(entry.icon.key), shares[i]),
         snap(shown[0].icon.key),

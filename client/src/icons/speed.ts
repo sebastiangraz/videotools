@@ -1,4 +1,4 @@
-import { type Icon } from "../icon";
+import { ease, type Icon } from "../icon";
 import { ICON } from "../tools";
 import grow from "./grow.avif";
 
@@ -10,11 +10,8 @@ const COUNT = DURATION * ICON.fps;
 // The knob's centre off the key's, its radius, and its arc's.
 const [X, Y, R, ARC] = [0, 28, 21.5, 28];
 
-// Eases between +2 and -2, lingering at each.
-const speed = (t: number) => {
-  const c = Math.cos((2 * Math.PI * t) / DURATION);
-  return c * (3 - c * c);
-};
+// Eases from +2 to -2 and back.
+const speed = (t: number) => 2 - 4 * ease(1 - Math.abs(1 - (2 * t) / DURATION));
 
 // Source frames played by the start of each frame.
 const played = [0];
