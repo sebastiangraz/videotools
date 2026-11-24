@@ -43,8 +43,8 @@ export type Icon = {
   // Where the key rests, in a CELL square around the header's logo slot.
   key: Box;
   // The layers at t, the key's filling `key` as it is now. `show` runs from
-  // 0 to 1 as the icon comes in and back as it goes; `frames` counts each
-  // clip's.
+  // 0 to 1 as the icon comes in and back as it goes, moving layers but never
+  // adding or dropping one; `frames` counts each clip's.
   layers: (t: number, show: number, key: Box, frames: Record<string, number>) => Layer[];
 };
 
@@ -52,6 +52,9 @@ export const mix = <T extends number[]>(a: T, b: T, f: number) =>
   a.map((v, i) => v + (b[i] - v) * f) as T;
 
 export const ease = (f: number) => f * f * (3 - 2 * f);
+
+// CSS's round(): v to the nearest multiple of step, halfway up.
+const round = (v: number, step: number) => Math.round(v / step) * step;
 
 // The video's timeline in glass along the key's foot, `played` of it lit.
 export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
@@ -209,7 +212,9 @@ struct Out {
 // Glass over the backdrop.
 fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
   let e = vec2f(0.1, 0);
-  let n = normalize(vec2f(shape(l, p + e) - shape(l, p - e), shape(l, p + e.yx) - shape(l, p - e.yx)));
+  let g = vec2f(shape(l, p + e) - shape(l, p - e), shape(l, p + e.yx) - shape(l, p - e.yx));
+  // None on a ridge, such as a pill's spine, deep inside where it goes unused.
+  let n = g / max(length(g), 1e-6);
   // Half the shape's narrow side.
   let half = select(min(l.size.x, l.size.y), l.size.y, l.arc != 0);
   // From the edge in, the bevel refracts sharp and the flat frosts.
@@ -427,10 +432,11 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         const [r, g, b, a = 1] = css.match(/[\d.]+/g)!.map(Number);
         return [(r / 255) * a, (g / 255) * a, (b / 255) * a, a];
       };
+      const px = CELL / side;
       uniforms.set([
         ...premultiplied(color),
         ...premultiplied(backgroundColor),
-        CELL / side,
+        px,
         CELL / canvas.clientWidth,
       ]);
       device.queue.writeBuffer(uniformBuffer, 0, uniforms);
@@ -460,28 +466,45 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         });
       }
 
+      // A box with its straight edges on whole device pixels.
+      const snap = ([x, y, w, h, r]: Box): Box => {
+        const c = Math.min(r, w, h);
+        const [x0, x1] = h > c ? [round(x - w, px), round(x + w, px)] : [x - w, x + w];
+        const [y0, y1] = w > c ? [round(y - h, px), round(y + h, px)] : [y - h, y + h];
+        return [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2, r];
+      };
       // The keys mix into one, each over the ones before by its share so far.
       const weights = shown.map((entry) => ease(entry.show));
       let total = 0;
       const shares = weights.map((weight) => weight / (total += weight) || 0);
       const key = shown.reduce(
-        (key, entry, i) => mix(key, entry.icon.key, shares[i]),
-        shown[0].icon.key,
+        (key, entry, i) => mix(key, snap(entry.icon.key), shares[i]),
+        snap(shown[0].icon.key),
       );
       const draws = shown
-        .flatMap((entry, i) =>
-          entry.icon
-            .layers(frame[i] / ICON.fps, weights[i], key, entry.frames)
-            .map((layer) => ({ entry, layer, opacity: layer.z ? weights[i] : shares[i] })),
-        )
+        .flatMap((entry, i) => {
+          const t = frame[i] / ICON.fps;
+          // Each layer off by what snaps it at rest, so it moves smoothly and
+          // lands sharp.
+          const rest = entry.icon.layers(t, 1, snap(entry.icon.key), entry.frames);
+          return entry.icon.layers(t, weights[i], key, entry.frames).map((layer, n) => {
+            const { at, size, radius = 0, turn, sweep } = rest[n];
+            const box: Box = [...at, ...size, radius];
+            const snapped = turn === undefined && sweep === undefined ? snap(box) : box;
+            return {
+              entry,
+              layer,
+              shift: snapped.map((v, k) => v - box[k]),
+              opacity: layer.z ? weights[i] : shares[i],
+            };
+          });
+        })
         .sort((a, b) => a.layer.z - b.layer.z);
-      draws.forEach(({ entry: { first }, layer: l, opacity }, n) => {
+      draws.forEach(({ entry: { first }, layer: l, shift, opacity }, n) => {
         const image = (name?: string, frame = 0) => (name ? first[name] + frame : -1);
         packed.set(
           [
-            ...l.at,
-            ...l.size,
-            l.radius ?? 0,
+            ...[...l.at, ...l.size, l.radius ?? 0].map((v, k) => v + shift[k]),
             l.turn ?? 0,
             l.sweep ?? 0,
             Number(l.sweep !== undefined),
