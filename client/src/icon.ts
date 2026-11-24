@@ -89,10 +89,6 @@ const SETTINGS = {
   lightAngle: -45,
   // Fade into the page per unit of depth.
   fog: 0.1,
-  // Drop shadow opacity under glass, its blur and downward offset.
-  glassShadow: 0.06,
-  shadowBlur: 4.5,
-  shadowOffset: 2.5,
   // Light a pane's edge, a CSS pixel wide, adds (plus-lighter) along its top on
   // a dark page, or takes (plus-darker) along its foot on a light one.
   paneEdge: 0.08,
@@ -109,7 +105,6 @@ const SETTINGS = {
   // `glowShift` bevels towards the light. `laid` ones go over in white, the
   // rest add light `glowTint` of the way from white to the glass's colour.
   glows: [
-    { bevel: 0.02, opacity: 0.04 },
     { bevel: 0.025, opacity: 0.2 },
     { bevel: 0.12, opacity: 0.06, laid: true },
     { bevel: 0.225, opacity: 0.32 },
@@ -125,10 +120,9 @@ const SETTINGS = {
   // degrees each eases in over.
   rimGap: 36,
   rimFalloff: 60,
-  // Rim colour from white at 0 to what it sits on at 1, that frosted over
-  // rimFrost and saturated by rimSaturation.
+  // Rim colour from white at 0 to what it sits on at 1, that saturated by
+  // rimSaturation.
   rimTinge: 0.5,
-  rimFrost: 0.5,
   rimSaturation: 2.4,
   // Label text opacity.
   label: 0.25,
@@ -191,12 +185,10 @@ struct Out {
   let l = layers[in.n];
   let p = in.at.xy * u.px;
   let d = shape(l, p);
-  // Past its shadow.
-  if (d > ${SETTINGS.shadowBlur + SETTINGS.shadowOffset}) {
+  if (fill(d) == 0) {
     return vec4f();
   }
   var c = select(u.fg, vec4f(0, 0, 0, 1), l.amount < 0) * abs(l.amount);
-  var shade = 0.0;
   if (l.kind == PANE) {
     let uv = turn(p - l.at, -l.turn) / l.size / 2 + 0.5;
     c = mix(image(l.image, uv), image(l.next, uv), l.mix);
@@ -206,15 +198,12 @@ struct Out {
     c = vec4f(saturate(c.rgb + s * ${SETTINGS.paneEdge} * edge), c.a);
   } else if (l.kind == GLASS) {
     c = vec4f(glass(l, p, d), 1);
-    shade = ${SETTINGS.glassShadow};
   } else {
     // A disc twice the deviation spreads as far as a CSS blur.
     c = over(vec4f(frost(p, ${2 * SETTINGS.inkBlur}), 1), c);
   }
   c = mix(c, u.bg * c.a, clamp(-l.z * ${SETTINGS.fog}, 0, 1));
-  let blur = ${SETTINGS.shadowBlur};
-  let shadow = shade * (1 - smoothstep(-blur, blur, shape(l, p - vec2f(0, ${SETTINGS.shadowOffset}))));
-  return over(vec4f(0, 0, 0, shadow), c * fill(d)) * l.opacity;
+  return c * fill(d) * l.opacity;
 }
 
 // Glass over the backdrop.
@@ -247,7 +236,7 @@ fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
   // the other way round.
   let side = sign(l.amount + 1e-6) * degrees(asin(clamp(dot(n, LIGHT), -1, 1)));
   let level = ${SETTINGS.rimOpacity} * ramp(side) + ${SETTINGS.glint} * ramp(-side);
-  let paint = frost(p, ${SETTINGS.rimFrost});
+  let paint = over(u.bg, textureSampleLevel(backdrop, bilinear, p / CELL, 0)).rgb;
   let tinge = clamp(mix(vec3f(dot(paint, LUMA)), paint, ${SETTINGS.rimSaturation}), vec3f(), vec3f(1));
   let rim = 1 - fill(d + max(${SETTINGS.rimWidth}, u.px));
   c = mix(c, mix(vec3f(1), tinge, ${SETTINGS.rimTinge}), level * rim);
