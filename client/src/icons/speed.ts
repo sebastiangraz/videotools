@@ -59,9 +59,9 @@ fn icon(p: vec2f) -> vec4f {
     if (!on && pip >= min(0, angle) && pip <= max(0, angle)) {
       continue;
     }
-    let d = length(k - turn(top, pip)) - 1.4;
-    c = over(c, ink(select(0.16, 0.4, on)) * fill(d));
-    c *= 1 - stroke(d, 1);
+    let d = length(k - turn(top, pip));
+    c *= 1 - stroke(d - 1.9, 1);
+    c = over(c, ink(select(0.16, 0.4, on)) * fill(d - 0.9));
   }
   return over(c, ink(0.4) * fill(segment(turn(k, -angle), vec2f(), top + vec2f(0, 5)) - 1));
 }`,

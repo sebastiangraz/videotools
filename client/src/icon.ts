@@ -48,9 +48,9 @@ fn fill(d: f32) -> f32 {
   return clamp(0.5 - d / u.px, 0, 1);
 }
 
-// Coverage of a line of width w along a shape's edge.
+// Coverage of a line of width w along the inside of a shape's edge.
 fn stroke(d: f32, w: f32) -> f32 {
-  return fill(abs(d) - w / 2);
+  return fill(abs(d + w / 2) - w / 2);
 }
 
 // A box of half size h around the origin, its corners rounded by r or as much
