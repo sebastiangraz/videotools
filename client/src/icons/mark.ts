@@ -8,7 +8,7 @@ export default {
   clips: { grow },
   key: [72, 72, 42, 32, 18],
   layers(t, _, [x, y, w, h, r], frames) {
-    const at: [number, number] = [x + 31, y + 20];
+    const at: [number, number] = [x + 30, y + 19];
     return [
       {
         at: [x, y],
@@ -18,7 +18,7 @@ export default {
         clip: "grow",
         frame: Math.round(t * ICON.fps) % frames.grow,
       },
-      { at, size: [20, 20], radius: 20, z: 1, glass: 0.1 },
+      { at, size: [18, 18], radius: 20, z: 1, glass: 0.1 },
       { at, size: [9, 3], turn: 124, sweep: 292, z: 2, glass: 0.16 },
     ];
   },

@@ -73,9 +73,10 @@ export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
 const CELL = 144;
 // Seconds an icon takes to come in, or to go.
 const TRANSITION = 0.6;
-// Texels per icon unit in a label's texture layer.
+// Texels per icon unit in a label's texture layer at most; below that one per
+// device pixel, so its text is drawn at the size it shows.
 const TEXELS = 4;
-const FONT = `500 ${9 * TEXELS}px Styrene`;
+const font = (texels: number) => `500 ${9 * texels}px Styrene`;
 // Floats per packed layer, and the most a frame draws.
 const STRIDE = 16;
 const MAX = 256;
@@ -95,7 +96,7 @@ const SETTINGS = {
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
   bevel: 0.4,
-  refract: 1.5,
+  refract: 1.6,
   // Frost blur radius on the flat, and its saturation with no change at 1.
   frost: 9,
   saturation: 1.2,
@@ -243,7 +244,9 @@ fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
   let rim = 1 - fill(d + max(${SETTINGS.rimWidth}, u.px));
   c = mix(c, mix(vec3f(1), tinge, ${SETTINGS.rimTinge}), level * rim);
   if (l.image >= 0) {
-    let text = image(l.image, (p - l.at) * TEXELS / CLIP + 0.5).a;
+    // Its texels on whole device pixels.
+    let k = min(1 / u.px, TEXELS);
+    let text = image(l.image, (p * k - round(l.at * k)) / CLIP + 0.5).a;
     c = over(vec4f(c, 1), u.fg * ${SETTINGS.label} * text).rgb;
   }
   return c;
@@ -319,6 +322,8 @@ type Shown = {
   frames: Record<string, number>;
   show: number;
   start?: number;
+  // Texels per icon unit its labels were drawn at.
+  texels?: number;
 };
 
 // Plays the icon last shown on `canvas` until stopped, each new one morphing
@@ -366,6 +371,9 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
+    const sheet = new OffscreenCanvas(ICON.clip[0], ICON.clip[1]);
+    const pen = sheet.getContext("2d")!;
+    pen.fillStyle = "white";
     let backdrop: GPUTexture | undefined;
     let group: GPUBindGroup | undefined;
 
@@ -422,6 +430,31 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
       };
       uniforms.set([...premultiplied(color), ...premultiplied(backgroundColor), CELL / side]);
       device.queue.writeBuffer(uniformBuffer, 0, uniforms);
+      // Labels centred on their ink, their baseline on a whole pixel, white for
+      // the shader to colour.
+      const texels = Math.min(side / CELL, TEXELS);
+      for (const entry of shown) {
+        if (entry.texels === texels) continue;
+        entry.texels = texels;
+        pen.font = font(texels);
+        pen.letterSpacing = "0.08em";
+        entry.icon.labels?.forEach((text) => {
+          const ink = pen.measureText(text);
+          pen.clearRect(0, 0, sheet.width, sheet.height);
+          pen.fillText(
+            text,
+            Math.round((sheet.width + ink.actualBoundingBoxLeft - ink.actualBoundingBoxRight) / 2),
+            Math.round(
+              (sheet.height + ink.actualBoundingBoxAscent - ink.actualBoundingBoxDescent) / 2,
+            ),
+          );
+          device.queue.copyExternalImageToTexture(
+            { source: sheet },
+            { texture: entry.texture, origin: [0, 0, entry.first[text]] },
+            ICON.clip,
+          );
+        });
+      }
 
       // The keys mix into one, each over the ones before by its share so far.
       const weights = shown.map((entry) => ease(entry.show));
@@ -502,7 +535,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         }),
       );
       const labels = icon.labels ?? [];
-      if (labels.length) await document.fonts.load(FONT);
+      if (labels.length) await document.fonts.load(font(1));
       const count = clips.flat().length;
       const texture = device.createTexture({
         size: [...ICON.clip, count + labels.length],
@@ -519,26 +552,6 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           ICON.clip,
         );
         frame.close();
-      });
-      // Centred on their ink, white for the shader to colour.
-      const sheet = new OffscreenCanvas(ICON.clip[0], ICON.clip[1]);
-      const pen = sheet.getContext("2d")!;
-      pen.font = FONT;
-      pen.letterSpacing = "0.05em";
-      pen.fillStyle = "white";
-      labels.forEach((text, k) => {
-        const ink = pen.measureText(text);
-        pen.clearRect(0, 0, sheet.width, sheet.height);
-        pen.fillText(
-          text,
-          (sheet.width + ink.actualBoundingBoxLeft - ink.actualBoundingBoxRight) / 2,
-          (sheet.height + ink.actualBoundingBoxAscent - ink.actualBoundingBoxDescent) / 2,
-        );
-        device.queue.copyExternalImageToTexture(
-          { source: sheet },
-          { texture, origin: [0, 0, count + k] },
-          ICON.clip,
-        );
       });
       const names = Object.keys(icon.clips);
       return {
