@@ -73,4 +73,4 @@ export const toolById = (id: ToolId): Tool => ({ value: id, ...TOOL_META[id] });
 
 // Header icon clips (scripts/icons): their frame rate, and their size, twice
 // the largest pane's.
-export const ICON = { fps: 60, clip: [128, 72] };
+export const ICON = { fps: 60, clip: [168, 126] };

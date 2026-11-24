@@ -1,7 +1,7 @@
 import { HeadContent, Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
-import { playIcon, type Icon } from "./icon";
+import { playIcons, type Icon } from "./icon";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
@@ -51,13 +51,18 @@ const Logo = () => (
 
 const ICONS = import.meta.glob<Icon>("./icons/*.ts", { eager: true, import: "default" });
 
+// Stays mounted from tool to tool, so each icon morphs out of the last.
 const ToolIcon = ({ icon }: { icon: Icon }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const playerRef = useRef<ReturnType<typeof playIcons> | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!failed) return playIcon(canvasRef.current!, icon, () => setFailed(true));
-  }, [icon, failed]);
+    if (failed) return;
+    playerRef.current = playIcons(canvasRef.current!, () => setFailed(true));
+    return playerRef.current.stop;
+  }, [failed]);
+  useEffect(() => playerRef.current?.show(icon), [icon, failed]);
 
   return failed ? (
     <Logo />
