@@ -94,9 +94,9 @@ const SETTINGS = {
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
   bevel: 0.4,
-  refract: 1.6,
+  refract: 1.5,
   // Frost blur radius on the flat, and its saturation with no change at 1.
-  frost: 7,
+  frost: 9,
   saturation: 1.2,
   // Light within the glass as stacked glows, each fading in from the edges
   // over its bevel (fraction of the shape's narrow side) at its opacity, moved
