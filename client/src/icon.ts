@@ -57,8 +57,14 @@ export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
   const [half, high] = [w - 7, 2.4];
   const lit = Math.max(high, half * played);
   return [
-    { at: [x, y + h - 8.6], size: [half, high], radius: high, z: 1, glass: -0.3 },
-    { at: [x - half + lit, y + h - 8.6], size: [lit, high], radius: high, z: 1.1, glass: 0.3 },
+    {
+      at: [x, y + h - 8.6],
+      size: [half, high],
+      radius: high,
+      z: 1,
+      glass: -0.2,
+    },
+    { at: [x - half + lit, y + h - 8.6], size: [lit, high], radius: high, z: 1.1, glass: 0.4 },
   ];
 };
 
@@ -76,48 +82,48 @@ const MAX = 256;
 // The look, sizes in icon units.
 const SETTINGS = {
   // Light direction in degrees clockwise from the top.
-  lightAngle: -60,
+  lightAngle: -45,
   // Fade into the page per unit of depth.
   fog: 0.075,
   // Drop shadow opacity under panes and glass, its blur and downward offset.
-  paneShadow: 0.35,
-  glassShadow: 0.2,
-  shadowBlur: 2.5,
-  shadowOffset: 1.5,
+  paneShadow: 0.25,
+  glassShadow: 0.06,
+  shadowBlur: 4.5,
+  shadowOffset: 2.5,
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
-  bevel: 0.2,
-  refract: 1,
+  bevel: 0.4,
+  refract: 1.6,
   // Frost blur radius on the flat, and its saturation with no change at 1.
-  frost: 4,
+  frost: 7,
   saturation: 1.2,
   // Light within the glass as stacked glows, each fading in from the edges
   // over its bevel (fraction of the shape's narrow side) at its opacity, moved
   // `glowShift` bevels towards the light. `laid` ones go over in white, the
   // rest add light `glowTint` of the way from white to the glass's colour.
   glows: [
-    { bevel: 0.02, opacity: 0.09, laid: true },
-    { bevel: 0.025, opacity: 0.24 },
+    { bevel: 0.02, opacity: 0.04 },
+    { bevel: 0.025, opacity: 0.2 },
     { bevel: 0.12, opacity: 0.06, laid: true },
-    { bevel: 0.225, opacity: 0.12 },
+    { bevel: 0.225, opacity: 0.32 },
   ],
   glowShift: 1,
-  glowTint: 0.44,
+  glowTint: 1,
   // Rim width (a device pixel at least), lit rim opacity, and the glint's on
   // the far side from the light.
-  rimWidth: 0.75,
+  rimWidth: 1,
   rimOpacity: 0.88,
-  glint: 0.58,
+  glint: 0.77,
   // Degrees either side of side-on to the light where neither shows, and the
   // degrees each eases in over.
-  rimGap: 20,
-  rimFalloff: 28,
+  rimGap: 36,
+  rimFalloff: 40,
   // Rim colour from white at 0 to what it sits on at 1, that frosted over
   // rimFrost and saturated by rimSaturation.
-  rimTinge: 0.3,
+  rimTinge: 0.5,
   rimFrost: 0.5,
-  rimSaturation: 2,
+  rimSaturation: 2.4,
   // Label text opacity.
   label: 0.25,
 };

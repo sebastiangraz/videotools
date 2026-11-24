@@ -8,7 +8,7 @@ import grow from "./grow.avif";
 const DURATION = 3;
 const COUNT = DURATION * ICON.fps;
 // The knob's centre off the key's, its radius, and its arc's.
-const [X, Y, R, ARC] = [32, 30.5, 21.5, 29];
+const [X, Y, R, ARC] = [38, 26, 21.5, 28];
 
 // Eases between +2 and -2, lingering at each.
 const speed = (t: number) => {
@@ -34,14 +34,14 @@ export default {
     const loops = Math.max(1, Math.round(played[COUNT] / frames.grow));
     const frame = Math.round((played[i] * loops * frames.grow) / played[COUNT]) % frames.grow;
     // Swung out from the top as the icon comes in.
-    const angle = 45 * speed(t) * show;
+    const angle = 40 * speed(t) * show;
     const a = (angle * Math.PI) / 180;
     const [kx, ky] = [x + X, y + Y];
     return [
       { at: [x, y], size: [w, h], radius: r, z: 0, clip: "grow", frame },
       ...timeline(key, played[i] / played[COUNT]),
-      { at: [kx, ky], size: [ARC, 1.75], sweep: angle, z: 2, ink: 0.38 },
-      { at: [kx, ky], size: [R, R], radius: R, z: 2, glass: 0.07 },
+      { at: [kx, ky], size: [ARC, 2], sweep: angle, z: 2, glass: 0.18 },
+      { at: [kx, ky], size: [R, R], radius: R, z: 2, glass: 0.02 },
       {
         at: [kx + 9.75 * Math.sin(a), ky - 9.75 * Math.cos(a)],
         size: [1.3, 8.75],
