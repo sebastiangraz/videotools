@@ -73,6 +73,55 @@ const FONT = `500 ${8 * TEXELS}px Styrene`;
 const STRIDE = 16;
 const MAX = 256;
 
+// The look, sizes in icon units.
+const SETTINGS = {
+  // Light direction in degrees clockwise from the top.
+  lightAngle: -60,
+  // Fade into the page per unit of depth.
+  fog: 0.075,
+  // Drop shadow opacity under panes and glass, its blur and downward offset.
+  paneShadow: 0.35,
+  glassShadow: 0.2,
+  shadowBlur: 2.5,
+  shadowOffset: 1.5,
+
+  // Glass bevel width and the backdrop shift at its edge, fractions of half
+  // the shape's narrow side.
+  bevel: 0.2,
+  refract: 1,
+  // Frost blur radius on the flat, and its saturation with no change at 1.
+  frost: 4,
+  saturation: 1.2,
+  // Light within the glass as stacked glows, each fading in from the edges
+  // over its bevel (fraction of the shape's narrow side) at its opacity, moved
+  // `glowShift` bevels towards the light. `laid` ones go over in white, the
+  // rest add light `glowTint` of the way from white to the glass's colour.
+  glows: [
+    { bevel: 0.02, opacity: 0.09, laid: true },
+    { bevel: 0.025, opacity: 0.24 },
+    { bevel: 0.12, opacity: 0.06, laid: true },
+    { bevel: 0.225, opacity: 0.12 },
+  ],
+  glowShift: 1,
+  glowTint: 0.44,
+  // Rim width (a device pixel at least), lit rim opacity, and the glint's on
+  // the far side from the light.
+  rimWidth: 0.75,
+  rimOpacity: 0.88,
+  glint: 0.58,
+  // Degrees either side of side-on to the light where neither shows, and the
+  // degrees each eases in over.
+  rimGap: 20,
+  rimFalloff: 28,
+  // Rim colour from white at 0 to what it sits on at 1, that frosted over
+  // rimFrost and saturated by rimSaturation.
+  rimTinge: 0.3,
+  rimFrost: 0.5,
+  rimSaturation: 2,
+  // Label text opacity.
+  label: 0.25,
+};
+
 const SHADER = /* wgsl */ `
 struct Uniforms {
   fg: vec4f, // the text colour, premultiplied
@@ -110,10 +159,7 @@ const TEXELS = ${TEXELS};
 const PANE = 0.0;
 const GLASS = 1.0;
 const LUMA = vec3f(0.299, 0.587, 0.114);
-// Towards the light, at -60° clockwise from the top.
-const LIGHT = vec2f(sin(radians(-60)), -cos(radians(-60)));
-// Fade into the page per unit of depth.
-const FOG = 0.075;
+const LIGHT = vec2f(sin(radians(${SETTINGS.lightAngle})), -cos(radians(${SETTINGS.lightAngle}))); // towards it
 
 struct Out {
   @builtin(position) at: vec4f,
@@ -130,7 +176,7 @@ struct Out {
   let p = in.at.xy * u.px;
   let d = shape(l, p);
   // Past its shadow.
-  if (d > 6) {
+  if (d > ${SETTINGS.shadowBlur + SETTINGS.shadowOffset}) {
     return vec4f();
   }
   var c = u.fg * l.amount;
@@ -138,13 +184,14 @@ struct Out {
   if (l.kind == PANE) {
     let uv = turn(p - l.at, -l.turn) / l.size / 2 + 0.5;
     c = mix(image(l.image, uv), image(l.next, uv), l.mix);
-    shade = 0.35;
+    shade = ${SETTINGS.paneShadow};
   } else if (l.kind == GLASS) {
     c = vec4f(glass(l, p, d), 1);
-    shade = 0.2;
+    shade = ${SETTINGS.glassShadow};
   }
-  c = mix(c, u.bg * c.a, clamp(-l.z * FOG, 0, 1));
-  let shadow = shade * (1 - smoothstep(-2.5, 2.5, shape(l, p - vec2f(0, 1.5))));
+  c = mix(c, u.bg * c.a, clamp(-l.z * ${SETTINGS.fog}, 0, 1));
+  let blur = ${SETTINGS.shadowBlur};
+  let shadow = shade * (1 - smoothstep(-blur, blur, shape(l, p - vec2f(0, ${SETTINGS.shadowOffset}))));
   return over(vec4f(0, 0, 0, shadow), c * fill(d)) * l.opacity;
 }
 
@@ -155,44 +202,43 @@ fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
   // Half the shape's narrow side.
   let half = select(min(l.size.x, l.size.y), l.size.y, l.arc != 0);
   // From the edge in, the bevel refracts sharp and the flat frosts.
-  let x = clamp(-d / (0.2 * half), 0, 1);
-  var c = frost(p - n * half * (1 - x) * (1 - x), 4 * x);
-  c = mix(vec3f(dot(c, LUMA)), c, 1.2);
+  let x = clamp(-d / (${SETTINGS.bevel} * half), 0, 1);
+  var c = frost(p - n * ${SETTINGS.refract} * half * (1 - x) * (1 - x), ${SETTINGS.frost} * x);
+  c = mix(vec3f(dot(c, LUMA)), c, ${SETTINGS.saturation});
   c = mix(c, vec3f(f32(l.amount > 0)), abs(l.amount));
-  // Light within, hugging the edges away from the light: each glow's bevel
-  // across the narrow side, its opacity, and 1 to lay it over in white rather
-  // than add it in the glass's own light.
-  var glows = array(vec3f(0.02, 0.09, 1), vec3f(0.025, 0.24, 0), vec3f(0.12, 0.06, 1), vec3f(0.225, 0.12, 0));
+  // Light within, hugging the edges away from the light: each glow's bevel,
+  // opacity, and 1 if laid.
+  var glows = array(${SETTINGS.glows.map((glow) => `vec3f(${glow.bevel}, ${glow.opacity}, ${Number(!!glow.laid)})`).join(", ")});
   var added = 0.0;
   var laid = 0.0;
-  for (var i = 0; i < 4; i++) {
+  for (var i = 0; i < ${SETTINGS.glows.length}; i++) {
     let b = glows[i].x * 2 * half;
-    let glow = glows[i].y * smoothstep(-b, b, shape(l, p - LIGHT * b));
+    let glow = glows[i].y * smoothstep(-b, b, shape(l, p - LIGHT * b * ${SETTINGS.glowShift}));
     if (glows[i].z == 0) {
       added = 1 - (1 - added) * (1 - glow);
     } else {
       laid = 1 - (1 - laid) * (1 - glow);
     }
   }
-  c = mix(c + mix(vec3f(1), c, 0.44) * added, vec3f(1), laid);
+  c = mix(c + mix(vec3f(1), c, ${SETTINGS.glowTint}) * added, vec3f(1), laid);
   // The rim facing the light, the glint opposite; recessed, darkened glass
   // the other way round.
   let side = sign(l.amount + 1e-6) * degrees(asin(clamp(dot(n, LIGHT), -1, 1)));
-  let level = 0.88 * ramp(side) + 0.58 * ramp(-side);
-  // White, tinged with what it sits on.
-  let paint = frost(p, 0.5);
-  let tinge = clamp(mix(vec3f(dot(paint, LUMA)), paint, 2), vec3f(), vec3f(1));
-  c = mix(c, mix(vec3f(1), tinge, 0.3), level * (1 - fill(d + max(0.75, u.px))));
+  let level = ${SETTINGS.rimOpacity} * ramp(side) + ${SETTINGS.glint} * ramp(-side);
+  let paint = frost(p, ${SETTINGS.rimFrost});
+  let tinge = clamp(mix(vec3f(dot(paint, LUMA)), paint, ${SETTINGS.rimSaturation}), vec3f(), vec3f(1));
+  let rim = 1 - fill(d + max(${SETTINGS.rimWidth}, u.px));
+  c = mix(c, mix(vec3f(1), tinge, ${SETTINGS.rimTinge}), level * rim);
   if (l.image >= 0) {
-    c = over(vec4f(c, 1), u.fg * 0.25 * image(l.image, (p - l.at) * TEXELS / CLIP + 0.5).a).rgb;
+    let text = image(l.image, (p - l.at) * TEXELS / CLIP + 0.5).a;
+    c = over(vec4f(c, 1), u.fg * ${SETTINGS.label} * text).rgb;
   }
   return c;
 }
 
-// Off side-on to the light, in degrees, to the rim's (or glint's) opacity:
-// dark within 20° of side-on.
+// Off side-on to the light, in degrees, to the rim's (or glint's) opacity.
 fn ramp(off: f32) -> f32 {
-  return smoothstep(0, 1, (off - 20) / 28);
+  return smoothstep(0, 1, (off - ${SETTINGS.rimGap}) / ${SETTINGS.rimFalloff});
 }
 
 // The backdrop over the page around p, blurred over a disc of radius r, its
