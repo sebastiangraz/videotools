@@ -26,7 +26,7 @@ for (let i = 0; i < COUNT; i++) {
 export default {
   duration: DURATION,
   clips: { grow },
-  key: [72, 64, 35, 26, 12],
+  key: [72, 64, 35, 26, 16],
   layers(t, show, key, frames) {
     const [x, y, w, h, r] = key;
     const i = Math.round(t * ICON.fps);
@@ -38,7 +38,7 @@ export default {
     const a = (angle * Math.PI) / 180;
     const [kx, ky] = [x + X, y + Y];
     return [
-      { at: [x, y], size: [w, h], radius: r, z: -4, clip: "grow", frame },
+      { at: [x, y], size: [w, h], radius: r, z: 0, clip: "grow", frame },
       // ...timeline(key, played[i] / played[COUNT]),
       { at: [kx, ky], size: [ARC, 3], sweep: angle, z: 2, glass: 0.24 },
       { at: [kx, ky], size: [R, R], radius: R, z: 3, glass: 0.04 },

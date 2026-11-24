@@ -22,7 +22,7 @@ const STACK = [
 export default {
   duration: DURATION,
   clips: { still1, still2, still3 },
-  key: [72, 81, 35, 26, 12],
+  key: [72, 81, 35, 26, 16],
   layers(t, show, key) {
     const [x, y, w, h, r] = key;
     const turn = Math.floor(t);

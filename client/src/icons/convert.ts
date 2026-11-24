@@ -14,7 +14,7 @@ export default {
   duration: 6,
   clips: { clip },
   labels: FORMATS.map((format) => format.label),
-  key: [72, 72, 35, 26, 12],
+  key: [72, 72, 35, 26, 16],
   layers(t, show, [x, y, w, h, r], frames) {
     const out = 0.8 + 0.2 * show;
     return [

@@ -6,7 +6,7 @@ import grow from "./grow.avif";
 export default {
   duration: 6,
   clips: { grow },
-  key: [72, 72, 42, 32, 18],
+  key: [72, 72, 42, 32, 16],
   layers(t, _, [x, y, w, h, r], frames) {
     const at: [number, number] = [x + 30, y + 19];
     return [
