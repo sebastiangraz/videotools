@@ -83,6 +83,8 @@ const MAX = 256;
 
 // The look, sizes in icon units.
 const SETTINGS = {
+  // Box corners, as CSS's `corner-shape: superellipse()` takes them.
+  corner: 1.45,
   // Light direction in degrees clockwise from the top.
   lightAngle: -45,
   // Fade into the page per unit of depth.
@@ -290,11 +292,13 @@ fn fill(d: f32) -> f32 {
 }
 
 // A box of half size h around the origin, its corners rounded by r or as much
-// as it allows.
+// as it allows: superelliptic, or round where they meet (a circle, a pill).
 fn box(p: vec2f, h: vec2f, r: f32) -> f32 {
   let c = min(r, min(h.x, h.y));
   let q = abs(p) - h + c;
-  return length(max(q, vec2f())) + min(max(q.x, q.y), 0) - c;
+  let n = select(${2 ** SETTINGS.corner}, 2.0, r >= min(h.x, h.y));
+  let o = max(q, vec2f());
+  return pow(pow(o.x, n) + pow(o.y, n), 1 / n) + min(max(q.x, q.y), 0) - c;
 }
 
 // p turned clockwise (y is down) by an angle in degrees.

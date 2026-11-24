@@ -1,4 +1,4 @@
-import { timeline, type Icon } from "../icon";
+import { type Icon } from "../icon";
 import { ICON } from "../tools";
 import grow from "./grow.avif";
 
