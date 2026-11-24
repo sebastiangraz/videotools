@@ -69,7 +69,7 @@ const CELL = 144;
 const TRANSITION = 0.6;
 // Texels per icon unit in a label's texture layer.
 const TEXELS = 4;
-const FONT = `700 ${12 * TEXELS}px Styrene`;
+const FONT = `500 ${8 * TEXELS}px Styrene`;
 // Floats per packed layer, and the most a frame draws.
 const STRIDE = 16;
 const MAX = 256;

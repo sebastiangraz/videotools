@@ -5,9 +5,9 @@ import clip from "./clip.avif";
 // The key plays a clip among formats in glass, two behind it and one in
 // front, which draw out from it as the icon comes in and back as it goes.
 const FORMATS = [
-  { label: "MP4", at: [-24, -31.5], half: 23, z: -1 },
-  { label: "WEBP", at: [-32.5, 32.25], half: 28.5, z: -1 },
-  { label: "GIF", at: [36.25, 24.5], half: 19.5, z: 1 },
+  { label: "MP4", at: [-24, -31.5], half: 17, z: -1 },
+  { label: "WEBP", at: [-32.5, 32.25], half: 20, z: -1 },
+  { label: "GIF", at: [36.25, 24.5], half: 15, z: 1 },
 ];
 
 export default {
@@ -28,7 +28,7 @@ export default {
       },
       ...FORMATS.map(({ label, at: [dx, dy], half, z }): Layer => ({
         at: [x + dx * out, y + dy * out],
-        size: [half, 10.5],
+        size: [half, 8],
         radius: 10.5,
         z,
         glass: 0.02,
