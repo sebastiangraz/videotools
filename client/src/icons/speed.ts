@@ -8,7 +8,7 @@ import grow from "./grow.avif";
 const DURATION = 3;
 const COUNT = DURATION * ICON.fps;
 // The knob's centre off the key's, its radius, and its arc's.
-const [X, Y, R, ARC] = [38, 26, 21.5, 28];
+const [X, Y, R, ARC] = [0, 28, 21.5, 28];
 
 // Eases between +2 and -2, lingering at each.
 const speed = (t: number) => {
@@ -26,7 +26,7 @@ for (let i = 0; i < COUNT; i++) {
 export default {
   duration: DURATION,
   clips: { grow },
-  key: [58, 59, 35, 26, 12],
+  key: [72, 64, 35, 26, 12],
   layers(t, show, key, frames) {
     const [x, y, w, h, r] = key;
     const i = Math.round(t * ICON.fps);
@@ -34,21 +34,21 @@ export default {
     const loops = Math.max(1, Math.round(played[COUNT] / frames.grow));
     const frame = Math.round((played[i] * loops * frames.grow) / played[COUNT]) % frames.grow;
     // Swung out from the top as the icon comes in.
-    const angle = 40 * speed(t) * show;
+    const angle = 33 * speed(t) * show;
     const a = (angle * Math.PI) / 180;
     const [kx, ky] = [x + X, y + Y];
     return [
-      { at: [x, y], size: [w, h], radius: r, z: 0, clip: "grow", frame },
-      ...timeline(key, played[i] / played[COUNT]),
-      { at: [kx, ky], size: [ARC, 2], sweep: angle, z: 2, glass: 0.18 },
-      { at: [kx, ky], size: [R, R], radius: R, z: 2, glass: 0.02 },
+      { at: [x, y], size: [w, h], radius: r, z: -4, clip: "grow", frame },
+      // ...timeline(key, played[i] / played[COUNT]),
+      { at: [kx, ky], size: [ARC, 3], sweep: angle, z: 2, glass: 0.24 },
+      { at: [kx, ky], size: [R, R], radius: R, z: 3, glass: 0.04 },
       {
-        at: [kx + 9.75 * Math.sin(a), ky - 9.75 * Math.cos(a)],
-        size: [1.3, 8.75],
-        radius: 1.3,
+        at: [kx + 6 * Math.sin(a), ky - 6 * Math.cos(a)],
+        size: [3, 9],
+        radius: 3,
         turn: angle,
         z: 3,
-        ink: 0.44,
+        glass: 0.16,
       },
     ];
   },

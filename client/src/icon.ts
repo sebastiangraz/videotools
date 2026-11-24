@@ -55,7 +55,7 @@ export const ease = (f: number) => f * f * (3 - 2 * f);
 
 // The video's timeline in glass along the key's foot, `played` of it lit.
 export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
-  const [half, high] = [w - 7, 2.4];
+  const [half, high] = [w - 7, 3];
   const lit = Math.max(high, half * played);
   return [
     {
@@ -75,7 +75,7 @@ const CELL = 144;
 const TRANSITION = 0.6;
 // Texels per icon unit in a label's texture layer.
 const TEXELS = 4;
-const FONT = `500 ${8 * TEXELS}px Styrene`;
+const FONT = `500 ${9 * TEXELS}px Styrene`;
 // Floats per packed layer, and the most a frame draws.
 const STRIDE = 16;
 const MAX = 256;
