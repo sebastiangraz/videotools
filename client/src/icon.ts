@@ -89,14 +89,13 @@ const SETTINGS = {
   lightAngle: -45,
   // Fade into the page per unit of depth.
   fog: 0.1,
-  // Drop shadow opacity under panes and glass, its blur and downward offset.
-  paneShadow: 0.25,
+  // Drop shadow opacity under glass, its blur and downward offset.
   glassShadow: 0.06,
   shadowBlur: 4.5,
   shadowOffset: 2.5,
   // Light a pane's edge, a CSS pixel wide, adds (plus-lighter) along its top on
   // a dark page, or takes (plus-darker) along its foot on a light one.
-  paneEdge: 0.05,
+  paneEdge: 0.08,
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
@@ -205,7 +204,6 @@ struct Out {
     let s = select(-1.0, 1.0, dot(u.bg.rgb, LUMA) < 0.5);
     let edge = 1 - fill(shape(l, p - vec2f(0, s * u.cssPx)));
     c = vec4f(saturate(c.rgb + s * ${SETTINGS.paneEdge} * edge), c.a);
-    shade = ${SETTINGS.paneShadow};
   } else if (l.kind == GLASS) {
     c = vec4f(glass(l, p, d), 1);
     shade = ${SETTINGS.glassShadow};
