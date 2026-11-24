@@ -84,7 +84,7 @@ const SETTINGS = {
   // Light direction in degrees clockwise from the top.
   lightAngle: -45,
   // Fade into the page per unit of depth.
-  fog: 0.075,
+  fog: 0.1,
   // Drop shadow opacity under panes and glass, its blur and downward offset.
   paneShadow: 0.25,
   glassShadow: 0.06,

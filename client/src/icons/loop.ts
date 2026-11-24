@@ -27,7 +27,7 @@ export default {
       {
         at: [x - 28 * show, y - 32.5 * show],
         size: [26, 19.5],
-        radius: 8,
+        radius: 12,
         z: -2,
         clip: "clip",
         frame,
