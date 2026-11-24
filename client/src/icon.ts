@@ -20,7 +20,7 @@ export type Layer = {
   opacity?: number;
   // What fills it: a clip's frame, mixed into its `next` by `mix`; glass,
   // whitened by `glass` (below 0 darkened and lit as if recessed), with a
-  // `label` on it; or the text colour at `ink` opacity.
+  // `label` on it; or the text colour at `ink` opacity (black below 0).
   clip?: string;
   frame?: number;
   next?: number;
@@ -62,7 +62,7 @@ export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
       size: [half, high],
       radius: high,
       z: 1,
-      glass: -0.2,
+      ink: -0.2,
     },
     { at: [x - half + lit, y + h - 8.6], size: [lit, high], radius: high, z: 1.1, glass: 0.4 },
   ];
@@ -185,7 +185,7 @@ struct Out {
   if (d > ${SETTINGS.shadowBlur + SETTINGS.shadowOffset}) {
     return vec4f();
   }
-  var c = u.fg * l.amount;
+  var c = select(u.fg, vec4f(0, 0, 0, 1), l.amount < 0) * abs(l.amount);
   var shade = 0.0;
   if (l.kind == PANE) {
     let uv = turn(p - l.at, -l.turn) / l.size / 2 + 0.5;

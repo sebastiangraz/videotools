@@ -42,9 +42,9 @@ export default {
         next: Math.max(k, 0),
         mix: fade,
       },
-      // Along the clip rather than the loop, which starts halfway, so it wraps
-      // at the cut.
-      ...timeline(key, (frame - FADE) / PERIOD),
+      // Along the clip rather than the loop, which starts halfway, wrapping
+      // halfway through the fade.
+      ...timeline(key, ((frame - FADE / 2) % PERIOD) / PERIOD),
     ];
   },
 } satisfies Icon;
