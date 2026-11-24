@@ -483,11 +483,19 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         });
       }
 
-      // A box with its straight edges on whole device pixels.
-      const snap = ([x, y, w, h, r]: Box): Box => {
+      // A box with its straight edges on whole device pixels, bar any that
+      // move on to the box a frame later.
+      const snap = (box: Box, next = box): Box => {
+        const [x, y, w, h, r] = box;
         const c = Math.min(r, w, h);
-        const [x0, x1] = h > c ? [round(x - w, px), round(x + w, px)] : [x - w, x + w];
-        const [y0, y1] = w > c ? [round(y - h, px), round(y + h, px)] : [y - h, y + h];
+        const [x0, x1] =
+          h > c && x === next[0] && w === next[2]
+            ? [round(x - w, px), round(x + w, px)]
+            : [x - w, x + w];
+        const [y0, y1] =
+          w > c && y === next[1] && h === next[3]
+            ? [round(y - h, px), round(y + h, px)]
+            : [y - h, y + h];
         return [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2, r];
       };
       // The keys mix into one, each over the ones before by its share so far,
@@ -503,12 +511,17 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         .flatMap((entry, i) => {
           const t = frame[i] / ICON.fps;
           // Each layer off by what snaps it at rest, so it moves smoothly and
-          // lands sharp.
-          const rest = entry.icon.layers(t, 1, snap(entry.icon.key), entry.frames);
+          // lands sharp, unless it's moving at rest too.
+          const [rest, next] = [t, t + 1 / ICON.fps].map((t) =>
+            entry.icon.layers(t, 1, snap(entry.icon.key), entry.frames),
+          );
           return entry.icon.layers(t, weights[i], key, entry.frames).map((layer, n) => {
             const { at, size, radius = 0, turn, sweep } = rest[n];
             const box: Box = [...at, ...size, radius];
-            const snapped = turn === undefined && sweep === undefined ? snap(box) : box;
+            const snapped =
+              turn === undefined && sweep === undefined
+                ? snap(box, [...next[n].at, ...next[n].size, radius])
+                : box;
             return {
               entry,
               layer,
