@@ -1,4 +1,3 @@
-import { MARK } from "@videotools/core/tools/mark-config";
 import { ICON } from "./tools";
 
 export type Vec = [number, number];
@@ -73,7 +72,6 @@ const FONT = `500 ${8 * TEXELS}px Styrene`;
 // Floats per packed layer, and the most a frame draws.
 const STRIDE = 16;
 const MAX = 256;
-const light = (MARK.lightAngle * Math.PI) / 180;
 
 const SHADER = /* wgsl */ `
 struct Uniforms {
@@ -112,7 +110,8 @@ const TEXELS = ${TEXELS};
 const PANE = 0.0;
 const GLASS = 1.0;
 const LUMA = vec3f(0.299, 0.587, 0.114);
-const LIGHT = vec2f(${Math.sin(light)}, ${-Math.cos(light)}); // towards it
+// Towards the light, at -60° clockwise from the top.
+const LIGHT = vec2f(sin(radians(-60)), -cos(radians(-60)));
 // Fade into the page per unit of depth.
 const FOG = 0.075;
 
@@ -149,39 +148,40 @@ struct Out {
   return over(vec4f(0, 0, 0, shadow), c * fill(d)) * l.opacity;
 }
 
-// Glass over the backdrop, lit as core/tools/mark-graph.ts lights the Mark
-// tool's.
+// Glass over the backdrop.
 fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
   let e = vec2f(0.1, 0);
   let n = normalize(vec2f(shape(l, p + e) - shape(l, p - e), shape(l, p + e.yx) - shape(l, p - e.yx)));
   // Half the shape's narrow side.
   let half = select(min(l.size.x, l.size.y), l.size.y, l.arc != 0);
   // From the edge in, the bevel refracts sharp and the flat frosts.
-  let x = clamp(-d / (${2 * MARK.bevelRatio} * half), 0, 1);
-  var c = frost(p - n * ${MARK.refractRatio} * half * (1 - x) * (1 - x), 4 * x);
+  let x = clamp(-d / (0.2 * half), 0, 1);
+  var c = frost(p - n * half * (1 - x) * (1 - x), 4 * x);
   c = mix(vec3f(dot(c, LUMA)), c, 1.2);
   c = mix(c, vec3f(f32(l.amount > 0)), abs(l.amount));
-  // Light within, hugging the edges away from the light.
-  var glows = array(${MARK.ambient.map((g) => `vec3f(${g.bevelRatio}, ${g.opacity}, ${Number(!!g.ignoreBlend)})`).join(", ")});
+  // Light within, hugging the edges away from the light: each glow's bevel
+  // across the narrow side, its opacity, and 1 to lay it over in white rather
+  // than add it in the glass's own light.
+  var glows = array(vec3f(0.02, 0.09, 1), vec3f(0.025, 0.24, 0), vec3f(0.12, 0.06, 1), vec3f(0.225, 0.12, 0));
   var added = 0.0;
   var laid = 0.0;
-  for (var i = 0; i < ${MARK.ambient.length}; i++) {
+  for (var i = 0; i < 4; i++) {
     let b = glows[i].x * 2 * half;
-    let glow = glows[i].y * smoothstep(-b, b, shape(l, p - LIGHT * b * ${MARK.ambientShift}));
+    let glow = glows[i].y * smoothstep(-b, b, shape(l, p - LIGHT * b));
     if (glows[i].z == 0) {
       added = 1 - (1 - added) * (1 - glow);
     } else {
       laid = 1 - (1 - laid) * (1 - glow);
     }
   }
-  c = mix(c + mix(vec3f(1), c, ${MARK.ambientTint}) * added, vec3f(1), laid);
+  c = mix(c + mix(vec3f(1), c, 0.44) * added, vec3f(1), laid);
   // The rim facing the light, the glint opposite; recessed, darkened glass
   // the other way round.
   let side = sign(l.amount + 1e-6) * degrees(asin(clamp(dot(n, LIGHT), -1, 1)));
-  let level = ${MARK.rimOpacity} * ramp(side) + ${MARK.glint} * ramp(-side);
+  let level = 0.88 * ramp(side) + 0.58 * ramp(-side);
   // White, tinged with what it sits on.
   let paint = frost(p, 0.5);
-  let tinge = clamp(mix(vec3f(dot(paint, LUMA)), paint, ${MARK.rimSaturation}), vec3f(), vec3f(1));
+  let tinge = clamp(mix(vec3f(dot(paint, LUMA)), paint, 2), vec3f(), vec3f(1));
   c = mix(c, mix(vec3f(1), tinge, 0.3), level * (1 - fill(d + max(0.75, u.px))));
   if (l.image >= 0) {
     c = over(vec4f(c, 1), u.fg * 0.25 * image(l.image, (p - l.at) * TEXELS / CLIP + 0.5).a).rgb;
@@ -192,7 +192,7 @@ fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
 // Off side-on to the light, in degrees, to the rim's (or glint's) opacity:
 // dark within 20° of side-on.
 fn ramp(off: f32) -> f32 {
-  return smoothstep(0, 1, (off - 20) / ${MARK.rimFalloff});
+  return smoothstep(0, 1, (off - 20) / 28);
 }
 
 // The backdrop over the page around p, blurred over a disc of radius r, its
