@@ -119,7 +119,7 @@ const SETTINGS = {
   // Rim width (a device pixel at least), lit rim opacity, and the glint's on
   // the far side from the light.
   rimWidth: 1,
-  rimOpacity: 0.88,
+  rimOpacity: 0.96,
   glint: 0.77,
   // Degrees either side of side-on to the light where neither shows, and the
   // degrees each eases in over.
