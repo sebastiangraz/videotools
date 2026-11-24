@@ -94,6 +94,9 @@ const SETTINGS = {
   glassShadow: 0.06,
   shadowBlur: 4.5,
   shadowOffset: 2.5,
+  // Light a pane's edge, a CSS pixel wide, adds (plus-lighter) along its top on
+  // a dark page, or takes (plus-darker) along its foot on a light one.
+  paneEdge: 0.05,
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
@@ -140,6 +143,7 @@ struct Uniforms {
   fg: vec4f, // the text colour, premultiplied
   bg: vec4f, // the page's, under the canvas
   px: f32, // icon units per device pixel
+  cssPx: f32, // and per CSS pixel
 }
 
 // A Layer as playIcons packs it.
@@ -197,6 +201,10 @@ struct Out {
   if (l.kind == PANE) {
     let uv = turn(p - l.at, -l.turn) / l.size / 2 + 0.5;
     c = mix(image(l.image, uv), image(l.next, uv), l.mix);
+    // 1 on a dark page, -1 on a light one.
+    let s = select(-1.0, 1.0, dot(u.bg.rgb, LUMA) < 0.5);
+    let edge = 1 - fill(shape(l, p - vec2f(0, s * u.cssPx)));
+    c = vec4f(saturate(c.rgb + s * ${SETTINGS.paneEdge} * edge), c.a);
     shade = ${SETTINGS.paneShadow};
   } else if (l.kind == GLASS) {
     c = vec4f(glass(l, p, d), 1);
@@ -432,7 +440,12 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         const [r, g, b, a = 1] = css.match(/[\d.]+/g)!.map(Number);
         return [(r / 255) * a, (g / 255) * a, (b / 255) * a, a];
       };
-      uniforms.set([...premultiplied(color), ...premultiplied(backgroundColor), CELL / side]);
+      uniforms.set([
+        ...premultiplied(color),
+        ...premultiplied(backgroundColor),
+        CELL / side,
+        CELL / canvas.clientWidth,
+      ]);
       device.queue.writeBuffer(uniformBuffer, 0, uniforms);
       // Labels centred on their ink, their baseline on a whole pixel, white for
       // the shader to colour.
