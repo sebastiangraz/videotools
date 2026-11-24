@@ -124,7 +124,7 @@ const SETTINGS = {
   // Degrees either side of side-on to the light where neither shows, and the
   // degrees each eases in over.
   rimGap: 36,
-  rimFalloff: 40,
+  rimFalloff: 60,
   // Rim colour from white at 0 to what it sits on at 1, that frosted over
   // rimFrost and saturated by rimSaturation.
   rimTinge: 0.5,
