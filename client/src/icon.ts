@@ -124,6 +124,16 @@ const SETTINGS = {
   // Light a pane's edge, a CSS pixel wide, adds (plus-lighter) along its top on
   // a dark page, or takes (plus-darker) along its foot on a light one.
   paneEdge: 0.08,
+  // Light a clip's surroundings bounce on to its solid shapes, as if each were
+  // a glossy dome mirroring the clip's colour: from a floor below, `floor` at
+  // most, focused straight down by `floorFocus`, and from walls around at
+  // `walls`. Polygons' corners round by `rounding` and their sides' slopes
+  // blend over `smoothing`, in half pane heights.
+  floor: 0.6,
+  floorFocus: 4,
+  walls: 0.5,
+  rounding: 0.07,
+  smoothing: 0.15,
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
@@ -407,7 +417,7 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
   switch (n) {
     // A ball crossing from left to right.
     case SLIDE {
-      return fill(h * (length(q - vec2f(mix(-0.85, 0.85, f / ${CLIPS.slide}), 0)) - 0.4));
+      return solid(ball(q - vec2f(mix(-0.85, 0.85, f / ${CLIPS.slide}), 0), 0.4), h);
     }
     // Balls growing out of the middle, fading as they go.
     case GROW {
@@ -419,21 +429,14 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
       return a;
     }
     case BALL {
-      return fill(h * (length(q) - 0.5));
+      return solid(ball(q, 0.5), h);
     }
     case SQUARE {
-      return fill(h * box(q, vec2f(0.45), 0));
+      return solid(polygon(q, 4, 0.45), h);
     }
-    // Equilateral, pointing up, sides 1.2 long.
+    // Sides 1.2 long.
     case TRIANGLE {
-      let r = 0.6;
-      let k = sqrt(3.0);
-      var t = vec2f(abs(q.x) - r, r / k - q.y);
-      if (t.x + k * t.y > 0) {
-        t = vec2f(t.x - k * t.y, -k * t.x - t.y) / 2;
-      }
-      t.x -= clamp(t.x, -2 * r, 0);
-      return fill(-h * length(t) * sign(t.y));
+      return solid(polygon(q, 3, 0.6 / sqrt(3.0)), h);
     }
     case CLOUD {
       return cloud(q / look.scale, f / ${CLIPS.cloud}, u.px / h / look.scale, n);
@@ -448,6 +451,40 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
       return 0;
     }
   }
+}
+
+// A ball of radius r round q's origin: the distance to it, and its slope as a
+// dome.
+fn ball(q: vec2f, r: f32) -> vec3f {
+  return vec3f(length(q) - r, q / r);
+}
+
+// A regular polygon with that many sides round a circle of radius r, one side
+// at its foot: the distance to it, and its slope as a dome, each smooth where
+// its sides meet, which rounds its corners.
+fn polygon(q: vec2f, sides: f32, r: f32) -> vec3f {
+  let k = vec2f(${SETTINGS.rounding}, ${SETTINGS.smoothing});
+  var sum = vec2f();
+  var g = vec2f();
+  for (var i = 0.0; i < sides; i += 1) {
+    let a = radians(90 + 360 * i / sides);
+    let n = vec2f(cos(a), sin(a));
+    let w = exp((dot(q, n) - r) / k);
+    sum += w;
+    g += w.y * n;
+  }
+  let d = k.x * log(sum.x);
+  return vec3f(d, g / max(length(g), 0.5 * sum.y) * saturate(1 + d / r));
+}
+
+// A solid shape's ink, s.x its distance in units of h and s.yz its slope,
+// less the light it mirrors from its surroundings.
+fn solid(s: vec3f, h: f32) -> f32 {
+  let n = normalize(vec3f(s.yz, sqrt(max(1 - dot(s.yz, s.yz), 0))));
+  let r = reflect(vec3f(0, 0, -1), n);
+  let below = ${SETTINGS.floor} * pow(saturate(r.y), ${SETTINGS.floorFocus});
+  let around = ${SETTINGS.walls} * (1 - smoothstep(-0.5, 0.75, r.z)) * saturate(1 - n.y);
+  return fill(h * s.x) * (1 - saturate(below + around));
 }
 
 // Clip n's cumulus or sky at q as s goes from 0 to 1, its billows lit from
