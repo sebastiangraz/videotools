@@ -48,7 +48,15 @@ export type Icon = {
 
 // The clips a pane can play and their lengths in frames, drawn live by the
 // shader's clip() in the canvas's --clip-fg on its --clip-bg.
-export const CLIPS = { slide: 180, grow: 120, ball: 1, square: 1, triangle: 1, cloud: 360 };
+export const CLIPS = {
+  slide: 180,
+  grow: 120,
+  ball: 1,
+  square: 1,
+  triangle: 1,
+  cloud: 360,
+  sky: 360,
+};
 
 export const mix = <T extends number[]>(a: T, b: T, f: number) =>
   a.map((v, i) => v + (b[i] - v) * f) as T;
@@ -201,6 +209,10 @@ const CLOUD = {
   density: 16,
   // Grain in the half tones.
   grain: 0.1,
+  // Clouds across the sky clip's pane, each shrunk to its share of the width,
+  // set at a random height and phase, and drifting from right to left a
+  // pane's width per loop.
+  clusters: 2,
 };
 
 const SHADER = /* wgsl */ `
@@ -370,7 +382,19 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
       return fill(-h * length(t) * sign(t.y));
     }
     case CLOUD {
-      return cloud(q / ${CLOUD.scale}, f / ${CLIPS.cloud}, u.px / h / ${CLOUD.scale});
+      return cloud(q / ${CLOUD.scale}, f / ${CLIPS.cloud}, u.px / h / ${CLOUD.scale}, 0);
+    }
+    case SKY {
+      let n: f32 = ${CLOUD.clusters};
+      let s = f / ${CLIPS.sky};
+      // Each cloud's share of the pane's width, and q in shares from the left
+      // of the first, scrolled; cloud k comes round again as cloud k + n.
+      let w = 2 * CLIP.x / CLIP.y / n;
+      let x = q.x / w + n * (s + 1);
+      let k = floor(x) % n;
+      let r = hash(vec3f(k, 0, 1));
+      let p = vec2f((fract(x) - 0.5) * w, q.y - (r.x - 0.5) * (1 - 1 / n));
+      return cloud(p * n / ${CLOUD.scale}, s + r.y, u.px / h * n / ${CLOUD.scale}, k);
     }
     default {
       return 0;
@@ -379,33 +403,35 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
 }
 
 // A cumulus at q as s goes from 0 to 1, its billows lit from LIGHT and grained
-// in the half tones; px is a device pixel in q's units.
-fn cloud(q: vec2f, s: f32, px: f32) -> f32 {
+// in the half tones; px is a device pixel in q's units, k which of a sky's
+// clouds it is.
+fn cloud(q: vec2f, s: f32, px: f32, k: f32) -> f32 {
   let e: f32 = ${CLOUD.smoothing};
-  let t = billows(q, s, px);
-  let n = normalize(vec3f(t - billows(q + vec2f(e, 0), s, px), t - billows(q + vec2f(0, e), s, px), e / ${CLOUD.relief}));
+  let t = billows(q, s, px, k);
+  let n = normalize(vec3f(t - billows(q + vec2f(e, 0), s, px, k), t - billows(q + vec2f(0, e), s, px, k), e / ${CLOUD.relief}));
   let lit = smoothstep(${CLOUD.highlightFrom}, 1, dot(n, normalize(vec3f(LIGHT, ${CLOUD.lightHeight}))));
   let ink = (1 - exp(-${CLOUD.density} * max(t, 0))) * (1 - ${CLOUD.highlight} * lit);
   let grain = hash(vec3f(floor(q / px), 0)).x - 0.5;
   return saturate(ink + ${CLOUD.grain} * grain * ink * (1 - ink));
 }
 
-// The cloud's thickness at q: big domes, breathing, on a flat base, under
-// octaves of smaller ones.
-fn billows(q: vec2f, s: f32, px: f32) -> f32 {
+// The thickness of cloud k at q: big domes, breathing, on a flat base, under
+// octaves of smaller ones. Every other cloud has its domes mirrored, and each
+// its own lobes.
+fn billows(q: vec2f, s: f32, px: f32, k: f32) -> f32 {
   var domes = array(${CLOUD.domes.map((dome) => `vec3f(${dome.join(", ")})`).join(", ")});
   var t = -1.0;
   for (var i = 0; i < ${CLOUD.domes.length}; i++) {
     let r = domes[i].z * (1 + ${CLOUD.breathe} * sin(6.283 * (s + f32(i) / ${CLOUD.domes.length})));
     // Its height, or how far out of it q is.
-    let d = length(q - domes[i].xy);
+    let d = length(q * vec2f(1 - 2 * (k % 2), 1) - domes[i].xy);
     t = smax(t, select(r - d, sqrt(r * r - d * d), d < r), ${CLOUD.domeBlend});
   }
   let body = smoothstep(0, 0.03, t);
   var f: f32 = ${CLOUD.lobeScale};
   for (var i = 1.0; i <= ${CLOUD.lobes}; i += 1) {
     // Evened out where they'd be under two pixels.
-    t += body * ${CLOUD.lobeHeight} / f * mix(spheres(q * f + 9.1 * i, s * i), 0.4, smoothstep(0.25, 0.5, px * f));
+    t += body * ${CLOUD.lobeHeight} / f * mix(spheres(q * f + 9.1 * (i + k), s * i), 0.4, smoothstep(0.25, 0.5, px * f));
     f *= 2;
   }
   return min(t, ${CLOUD.base} - q.y) - ${CLOUD.edge};

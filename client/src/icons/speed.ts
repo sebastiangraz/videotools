@@ -19,7 +19,7 @@ for (let i = 0; i < COUNT; i++) {
   played.push(played[i] + (s >= 0 ? 1 + s : 1 / (1 - s)));
 }
 // Whole loops of the clip per period, so it wraps with the icon.
-const LOOPS = Math.max(1, Math.round(played[COUNT] / CLIPS.cloud));
+const LOOPS = Math.max(1, Math.round(played[COUNT] / CLIPS.sky));
 
 export default {
   duration: DURATION,
@@ -27,13 +27,13 @@ export default {
   layers(t, show, key) {
     const [x, y, w, h, r] = key;
     const i = Math.round(t * ICON.fps);
-    const frame = Math.round((played[i] * LOOPS * CLIPS.cloud) / played[COUNT]) % CLIPS.cloud;
+    const frame = Math.round((played[i] * LOOPS * CLIPS.sky) / played[COUNT]) % CLIPS.sky;
     // Swung out from the top as the icon comes in.
     const angle = 33 * speed(t) * show;
     const a = (angle * Math.PI) / 180;
     const [kx, ky] = [x + X, y + Y];
     return [
-      { at: [x, y], size: [w, h], radius: r, z: 0, clip: "cloud", frame },
+      { at: [x, y], size: [w, h], radius: r, z: 0, clip: "sky", frame },
       // ...timeline(key, played[i] / played[COUNT]),
       { at: [kx, ky], size: [ARC, 3], sweep: angle, z: 2, glass: 0.24 },
       { at: [kx, ky], size: [R, R], radius: R, z: 3, glass: 0.04 },
