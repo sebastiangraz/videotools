@@ -133,6 +133,12 @@ const SETTINGS = {
   floorFocus: 3,
   walls: 0.2,
   smoothing: 0.28,
+  // Mark's ripples: the gap between them in half pane heights, and their inks
+  // (1 the clip's full colour), in turn from the middle out. The grow clip
+  // holds one turn, so one comes out every CLIPS.grow / rippleInks.length
+  // frames.
+  rippleGap: 0.25,
+  rippleInks: [1, 0.1, 0.5],
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
@@ -521,19 +527,21 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
     case SLIDE {
       return solid(ball(q - vec2f(mix(-0.75, 0.6, f / ${CLIPS.slide}), 0), 0.5), h);
     }
-    // A ball growing out of the middle every half clip, over the older ones,
-    // every other one lighter; the oldest dropped once the next covers the
-    // pane's corners.
+    // Balls growing out of the middle over the older ones, the oldest dropped
+    // once the next covers the pane's corners.
     case GROW {
-      let s = f / ${CLIPS.grow / 2};
+      const n = ${SETTINGS.rippleInks.length};
+      var inks = array<f32, n>(${SETTINGS.rippleInks.join(", ")});
+      // Ripples come out so far this clip.
+      let s = f / ${CLIPS.grow / SETTINGS.rippleInks.length};
       var a = 0.0;
-      for (var i = 4.0; i >= 0; i -= 1) {
-        let r = 0.375 * (i + fract(s));
+      for (var i = ceil(length(CLIP) / CLIP.y / ${SETTINGS.rippleGap}); i >= 0; i -= 1) {
+        let r = ${SETTINGS.rippleGap} * (i + fract(s));
         // None yet, its slope undefined.
         if (r > 0) {
           let b = ball(q, r);
-          // Lighter by which half clip it came out in.
-          let ink = 1 - 0.3 * ((i + floor(s)) % 2);
+          // Its ink by when it came out, which stays as it grows.
+          let ink = inks[u32(i + f32(n) - floor(s)) % n];
           a = ink * solid(b, h) + a * (1 - fill(h * b.x));
         }
       }
