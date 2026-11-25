@@ -176,7 +176,7 @@ const SETTINGS = {
 // pane heights as the lone cloud is laid out.
 const CLOUD = {
   // Shown this many times the size it's laid out at.
-  scale: 1.4,
+  scale: 1.5,
   // Its big domes, each's centre (y down) and radius; how much their radii
   // swell and shrink over the loop; and how close their heights come before
   // they round into each other.
@@ -188,37 +188,37 @@ const CLOUD = {
     [-0.3, -0.04, 0.2],
     [0.05, 0.12, 0.26],
   ],
-  breathe: 0.1,
-  domeBlend: 0.1,
+  breathe: 0.07,
+  domeBlend: 0.08,
   // Its flat base, and the thickness its edge is at: more shrinks it.
-  base: 0.8,
-  edge: 0.13,
+  base: 0.525,
+  edge: 0.125,
   // Octaves of smaller lobes over the domes, the first's per unit, each half
   // the size of the last; their height for their size; and how close their
   // heights come before they round into each other.
-  lobes: 1,
-  lobeScale: 1.5,
-  lobeHeight: 0.7,
-  lobeBlend: 0.1,
+  lobes: 4,
+  lobeScale: 2.5,
+  lobeHeight: 0.3,
+  lobeBlend: 0.28,
   // Each lobe's radius in its cell: at least `lobeRadius`, up to `lobeSpread`
   // more, swelling and shrinking by `lobeSwell` as it drifts round a circle of
   // radius `lobeDrift`. Past 1.5 together, lobes are cut off by their cells'
   // neighbours.
-  lobeRadius: 0.1,
-  lobeSpread: 0.1,
-  lobeSwell: 0.1,
-  lobeDrift: 0.02,
+  lobeRadius: 0.35,
+  lobeSpread: 0.09,
+  lobeSwell: 0.2,
+  lobeDrift: 0.17,
   // Shading: its surface's slope, taken over `smoothing` (more is softer) and
   // steepened by `relief`; the light's height for each unit it's off towards
   // LIGHT; where highlights start, from 0 (side-on to the light) to 1 (facing
   // it); and the share of the ink they take.
-  smoothing: 0.025,
+  smoothing: 0.09,
   relief: 0.27,
-  lightHeight: 1.2,
+  lightHeight: 1.5,
   highlightFrom: 0.9,
   highlight: 0.9,
   // How fast ink builds with thickness: less is more see-through.
-  density: 16,
+  density: 9,
   // Grain in the half tones.
   grain: 0.1,
   // The sky clip: a cloud per square cell, `clusters` cells across the pane

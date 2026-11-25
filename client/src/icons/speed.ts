@@ -35,6 +35,8 @@ export default {
 
     smoothing: 0.05,
 
+    lightHeight: 1.2,
+
     base: 0.5,
     edge: 0.08,
     scale: 1.8,

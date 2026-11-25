@@ -68,8 +68,8 @@
     margin: -50%;
     pointer-events: none;
 
-    --clip-bg: #98b300;
-    --clip-fg: light-dark(var(--fg), var(--bg));
+    --clip-bg: light-dark(color-mix(in srgb, var(--fg) 20%, var(--bg)), #98b300);
+    --clip-fg: light-dark(var(--bg), var(--bg));
   }
 }
 
