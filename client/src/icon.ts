@@ -213,9 +213,13 @@ const CLOUD = {
   // Grain in the half tones.
   grain: 0.1,
   // The sky clip: a cloud per square cell, `clusters` cells across the pane
-  // and as many down as fit, blown right to left `clusterDrift` pane widths
+  // and `clusterRows` down, the rows centred on the pane and moved by
+  // `clusterX` and `clusterY`, blown right to left `clusterDrift` pane widths
   // per loop (whole, at least 1, so the loop wraps).
   clusters: 2,
+  clusterRows: 2,
+  clusterX: 0,
+  clusterY: 0,
   clusterDrift: 1,
   // The share of cells with a cloud, and how far each strays from its cell's
   // centre, in cells.
@@ -227,11 +231,17 @@ const CLOUD = {
   // How much smaller than the largest each cloud can be, at random; how much
   // of that range each sweeps through over the loop, at its own phase (0 keeps
   // sizes still); and how close touching clouds' heights come before they
-  // round into each other. A cloud is cut off where it reaches past its
-  // cell's neighbours.
+  // round into each other. A cloud is cut off where it reaches more than two
+  // cells across or one up or down from its own.
   clusterSpread: 0,
   clusterSwell: 0,
   clusterBlend: 0.15,
+  // Each cloud's width and height for its size, 1 as its domes make it, and
+  // how far its width over height strays at random, at most 2 to the power of
+  // `clusterStretch` times wider or taller.
+  clusterWidth: 1,
+  clusterHeight: 1,
+  clusterStretch: 0,
 };
 // CLOUD's numbers in the order the shader's Cloud holds them.
 const FIELDS = Object.keys(CLOUD).filter((key) => key !== "domes") as Exclude<
@@ -415,10 +425,11 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
     case CLOUD {
       return cloud(q / look.scale, f / ${CLIPS.cloud}, u.px / h / look.scale, n);
     }
-    // In the sky's units, look.clusters cells across the pane.
+    // Moved, in the sky's units, look.clusters cells across the pane.
     case SKY {
       let m = look.clusters / look.scale * CLIP.y / CLIP.x;
-      return cloud(q * m, f / ${CLIPS.sky}, u.px / h * m, n);
+      let p = q - vec2f(look.clusterX, look.clusterY);
+      return cloud(p * m, f / ${CLIPS.sky}, u.px / h * m, n);
     }
     default {
       return 0;
@@ -448,26 +459,28 @@ fn cloud(q: vec2f, s: f32, px: f32, n: i32) -> f32 {
 }
 
 // The sky's thickness at q, blown right to left as s goes from 0 to 1: a
-// cumulus per cell, cells as wide as the lone one's pane is high, each the
-// same as the one ring cells along.
+// cumulus per cell, cells as wide as the lone one's pane is high, in rows 0
+// up to look.clusterRows, each the same as the one ring cells along.
 fn sky(q: vec2f, s: f32, px: f32) -> f32 {
   let side = 2 / look.scale;
   let ring: f32 = look.clusters * look.clusterDrift;
-  let p = q + vec2f(side * ring * s, 0);
+  let p = q + side * vec2f(ring * s, look.clusterRows / 2);
   var t = -1.0;
   for (var y = -1.0; y <= 1; y += 1) {
-    for (var x = -1.0; x <= 1; x += 1) {
+    for (var x = -2.0; x <= 2; x += 1) {
       let cell = floor(p / side) + vec2f(x, y);
       // Whether it has a cloud, its size, and its phase; where it is in its
-      // cell, and its look.
+      // cell, and its look and shape.
       let id = vec3f(cell.x - ring * floor(cell.x / ring), cell.y, 1);
       let h = hash(id);
       let g = hash(id + vec3f(0, 0, 1));
-      if (h.x < look.clusterCoverage) {
+      if (h.x < look.clusterCoverage && cell.y >= 0 && cell.y < look.clusterRows) {
         let grow = mix(h.y, 0.5 + 0.5 * sin(6.283 * (s + h.z)), look.clusterSwell);
         let a = (1 - look.clusterSpacing) * (1 - look.clusterSpread * grow);
+        let e = exp2(look.clusterStretch * (g.z - 0.5));
+        let size = a * vec2f(look.clusterWidth * e, look.clusterHeight / e);
         let o = (cell + 0.5 + look.clusterScatter * (g.xy - 0.5)) * side;
-        t = smax(t, a * billows((p - o) / a, s + h.z, px / a, floor(64 * g.z)), look.clusterBlend);
+        t = smax(t, a * billows((p - o) / size, s + h.z, px / min(size.x, size.y), floor(64 * g.z)), look.clusterBlend);
       }
     }
   }
