@@ -519,7 +519,7 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
   switch (n) {
     // A ball crossing from left to right.
     case SLIDE {
-      return solid(ball(q - vec2f(mix(-0.85, 0.85, f / ${CLIPS.slide}), 0), 0.4), h);
+      return solid(ball(q - vec2f(mix(-0.75, 0.6, f / ${CLIPS.slide}), 0), 0.5), h);
     }
     // Balls growing out of the middle, fading as they go.
     case GROW {
