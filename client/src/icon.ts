@@ -521,12 +521,21 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
     case SLIDE {
       return solid(ball(q - vec2f(mix(-0.75, 0.6, f / ${CLIPS.slide}), 0), 0.5), h);
     }
-    // Balls growing out of the middle, fading as they go.
+    // A ball growing out of the middle every half clip, over the older ones,
+    // every other one lighter; the oldest dropped once the next covers the
+    // pane's corners.
     case GROW {
+      let s = f / ${CLIPS.grow / 2};
       var a = 0.0;
-      for (var i = 0.0; i < 4; i += 1) {
-        let s = fract(f / ${CLIPS.grow} + i / 4);
-        a = 1 - (1 - a) * (1 - (1 - s) * fill(h * (length(q) - 1.7 * s)));
+      for (var i = 4.0; i >= 0; i -= 1) {
+        let r = 0.375 * (i + fract(s));
+        // None yet, its slope undefined.
+        if (r > 0) {
+          let b = ball(q, r);
+          // Lighter by which half clip it came out in.
+          let ink = 1 - 0.3 * ((i + floor(s)) % 2);
+          a = ink * solid(b, h) + a * (1 - fill(h * b.x));
+        }
       }
       return a;
     }
