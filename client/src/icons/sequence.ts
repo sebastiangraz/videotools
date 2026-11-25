@@ -7,6 +7,9 @@ const STILLS = ["still1", "still2", "still3"];
 const DURATION = 3;
 
 const STEP = 1;
+// How far the stack has moved, eased, when the key cuts to the card dropping
+// into it: on the move rather than once it settles.
+const SWITCH = 0.9;
 
 const STACK = [
   [27, -13],
@@ -38,7 +41,13 @@ export default {
     });
     return [
       ...cards,
-      { at: [x, y], size: [w, h], radius: r, z: 0, clip: STILLS[turn % 3] },
+      {
+        at: [x, y],
+        size: [w, h],
+        radius: r,
+        z: 0,
+        clip: STILLS[(turn + Number(step >= SWITCH)) % 3],
+      },
       ...timeline(key, t / DURATION),
     ];
   },
