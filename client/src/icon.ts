@@ -129,9 +129,9 @@ const SETTINGS = {
   // most, focused straight down by `floorFocus`, and from walls around at
   // `walls`. Outlines' slopes round off over `smoothing` of how deep they are
   // where their sides meet.
-  floor: 0.8,
+  floor: 0.5,
   floorFocus: 3,
-  walls: 0.5,
+  walls: 0.2,
   smoothing: 0.28,
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
@@ -268,7 +268,7 @@ const FIELDS = Object.keys(CLOUD).filter((key) => key !== "domes") as Exclude<
 // The solid clips' outlines as SVG path data, on a 34 unit viewBox laid half
 // the pane high over its centre.
 const OUTLINES = {
-  vee: "M34.941 23.294c0 1.17-.948 2.118-2.117 2.118H19.72c-.145 0-.185.199-.051.254l8.69 3.621c.869.362.869 1.593 0 1.955l-9.545 3.977a2.12 2.12 0 0 1-1.63 0L7.64 31.242c-.869-.362-.869-1.593 0-1.955l8.69-3.62c.134-.056.094-.255-.05-.255H3.175a2.12 2.12 0 0 1-2.117-2.118V1.727c0-1.066 1.399-1.464 1.96-.556l14.53 23.512a.53.53 0 0 0 .901 0L32.982 1.171c.56-.908 1.96-.51 1.96.556z",
+  vee: "M33 20a4 4 0 0 1-4 4h-8.078c-.562 0-.696.785-.166.972l7.586 2.674c.888.313.89 1.568.004 1.885l-9.328 3.331a6 6 0 0 1-4.036 0l-9.328-3.331c-.887-.317-.884-1.572.004-1.885l7.586-2.674c.53-.187.396-.972-.166-.972H5a4 4 0 0 1-4-4V1.533C1 .525 2.323.15 2.852 1.009l12.445 20.223a2 2 0 0 0 3.406 0L31.148 1.01C31.677.15 33 .525 33 1.533z",
   // Sides 40.8 long, corners rounded by 3.4.
   triangle:
     "M28.232 12.242c3.514 2 5.27 3.001 5.804 4.34.39.978.39 2.068 0 3.046-.533 1.339-2.29 2.34-5.804 4.34l-16.646 9.479c-3.451 1.965-5.177 2.948-6.59 2.734a4.11 4.11 0 0 1-2.61-1.518c-.886-1.121-.886-3.107-.886-7.08V8.627c0-3.972 0-5.958.885-7.079A4.11 4.11 0 0 1 4.997.03c1.412-.214 3.138.768 6.59 2.734z",
