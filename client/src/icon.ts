@@ -209,10 +209,26 @@ const CLOUD = {
   density: 16,
   // Grain in the half tones.
   grain: 0.1,
-  // Clouds across the sky clip's pane, each shrunk to its share of the width,
-  // set at a random height and phase, and drifting from right to left a
-  // pane's width per loop.
-  clusters: 2,
+  // The sky clip: a cloud per square cell, `clusters` cells across the pane
+  // and as many down as fit, blown right to left `clusterDrift` pane widths
+  // per loop (whole, at least 1, so the loop wraps).
+  clusters: 3,
+  clusterDrift: 1,
+  // The share of cells with a cloud, and how far each strays from its cell's
+  // centre, in cells.
+  clusterCoverage: 0.8,
+  clusterScatter: 0.8,
+  // The clear space round the largest clouds, a share of their cells: at 0 a
+  // cloud fills its cell as the lone one fills its pane, below 0 they overlap.
+  clusterSpacing: 0,
+  // How much smaller than the largest each cloud can be, at random; how much
+  // of that range each sweeps through over the loop, at its own phase (0 keeps
+  // sizes still); and how close touching clouds' heights come before they
+  // round into each other. A cloud is cut off where it reaches past its
+  // cell's neighbours.
+  clusterSpread: 0.6,
+  clusterSwell: 0.3,
+  clusterBlend: 0.15,
 };
 
 const SHADER = /* wgsl */ `
@@ -382,19 +398,12 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
       return fill(-h * length(t) * sign(t.y));
     }
     case CLOUD {
-      return cloud(q / ${CLOUD.scale}, f / ${CLIPS.cloud}, u.px / h / ${CLOUD.scale}, 0);
+      return cloud(q / ${CLOUD.scale}, f / ${CLIPS.cloud}, u.px / h / ${CLOUD.scale}, n);
     }
+    // In the sky's units, CLOUD.clusters cells across the pane.
     case SKY {
-      let n: f32 = ${CLOUD.clusters};
-      let s = f / ${CLIPS.sky};
-      // Each cloud's share of the pane's width, and q in shares from the left
-      // of the first, scrolled; cloud k comes round again as cloud k + n.
-      let w = 2 * CLIP.x / CLIP.y / n;
-      let x = q.x / w + n * (s + 1);
-      let k = floor(x) % n;
-      let r = hash(vec3f(k, 0, 1));
-      let p = vec2f((fract(x) - 0.5) * w, q.y - (r.x - 0.5) * (1 - 1 / n));
-      return cloud(p * n / ${CLOUD.scale}, s + r.y, u.px / h * n / ${CLOUD.scale}, k);
+      let m = ${CLOUD.clusters / CLOUD.scale} * CLIP.y / CLIP.x;
+      return cloud(q * m, f / ${CLIPS.sky}, u.px / h * m, n);
     }
     default {
       return 0;
@@ -402,22 +411,57 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
   }
 }
 
-// A cumulus at q as s goes from 0 to 1, its billows lit from LIGHT and grained
-// in the half tones; px is a device pixel in q's units, k which of a sky's
-// clouds it is.
-fn cloud(q: vec2f, s: f32, px: f32, k: f32) -> f32 {
+// Clip n's cumulus or sky at q as s goes from 0 to 1, its billows lit from
+// LIGHT and grained in the half tones; px is a device pixel in q's units.
+fn cloud(q: vec2f, s: f32, px: f32, n: i32) -> f32 {
+  // Its thickness at q, and a little right and down of it.
   let e: f32 = ${CLOUD.smoothing};
-  let t = billows(q, s, px, k);
-  let n = normalize(vec3f(t - billows(q + vec2f(e, 0), s, px, k), t - billows(q + vec2f(0, e), s, px, k), e / ${CLOUD.relief}));
-  let lit = smoothstep(${CLOUD.highlightFrom}, 1, dot(n, normalize(vec3f(LIGHT, ${CLOUD.lightHeight}))));
-  let ink = (1 - exp(-${CLOUD.density} * max(t, 0))) * (1 - ${CLOUD.highlight} * lit);
+  var t: vec3f;
+  for (var i = 0; i < 3; i++) {
+    let p = q + e * vec2f(f32(i == 1), f32(i == 2));
+    if (n == SKY) {
+      t[i] = sky(p, s, px);
+    } else {
+      t[i] = billows(p, s, px, 0);
+    }
+  }
+  let normal = normalize(vec3f(t.x - t.yz, e / ${CLOUD.relief}));
+  let lit = smoothstep(${CLOUD.highlightFrom}, 1, dot(normal, normalize(vec3f(LIGHT, ${CLOUD.lightHeight}))));
+  let ink = (1 - exp(-${CLOUD.density} * max(t.x, 0))) * (1 - ${CLOUD.highlight} * lit);
   let grain = hash(vec3f(floor(q / px), 0)).x - 0.5;
   return saturate(ink + ${CLOUD.grain} * grain * ink * (1 - ink));
 }
 
-// The thickness of cloud k at q: big domes, breathing, on a flat base, under
-// octaves of smaller ones. Every other cloud has its domes mirrored, and each
-// its own lobes.
+// The sky's thickness at q, blown right to left as s goes from 0 to 1: a
+// cumulus per cell, cells as wide as the lone one's pane is high, each the
+// same as the one ring cells along.
+fn sky(q: vec2f, s: f32, px: f32) -> f32 {
+  let side = 2 / ${CLOUD.scale};
+  let ring: f32 = ${CLOUD.clusters * CLOUD.clusterDrift};
+  let p = q + vec2f(side * ring * s, 0);
+  var t = -1.0;
+  for (var y = -1.0; y <= 1; y += 1) {
+    for (var x = -1.0; x <= 1; x += 1) {
+      let cell = floor(p / side) + vec2f(x, y);
+      // Whether it has a cloud, its size, and its phase; where it is in its
+      // cell, and its look.
+      let id = vec3f(cell.x - ring * floor(cell.x / ring), cell.y, 1);
+      let h = hash(id);
+      let g = hash(id + vec3f(0, 0, 1));
+      if (h.x < ${CLOUD.clusterCoverage}) {
+        let grow = mix(h.y, 0.5 + 0.5 * sin(6.283 * (s + h.z)), ${CLOUD.clusterSwell});
+        let a = (1 - ${CLOUD.clusterSpacing}) * (1 - ${CLOUD.clusterSpread} * grow);
+        let o = (cell + 0.5 + ${CLOUD.clusterScatter} * (g.xy - 0.5)) * side;
+        t = smax(t, a * billows((p - o) / a, s + h.z, px / a, floor(64 * g.z)), ${CLOUD.clusterBlend});
+      }
+    }
+  }
+  return t;
+}
+
+// The thickness of cumulus k at q: big domes, breathing, on a flat base, under
+// octaves of smaller ones. Odd ones have their domes mirrored, and each its
+// own lobes.
 fn billows(q: vec2f, s: f32, px: f32, k: f32) -> f32 {
   var domes = array(${CLOUD.domes.map((dome) => `vec3f(${dome.join(", ")})`).join(", ")});
   var t = -1.0;
