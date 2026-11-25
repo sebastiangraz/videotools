@@ -3,19 +3,15 @@ import still1 from "./still1.avif";
 import still2 from "./still2.avif";
 import still3 from "./still3.avif";
 
-// The key plays three stills a second each, the ones to come stacked behind
-// it: as a turn ends, the front card drops into the key, the rest move up and
-// the still it shows rises again at the back.
 const STILLS = ["still1", "still2", "still3"];
 const DURATION = 3;
-// Seconds the stack takes to move, ending as the turn does.
+
 const STEP = 1;
-// A card's half width and top above the key's in each place, after the key's
-// own: two on show, then one out of sight behind them.
+
 const STACK = [
-  [27, -8],
-  [19.5, -14],
-  [11, -10],
+  [27, -13],
+  [19, -20],
+  [11, -14],
 ];
 
 export default {
