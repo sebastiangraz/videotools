@@ -6,9 +6,9 @@ import grow from "./grow.avif";
 export default {
   duration: 6,
   clips: { grow },
-  key: [72, 72, 42, 32, 16],
+  key: [76, 76, 40, 30, 16],
   layers(t, _, [x, y, w, h, r], frames) {
-    const at: [number, number] = [x + 30, y + 19];
+    const at: [number, number] = [x + 45, y + 10];
     return [
       {
         at: [x, y],
@@ -18,8 +18,8 @@ export default {
         clip: "grow",
         frame: Math.round(t * ICON.fps) % frames.grow,
       },
-      { at, size: [18, 18], radius: 20, z: 1, glass: 0.1 },
-      { at, size: [9, 3], turn: 124, sweep: 292, z: 2, glass: 0.16 },
+      { at, size: [20, 20], radius: 20, z: 1, glass: 0.05 },
+      { at, size: [10, 3], turn: 124, sweep: 292, z: 2, glass: 0.14 },
     ];
   },
 } satisfies Icon;
