@@ -198,7 +198,7 @@ const CLOUD = {
   highlightFrom: 0.9,
   highlight: 0.9,
   // How fast ink builds with thickness: less is more see-through.
-  density: 20,
+  density: 16,
   // Grain in the half tones.
   grain: 0.1,
 };
