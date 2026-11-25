@@ -127,14 +127,12 @@ const SETTINGS = {
   // Light a clip's surroundings bounce on to its solid shapes, as if each were
   // a glossy dome mirroring the clip's colour: from a floor below, `floor` at
   // most, focused straight down by `floorFocus`, and from walls around at
-  // `walls`. Regular polygons' corners round by `rounding`, and polygons' and
-  // outlines' slopes blend over `smoothing` where their sides meet, both shares
-  // of how deep they are.
+  // `walls`. Outlines' slopes round off over `smoothing` of how deep they are
+  // where their sides meet.
   floor: 0.8,
-  floorFocus: 4,
+  floorFocus: 3,
   walls: 0.5,
-  rounding: 0.2,
-  smoothing: 0.45,
+  smoothing: 0.28,
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
@@ -267,136 +265,106 @@ const FIELDS = Object.keys(CLOUD).filter((key) => key !== "domes") as Exclude<
   "domes"
 >[];
 
-// Straight lines per curve of an SVG path.
-const STEPS = 8;
+// The solid clips' outlines as SVG path data, on a 34 unit viewBox laid half
+// the pane high over its centre.
+const OUTLINES = {
+  vee: "M33 22a2 2 0 0 1-2 2H18.625c-.137 0-.174.188-.048.24l8.208 3.42c.82.342.82 1.504 0 1.846l-9.016 3.757a2 2 0 0 1-1.538 0l-9.016-3.757c-.82-.342-.82-1.504 0-1.846l8.208-3.42c.126-.052.089-.24-.048-.24H3a2 2 0 0 1-2-2V2.477c0-.742.962-1.033 1.374-.416l14.21 21.315a.5.5 0 0 0 .832 0l14.21-21.315c.412-.617 1.374-.326 1.374.416z",
+  // Sides 40.8 long, corners rounded by 3.4.
+  triangle:
+    "M2.489 28.778H31.511A3.4 3.4 0 0 0 34.455 23.678L19.945-1.456A3.4 3.4 0 0 0 14.055-1.456L-.455 23.678A3.4 3.4 0 0 0 2.489 28.778Z",
+} satisfies Partial<Record<keyof typeof CLIPS, string>>;
+// Texels across a depth map, a square as high as the pane round its centre.
+const MAP = 256;
 
-// The Bézier curve with these control points at t.
-const curve = (points: Vec[], t: number): Vec =>
-  points.length > 1
-    ? curve(
-        points.slice(1).map((b, k) => mix(points[k], b, t)),
-        t,
-      )
-    : points[0];
-
-// SVG's elliptical arc from a to b at t, or none where it's a straight line.
-const arc = (
-  a: Vec,
-  b: Vec,
-  rx: number,
-  ry: number,
-  angle: number,
-  large: number,
-  sweep: number,
-) => {
-  const [cos, sin] = [Math.cos((angle * Math.PI) / 180), Math.sin((angle * Math.PI) / 180)];
-  // Half of b to a, turned with the ellipse.
-  const [hx, hy] = [(a[0] - b[0]) / 2, (a[1] - b[1]) / 2];
-  const [x, y] = [cos * hx + sin * hy, cos * hy - sin * hx];
-  if (!rx || !ry || (!x && !y)) return;
-  // The radii grown until they reach, and the centre from the midpoint.
-  const grow = Math.sqrt(Math.max(1, (x / rx) ** 2 + (y / ry) ** 2));
-  [rx, ry] = [Math.abs(rx) * grow, Math.abs(ry) * grow];
-  const [xx, yy] = [(rx * y) ** 2, (ry * x) ** 2];
-  const k =
-    (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, ((rx * ry) ** 2 - xx - yy) / (xx + yy)));
-  const [cx, cy] = [(k * rx * y) / ry, (-k * ry * x) / rx];
-  const start = Math.atan2((y - cy) / ry, (x - cx) / rx);
-  let turn = Math.atan2((-y - cy) / ry, (-x - cx) / rx) - start;
-  if (sweep && turn < 0) turn += 2 * Math.PI;
-  if (!sweep && turn > 0) turn -= 2 * Math.PI;
-  return (t: number): Vec => {
-    const [ex, ey] = [cx + rx * Math.cos(start + turn * t), cy + ry * Math.sin(start + turn * t)];
-    return [cos * ex - sin * ey + (a[0] + b[0]) / 2, sin * ex + cos * ey + (a[1] + b[1]) / 2];
-  };
-};
-
-// The corners round one closed subpath of SVG path data, its curves as STEPS
-// straight lines each.
-const corners = (d: string) => {
-  const out: Vec[] = [];
-  // How far d is read, where the pen is, and the last command and its last
-  // control point, for S and T to mirror.
-  let read = 0;
-  let pen: Vec = [0, 0];
-  let last = "";
-  let control = pen;
-  const take = (pattern: RegExp) => {
-    pattern.lastIndex = read;
-    const match = pattern.exec(d);
-    if (match) read = pattern.lastIndex;
-    return match?.[1];
-  };
-  const number = (pattern = /[\s,]*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)/iy) => {
-    const n = take(pattern);
-    if (n === undefined) throw new Error(`No number at ${read} in the path`);
-    return Number(n);
-  };
-  for (let command; (command = take(/\s*([a-z])/iy));) {
-    const upper = command.toUpperCase();
-    if (!"MLHVCSQTAZ".includes(upper) || (upper === "M" && out.length)) {
-      throw new Error(`Not one subpath: ${command} at ${read} in the path`);
-    }
-    // Once per set of numbers after it.
-    while (upper !== "Z") {
-      const from = pen;
-      const point = (): Vec => {
-        const [x, y] = [number(), number()];
-        return command === upper ? [x, y] : [from[0] + x, from[1] + y];
-      };
-      let to: Vec;
-      let along: ((t: number) => Vec) | undefined;
-      if (upper === "H" || upper === "V") {
-        const n = number() + (command === upper ? 0 : from[upper === "H" ? 0 : 1]);
-        to = upper === "H" ? [n, from[1]] : [from[0], n];
-      } else if (upper === "A") {
-        const flag = /[\s,]*([01])/y;
-        const [rx, ry, angle, large, sweep] = [
-          number(),
-          number(),
-          number(),
-          number(flag),
-          number(flag),
-        ];
-        to = point();
-        along = arc(from, to, rx, ry, angle, large, sweep);
-      } else if (upper === "M" || upper === "L") {
-        to = point();
-      } else {
-        // S and T mirror the last curve's last control point if it was of
-        // their kind.
-        const cubic = upper === "C" || upper === "S";
-        const mirror = (cubic ? "CS" : "QT").includes(last) ? mix(control, from, 2) : from;
-        const controls = [upper === "S" || upper === "T" ? mirror : point()];
-        if (cubic) controls.push(point());
-        to = point();
-        control = controls.at(-1)!;
-        along = (t) => curve([from, ...controls, to], t);
-      }
-      for (let k = 1; k <= (along ? STEPS : 1); k++) out.push(along?.(k / STEPS) ?? to);
-      [pen, last] = [to, upper];
-      const more = /[\s,]*[-+.\d]/y;
-      more.lastIndex = read;
-      if (!more.test(d)) break;
-    }
+// The squared distances `grid` holds to its nearest zero, carried along one
+// of its lines (MAP values `step` apart from `at`) in place: the lower envelope
+// of a parabola from each value (Felzenszwalb and Huttenlocher).
+const envelope = (grid: Float64Array, at: number, step: number) => {
+  const f = new Float64Array(MAP);
+  for (let q = 0; q < MAP; q++) f[q] = grid[at + q * step];
+  const cross = (q: number, r: number) => (f[q] + q * q - f[r] - r * r) / (q - r) / 2;
+  // The envelope's parabolas, and where each takes over.
+  const v = new Int32Array(MAP);
+  const z = new Float64Array(MAP + 1);
+  [z[0], z[1]] = [-Infinity, Infinity];
+  for (let q = 1, k = 0; q < MAP; q++) {
+    let s = cross(q, v[k]);
+    while (s <= z[k]) s = cross(q, v[--k]);
+    v[++k] = q;
+    z[k] = s;
+    z[k + 1] = Infinity;
   }
-  // Bar repeats, such as a line back to the start before Z.
-  return out.filter(([a, b], i) => a !== out.at(i - 1)![0] || b !== out.at(i - 1)![1]);
+  for (let q = 0, k = 0; q < MAP; q++) {
+    while (z[k + 1] < q) k++;
+    grid[at + q * step] = f[v[k]] + (q - v[k]) ** 2;
+  }
 };
 
-// The vee clip, from an SVG on a 34 unit viewBox: its path's corners in half
-// pane heights from the pane's centre, the viewBox half the pane high.
-const VEE = corners(
-  "M33 22a2 2 0 0 1-2 2H18.625c-.137 0-.174.188-.048.24l8.208 3.42c.82.342.82 1.504 0 1.846l-9.016 3.757a2 2 0 0 1-1.538 0l-9.016-3.757c-.82-.342-.82-1.504 0-1.846l8.208-3.42c.126-.052.089-.24-.048-.24H3a2 2 0 0 1-2-2V2.477c0-.742.962-1.033 1.374-.416l14.21 21.315a.5.5 0 0 0 .832 0l14.21-21.315c.412-.617 1.374-.326 1.374.416z",
-).map(([x, y]) => [x / 34 - 0.5, y / 34 - 0.5]);
-// Twice its area, and its perimeter.
-const [twiceArea, perimeter] = VEE.reduce(
-  ([area, length], [x, y], i) => {
-    const [x1, y1] = VEE[(i + 1) % VEE.length];
-    return [area + x * y1 - x1 * y, length + Math.hypot(x1 - x, y1 - y)];
-  },
-  [0, 0],
-);
+// One line of `grid`, as envelope() takes it, averaged over the 2r + 1 values
+// round each in place, its ends held.
+const box = (grid: Float64Array, at: number, step: number, r: number) => {
+  const f = new Float64Array(MAP);
+  for (let q = 0; q < MAP; q++) f[q] = grid[at + q * step];
+  const held = (q: number) => f[Math.min(Math.max(q, 0), MAP - 1)];
+  let sum = 0;
+  for (let q = -r; q <= r; q++) sum += held(q);
+  for (let q = 0; q < MAP; q++) {
+    grid[at + q * step] = sum / (2 * r + 1);
+    sum += held(q + r + 1) - held(q - r);
+  }
+};
+
+// An outline's depth map, from the canvas's raster of it: per texel the
+// distance to it in half pane heights (negative inside), and its slope as a
+// dome, upright at the edge and level as far in as the outline is deep. The
+// slope follows the distance field blurred by `smoothing` of that depth, which
+// rounds off its creases where sides meet.
+const depthMap = (d: string) => {
+  const pen = new OffscreenCanvas(MAP, MAP).getContext("2d")!;
+  // 68 viewBox units across, its centre on the map's.
+  pen.setTransform(MAP / 68, 0, 0, MAP / 68, MAP / 4, MAP / 4);
+  pen.fill(new Path2D(d));
+  const { data } = pen.getImageData(0, 0, MAP, MAP);
+  const cover = Float64Array.from({ length: MAP * MAP }, (_, i) => data[4 * i + 3] / 255);
+  // Texels to the edge from outside it (or in), an antialiased texel's
+  // coverage telling how far past its centre the edge runs.
+  const distances = (cover: Float64Array) => {
+    const grid = cover.map((a) => (a >= 1 ? 0 : a > 0 ? Math.max(0, 0.5 - a) ** 2 : 1e12));
+    for (let i = 0; i < MAP; i++) envelope(grid, i, MAP);
+    for (let i = 0; i < MAP; i++) envelope(grid, i * MAP, 1);
+    return grid.map(Math.sqrt);
+  };
+  const inside = distances(cover.map((a) => 1 - a));
+  const field = distances(cover).map((d, i) => d - inside[i]);
+  // Three times its mean depth: its incircle's radius, if it has one.
+  const inner = field.filter((d) => d < 0);
+  const depth = (-3 * inner.reduce((sum, d) => sum + d)) / inner.length;
+  // The field after three box blurs by r, near enough a gaussian.
+  const blurred = (r: number) => {
+    const out = field.slice();
+    for (let pass = 0; pass < 3; pass++) {
+      for (let i = 0; i < MAP; i++) box(out, i, MAP, r);
+      for (let i = 0; i < MAP; i++) box(out, i * MAP, 1, r);
+    }
+    return out;
+  };
+  // A texel's blur evens out the steps the raster leaves along its edge.
+  const edge = blurred(1);
+  const smooth = blurred(Math.round(SETTINGS.smoothing * depth));
+  // Its slope from the texels either side, held at the map's edges.
+  const at = (x: number, y: number) =>
+    smooth[Math.min(Math.max(y, 0), MAP - 1) * MAP + Math.min(Math.max(x, 0), MAP - 1)];
+  const map = new Float16Array(4 * MAP * MAP);
+  edge.forEach((d, i) => {
+    const [x, y] = [i % MAP, Math.floor(i / MAP)];
+    const sx = (at(x + 1, y) - at(x - 1, y)) / 2;
+    const sy = (at(x, y + 1) - at(x, y - 1)) / 2;
+    // Its full steepness for its depth, bar where the blur evens it out.
+    const k = Math.min(Math.max(1 + smooth[i] / depth, 0), 1) / Math.max(Math.hypot(sx, sy), 0.5);
+    map.set([d / (MAP / 2), sx * k, sy * k], 4 * i);
+  });
+  return map;
+};
 
 const SHADER = /* wgsl */ `
 struct Uniforms {
@@ -439,6 +407,8 @@ struct Cloud {
 @group(0) @binding(2) var bilinear: sampler;
 // The canvas as the layers below a glass or ink one left it.
 @group(0) @binding(3) var backdrop: texture_2d<f32>;
+// The outlines' depth maps, in OUTLINES' order.
+@group(0) @binding(4) var outlines: texture_2d_array<f32>;
 // The icon's labels, and how its clouds look.
 @group(1) @binding(0) var images: texture_2d_array<f32>;
 @group(1) @binding(1) var<storage> look: Cloud;
@@ -563,13 +533,13 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
     case BALL {
       return solid(ball(q, 0.5), h);
     }
-    case VEE {
-      return solid(outline(q), h);
-    }
-    // Sides 1.2 long.
-    case TRIANGLE {
-      return solid(polygon(q, 3, 0.6 / sqrt(3.0)), h);
-    }
+    ${Object.keys(OUTLINES)
+      .map(
+        (name, i) => `case ${name.toUpperCase()} {
+      return solid(textureSampleLevel(outlines, bilinear, q / 2 + 0.5, ${i}, 0).xyz, h);
+    }`,
+      )
+      .join("\n    ")}
     case CLOUD {
       return cloud(q / look.scale, f / ${CLIPS.cloud}, u.px / h / look.scale, n);
     }
@@ -589,59 +559,6 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
 // dome.
 fn ball(q: vec2f, r: f32) -> vec3f {
   return vec3f(length(q) - r, q / r);
-}
-
-// A regular polygon with that many sides round a circle of radius r, one side
-// at its foot: the distance to it, and its slope as a dome, each smooth where
-// its sides meet, which rounds its corners.
-fn polygon(q: vec2f, sides: f32, r: f32) -> vec3f {
-  let k = r * vec2f(${SETTINGS.rounding}, ${SETTINGS.smoothing});
-  var sum = vec2f();
-  var g = vec2f();
-  for (var i = 0.0; i < sides; i += 1) {
-    let a = radians(90 + 360 * i / sides);
-    let n = vec2f(cos(a), sin(a));
-    let w = exp((dot(q, n) - r) / k);
-    sum += w;
-    g += w.y * n;
-  }
-  let d = k.x * log(sum.x);
-  return vec3f(d, g / max(length(g), 0.5 * sum.y) * saturate(1 + d / r));
-}
-
-// The vee's corners, and how deep it is: twice its area over its perimeter,
-// its incircle's radius if it has one.
-const CORNERS = array(${VEE.map(([x, y]) => `vec2f(${x}, ${y})`).join(", ")});
-const DEPTH = ${Math.abs(twiceArea) / perimeter};
-
-// The vee's outline: the distance to it, inside where a ray to the right
-// crosses it an odd number of times, and its slope as a dome, smooth where its
-// sides meet.
-fn outline(q: vec2f) -> vec3f {
-  var m = 1e3;
-  var inside = false;
-  var sum = 0.0;
-  var g = vec2f();
-  for (var i = 0; i < ${VEE.length}; i++) {
-    let a = CORNERS[i];
-    let e = CORNERS[(i + 1) % ${VEE.length}] - a;
-    // From the side's nearest point to q.
-    let b = q - a - e * saturate(dot(q - a, e) / dot(e, e));
-    let l = length(b);
-    m = min(m, l);
-    if ((a.y > q.y) != (a.y + e.y > q.y) && q.x < a.x + (q.y - a.y) * e.x / e.y) {
-      inside = !inside;
-    }
-    // Each side counts by its length up to the blend's, so a curve weighs the
-    // same however finely it's cut.
-    let k = ${SETTINGS.smoothing} * DEPTH;
-    let w = exp(-l / k) * min(length(e), k) / k;
-    sum += w;
-    g += w * b / max(l, 1e-6);
-  }
-  let s = select(1.0, -1.0, inside);
-  let d = s * m;
-  return vec3f(d, s * g / max(length(g), 0.5 * sum) * saturate(1 + d / DEPTH));
 }
 
 // A solid shape's ink, s.x its distance in units of h and s.yz its slope,
@@ -867,7 +784,10 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
   };
 
   const ready = (async () => {
-    const device = await (await navigator.gpu?.requestAdapter())?.requestDevice();
+    const requested = (await navigator.gpu?.requestAdapter())?.requestDevice();
+    // Made while the device is on its way.
+    const maps = Object.values(OUTLINES).map(depthMap);
+    const device = await requested;
     if (!device) throw new Error("No WebGPU");
     const context = canvas.getContext("webgpu")!;
     const format = navigator.gpu.getPreferredCanvasFormat();
@@ -895,6 +815,19 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
+    const outlines = device.createTexture({
+      size: [MAP, MAP, maps.length],
+      format: "rgba16float",
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    maps.forEach((map, i) =>
+      device.queue.writeTexture(
+        { texture: outlines, origin: [0, 0, i] },
+        map,
+        { bytesPerRow: 8 * MAP },
+        [MAP, MAP],
+      ),
+    );
     const sheet = new OffscreenCanvas(ICON.clip[0], ICON.clip[1]);
     const pen = sheet.getContext("2d")!;
     pen.fillStyle = "white";
@@ -946,6 +879,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
             { binding: 1, resource: { buffer: layerBuffer } },
             { binding: 2, resource: sampler },
             { binding: 3, resource: backdrop.createView() },
+            { binding: 4, resource: outlines.createView({ dimension: "2d-array" }) },
           ],
         });
       }
