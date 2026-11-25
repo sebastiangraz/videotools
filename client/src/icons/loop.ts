@@ -12,7 +12,7 @@ const PERIOD = CLIP - FADE;
 
 export default {
   duration: PERIOD / ICON.fps,
-  key: [83, 86, 32, 24, 16],
+  key: [76, 86, 32, 24, 16],
   layers(t, show, key) {
     const [x, y, w, h, r] = key;
     const i = Math.round(t * ICON.fps);
@@ -23,7 +23,7 @@ export default {
     return [
       // Out from behind the key.
       {
-        at: [x - 28 * show, y - 32.5 * show],
+        at: [x - 20 * show, y - 31 * show],
         size: [26, 19.5],
         radius: r - 2,
         z: -2,

@@ -28,15 +28,38 @@
 
 .header {
   grid-area: header;
-  display: flex;
-  gap: 1em;
-  justify-content: space-between;
+  display: grid;
+  grid-template: "logo icon" "title icon" / 1fr auto;
+  gap: 2rem 1em;
   align-items: end;
-  padding: 2em 1em 1em 1em;
+  padding: 1.5em 1em 1.25em 1em;
   color: var(--fg);
 }
 
+.logo {
+  grid-area: logo;
+  width: 1.25rem;
+  height: 1.25rem;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'><path d='M33 24H18l11 4.583-12 5-12-5L16 24H1V0l16 24L33 0z'/></svg>")
+    center / contain no-repeat;
+  background: linear-gradient(var(--border-solid) 0 0), var(--bg-1);
+  transition: --input-bg-2 0.25s ease;
+  &:hover {
+    --input-bg-2: var(--border-solid);
+  }
+}
+
+.logoFill {
+  composes: input from global;
+  height: 100%;
+  mask: inherit;
+  border-radius: 0;
+  box-shadow: none;
+  translate: 0 var(--input-edge);
+}
+
 .title {
+  grid-area: title;
   font-size: var(--font-md);
   text-box: cap alphabetic;
   letter-spacing: 0.05em;
@@ -51,17 +74,13 @@
   flex-direction: column;
 }
 
-/* One slot for the logo and the tool icons, which bleed out of it. */
-.logo {
+/* One slot for the tool icons, which bleed out of it. */
+.icon {
+  grid-area: icon;
   width: 3.5rem;
   height: 3.5rem;
   display: grid;
   place-items: center;
-  svg {
-    width: 2rem;
-    height: auto;
-    overflow: visible;
-  }
   canvas {
     width: 200%;
     height: 200%;
