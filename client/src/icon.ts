@@ -267,21 +267,117 @@ const FIELDS = Object.keys(CLOUD).filter((key) => key !== "domes") as Exclude<
   "domes"
 >[];
 
-// The corners round one closed subpath of SVG path data drawn in straight
-// lines: M, L, H, V and Z, absolute or relative.
+// Straight lines per curve of an SVG path.
+const STEPS = 8;
+
+// The Bézier curve with these control points at t.
+const curve = (points: Vec[], t: number): Vec =>
+  points.length > 1
+    ? curve(
+        points.slice(1).map((b, k) => mix(points[k], b, t)),
+        t,
+      )
+    : points[0];
+
+// SVG's elliptical arc from a to b at t, or none where it's a straight line.
+const arc = (
+  a: Vec,
+  b: Vec,
+  rx: number,
+  ry: number,
+  angle: number,
+  large: number,
+  sweep: number,
+) => {
+  const [cos, sin] = [Math.cos((angle * Math.PI) / 180), Math.sin((angle * Math.PI) / 180)];
+  // Half of b to a, turned with the ellipse.
+  const [hx, hy] = [(a[0] - b[0]) / 2, (a[1] - b[1]) / 2];
+  const [x, y] = [cos * hx + sin * hy, cos * hy - sin * hx];
+  if (!rx || !ry || (!x && !y)) return;
+  // The radii grown until they reach, and the centre from the midpoint.
+  const grow = Math.sqrt(Math.max(1, (x / rx) ** 2 + (y / ry) ** 2));
+  [rx, ry] = [Math.abs(rx) * grow, Math.abs(ry) * grow];
+  const [xx, yy] = [(rx * y) ** 2, (ry * x) ** 2];
+  const k =
+    (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, ((rx * ry) ** 2 - xx - yy) / (xx + yy)));
+  const [cx, cy] = [(k * rx * y) / ry, (-k * ry * x) / rx];
+  const start = Math.atan2((y - cy) / ry, (x - cx) / rx);
+  let turn = Math.atan2((-y - cy) / ry, (-x - cx) / rx) - start;
+  if (sweep && turn < 0) turn += 2 * Math.PI;
+  if (!sweep && turn > 0) turn -= 2 * Math.PI;
+  return (t: number): Vec => {
+    const [ex, ey] = [cx + rx * Math.cos(start + turn * t), cy + ry * Math.sin(start + turn * t)];
+    return [cos * ex - sin * ey + (a[0] + b[0]) / 2, sin * ex + cos * ey + (a[1] + b[1]) / 2];
+  };
+};
+
+// The corners round one closed subpath of SVG path data, its curves as STEPS
+// straight lines each.
 const corners = (d: string) => {
-  const out: number[][] = [];
-  let [x, y] = [0, 0];
-  for (const [, command, args] of d.matchAll(/([a-z])([^a-z]*)/gi)) {
+  const out: Vec[] = [];
+  // How far d is read, where the pen is, and the last command and its last
+  // control point, for S and T to mirror.
+  let read = 0;
+  let pen: Vec = [0, 0];
+  let last = "";
+  let control = pen;
+  const take = (pattern: RegExp) => {
+    pattern.lastIndex = read;
+    const match = pattern.exec(d);
+    if (match) read = pattern.lastIndex;
+    return match?.[1];
+  };
+  const number = (pattern = /[\s,]*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)/iy) => {
+    const n = take(pattern);
+    if (n === undefined) throw new Error(`No number at ${read} in the path`);
+    return Number(n);
+  };
+  for (let command; (command = take(/\s*([a-z])/iy));) {
     const upper = command.toUpperCase();
-    if (!"MLHVZ".includes(upper) || (upper === "M" && out.length)) {
-      throw new Error(`Not one subpath of straight lines: ${command}`);
+    if (!"MLHVCSQTAZ".includes(upper) || (upper === "M" && out.length)) {
+      throw new Error(`Not one subpath: ${command} at ${read} in the path`);
     }
-    const n = (args.match(/-?(?:\d+\.?\d*|\.\d+)/g) ?? []).map(Number);
-    for (let i = 0; i < n.length;) {
-      if (upper !== "V") x = (command === upper ? 0 : x) + n[i++];
-      if (upper !== "H") y = (command === upper ? 0 : y) + n[i++];
-      out.push([x, y]);
+    // Once per set of numbers after it.
+    while (upper !== "Z") {
+      const from = pen;
+      const point = (): Vec => {
+        const [x, y] = [number(), number()];
+        return command === upper ? [x, y] : [from[0] + x, from[1] + y];
+      };
+      let to: Vec;
+      let along: ((t: number) => Vec) | undefined;
+      if (upper === "H" || upper === "V") {
+        const n = number() + (command === upper ? 0 : from[upper === "H" ? 0 : 1]);
+        to = upper === "H" ? [n, from[1]] : [from[0], n];
+      } else if (upper === "A") {
+        const flag = /[\s,]*([01])/y;
+        const [rx, ry, angle, large, sweep] = [
+          number(),
+          number(),
+          number(),
+          number(flag),
+          number(flag),
+        ];
+        to = point();
+        along = arc(from, to, rx, ry, angle, large, sweep);
+      } else if (upper === "M" || upper === "L") {
+        to = point();
+      } else {
+        // S and T mirror the last curve's last control point if it was of
+        // their kind.
+        const cubic = upper === "C" || upper === "S";
+        const mirror = (cubic ? "CS" : "QT").includes(last) ? mix(control, from, 2) : from;
+        const controls = [upper === "S" || upper === "T" ? mirror : point()];
+        if (cubic) controls.push(point());
+        to = point();
+        control = controls.at(-1)!;
+        along = (t) => curve([from, ...controls, to], t);
+      }
+      for (let k = 1; k <= (along ? STEPS : 1); k++) out.push(along?.(k / STEPS) ?? to);
+      [pen, last] = [to, upper];
+      const more = /[\s,]*[-+.\d]/y;
+      more.lastIndex = read;
+      if (!more.test(d)) break;
     }
   }
   // Bar repeats, such as a line back to the start before Z.
@@ -290,10 +386,9 @@ const corners = (d: string) => {
 
 // The vee clip, from an SVG on a 34 unit viewBox: its path's corners in half
 // pane heights from the pane's centre, the viewBox half the pane high.
-const VEE = corners("M33 24H18l11 4.583-12 5-12-5L16 24H1V0l16 24L33 0z").map(([x, y]) => [
-  x / 34 - 0.5,
-  y / 34 - 0.5,
-]);
+const VEE = corners(
+  "M33 22a2 2 0 0 1-2 2H18.625c-.137 0-.174.188-.048.24l8.208 3.42c.82.342.82 1.504 0 1.846l-9.016 3.757a2 2 0 0 1-1.538 0l-9.016-3.757c-.82-.342-.82-1.504 0-1.846l8.208-3.42c.126-.052.089-.24-.048-.24H3a2 2 0 0 1-2-2V2.477c0-.742.962-1.033 1.374-.416l14.21 21.315a.5.5 0 0 0 .832 0l14.21-21.315c.412-.617 1.374-.326 1.374.416z",
+).map(([x, y]) => [x / 34 - 0.5, y / 34 - 0.5]);
 // Twice its area, and its perimeter.
 const [twiceArea, perimeter] = VEE.reduce(
   ([area, length], [x, y], i) => {
@@ -537,7 +632,10 @@ fn outline(q: vec2f) -> vec3f {
     if ((a.y > q.y) != (a.y + e.y > q.y) && q.x < a.x + (q.y - a.y) * e.x / e.y) {
       inside = !inside;
     }
-    let w = exp(-l / (${SETTINGS.smoothing} * DEPTH));
+    // Each side counts by its length up to the blend's, so a curve weighs the
+    // same however finely it's cut.
+    let k = ${SETTINGS.smoothing} * DEPTH;
+    let w = exp(-l / k) * min(length(e), k) / k;
     sum += w;
     g += w * b / max(l, 1e-6);
   }
