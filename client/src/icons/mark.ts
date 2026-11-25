@@ -4,9 +4,9 @@ import { ICON } from "../tools";
 // The key plays a clip under a © in glass, which fades in.
 export default {
   duration: 6,
-  key: [76, 76, 40, 30, 16],
+  key: [68, 80, 40, 30, 16],
   layers(t, _, [x, y, w, h, r]) {
-    const at: [number, number] = [x + 45, y + 10];
+    const at: [number, number] = [x + -43, y + 11];
     return [
       {
         at: [x, y],
