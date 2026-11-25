@@ -9,7 +9,7 @@ import still3 from "./still3.avif";
 const STILLS = ["still1", "still2", "still3"];
 const DURATION = 3;
 // Seconds the stack takes to move, ending as the turn does.
-const STEP = 0.4;
+const STEP = 1;
 // A card's half width and top above the key's in each place, after the key's
 // own: three on show, then one out of sight behind them.
 const STACK = [

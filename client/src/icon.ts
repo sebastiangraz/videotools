@@ -92,7 +92,7 @@ const CELL = 144;
 const TRANSITION = 0.6;
 // How every icon motion eases, as CSS's cubic-bezier() takes it. Going plays
 // it backwards; y past 0 or 1 overshoots where layers rest.
-const EASING = [0.65, 0, 0.35, 1];
+const EASING = [0.85, 0, 0.15, 1];
 // Texels per icon unit in a label's texture layer at most; below that one per
 // device pixel, so its text is drawn at the size it shows.
 const TEXELS = 4;
