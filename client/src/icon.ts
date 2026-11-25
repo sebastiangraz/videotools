@@ -163,8 +163,8 @@ const SETTINGS = {
   rimFalloff: 60,
   // Rim colour from white at 0 to what it sits on at 1, that saturated by
   // rimSaturation.
-  rimTinge: 0.5,
-  rimSaturation: 2.4,
+  rimTinge: 0.42,
+  rimSaturation: 2.2,
   // Label text opacity.
   label: 0.25,
   // Ink blurs what's under it as CSS's `backdrop-filter: blur()` does by

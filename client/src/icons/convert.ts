@@ -5,8 +5,8 @@ import { ICON } from "../tools";
 // front, which draw out from it as the icon comes in and back as it goes.
 const FORMATS = [
   { label: "MP4", at: [-18, -36], half: 18, z: 1 },
-  { label: "WEBP", at: [-20, 36], half: 22, z: 1 },
-  { label: "GIF", at: [51, 10], half: 16, z: 1 },
+  { label: "WEBP", at: [-36, 24], half: 22, z: 1 },
+  { label: "GIF", at: [31, 36], half: 16, z: 1 },
 ];
 
 export default {
@@ -29,7 +29,7 @@ export default {
         size: [half, 10],
         radius: 12,
         z,
-        glass: 0.02,
+        glass: 0.035,
         label,
       })),
     ];
