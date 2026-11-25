@@ -11,12 +11,11 @@ const DURATION = 3;
 // Seconds the stack takes to move, ending as the turn does.
 const STEP = 1;
 // A card's half width and top above the key's in each place, after the key's
-// own: three on show, then one out of sight behind them.
+// own: two on show, then one out of sight behind them.
 const STACK = [
   [27, -8],
   [19.5, -14],
-  [13, -18],
-  [7, -14],
+  [11, -10],
 ];
 
 export default {
@@ -29,9 +28,9 @@ export default {
     const step = ease(Math.max(0, (t - turn - 1 + STEP) / STEP));
     const places = [[w, 0], ...STACK];
     // Out from behind the key as the icon comes in.
-    const cards = [0, 1, 2, 3].map((i): Layer => {
+    const cards = STACK.map((_, i): Layer => {
       const place = (i + 1 - step) * show;
-      const n = Math.min(Math.max(Math.floor(place), 0), 3);
+      const n = Math.min(Math.max(Math.floor(place), 0), STACK.length - 1);
       const [half, top] = mix(places[n], places[n + 1], place - n);
       return {
         at: [x, y - h + top + 0.75 * half],
