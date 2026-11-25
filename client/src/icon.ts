@@ -48,7 +48,7 @@ export type Icon = {
 
 // The clips a pane can play and their lengths in frames, drawn live by the
 // shader's clip() in the canvas's --clip-fg on its --clip-bg.
-export const CLIPS = { slide: 180, grow: 120, ball: 1, square: 1, triangle: 1 };
+export const CLIPS = { slide: 180, grow: 120, ball: 1, square: 1, triangle: 1, cloud: 360 };
 
 export const mix = <T extends number[]>(a: T, b: T, f: number) =>
   a.map((v, i) => v + (b[i] - v) * f) as T;
@@ -153,6 +153,56 @@ const SETTINGS = {
   inkBlur: 4,
 };
 
+// The cloud clip's look, sizes in half pane heights as it's laid out.
+const CLOUD = {
+  // Shown this many times the size it's laid out at.
+  scale: 1.3,
+  // Its big domes, each's centre (y down) and radius; how much their radii
+  // swell and shrink over the loop; and how close their heights come before
+  // they round into each other.
+  domes: [
+    [-0.08, -0.1, 0.34],
+    [-0.4, 0.08, 0.22],
+    [0.32, 0.02, 0.3],
+    [0.18, -0.2, 0.2],
+    [-0.3, -0.04, 0.2],
+    [0.05, 0.12, 0.26],
+  ],
+  breathe: 0.08,
+  domeBlend: 0.05,
+  // Its flat base, and the thickness its edge is at: more shrinks it.
+  base: 0.3,
+  edge: 0.12,
+  // Octaves of smaller lobes over the domes, the first's per unit, each half
+  // the size of the last; their height for their size; and how close their
+  // heights come before they round into each other.
+  lobes: 3,
+  lobeScale: 5,
+  lobeHeight: 0.6,
+  lobeBlend: 0.08,
+  // Each lobe's radius in its cell: at least `lobeRadius`, up to `lobeSpread`
+  // more, swelling and shrinking by `lobeSwell` as it drifts round a circle of
+  // radius `lobeDrift`. Past 1.5 together, lobes are cut off by their cells'
+  // neighbours.
+  lobeRadius: 0.45,
+  lobeSpread: 0.3,
+  lobeSwell: 0.15,
+  lobeDrift: 0.25,
+  // Shading: its surface's slope, taken over `smoothing` (more is softer) and
+  // steepened by `relief`; the light's height for each unit it's off towards
+  // LIGHT; where highlights start, from 0 (side-on to the light) to 1 (facing
+  // it); and the share of the ink they take.
+  smoothing: 0.02,
+  relief: 0.67,
+  lightHeight: 0.8,
+  highlightFrom: 0.3,
+  highlight: 0.6,
+  // How fast ink builds with thickness: less is more see-through.
+  density: 12,
+  // Grain in the half tones.
+  grain: 0.8,
+};
+
 const SHADER = /* wgsl */ `
 struct Uniforms {
   fg: vec4f, // the text colour, premultiplied
@@ -221,7 +271,11 @@ struct Out {
     let h = l.size.y;
     let q = turn(p - l.at, -l.turn) / h;
     let n = i32(l.image);
-    c = mix(u.clipBg, over(u.clipBg, u.clipFg), mix(clip(n, l.frame, q, h), clip(n, l.next, q, h), l.mix));
+    var a = clip(n, l.frame, q, h);
+    if (l.mix > 0) {
+      a = mix(a, clip(n, l.next, q, h), l.mix);
+    }
+    c = mix(u.clipBg, over(u.clipBg, u.clipFg), a);
     // 1 on a dark page, -1 on a light one.
     let s = select(-1.0, 1.0, dot(u.bg.rgb, LUMA) < 0.5);
     let edge = 1 - fill(shape(l, p - vec2f(0, s * u.cssPx)));
@@ -315,10 +369,80 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
       t.x -= clamp(t.x, -2 * r, 0);
       return fill(-h * length(t) * sign(t.y));
     }
+    case CLOUD {
+      return cloud(q / ${CLOUD.scale}, f / ${CLIPS.cloud}, u.px / h / ${CLOUD.scale});
+    }
     default {
       return 0;
     }
   }
+}
+
+// A cumulus at q as s goes from 0 to 1, its billows lit from LIGHT and grained
+// in the half tones; px is a device pixel in q's units.
+fn cloud(q: vec2f, s: f32, px: f32) -> f32 {
+  let e: f32 = ${CLOUD.smoothing};
+  let t = billows(q, s, px);
+  let n = normalize(vec3f(t - billows(q + vec2f(e, 0), s, px), t - billows(q + vec2f(0, e), s, px), e / ${CLOUD.relief}));
+  let lit = smoothstep(${CLOUD.highlightFrom}, 1, dot(n, normalize(vec3f(LIGHT, ${CLOUD.lightHeight}))));
+  let ink = (1 - exp(-${CLOUD.density} * max(t, 0))) * (1 - ${CLOUD.highlight} * lit);
+  let grain = hash(vec3f(floor(q / px), 0)).x - 0.5;
+  return saturate(ink + ${CLOUD.grain} * grain * ink * (1 - ink));
+}
+
+// The cloud's thickness at q: big domes, breathing, on a flat base, under
+// octaves of smaller ones.
+fn billows(q: vec2f, s: f32, px: f32) -> f32 {
+  var domes = array(${CLOUD.domes.map((dome) => `vec3f(${dome.join(", ")})`).join(", ")});
+  var t = -1.0;
+  for (var i = 0; i < ${CLOUD.domes.length}; i++) {
+    let r = domes[i].z * (1 + ${CLOUD.breathe} * sin(6.283 * (s + f32(i) / ${CLOUD.domes.length})));
+    // Its height, or how far out of it q is.
+    let d = length(q - domes[i].xy);
+    t = smax(t, select(r - d, sqrt(r * r - d * d), d < r), ${CLOUD.domeBlend});
+  }
+  let body = smoothstep(0, 0.03, t);
+  var f: f32 = ${CLOUD.lobeScale};
+  for (var i = 1.0; i <= ${CLOUD.lobes}; i += 1) {
+    // Evened out where they'd be under two pixels.
+    t += body * ${CLOUD.lobeHeight} / f * mix(spheres(q * f + 9.1 * i, s * i), 0.4, smoothstep(0.25, 0.5, px * f));
+    f *= 2;
+  }
+  return min(t, ${CLOUD.base} - q.y) - ${CLOUD.edge};
+}
+
+// The top of spheres at p, one per unit cell, merging where they meet, as s
+// goes from 0 to 1: each drifts round a circle in its cell, swelling and
+// shrinking.
+fn spheres(p: vec2f, s: f32) -> f32 {
+  let i = floor(p);
+  var top = 0.0;
+  for (var y = -1.0; y <= 1; y += 1) {
+    for (var x = -1.0; x <= 1; x += 1) {
+      let cell = i + vec2f(x, y);
+      let h = hash(vec3f(cell, 0));
+      let a = 6.283 * (s + h);
+      let r = ${CLOUD.lobeRadius} + ${CLOUD.lobeSpread} * h.y + ${CLOUD.lobeSwell} * sin(a.z);
+      let d = length(p - cell - 0.5 - ${CLOUD.lobeDrift} * vec2f(cos(a.x), sin(a.x)));
+      top = smax(top, sqrt(max(r * r - d * d, 0)), ${CLOUD.lobeBlend});
+    }
+  }
+  return top;
+}
+
+// The larger of a and b, rounded where they're within k.
+fn smax(a: f32, b: f32, k: f32) -> f32 {
+  let m = max(k - abs(a - b), 0) / k;
+  return max(a, b) + m * m * k / 4;
+}
+
+// Three hashes in [0, 1] of p's whole part.
+fn hash(p: vec3f) -> vec3f {
+  var v = bitcast<vec3u>(vec3i(p)) * 1664525u + 1013904223u;
+  v += v.yzx * v.zxy;
+  v ^= v >> vec3u(16);
+  v += v.yzx * v.zxy;
+  return vec3f(v) / 4294967295.0;
 }
 
 // Off side-on to the light, in degrees, to the rim's (or glint's) opacity.

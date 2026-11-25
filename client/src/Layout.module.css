@@ -68,7 +68,7 @@
     margin: -50%;
     pointer-events: none;
 
-    --clip-bg: var(--fg);
+    --clip-bg: #98b300;
     --clip-fg: var(--bg);
   }
 }

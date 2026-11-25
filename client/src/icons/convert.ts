@@ -21,8 +21,8 @@ export default {
         size: [w, h],
         radius: r,
         z: 0,
-        clip: "slide",
-        frame: Math.round(t * ICON.fps) % CLIPS.slide,
+        clip: "cloud",
+        frame: Math.round(t * ICON.fps) % CLIPS.cloud,
       },
       ...FORMATS.map(({ label, at: [dx, dy], half, z }): Layer => ({
         at: [x + dx * out, y + dy * out],
