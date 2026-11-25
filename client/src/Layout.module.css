@@ -31,8 +31,8 @@
   display: flex;
   gap: 1em;
   justify-content: space-between;
-  align-items: center;
-  padding: 4em 1em 1em 1em;
+  align-items: end;
+  padding: 2em 1em 1em 1em;
   color: var(--fg);
 }
 

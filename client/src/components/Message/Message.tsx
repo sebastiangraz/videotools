@@ -83,7 +83,7 @@ export const MessageArea = ({ anchor }: { anchor: RefObject<HTMLElement | null> 
             popupClassName={cx(styles.message, error && styles.error, expanded && styles.expanded)}
             anchor={anchor}
             side="bottom"
-            align="end"
+            align="start"
             sideOffset={(data) => centerOverAnchor(data, body.current)}
             alignOffset={-2}
             collisionAvoidance={{

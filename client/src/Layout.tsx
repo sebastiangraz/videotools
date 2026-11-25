@@ -98,7 +98,6 @@ export const Layout = () => {
       <HeadContent />
       <div className={styles.frame}>
         <header className={styles.header}>
-          {icon ? <ToolIcon icon={icon} /> : <Logo />}
           <h1 ref={titleRef} className={styles.title}>
             videotoo.ls
             <span className={styles.debugLabel} data-on={debug || undefined} aria-hidden={!debug}>
@@ -106,6 +105,7 @@ export const Layout = () => {
             </span>
           </h1>
           <MessageArea anchor={titleRef} />
+          {icon ? <ToolIcon icon={icon} /> : <Logo />}
         </header>
 
         <Tabs
