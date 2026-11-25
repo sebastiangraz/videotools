@@ -25,7 +25,7 @@ export default {
   duration: DURATION,
   cloud: {
     lobes: 3,
-    lobeScale: 1.5,
+    lobeScale: 3,
     lobeHeight: 0.3,
     lobeBlend: 0.15,
     lobeRadius: 0.4,
@@ -37,7 +37,7 @@ export default {
 
     base: 0.5,
     edge: 0.08,
-    scale: 2,
+    scale: 1.8,
     clusters: 2,
     clusterCoverage: 2,
     clusterSpacing: -0.3,
@@ -49,7 +49,7 @@ export default {
     clusterWidth: 1.3,
     clusterHeight: 0.9,
     clusterStretch: 0.72,
-    density: 6,
+    density: 7,
   },
   key: [72, 64, 35, 26, 16],
   layers(t, show, key) {
