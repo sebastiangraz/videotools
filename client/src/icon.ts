@@ -156,7 +156,7 @@ const SETTINGS = {
 // The cloud clip's look, sizes in half pane heights as it's laid out.
 const CLOUD = {
   // Shown this many times the size it's laid out at.
-  scale: 1.3,
+  scale: 1.4,
   // Its big domes, each's centre (y down) and radius; how much their radii
   // swell and shrink over the loop; and how close their heights come before
   // they round into each other.
@@ -168,39 +168,39 @@ const CLOUD = {
     [-0.3, -0.04, 0.2],
     [0.05, 0.12, 0.26],
   ],
-  breathe: 0.08,
-  domeBlend: 0.05,
+  breathe: 0.1,
+  domeBlend: 0.1,
   // Its flat base, and the thickness its edge is at: more shrinks it.
-  base: 0.3,
-  edge: 0.12,
+  base: 0.8,
+  edge: 0.13,
   // Octaves of smaller lobes over the domes, the first's per unit, each half
   // the size of the last; their height for their size; and how close their
   // heights come before they round into each other.
-  lobes: 3,
-  lobeScale: 5,
-  lobeHeight: 0.6,
-  lobeBlend: 0.08,
+  lobes: 1,
+  lobeScale: 1.5,
+  lobeHeight: 0.7,
+  lobeBlend: 0.1,
   // Each lobe's radius in its cell: at least `lobeRadius`, up to `lobeSpread`
   // more, swelling and shrinking by `lobeSwell` as it drifts round a circle of
   // radius `lobeDrift`. Past 1.5 together, lobes are cut off by their cells'
   // neighbours.
-  lobeRadius: 0.45,
-  lobeSpread: 0.3,
-  lobeSwell: 0.15,
-  lobeDrift: 0.25,
+  lobeRadius: 0.1,
+  lobeSpread: 0.1,
+  lobeSwell: 0.1,
+  lobeDrift: 0.02,
   // Shading: its surface's slope, taken over `smoothing` (more is softer) and
   // steepened by `relief`; the light's height for each unit it's off towards
   // LIGHT; where highlights start, from 0 (side-on to the light) to 1 (facing
   // it); and the share of the ink they take.
-  smoothing: 0.02,
-  relief: 0.67,
-  lightHeight: 0.8,
-  highlightFrom: 0.3,
-  highlight: 0.6,
+  smoothing: 0.025,
+  relief: 0.27,
+  lightHeight: 1.2,
+  highlightFrom: 0.9,
+  highlight: 0.9,
   // How fast ink builds with thickness: less is more see-through.
-  density: 12,
+  density: 20,
   // Grain in the half tones.
-  grain: 0.8,
+  grain: 0.1,
 };
 
 const SHADER = /* wgsl */ `
