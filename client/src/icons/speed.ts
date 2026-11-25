@@ -49,7 +49,10 @@ export default {
     clusterWidth: 1.3,
     clusterHeight: 0.9,
     clusterStretch: 0.72,
-    density: 7,
+    density: 8,
+    vignette: 0.32,
+    vignetteWidth: 0.5,
+    vignetteCurve: [0.3, 0.4, 0.2, 1],
   },
   key: [72, 64, 35, 26, 16],
   layers(t, show, key) {

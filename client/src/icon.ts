@@ -242,8 +242,15 @@ const CLOUD = {
   clusterWidth: 1,
   clusterHeight: 1,
   clusterStretch: 0,
+  // How much the clouds fade out at the pane's edge, 0 not at all, 1 wholly;
+  // how far in from it they fade; and how, as CSS's cubic-bezier() takes it
+  // (this one is smoothstep()).
+  vignette: 0,
+  vignetteWidth: 0.4,
+  vignetteCurve: [1 / 3, 0, 2 / 3, 1] as [number, number, number, number],
 };
-// CLOUD's numbers in the order the shader's Cloud holds them.
+// CLOUD's numbers and fixed lists of them, in the order the shader's Cloud
+// holds them.
 const FIELDS = Object.keys(CLOUD).filter((key) => key !== "domes") as Exclude<
   keyof typeof CLOUD,
   "domes"
@@ -279,7 +286,10 @@ struct Layer {
 
 // An icon's CLOUD.
 struct Cloud {
-  ${FIELDS.map((key) => `${key}: f32,`).join("\n  ")}
+  ${FIELDS.map((key) => {
+    const value = CLOUD[key];
+    return `${key}: ${typeof value === "number" ? "f32" : `array<f32, ${value.length}>`},`;
+  }).join("\n  ")}
   domes: array<vec4f>, // centre (y down) and radius
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
@@ -327,6 +337,9 @@ struct Out {
     var a = clip(n, l.frame, q, h);
     if (l.mix > 0) {
       a = mix(a, clip(n, l.next, q, h), l.mix);
+    }
+    if (n == CLOUD || n == SKY) {
+      a *= 1 - look.vignette * (1 - ease(look.vignetteCurve, saturate(-d / h / look.vignetteWidth)));
     }
     c = mix(u.clipBg, over(u.clipBg, u.clipFg), a);
     // 1 on a dark page, -1 on a light one.
@@ -527,6 +540,26 @@ fn spheres(p: vec2f, s: f32) -> f32 {
     }
   }
   return top;
+}
+
+// CSS's cubic-bezier(c) at f, found by halving as the script's ease() does.
+fn ease(c: array<f32, 4>, f: f32) -> f32 {
+  var lo = 0.0;
+  var hi = 1.0;
+  for (var i = 0; i < 16; i++) {
+    let s = (lo + hi) / 2;
+    if (bezier(c[0], c[2], s) < f) {
+      lo = s;
+    } else {
+      hi = s;
+    }
+  }
+  return bezier(c[1], c[3], lo);
+}
+
+// The curve from 0 through control points a and b to 1, at s.
+fn bezier(a: f32, b: f32, s: f32) -> f32 {
+  return 3 * s * (1 - s) * (a * (1 - s) + b * s) + s * s * s;
 }
 
 // The larger of a and b, rounded where they're within k.
@@ -861,9 +894,10 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           GPUTextureUsage.RENDER_ATTACHMENT,
       });
       const look = { ...CLOUD, ...icon.cloud };
-      const offset = Math.ceil(FIELDS.length / 4) * 4;
+      const numbers = FIELDS.flatMap((key) => look[key]);
+      const offset = Math.ceil(numbers.length / 4) * 4;
       const cloud = new Float32Array(offset + 4 * look.domes.length);
-      cloud.set(FIELDS.map((key) => look[key]));
+      cloud.set(numbers);
       look.domes.forEach((dome, i) => cloud.set(dome, offset + 4 * i));
       const buffer = device.createBuffer({
         size: cloud.byteLength,
