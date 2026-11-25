@@ -23,6 +23,18 @@ const LOOPS = Math.max(1, Math.round(played[COUNT] / CLIPS.sky));
 
 export default {
   duration: DURATION,
+  cloud: {
+    base: 0.5,
+    edge: 0.08,
+    scale: 2,
+    clusters: 2,
+    clusterCoverage: 2,
+    clusterSpacing: -0.3,
+    clusterScatter: 0.8,
+    clusterSpread: 0.9,
+    clusterSwell: 0.2,
+    density: 7,
+  },
   key: [72, 64, 35, 26, 16],
   layers(t, show, key) {
     const [x, y, w, h, r] = key;

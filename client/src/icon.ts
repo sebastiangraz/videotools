@@ -38,6 +38,8 @@ export type Icon = {
   duration: number;
   // Text for its glass to carry.
   labels?: string[];
+  // How its cloud and sky clips look, over CLOUD's.
+  cloud?: Partial<typeof CLOUD>;
   // Where the key rests, in a CELL square around the header's logo slot.
   key: Box;
   // The layers at t, the key's filling `key` as it is now. `show` eases from
@@ -161,7 +163,8 @@ const SETTINGS = {
   inkBlur: 4,
 };
 
-// The cloud clip's look, sizes in half pane heights as it's laid out.
+// How the cloud and sky clips look where an icon doesn't say, sizes in half
+// pane heights as the lone cloud is laid out.
 const CLOUD = {
   // Shown this many times the size it's laid out at.
   scale: 1.4,
@@ -212,12 +215,12 @@ const CLOUD = {
   // The sky clip: a cloud per square cell, `clusters` cells across the pane
   // and as many down as fit, blown right to left `clusterDrift` pane widths
   // per loop (whole, at least 1, so the loop wraps).
-  clusters: 3,
+  clusters: 2,
   clusterDrift: 1,
   // The share of cells with a cloud, and how far each strays from its cell's
   // centre, in cells.
-  clusterCoverage: 0.8,
-  clusterScatter: 0.8,
+  clusterCoverage: 1,
+  clusterScatter: 0,
   // The clear space round the largest clouds, a share of their cells: at 0 a
   // cloud fills its cell as the lone one fills its pane, below 0 they overlap.
   clusterSpacing: 0,
@@ -226,10 +229,15 @@ const CLOUD = {
   // sizes still); and how close touching clouds' heights come before they
   // round into each other. A cloud is cut off where it reaches past its
   // cell's neighbours.
-  clusterSpread: 0.6,
-  clusterSwell: 0.3,
+  clusterSpread: 0,
+  clusterSwell: 0,
   clusterBlend: 0.15,
 };
+// CLOUD's numbers in the order the shader's Cloud holds them.
+const FIELDS = Object.keys(CLOUD).filter((key) => key !== "domes") as Exclude<
+  keyof typeof CLOUD,
+  "domes"
+>[];
 
 const SHADER = /* wgsl */ `
 struct Uniforms {
@@ -258,13 +266,20 @@ struct Layer {
   mix: f32,
   z: f32,
 }
+
+// An icon's CLOUD.
+struct Cloud {
+  ${FIELDS.map((key) => `${key}: f32,`).join("\n  ")}
+  domes: array<vec4f>, // centre (y down) and radius
+}
 @group(0) @binding(0) var<uniform> u: Uniforms;
 @group(0) @binding(1) var<storage> layers: array<Layer>;
 @group(0) @binding(2) var bilinear: sampler;
 // The canvas as the layers below a glass or ink one left it.
 @group(0) @binding(3) var backdrop: texture_2d<f32>;
-// The icon's labels.
+// The icon's labels, and how its clouds look.
 @group(1) @binding(0) var images: texture_2d_array<f32>;
+@group(1) @binding(1) var<storage> look: Cloud;
 
 const CELL = ${CELL};
 const CLIP = vec2f(${ICON.clip.join(", ")});
@@ -398,11 +413,11 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
       return fill(-h * length(t) * sign(t.y));
     }
     case CLOUD {
-      return cloud(q / ${CLOUD.scale}, f / ${CLIPS.cloud}, u.px / h / ${CLOUD.scale}, n);
+      return cloud(q / look.scale, f / ${CLIPS.cloud}, u.px / h / look.scale, n);
     }
-    // In the sky's units, CLOUD.clusters cells across the pane.
+    // In the sky's units, look.clusters cells across the pane.
     case SKY {
-      let m = ${CLOUD.clusters / CLOUD.scale} * CLIP.y / CLIP.x;
+      let m = look.clusters / look.scale * CLIP.y / CLIP.x;
       return cloud(q * m, f / ${CLIPS.sky}, u.px / h * m, n);
     }
     default {
@@ -415,7 +430,7 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
 // LIGHT and grained in the half tones; px is a device pixel in q's units.
 fn cloud(q: vec2f, s: f32, px: f32, n: i32) -> f32 {
   // Its thickness at q, and a little right and down of it.
-  let e: f32 = ${CLOUD.smoothing};
+  let e: f32 = look.smoothing;
   var t: vec3f;
   for (var i = 0; i < 3; i++) {
     let p = q + e * vec2f(f32(i == 1), f32(i == 2));
@@ -425,19 +440,19 @@ fn cloud(q: vec2f, s: f32, px: f32, n: i32) -> f32 {
       t[i] = billows(p, s, px, 0);
     }
   }
-  let normal = normalize(vec3f(t.x - t.yz, e / ${CLOUD.relief}));
-  let lit = smoothstep(${CLOUD.highlightFrom}, 1, dot(normal, normalize(vec3f(LIGHT, ${CLOUD.lightHeight}))));
-  let ink = (1 - exp(-${CLOUD.density} * max(t.x, 0))) * (1 - ${CLOUD.highlight} * lit);
+  let normal = normalize(vec3f(t.x - t.yz, e / look.relief));
+  let lit = smoothstep(look.highlightFrom, 1, dot(normal, normalize(vec3f(LIGHT, look.lightHeight))));
+  let ink = (1 - exp(-look.density * max(t.x, 0))) * (1 - look.highlight * lit);
   let grain = hash(vec3f(floor(q / px), 0)).x - 0.5;
-  return saturate(ink + ${CLOUD.grain} * grain * ink * (1 - ink));
+  return saturate(ink + look.grain * grain * ink * (1 - ink));
 }
 
 // The sky's thickness at q, blown right to left as s goes from 0 to 1: a
 // cumulus per cell, cells as wide as the lone one's pane is high, each the
 // same as the one ring cells along.
 fn sky(q: vec2f, s: f32, px: f32) -> f32 {
-  let side = 2 / ${CLOUD.scale};
-  let ring: f32 = ${CLOUD.clusters * CLOUD.clusterDrift};
+  let side = 2 / look.scale;
+  let ring: f32 = look.clusters * look.clusterDrift;
   let p = q + vec2f(side * ring * s, 0);
   var t = -1.0;
   for (var y = -1.0; y <= 1; y += 1) {
@@ -448,11 +463,11 @@ fn sky(q: vec2f, s: f32, px: f32) -> f32 {
       let id = vec3f(cell.x - ring * floor(cell.x / ring), cell.y, 1);
       let h = hash(id);
       let g = hash(id + vec3f(0, 0, 1));
-      if (h.x < ${CLOUD.clusterCoverage}) {
-        let grow = mix(h.y, 0.5 + 0.5 * sin(6.283 * (s + h.z)), ${CLOUD.clusterSwell});
-        let a = (1 - ${CLOUD.clusterSpacing}) * (1 - ${CLOUD.clusterSpread} * grow);
-        let o = (cell + 0.5 + ${CLOUD.clusterScatter} * (g.xy - 0.5)) * side;
-        t = smax(t, a * billows((p - o) / a, s + h.z, px / a, floor(64 * g.z)), ${CLOUD.clusterBlend});
+      if (h.x < look.clusterCoverage) {
+        let grow = mix(h.y, 0.5 + 0.5 * sin(6.283 * (s + h.z)), look.clusterSwell);
+        let a = (1 - look.clusterSpacing) * (1 - look.clusterSpread * grow);
+        let o = (cell + 0.5 + look.clusterScatter * (g.xy - 0.5)) * side;
+        t = smax(t, a * billows((p - o) / a, s + h.z, px / a, floor(64 * g.z)), look.clusterBlend);
       }
     }
   }
@@ -463,22 +478,23 @@ fn sky(q: vec2f, s: f32, px: f32) -> f32 {
 // octaves of smaller ones. Odd ones have their domes mirrored, and each its
 // own lobes.
 fn billows(q: vec2f, s: f32, px: f32, k: f32) -> f32 {
-  var domes = array(${CLOUD.domes.map((dome) => `vec3f(${dome.join(", ")})`).join(", ")});
+  let n = arrayLength(&look.domes);
   var t = -1.0;
-  for (var i = 0; i < ${CLOUD.domes.length}; i++) {
-    let r = domes[i].z * (1 + ${CLOUD.breathe} * sin(6.283 * (s + f32(i) / ${CLOUD.domes.length})));
+  for (var i = 0u; i < n; i++) {
+    let dome = look.domes[i];
+    let r = dome.z * (1 + look.breathe * sin(6.283 * (s + f32(i) / f32(n))));
     // Its height, or how far out of it q is.
-    let d = length(q * vec2f(1 - 2 * (k % 2), 1) - domes[i].xy);
-    t = smax(t, select(r - d, sqrt(r * r - d * d), d < r), ${CLOUD.domeBlend});
+    let d = length(q * vec2f(1 - 2 * (k % 2), 1) - dome.xy);
+    t = smax(t, select(r - d, sqrt(r * r - d * d), d < r), look.domeBlend);
   }
   let body = smoothstep(0, 0.03, t);
-  var f: f32 = ${CLOUD.lobeScale};
-  for (var i = 1.0; i <= ${CLOUD.lobes}; i += 1) {
+  var f: f32 = look.lobeScale;
+  for (var i = 1.0; i <= look.lobes; i += 1) {
     // Evened out where they'd be under two pixels.
-    t += body * ${CLOUD.lobeHeight} / f * mix(spheres(q * f + 9.1 * (i + k), s * i), 0.4, smoothstep(0.25, 0.5, px * f));
+    t += body * look.lobeHeight / f * mix(spheres(q * f + 9.1 * (i + k), s * i), 0.4, smoothstep(0.25, 0.5, px * f));
     f *= 2;
   }
-  return min(t, ${CLOUD.base} - q.y) - ${CLOUD.edge};
+  return min(t, look.base - q.y) - look.edge;
 }
 
 // The top of spheres at p, one per unit cell, merging where they meet, as s
@@ -492,9 +508,9 @@ fn spheres(p: vec2f, s: f32) -> f32 {
       let cell = i + vec2f(x, y);
       let h = hash(vec3f(cell, 0));
       let a = 6.283 * (s + h);
-      let r = ${CLOUD.lobeRadius} + ${CLOUD.lobeSpread} * h.y + ${CLOUD.lobeSwell} * sin(a.z);
-      let d = length(p - cell - 0.5 - ${CLOUD.lobeDrift} * vec2f(cos(a.x), sin(a.x)));
-      top = smax(top, sqrt(max(r * r - d * d, 0)), ${CLOUD.lobeBlend});
+      let r = look.lobeRadius + look.lobeSpread * h.y + look.lobeSwell * sin(a.z);
+      let d = length(p - cell - 0.5 - look.lobeDrift * vec2f(cos(a.x), sin(a.x)));
+      top = smax(top, sqrt(max(r * r - d * d, 0)), look.lobeBlend);
     }
   }
   return top;
@@ -819,7 +835,8 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
     };
     if (!stopped) request = requestAnimationFrame(draw);
 
-    // An icon with a texture layer per label, once its font has loaded.
+    // An icon with a texture layer per label, once its font has loaded, and
+    // its look as the shader's Cloud, the domes 16-byte aligned.
     const load = async (icon: Icon): Promise<Shown> => {
       if (icon.labels) await document.fonts.load(font(1));
       const texture = device.createTexture({
@@ -830,12 +847,25 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           GPUTextureUsage.COPY_DST |
           GPUTextureUsage.RENDER_ATTACHMENT,
       });
+      const look = { ...CLOUD, ...icon.cloud };
+      const offset = Math.ceil(FIELDS.length / 4) * 4;
+      const cloud = new Float32Array(offset + 4 * look.domes.length);
+      cloud.set(FIELDS.map((key) => look[key]));
+      look.domes.forEach((dome, i) => cloud.set(dome, offset + 4 * i));
+      const buffer = device.createBuffer({
+        size: cloud.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(buffer, 0, cloud);
       return {
         icon,
         texture,
         group: device.createBindGroup({
           layout: pipeline.getBindGroupLayout(1),
-          entries: [{ binding: 0, resource: texture.createView({ dimension: "2d-array" }) }],
+          entries: [
+            { binding: 0, resource: texture.createView({ dimension: "2d-array" }) },
+            { binding: 1, resource: { buffer } },
+          ],
         }),
         show: 0,
       };
