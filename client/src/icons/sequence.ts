@@ -1,9 +1,6 @@
 import { ease, mix, timeline, type Icon, type Layer } from "../icon";
-import still1 from "./still1.avif";
-import still2 from "./still2.avif";
-import still3 from "./still3.avif";
 
-const STILLS = ["still1", "still2", "still3"];
+const STILLS = ["ball", "square", "triangle"] as const;
 const DURATION = 3;
 
 const STEP = 1;
@@ -19,7 +16,6 @@ const STACK = [
 
 export default {
   duration: DURATION,
-  clips: { still1, still2, still3 },
   key: [72, 81, 35, 26, 16],
   layers(t, show, key) {
     const [x, y, w, h, r] = key;

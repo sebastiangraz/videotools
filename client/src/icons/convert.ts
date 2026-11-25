@@ -1,6 +1,5 @@
-import type { Icon, Layer } from "../icon";
+import { CLIPS, type Icon, type Layer } from "../icon";
 import { ICON } from "../tools";
-import clip from "./clip.avif";
 
 // The key plays a clip among formats in glass, two behind it and one in
 // front, which draw out from it as the icon comes in and back as it goes.
@@ -12,10 +11,9 @@ const FORMATS = [
 
 export default {
   duration: 6,
-  clips: { clip },
   labels: FORMATS.map((format) => format.label),
   key: [72, 72, 35, 26, 16],
-  layers(t, show, [x, y, w, h, r], frames) {
+  layers(t, show, [x, y, w, h, r]) {
     const out = 0.8 + 0.2 * show;
     return [
       {
@@ -23,8 +21,8 @@ export default {
         size: [w, h],
         radius: r,
         z: 0,
-        clip: "clip",
-        frame: Math.round(t * ICON.fps) % frames.clip,
+        clip: "slide",
+        frame: Math.round(t * ICON.fps) % CLIPS.slide,
       },
       ...FORMATS.map(({ label, at: [dx, dy], half, z }): Layer => ({
         at: [x + dx * out, y + dy * out],

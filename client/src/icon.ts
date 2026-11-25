@@ -22,7 +22,7 @@ export type Layer = {
   // whitened by `glass` (below 0 darkened and lit as if recessed), with a
   // `label` on it; or what's under it blurred, under the text colour at `ink`
   // opacity (black below 0).
-  clip?: string;
+  clip?: keyof typeof CLIPS;
   frame?: number;
   next?: number;
   mix?: number;
@@ -36,17 +36,19 @@ export type Layer = {
 export type Icon = {
   // Seconds; t = duration must look like t = 0.
   duration: number;
-  // Name → URL of a clip from `bun run icons`.
-  clips: Record<string, string>;
   // Text for its glass to carry.
   labels?: string[];
   // Where the key rests, in a CELL square around the header's logo slot.
   key: Box;
   // The layers at t, the key's filling `key` as it is now. `show` eases from
   // 0 to 1 as the icon comes in and back as it goes, moving layers but never
-  // adding or dropping one; `frames` counts each clip's.
-  layers: (t: number, show: number, key: Box, frames: Record<string, number>) => Layer[];
+  // adding or dropping one.
+  layers: (t: number, show: number, key: Box) => Layer[];
 };
+
+// The clips a pane can play and their lengths in frames, drawn live by the
+// shader's clip() in the canvas's --clip-fg on its --clip-bg.
+export const CLIPS = { slide: 180, grow: 120, ball: 1, square: 1, triangle: 1 };
 
 export const mix = <T extends number[]>(a: T, b: T, f: number) =>
   a.map((v, i) => v + (b[i] - v) * f) as T;
@@ -155,6 +157,8 @@ const SHADER = /* wgsl */ `
 struct Uniforms {
   fg: vec4f, // the text colour, premultiplied
   bg: vec4f, // the page's, under the canvas
+  clipBg: vec4f, // what fills a clip
+  clipFg: vec4f, // and its shapes
   px: f32, // icon units per device pixel
   cssPx: f32, // and per CSS pixel
 }
@@ -170,7 +174,8 @@ struct Layer {
   opacity: f32,
   kind: f32,
   amount: f32, // the glass's tint, the ink's opacity
-  image: f32, // the texture layer of its frame or label, else -1
+  image: f32, // the pane's clip, the glass's label (a texture layer), else -1
+  frame: f32,
   next: f32,
   mix: f32,
   z: f32,
@@ -180,7 +185,7 @@ struct Layer {
 @group(0) @binding(2) var bilinear: sampler;
 // The canvas as the layers below a glass or ink one left it.
 @group(0) @binding(3) var backdrop: texture_2d<f32>;
-// The icon's clip frames, then its labels.
+// The icon's labels.
 @group(1) @binding(0) var images: texture_2d_array<f32>;
 
 const CELL = ${CELL};
@@ -188,6 +193,9 @@ const CLIP = vec2f(${ICON.clip.join(", ")});
 const TEXELS = ${TEXELS};
 const PANE = 0.0;
 const GLASS = 1.0;
+${Object.keys(CLIPS)
+  .map((name, i) => `const ${name.toUpperCase()} = ${i};`)
+  .join("\n")}
 const LUMA = vec3f(0.299, 0.587, 0.114);
 const LIGHT = vec2f(sin(radians(${SETTINGS.lightAngle})), -cos(radians(${SETTINGS.lightAngle}))); // towards it
 
@@ -210,8 +218,10 @@ struct Out {
   }
   var c = select(u.fg, vec4f(0, 0, 0, 1), l.amount < 0) * abs(l.amount);
   if (l.kind == PANE) {
-    let uv = turn(p - l.at, -l.turn) / l.size / 2 + 0.5;
-    c = mix(image(l.image, uv), image(l.next, uv), l.mix);
+    let h = l.size.y;
+    let q = turn(p - l.at, -l.turn) / h;
+    let n = i32(l.image);
+    c = mix(u.clipBg, over(u.clipBg, u.clipFg), mix(clip(n, l.frame, q, h), clip(n, l.next, q, h), l.mix));
     // 1 on a dark page, -1 on a light one.
     let s = select(-1.0, 1.0, dot(u.bg.rgb, LUMA) < 0.5);
     let edge = 1 - fill(shape(l, p - vec2f(0, s * u.cssPx)));
@@ -269,6 +279,46 @@ fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
     c = over(vec4f(c, 1), u.fg * ${SETTINGS.label} * text).rgb;
   }
   return c;
+}
+
+// How much of its shapes' colour clip n shows at frame f, at q in units of h,
+// half the pane's height, from its centre.
+fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
+  switch (n) {
+    // A ball crossing from left to right.
+    case SLIDE {
+      return fill(h * (length(q - vec2f(mix(-0.85, 0.85, f / ${CLIPS.slide}), 0)) - 0.4));
+    }
+    // Balls growing out of the middle, fading as they go.
+    case GROW {
+      var a = 0.0;
+      for (var i = 0.0; i < 4; i += 1) {
+        let s = fract(f / ${CLIPS.grow} + i / 4);
+        a = 1 - (1 - a) * (1 - (1 - s) * fill(h * (length(q) - 1.7 * s)));
+      }
+      return a;
+    }
+    case BALL {
+      return fill(h * (length(q) - 0.5));
+    }
+    case SQUARE {
+      return fill(h * box(q, vec2f(0.45), 0));
+    }
+    // Equilateral, pointing up, sides 1.2 long.
+    case TRIANGLE {
+      let r = 0.6;
+      let k = sqrt(3.0);
+      var t = vec2f(abs(q.x) - r, r / k - q.y);
+      if (t.x + k * t.y > 0) {
+        t = vec2f(t.x - k * t.y, -k * t.x - t.y) / 2;
+      }
+      t.x -= clamp(t.x, -2 * r, 0);
+      return fill(-h * length(t) * sign(t.y));
+    }
+    default {
+      return 0;
+    }
+  }
 }
 
 // Off side-on to the light, in degrees, to the rim's (or glint's) opacity.
@@ -338,9 +388,6 @@ type Shown = {
   icon: Icon;
   texture: GPUTexture;
   group: GPUBindGroup;
-  // Each clip's (and label's) first texture layer, and each clip's count.
-  first: Record<string, number>;
-  frames: Record<string, number>;
   show: number;
   start?: number;
   // Texels per icon unit its labels were drawn at.
@@ -348,7 +395,7 @@ type Shown = {
 };
 
 // Plays the icon last shown on `canvas` until stopped, each new one morphing
-// out of the one before; `failed` without WebGPU or AVIF decoding.
+// out of the one before; `failed` without WebGPU.
 export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
   let stopped = false;
   let request = 0;
@@ -360,11 +407,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
   };
 
   const ready = (async () => {
-    const adapter = await navigator.gpu?.requestAdapter();
-    // A layer per frame takes more than the default limit.
-    const device = await adapter?.requestDevice({
-      requiredLimits: { maxTextureArrayLayers: adapter.limits.maxTextureArrayLayers },
-    });
+    const device = await (await navigator.gpu?.requestAdapter())?.requestDevice();
     if (!device) throw new Error("No WebGPU");
     const context = canvas.getContext("webgpu")!;
     const format = navigator.gpu.getPreferredCanvasFormat();
@@ -381,7 +424,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
       vertex: { module },
       fragment: { module, targets: [{ format, blend: { color: blend, alpha: blend } }] },
     });
-    const uniforms = new Float32Array(12);
+    const uniforms = new Float32Array(20);
     const uniformBuffer = device.createBuffer({
       size: uniforms.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -415,14 +458,16 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         if (!shown[i].show) shown.splice(i, 1)[0].texture.destroy();
       }
       const side = Math.round(canvas.clientWidth * devicePixelRatio);
-      const { color } = getComputedStyle(canvas);
+      const style = getComputedStyle(canvas);
+      const { color } = style;
       const { backgroundColor } = getComputedStyle(document.body);
+      const clip = ["--clip-bg", "--clip-fg"].map((name) => style.getPropertyValue(name));
       const frame = shown.map(({ icon, start = now }) =>
         still
           ? 0
           : Math.floor(((now - start) / 1000) * ICON.fps) % Math.round(icon.duration * ICON.fps),
       );
-      const state = `${frame.join()} ${shown.map((entry) => entry.show).join()} ${side} ${color} ${backgroundColor}`;
+      const state = `${frame.join()} ${shown.map((entry) => entry.show).join()} ${side} ${color} ${backgroundColor} ${clip.join()}`;
       if (!shown.length || !side || state === drawn) return;
       drawn = state;
 
@@ -444,15 +489,17 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           ],
         });
       }
-      // rgb() or rgba(), premultiplied.
+      // rgb(), rgba() or color(srgb), premultiplied.
       const premultiplied = (css: string) => {
         const [r, g, b, a = 1] = css.match(/[\d.]+/g)!.map(Number);
-        return [(r / 255) * a, (g / 255) * a, (b / 255) * a, a];
+        const k = css.startsWith("color(") ? 1 : 255;
+        return [(r / k) * a, (g / k) * a, (b / k) * a, a];
       };
       const px = CELL / side;
       uniforms.set([
         ...premultiplied(color),
         ...premultiplied(backgroundColor),
+        ...clip.flatMap(premultiplied),
         px,
         CELL / canvas.clientWidth,
       ]);
@@ -465,7 +512,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
         entry.texels = texels;
         pen.font = font(texels);
         pen.letterSpacing = "0.08em";
-        entry.icon.labels?.forEach((text) => {
+        entry.icon.labels?.forEach((text, k) => {
           const ink = pen.measureText(text);
           pen.clearRect(0, 0, sheet.width, sheet.height);
           pen.fillText(
@@ -477,7 +524,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           );
           device.queue.copyExternalImageToTexture(
             { source: sheet },
-            { texture: entry.texture, origin: [0, 0, entry.first[text]] },
+            { texture: entry.texture, origin: [0, 0, k] },
             ICON.clip,
           );
         });
@@ -513,9 +560,9 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           // Each layer off by what snaps it at rest, so it moves smoothly and
           // lands sharp, unless it's moving at rest too.
           const [rest, next] = [t, t + 1 / ICON.fps].map((t) =>
-            entry.icon.layers(t, 1, snap(entry.icon.key), entry.frames),
+            entry.icon.layers(t, 1, snap(entry.icon.key)),
           );
-          return entry.icon.layers(t, weights[i], key, entry.frames).map((layer, n) => {
+          return entry.icon.layers(t, weights[i], key).map((layer, n) => {
             const { at, size, radius = 0, turn, sweep } = rest[n];
             const box: Box = [...at, ...size, radius];
             const snapped =
@@ -531,8 +578,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           });
         })
         .sort((a, b) => a.layer.z - b.layer.z);
-      draws.forEach(({ entry: { first }, layer: l, shift, opacity }, n) => {
-        const image = (name?: string, frame = 0) => (name ? first[name] + frame : -1);
+      draws.forEach(({ entry: { icon }, layer: l, shift, opacity }, n) => {
         packed.set(
           [
             ...[...l.at, ...l.size, l.radius ?? 0].map((v, k) => v + shift[k]),
@@ -542,8 +588,9 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
             (l.opacity ?? 1) * opacity,
             l.glass !== undefined ? 1 : l.ink !== undefined ? 2 : 0,
             l.glass ?? l.ink ?? 0,
-            image(l.clip ?? l.label, l.frame),
-            image(l.clip, l.next ?? l.frame),
+            l.label ? icon.labels!.indexOf(l.label) : Object.keys(CLIPS).indexOf(l.clip ?? ""),
+            l.frame ?? 0,
+            l.next ?? l.frame ?? 0,
             l.mix ?? 0,
             l.z,
           ],
@@ -578,40 +625,17 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
     };
     if (!stopped) request = requestAnimationFrame(draw);
 
-    // An icon's clips decoded, a texture layer per frame, then its labels.
+    // An icon with a texture layer per label, once its font has loaded.
     const load = async (icon: Icon): Promise<Shown> => {
-      const clips = await Promise.all(
-        Object.values(icon.clips).map(async (url) => {
-          const decoder = new ImageDecoder({ data: (await fetch(url)).body!, type: "image/avif" });
-          await Promise.all([decoder.completed, decoder.tracks.ready]);
-          const frames: VideoFrame[] = [];
-          for (let i = 0; i < decoder.tracks.selectedTrack!.frameCount; i++) {
-            frames.push((await decoder.decode({ frameIndex: i })).image);
-          }
-          decoder.close();
-          return frames;
-        }),
-      );
-      const labels = icon.labels ?? [];
-      if (labels.length) await document.fonts.load(font(1));
-      const count = clips.flat().length;
+      if (icon.labels) await document.fonts.load(font(1));
       const texture = device.createTexture({
-        size: [...ICON.clip, count + labels.length],
+        size: [...ICON.clip, Math.max(icon.labels?.length ?? 0, 1)],
         format: "rgba8unorm",
         usage:
           GPUTextureUsage.TEXTURE_BINDING |
           GPUTextureUsage.COPY_DST |
           GPUTextureUsage.RENDER_ATTACHMENT,
       });
-      clips.flat().forEach((frame, z) => {
-        device.queue.copyExternalImageToTexture(
-          { source: frame },
-          { texture, origin: [0, 0, z] },
-          ICON.clip,
-        );
-        frame.close();
-      });
-      const names = Object.keys(icon.clips);
       return {
         icon,
         texture,
@@ -619,11 +643,6 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
           layout: pipeline.getBindGroupLayout(1),
           entries: [{ binding: 0, resource: texture.createView({ dimension: "2d-array" }) }],
         }),
-        first: Object.fromEntries([
-          ...names.map((name, k) => [name, clips.slice(0, k).flat().length]),
-          ...labels.map((text, k) => [text, count + k]),
-        ]),
-        frames: Object.fromEntries(names.map((name, k) => [name, clips[k].length])),
         show: 0,
       };
     };

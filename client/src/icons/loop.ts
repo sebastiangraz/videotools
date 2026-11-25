@@ -1,19 +1,17 @@
-import { timeline, type Icon } from "../icon";
+import { CLIPS, timeline, type Icon } from "../icon";
 import { ICON } from "../tools";
-import clip from "./clip-mov.avif";
 
 // The clip looped the way core/tools/loop.ts does it, starting at its middle:
 // in the key with the crossfade, behind it without, cutting hard where the
 // fade ends. In frames; the loop is the clip less the fade, as its first
 // frames only exist blended.
-const CLIP = 3 * ICON.fps;
+const CLIP = CLIPS.slide;
 const FADE = ICON.fps / 2;
 const START = CLIP / 2;
 const PERIOD = CLIP - FADE;
 
 export default {
   duration: PERIOD / ICON.fps,
-  clips: { clip },
   key: [83, 86, 32, 24, 16],
   layers(t, show, key) {
     const [x, y, w, h, r] = key;
@@ -29,7 +27,7 @@ export default {
         size: [26, 19.5],
         radius: r - 2,
         z: -2,
-        clip: "clip",
+        clip: "slide",
         frame,
       },
       {
@@ -37,7 +35,7 @@ export default {
         size: [w, h],
         radius: r,
         z: 0,
-        clip: "clip",
+        clip: "slide",
         frame,
         next: Math.max(k, 0),
         mix: fade,

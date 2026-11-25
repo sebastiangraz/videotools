@@ -67,7 +67,21 @@
     height: 200%;
     margin: -50%;
     pointer-events: none;
+
+    --clip-bg: var(--fg);
+    --clip-fg: var(--bg);
   }
+}
+
+@property --clip-bg {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+@property --clip-fg {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
 }
 
 .tabContainer {

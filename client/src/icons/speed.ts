@@ -1,6 +1,5 @@
-import { ease, type Icon } from "../icon";
+import { CLIPS, ease, type Icon } from "../icon";
 import { ICON } from "../tools";
-import grow from "./grow.avif";
 
 // The Speed page's knob turning between fast and slow beside a clip that
 // plays at the rate it shows, dropping or repeating frames like
@@ -19,17 +18,16 @@ for (let i = 0; i < COUNT; i++) {
   const s = speed((i + 0.5) / ICON.fps);
   played.push(played[i] + (s >= 0 ? 1 + s : 1 / (1 - s)));
 }
+// Whole loops of the clip per period, so it wraps with the icon.
+const LOOPS = Math.max(1, Math.round(played[COUNT] / CLIPS.grow));
 
 export default {
   duration: DURATION,
-  clips: { grow },
   key: [72, 64, 35, 26, 16],
-  layers(t, show, key, frames) {
+  layers(t, show, key) {
     const [x, y, w, h, r] = key;
     const i = Math.round(t * ICON.fps);
-    // Whole loops of the clip per period, so it wraps with the icon.
-    const loops = Math.max(1, Math.round(played[COUNT] / frames.grow));
-    const frame = Math.round((played[i] * loops * frames.grow) / played[COUNT]) % frames.grow;
+    const frame = Math.round((played[i] * LOOPS * CLIPS.grow) / played[COUNT]) % CLIPS.grow;
     // Swung out from the top as the icon comes in.
     const angle = 33 * speed(t) * show;
     const a = (angle * Math.PI) / 180;
