@@ -129,7 +129,7 @@ const SETTINGS = {
   // most, focused straight down by `floorFocus`, and from walls around at
   // `walls`. Polygons' corners round by `rounding` and their sides' slopes
   // blend over `smoothing`, in half pane heights.
-  floor: 0.6,
+  floor: 0.8,
   floorFocus: 4,
   walls: 0.5,
   rounding: 0.07,

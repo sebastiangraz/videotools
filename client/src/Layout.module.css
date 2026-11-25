@@ -69,7 +69,7 @@
     pointer-events: none;
 
     --clip-bg: #98b300;
-    --clip-fg: var(--bg);
+    --clip-fg: light-dark(var(--fg), var(--bg));
   }
 }
 
