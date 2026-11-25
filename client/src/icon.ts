@@ -54,7 +54,7 @@ export const CLIPS = {
   slide: 180,
   grow: 120,
   ball: 1,
-  square: 1,
+  vee: 1,
   triangle: 1,
   cloud: 360,
   sky: 360,
@@ -120,20 +120,21 @@ const SETTINGS = {
   // Light direction in degrees clockwise from the top.
   lightAngle: -45,
   // Fade into the page per unit of depth.
-  fog: 0.1,
+  fog: 0.14,
   // Light a pane's edge, a CSS pixel wide, adds (plus-lighter) along its top on
   // a dark page, or takes (plus-darker) along its foot on a light one.
   paneEdge: 0.08,
   // Light a clip's surroundings bounce on to its solid shapes, as if each were
   // a glossy dome mirroring the clip's colour: from a floor below, `floor` at
   // most, focused straight down by `floorFocus`, and from walls around at
-  // `walls`. Polygons' corners round by `rounding` and their sides' slopes
-  // blend over `smoothing`, in half pane heights.
+  // `walls`. Regular polygons' corners round by `rounding`, and polygons' and
+  // outlines' slopes blend over `smoothing` where their sides meet, both shares
+  // of how deep they are.
   floor: 0.8,
   floorFocus: 4,
   walls: 0.5,
-  rounding: 0.07,
-  smoothing: 0.15,
+  rounding: 0.2,
+  smoothing: 0.45,
 
   // Glass bevel width and the backdrop shift at its edge, fractions of half
   // the shape's narrow side.
@@ -265,6 +266,42 @@ const FIELDS = Object.keys(CLOUD).filter((key) => key !== "domes") as Exclude<
   keyof typeof CLOUD,
   "domes"
 >[];
+
+// The corners round one closed subpath of SVG path data drawn in straight
+// lines: M, L, H, V and Z, absolute or relative.
+const corners = (d: string) => {
+  const out: number[][] = [];
+  let [x, y] = [0, 0];
+  for (const [, command, args] of d.matchAll(/([a-z])([^a-z]*)/gi)) {
+    const upper = command.toUpperCase();
+    if (!"MLHVZ".includes(upper) || (upper === "M" && out.length)) {
+      throw new Error(`Not one subpath of straight lines: ${command}`);
+    }
+    const n = (args.match(/-?(?:\d+\.?\d*|\.\d+)/g) ?? []).map(Number);
+    for (let i = 0; i < n.length;) {
+      if (upper !== "V") x = (command === upper ? 0 : x) + n[i++];
+      if (upper !== "H") y = (command === upper ? 0 : y) + n[i++];
+      out.push([x, y]);
+    }
+  }
+  // Bar repeats, such as a line back to the start before Z.
+  return out.filter(([a, b], i) => a !== out.at(i - 1)![0] || b !== out.at(i - 1)![1]);
+};
+
+// The vee clip, from an SVG on a 34 unit viewBox: its path's corners in half
+// pane heights from the pane's centre, the viewBox half the pane high.
+const VEE = corners("M33 24H18l11 4.583-12 5-12-5L16 24H1V0l16 24L33 0z").map(([x, y]) => [
+  x / 34 - 0.5,
+  y / 34 - 0.5,
+]);
+// Twice its area, and its perimeter.
+const [twiceArea, perimeter] = VEE.reduce(
+  ([area, length], [x, y], i) => {
+    const [x1, y1] = VEE[(i + 1) % VEE.length];
+    return [area + x * y1 - x1 * y, length + Math.hypot(x1 - x, y1 - y)];
+  },
+  [0, 0],
+);
 
 const SHADER = /* wgsl */ `
 struct Uniforms {
@@ -431,8 +468,8 @@ fn clip(n: i32, f: f32, q: vec2f, h: f32) -> f32 {
     case BALL {
       return solid(ball(q, 0.5), h);
     }
-    case SQUARE {
-      return solid(polygon(q, 4, 0.45), h);
+    case VEE {
+      return solid(outline(q), h);
     }
     // Sides 1.2 long.
     case TRIANGLE {
@@ -463,7 +500,7 @@ fn ball(q: vec2f, r: f32) -> vec3f {
 // at its foot: the distance to it, and its slope as a dome, each smooth where
 // its sides meet, which rounds its corners.
 fn polygon(q: vec2f, sides: f32, r: f32) -> vec3f {
-  let k = vec2f(${SETTINGS.rounding}, ${SETTINGS.smoothing});
+  let k = r * vec2f(${SETTINGS.rounding}, ${SETTINGS.smoothing});
   var sum = vec2f();
   var g = vec2f();
   for (var i = 0.0; i < sides; i += 1) {
@@ -475,6 +512,38 @@ fn polygon(q: vec2f, sides: f32, r: f32) -> vec3f {
   }
   let d = k.x * log(sum.x);
   return vec3f(d, g / max(length(g), 0.5 * sum.y) * saturate(1 + d / r));
+}
+
+// The vee's corners, and how deep it is: twice its area over its perimeter,
+// its incircle's radius if it has one.
+const CORNERS = array(${VEE.map(([x, y]) => `vec2f(${x}, ${y})`).join(", ")});
+const DEPTH = ${Math.abs(twiceArea) / perimeter};
+
+// The vee's outline: the distance to it, inside where a ray to the right
+// crosses it an odd number of times, and its slope as a dome, smooth where its
+// sides meet.
+fn outline(q: vec2f) -> vec3f {
+  var m = 1e3;
+  var inside = false;
+  var sum = 0.0;
+  var g = vec2f();
+  for (var i = 0; i < ${VEE.length}; i++) {
+    let a = CORNERS[i];
+    let e = CORNERS[(i + 1) % ${VEE.length}] - a;
+    // From the side's nearest point to q.
+    let b = q - a - e * saturate(dot(q - a, e) / dot(e, e));
+    let l = length(b);
+    m = min(m, l);
+    if ((a.y > q.y) != (a.y + e.y > q.y) && q.x < a.x + (q.y - a.y) * e.x / e.y) {
+      inside = !inside;
+    }
+    let w = exp(-l / (${SETTINGS.smoothing} * DEPTH));
+    sum += w;
+    g += w * b / max(l, 1e-6);
+  }
+  let s = select(1.0, -1.0, inside);
+  let d = s * m;
+  return vec3f(d, s * g / max(length(g), 0.5 * sum) * saturate(1 + d / DEPTH));
 }
 
 // A solid shape's ink, s.x its distance in units of h and s.yz its slope,

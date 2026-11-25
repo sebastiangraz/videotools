@@ -1,6 +1,6 @@
 import { ease, mix, timeline, type Icon, type Layer } from "../icon";
 
-const STILLS = ["ball", "square", "triangle"] as const;
+const STILLS = ["ball", "vee", "triangle"] as const;
 const DURATION = 3;
 
 const STEP = 1;
