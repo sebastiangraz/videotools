@@ -93,7 +93,7 @@
       color-mix(in srgb, var(--fg) 40%, var(--bg)),
       color-mix(in srgb, var(--fg) 50%, var(--bg))
     );
-    --clip-fg: light-dark(var(--bg), var(--bg));
+    --clip-fg: var(--bg);
   }
 }
 

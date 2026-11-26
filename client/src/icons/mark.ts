@@ -1,12 +1,11 @@
-import { CLIPS, type Icon } from "../icon";
-import { ICON } from "../tools";
+import { CLIPS, ICON, type Icon } from "../icon";
 
 // The key plays a clip under a © in glass, which fades in.
 export default {
   duration: 6,
   key: [72, 70, 35, 26, 16],
   layers(t, _, [x, y, w, h, r]) {
-    const at: [number, number] = [x + -32, y + 24];
+    const at: [number, number] = [x - 32, y + 24];
     return [
       {
         at: [x, y],

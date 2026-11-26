@@ -70,7 +70,3 @@ export const TOOLS = TOOL_IDS.map((value) => ({ value, ...TOOL_META[value] }));
 export type Tool = (typeof TOOLS)[number];
 
 export const toolById = (id: ToolId): Tool => ({ value: id, ...TOOL_META[id] });
-
-// Header icon clips (scripts/icons): their frame rate, and their size, twice
-// the largest pane's.
-export const ICON = { fps: 60, clip: [168, 126] };

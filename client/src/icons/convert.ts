@@ -1,12 +1,11 @@
-import { CLIPS, type Icon, type Layer } from "../icon";
-import { ICON } from "../tools";
+import { CLIPS, ICON, type Icon, type Layer } from "../icon";
 
-// The key plays a clip among formats in glass, two behind it and one in
-// front, which draw out from it as the icon comes in and back as it goes.
+// The key plays a clip among formats in glass, in front of it, which draw out
+// from it as the icon comes in and back as it goes.
 const FORMATS = [
-  { label: "MP4", at: [-18, -36], half: 18, z: 1 },
-  { label: "WEBP", at: [-36, 24], half: 22, z: 1 },
-  { label: "GIF", at: [31, 36], half: 16, z: 1 },
+  { label: "MP4", at: [-18, -36], half: 18 },
+  { label: "WEBP", at: [-36, 24], half: 22 },
+  { label: "GIF", at: [31, 36], half: 16 },
 ];
 
 export default {
@@ -24,11 +23,11 @@ export default {
         clip: "cloud",
         frame: Math.round(t * ICON.fps) % CLIPS.cloud,
       },
-      ...FORMATS.map(({ label, at: [dx, dy], half, z }): Layer => ({
+      ...FORMATS.map(({ label, at: [dx, dy], half }): Layer => ({
         at: [x + dx * out, y + dy * out],
         size: [half, 10],
         radius: 12,
-        z,
+        z: 1,
         glass: 0.035,
         flip: true,
         label,

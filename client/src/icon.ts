@@ -1,5 +1,3 @@
-import { ICON } from "./tools";
-
 export type Vec = [number, number];
 // A rounded box: centre, half width and height, corner radius.
 export type Box = [x: number, y: number, w: number, h: number, r: number];
@@ -49,6 +47,10 @@ export type Icon = {
   // adding or dropping one.
   layers: (t: number, show: number, key: Box) => Layer[];
 };
+
+// The clips' frame rate, and the texels across and down a label's texture
+// layer, as wide for its height as a pane.
+export const ICON = { fps: 60, clip: [168, 126] };
 
 // The clips a pane can play and their lengths in frames, drawn live by the
 // shader's clip() in the canvas's --clip-fg on its --clip-bg.

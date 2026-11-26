@@ -1,5 +1,4 @@
-import { CLIPS, ease, type Icon } from "../icon";
-import { ICON } from "../tools";
+import { CLIPS, ICON, ease, type Icon } from "../icon";
 
 // The Speed page's knob turning between fast and slow beside a clip that
 // plays at the rate it shows, dropping or repeating frames like
@@ -26,27 +25,18 @@ export default {
   cloud: {
     lobes: 3,
     lobeScale: 3,
-    lobeHeight: 0.3,
     lobeBlend: 0.15,
     lobeRadius: 0.4,
-    lobeSpread: 0.09,
     lobeSwell: 0.22,
-    lobeDrift: 0.17,
-
     smoothing: 0.05,
-
     lightHeight: 1.2,
-
     base: 0.5,
     edge: 0.08,
     scale: 1.8,
-    clusters: 2,
-    clusterCoverage: 2,
     clusterSpacing: -0.3,
     clusterScatter: 0.8,
     clusterSpread: 0.6,
     clusterSwell: 0.3,
-    clusterRows: 2,
     clusterY: -0.5,
     clusterWidth: 1.3,
     clusterHeight: 0.9,
@@ -67,7 +57,6 @@ export default {
     const [kx, ky] = [x + X, y + Y];
     return [
       { at: [x, y], size: [w, h], radius: r, z: 0, clip: "sky", frame },
-      // ...timeline(key, played[i] / played[COUNT]),
       { at: [kx, ky], size: [ARC, 3], sweep: angle, z: 2, glass: 0.24 },
       { at: [kx, ky], size: [R, R], radius: R, z: 3, glass: 0.04, flip: true },
       {

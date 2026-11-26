@@ -1,5 +1,4 @@
-import { CLIPS, timeline, type Icon } from "../icon";
-import { ICON } from "../tools";
+import { CLIPS, ICON, timeline, type Icon } from "../icon";
 
 // The clip looped the way core/tools/loop.ts does it, starting at its middle:
 // in the key with the crossfade, behind it without, cutting hard where the
