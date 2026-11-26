@@ -92,9 +92,9 @@ export const timeline = ([x, y, w, h]: Box, played: number): Layer[] => {
       size: [half, high],
       radius: high,
       z: 1,
-      ink: -0.1,
+      glass: -0.1,
     },
-    { at: [x - half + lit, y + h - 9], size: [lit, high], radius: high, z: 1.1, glass: 0.4 },
+    { at: [x - half + lit, y + h - 9], size: [lit, high], radius: high, z: 1.1, glass: 0.28 },
   ];
 };
 
