@@ -1,7 +1,7 @@
 import { HeadContent, Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
-import { playIcons, type Icon } from "./icons";
+import { ICONS, playIcons, type Icon } from "./icons";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
@@ -31,11 +31,6 @@ const COMMAND_LINE_OPTIONS = [
 // Persisted in localStorage; index.html also reads themeInvert before first paint.
 const DEFAULT_SETTINGS = { verbose: false, commandLine: false, themeInvert: false };
 
-const ICONS = import.meta.glob<Icon>(["./icons/*.ts", "!./icons/index.ts"], {
-  eager: true,
-  import: "default",
-});
-
 // Stays mounted from tool to tool, so each icon morphs out of the last.
 const ToolIcon = ({ icon }: { icon: Icon }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -43,11 +38,10 @@ const ToolIcon = ({ icon }: { icon: Icon }) => {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (failed) return;
     playerRef.current = playIcons(canvasRef.current!, () => setFailed(true));
     return playerRef.current.stop;
-  }, [failed]);
-  useEffect(() => playerRef.current?.show(icon), [icon, failed]);
+  }, []);
+  useEffect(() => playerRef.current!.show(icon), [icon]);
 
   return failed ? null : (
     <div className={styles.icon}>
@@ -74,7 +68,7 @@ export const Layout = () => {
     document.documentElement.toggleAttribute("data-theme-invert", settings.themeInvert);
   }, [settings]);
   const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
-  const icon = ICONS[`./icons/${tool}.ts`];
+  const icon: Icon | undefined = ICONS[tool as ToolId];
 
   return (
     <div className={styles.app}>
