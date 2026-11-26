@@ -32,7 +32,7 @@
   composes: input from global;
   box-sizing: border-box;
   min-width: var(--anchor-width);
-  border-radius: calc(var(--radius) + 0.5em);
+  border-radius: calc(var(--radius) + 0.5em + 1px);
   padding: 0.5em;
   opacity: 1;
   font-size: var(--font-md);
