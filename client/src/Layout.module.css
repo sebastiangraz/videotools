@@ -24,6 +24,19 @@
     grid-column: 1 / -1;
     border-top: 1px solid var(--border);
   }
+  /* Only fixed elements run behind a mobile browser's toolbars. Not on
+     desktop, where the layer would cost the text above it subpixel AA. */
+  @media (pointer: coarse) {
+    isolation: isolate;
+    &::before {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      width: min(92%, var(--width));
+      margin-inline: auto;
+      box-sizing: border-box;
+    }
+  }
 }
 
 .header {
