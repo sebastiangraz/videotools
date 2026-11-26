@@ -19,14 +19,16 @@ export type Layer = {
   z: number;
   opacity?: number;
   // What fills it: a clip's frame, mixed into its `next` by `mix`; glass,
-  // whitened by `glass` (below 0 darkened and lit as if recessed), with a
-  // `label` on it; or what's under it blurred, under the text colour at `ink`
-  // opacity (black below 0).
+  // whitened by `glass` (below 0 darkened and lit as if recessed; given `flip`,
+  // all of it the other way round on a light page), with a `label` on it; or
+  // what's under it blurred, under the text colour at `ink` opacity (black
+  // below 0).
   clip?: keyof typeof CLIPS;
   frame?: number;
   next?: number;
   mix?: number;
   glass?: number;
+  flip?: boolean;
   label?: string;
   ink?: number;
 };
@@ -109,8 +111,9 @@ const EASING = [0.85, 0, 0.15, 1];
 // device pixel, so its text is drawn at the size it shows.
 const TEXELS = 4;
 const font = (texels: number) => `500 ${9 * texels}px Styrene`;
-// Floats per packed layer, and the most a frame draws.
-const STRIDE = 16;
+// Floats per packed layer (the shader's Layer, padded to its vec2fs), and the
+// most a frame draws.
+const STRIDE = 18;
 const MAX = 256;
 
 // The look, sizes in icon units.
@@ -398,6 +401,7 @@ struct Layer {
   next: f32,
   mix: f32,
   z: f32,
+  flip: f32,
 }
 
 // An icon's CLOUD.
@@ -448,6 +452,8 @@ struct Out {
     return vec4f();
   }
   var c = select(u.fg, vec4f(0, 0, 0, 1), l.amount < 0) * abs(l.amount);
+  // 1 on a dark page, -1 on a light one.
+  let s = select(-1.0, 1.0, dot(u.bg.rgb, LUMA) < 0.5);
   if (l.kind == PANE) {
     let h = l.size.y;
     let q = turn(p - l.at, -l.turn) / h;
@@ -460,12 +466,10 @@ struct Out {
       a *= 1 - look.vignette * (1 - ease(look.vignetteCurve, saturate(-d / h / look.vignetteWidth)));
     }
     c = mix(u.clipBg, over(u.clipBg, u.clipFg), a);
-    // 1 on a dark page, -1 on a light one.
-    let s = select(-1.0, 1.0, dot(u.bg.rgb, LUMA) < 0.5);
     let edge = 1 - fill(shape(l, p - vec2f(0, s * u.cssPx)));
     c = vec4f(saturate(c.rgb + s * ${SETTINGS.paneEdge} * edge), c.a);
   } else if (l.kind == GLASS) {
-    c = vec4f(glass(l, p, d), 1);
+    c = vec4f(glass(l, p, d, select(1.0, s, l.flip != 0)), 1);
   } else {
     // A disc twice the deviation spreads as far as a CSS blur.
     c = over(vec4f(frost(p, ${2 * SETTINGS.inkBlur}), 1), c);
@@ -474,8 +478,9 @@ struct Out {
   return c * fill(d) * saturate(l.opacity);
 }
 
-// Glass over the backdrop.
-fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
+// Glass over the backdrop, whitened and lit in white with s 1, or with s -1
+// worked out on the backdrop's negative, so darkened and lit in black.
+fn glass(l: Layer, p: vec2f, d: f32, s: f32) -> vec3f {
   let e = vec2f(0.1, 0);
   let g = vec2f(shape(l, p + e) - shape(l, p - e), shape(l, p + e.yx) - shape(l, p - e.yx));
   // None on a ridge, such as a pill's spine, deep inside where it goes unused.
@@ -484,7 +489,7 @@ fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
   let half = select(min(l.size.x, l.size.y), l.size.y, l.arc != 0);
   // From the edge in, the bevel refracts sharp and the flat frosts.
   let x = clamp(-d / (${SETTINGS.bevel} * half), 0, 1);
-  var c = frost(p - n * ${SETTINGS.refract} * half * (1 - x) * (1 - x), ${SETTINGS.frost} * x);
+  var c = flip(frost(p - n * ${SETTINGS.refract} * half * (1 - x) * (1 - x), ${SETTINGS.frost} * x), s);
   c = mix(vec3f(dot(c, LUMA)), c, ${SETTINGS.saturation});
   c = mix(c, vec3f(f32(l.amount > 0)), abs(l.amount));
   // Light within, hugging the edges away from the light: each glow's bevel,
@@ -506,10 +511,10 @@ fn glass(l: Layer, p: vec2f, d: f32) -> vec3f {
   // the other way round.
   let side = sign(l.amount + 1e-6) * degrees(asin(clamp(dot(n, LIGHT), -1, 1)));
   let level = ${SETTINGS.rimOpacity} * ramp(side) + ${SETTINGS.glint} * ramp(-side);
-  let paint = over(u.bg, textureSampleLevel(backdrop, bilinear, p / CELL, 0)).rgb;
+  let paint = flip(over(u.bg, textureSampleLevel(backdrop, bilinear, p / CELL, 0)).rgb, s);
   let tinge = clamp(mix(vec3f(dot(paint, LUMA)), paint, ${SETTINGS.rimSaturation}), vec3f(), vec3f(1));
   let rim = 1 - fill(d + max(${SETTINGS.rimWidth}, u.px));
-  c = mix(c, mix(vec3f(1), tinge, ${SETTINGS.rimTinge}), level * rim);
+  c = flip(mix(c, mix(vec3f(1), tinge, ${SETTINGS.rimTinge}), level * rim), s);
   if (l.image >= 0) {
     // Its texels on whole device pixels.
     let k = min(1 / u.px, TEXELS);
@@ -768,6 +773,11 @@ fn turn(p: vec2f, degrees: f32) -> vec2f {
   return vec2f(p.x * cos(a) - p.y * sin(a), p.x * sin(a) + p.y * cos(a));
 }
 
+// c with s 1, its negative with s -1.
+fn flip(c: vec3f, s: f32) -> vec3f {
+  return 0.5 + s * (c - 0.5);
+}
+
 fn over(below: vec4f, top: vec4f) -> vec4f {
   return top + below * (1 - top.a);
 }
@@ -1004,6 +1014,7 @@ export const playIcons = (canvas: HTMLCanvasElement, failed: () => void) => {
             l.next ?? l.frame ?? 0,
             l.mix ?? 0,
             l.z,
+            Number(!!l.flip),
           ],
           n * STRIDE,
         );

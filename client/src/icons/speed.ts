@@ -69,7 +69,7 @@ export default {
       { at: [x, y], size: [w, h], radius: r, z: 0, clip: "sky", frame },
       // ...timeline(key, played[i] / played[COUNT]),
       { at: [kx, ky], size: [ARC, 3], sweep: angle, z: 2, glass: 0.24 },
-      { at: [kx, ky], size: [R, R], radius: R, z: 3, glass: 0.04 },
+      { at: [kx, ky], size: [R, R], radius: R, z: 3, glass: 0.04, flip: true },
       {
         at: [kx + 6 * Math.sin(a), ky - 6 * Math.cos(a)],
         size: [3, 9],

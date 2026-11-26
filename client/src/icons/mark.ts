@@ -16,8 +16,8 @@ export default {
         clip: "grow",
         frame: Math.round(t * ICON.fps) % CLIPS.grow,
       },
-      { at, size: [20, 20], radius: 20, z: 1, glass: 0.05 },
-      { at, size: [10, 3], turn: 124, sweep: 292, z: 2, glass: 0.14 },
+      { at, size: [20, 20], radius: 20, z: 1, glass: 0.05, flip: true },
+      { at, size: [10, 3], turn: 124, sweep: 292, z: 2, glass: 0.14, flip: true },
     ];
   },
 } satisfies Icon;

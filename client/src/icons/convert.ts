@@ -30,6 +30,7 @@ export default {
         radius: 12,
         z,
         glass: 0.035,
+        flip: true,
         label,
       })),
     ];
