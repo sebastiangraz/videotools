@@ -4,7 +4,7 @@
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template: repeat(3, auto) / repeat(3, auto);
+  grid: repeat(3, auto) / repeat(3, auto);
   gap: var(--gap);
   padding: 4px;
   aspect-ratio: 1;

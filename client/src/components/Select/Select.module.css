@@ -49,7 +49,7 @@
 }
 
 .item {
-  composes: inputAccent from global;
+  composes: inputAccentSelected from global;
   display: flex;
   align-items: center;
   padding: 0 1em;

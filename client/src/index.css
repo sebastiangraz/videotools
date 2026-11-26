@@ -245,8 +245,9 @@ button {
   }
 }
 
-/* composes can't be state-scoped, so the active-state gating lives here */
-.inputAccent:is([data-pressed], [data-selected]) {
+/* composes can't be state-scoped, so the selected-state gating lives here */
+.inputAccent,
+.inputAccentSelected[data-selected] {
   box-shadow:
     inset 1px 0.75px 0 0 var(--border-subtle),
     inset -1px -0.75px 1px -0.5px var(--border);
@@ -264,7 +265,7 @@ button {
   color: var(--fg);
 }
 
-:root[data-theme-invert] .inputAccent:is([data-pressed], [data-selected]) {
+:root[data-theme-invert] :is(.inputAccent, .inputAccentSelected[data-selected]) {
   background-blend-mode: unset;
   background-image: radial-gradient(
     farthest-side at 50% 0%,

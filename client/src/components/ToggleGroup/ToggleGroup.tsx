@@ -1,5 +1,6 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup as BaseToggleGroup } from "@base-ui/react/toggle-group";
+import type { CSSProperties } from "react";
 import styles from "./ToggleGroup.module.css";
 
 type Option<T> = { value: T; label: string };
@@ -33,11 +34,13 @@ export const ToggleGroup = <T extends string>({
     aria-labelledby={labelledBy}
     className={styles.root}
     data-size={size}
+    style={{ "--at": options.findIndex((option) => option.value === value) } as CSSProperties}
   >
     {options.map((option) => (
       <Toggle key={option.value} value={option.value} className={styles.item}>
         {option.label}
       </Toggle>
     ))}
+    <span aria-hidden="true" className={styles.active} />
   </BaseToggleGroup>
 );
