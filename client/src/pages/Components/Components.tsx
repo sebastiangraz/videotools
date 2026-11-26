@@ -6,7 +6,6 @@ import { Upload } from "@src/components/Upload/Upload";
 import { Message } from "@src/components/Message/Message";
 import { NumberField } from "@src/components/NumberField/NumberField";
 import { Select } from "@src/components/Select/Select";
-import { Slider } from "@src/components/Slider/Slider";
 import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { Switch } from "@src/components/Switch/Switch";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
@@ -170,31 +169,6 @@ export const Components = () => {
             size="small"
           />
         </div>
-      </div>
-      <div className={form.formGroup}>
-        <Slider
-          label={`Slider (${slider})`}
-          value={slider}
-          onValueChange={setSlider}
-          min={0}
-          max={100}
-          step={1}
-          disabled={disabled}
-        />
-      </div>
-
-      <div className={form.formGroup}>
-        <Slider
-          label={`Centered slider (${centered.toFixed(1)})`}
-          value={centered}
-          onValueChange={setCentered}
-          min={-3}
-          max={3}
-          step={0.1}
-          disabled={disabled}
-          centered
-          pipCount={6}
-        />
       </div>
 
       <div className={form.horizontal}>
