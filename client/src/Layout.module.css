@@ -1,5 +1,5 @@
 .app {
-  min-height: 100lvh;
+  min-height: 100dvh;
   display: grid;
   grid-template:
     ". header ." auto
