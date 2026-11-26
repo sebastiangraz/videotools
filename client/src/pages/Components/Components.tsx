@@ -11,6 +11,11 @@ import { Switch } from "@src/components/Switch/Switch";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
+import { Command } from "@src/components/ToolPanel/ToolPanel";
+import { ToolIcon } from "@src/Layout";
+import { ICONS } from "@src/icons";
+import { TOOLS } from "@src/tools";
+import { cliCommand } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOGGLE_OPTIONS = [
@@ -47,6 +52,13 @@ export const Components = () => {
 
   return (
     <Page title="Components">
+      <div style={{ display: "flex", justifyContent: "space-around" }}>
+        {TOOLS.map((t) => (
+          <ToolIcon key={t.value} icon={ICONS[t.value]} />
+        ))}
+      </div>
+      <Command>{cliCommand("convert", files, { quality: slider })}</Command>
+
       <div className={form.horizontal}>
         <div className={form.switchRow}>
           <Switch id="disabled" checked={disabled} onCheckedChange={setDisabled} disabled={false} />

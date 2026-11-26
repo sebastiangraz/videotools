@@ -110,21 +110,23 @@ export const ToolPanel = ({
           {control}
         </div>
 
-        {commandLine && (
-          <div className={styles.command}>
-            <div className={styles.commandFill}>
-              <span aria-hidden className={cx(form.label, styles.prompt)}>
-                &gt;_ TERMINAL
-              </span>
-              <pre className={styles.commandText}>
-                <code>{verbose ? `${command} --verbose-names` : command}</code>
-              </pre>
-            </div>
-          </div>
-        )}
+        {commandLine && <Command>{verbose ? `${command} --verbose-names` : command}</Command>}
 
         <Footer />
       </div>
     </>
   );
 };
+
+export const Command = ({ children }: { children: string }) => (
+  <div className={styles.command}>
+    <div className={styles.commandFill}>
+      <span aria-hidden className={cx(form.label, styles.prompt)}>
+        &gt;_ TERMINAL
+      </span>
+      <pre className={styles.commandText}>
+        <code>{children}</code>
+      </pre>
+    </div>
+  </div>
+);
