@@ -33,7 +33,7 @@
   gap: 2rem 1em;
   align-items: end;
   padding: 1.5em 1em 1.25em 1em;
-  color: var(--fg);
+  color: var(--fg-secondary);
 }
 
 .logo {
