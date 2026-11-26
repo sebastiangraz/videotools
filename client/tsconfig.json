@@ -2,11 +2,11 @@
   "compilerOptions": {
     "target": "ES2024",
     "useDefineForClassFields": true,
-    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
     // The tools (@videotools/core) are written against node:fs/promises and node:path.
-    "types": ["node"],
+    "types": ["node", "@webgpu/types"],
 
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
