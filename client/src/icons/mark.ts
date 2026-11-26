@@ -1,4 +1,4 @@
-import { CLIPS, ICON, type Icon } from "../icon";
+import { CLIPS, ICON, type Icon } from ".";
 
 // The key plays a clip under a © in glass, which fades in.
 export default {

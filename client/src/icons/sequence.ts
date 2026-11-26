@@ -1,4 +1,4 @@
-import { ease, mix, timeline, type Icon, type Layer } from "../icon";
+import { ease, mix, timeline, type Icon, type Layer } from ".";
 
 const STILLS = ["ball", "vee", "triangle"] as const;
 const DURATION = 3;

@@ -1,4 +1,4 @@
-import { CLIPS, ICON, type Icon, type Layer } from "../icon";
+import { CLIPS, ICON, type Icon, type Layer } from ".";
 
 // The key plays a clip among formats in glass, in front of it, which draw out
 // from it as the icon comes in and back as it goes.

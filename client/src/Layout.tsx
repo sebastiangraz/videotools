@@ -1,7 +1,7 @@
 import { HeadContent, Link, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PAGES } from "./pages";
-import { playIcons, type Icon } from "./icon";
+import { playIcons, type Icon } from "./icons";
 import { TOOLS, type ToolId } from "./tools";
 import { MessageArea, MessageTrigger } from "./components/Message/Message";
 import { Tabs, Tab } from "./components/Tabs/Tabs";
@@ -31,7 +31,10 @@ const COMMAND_LINE_OPTIONS = [
 // Persisted in localStorage; index.html also reads themeInvert before first paint.
 const DEFAULT_SETTINGS = { verbose: false, commandLine: false, themeInvert: false };
 
-const ICONS = import.meta.glob<Icon>("./icons/*.ts", { eager: true, import: "default" });
+const ICONS = import.meta.glob<Icon>(["./icons/*.ts", "!./icons/index.ts"], {
+  eager: true,
+  import: "default",
+});
 
 // Stays mounted from tool to tool, so each icon morphs out of the last.
 const ToolIcon = ({ icon }: { icon: Icon }) => {

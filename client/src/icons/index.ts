@@ -31,8 +31,8 @@ export type Layer = {
   ink?: number;
 };
 
-// A tool's header icon (icons/<tool>.ts), drawn live by WebGPU. Its key, the
-// video every icon plays, morphs into the next icon's.
+// A tool's header icon (<tool>.ts beside this), drawn live by WebGPU. Its key,
+// the video every icon plays, morphs into the next icon's.
 export type Icon = {
   // Seconds; t = duration must look like t = 0.
   duration: number;

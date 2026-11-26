@@ -1,4 +1,4 @@
-import { CLIPS, ICON, ease, type Icon } from "../icon";
+import { CLIPS, ICON, ease, type Icon } from ".";
 
 // The Speed page's knob turning between fast and slow beside a clip that
 // plays at the rate it shows, dropping or repeating frames like
