@@ -173,6 +173,10 @@
   grid-template-rows: auto auto 0.5rem auto auto;
   row-gap: 0.5rem;
   column-gap: 1.5rem;
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 0.5rem auto auto 0.5rem auto auto;
+  }
 }
 
 .markSize,
@@ -196,7 +200,18 @@
     grid-row: 2 / -1;
     align-self: stretch;
     justify-self: end;
-    padding: 0.5rem;
+    padding: 0.75rem;
+  }
+  @media (max-width: 480px) {
+    grid-area: 7 / 1 / span 2;
+    & > * {
+      width: 5rem;
+    }
+    & > :last-child {
+      align-self: start;
+      justify-self: start;
+      padding: 0.5rem;
+    }
   }
 }
 
