@@ -38,6 +38,11 @@
   font-size: var(--font-md);
   color: currentColor;
   outline: none;
+  transition: opacity 150ms;
+  &[data-starting-style],
+  &[data-ending-style] {
+    opacity: 0;
+  }
   &[data-side="none"] {
     min-width: calc(var(--anchor-width) + 1em);
   }
@@ -55,9 +60,12 @@
   color: var(--fg-secondary);
   outline: 1px solid transparent;
   user-select: none;
+  /* selection only changes on close: hold the pill until the popup has faded out */
   transition:
     color 0.125s ease,
-    outline 0.2s ease;
+    outline 0.2s ease,
+    background 0s 150ms allow-discrete,
+    box-shadow 0s 150ms;
   &[data-highlighted] {
     color: var(--fg);
   }
