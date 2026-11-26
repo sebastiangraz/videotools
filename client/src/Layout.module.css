@@ -44,8 +44,10 @@
     center / contain no-repeat;
   background: linear-gradient(var(--border-solid) 0 0), var(--bg-1);
   transition: --input-bg-2 0.25s ease;
+
+  --input-bg-2: var(--border-solid);
   &:hover {
-    --input-bg-2: var(--border-solid);
+    --input-bg-2: color-mix(in srgb, var(--fg) 10%, var(--bg));
   }
 }
 
