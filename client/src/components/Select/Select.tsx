@@ -48,9 +48,6 @@ export const Select = ({
         <BaseSelect.Popup className={styles.popup}>
           {options.map((o) => (
             <BaseSelect.Item key={o.value} value={o.value} className={styles.item}>
-              <BaseSelect.ItemIndicator keepMounted className={styles.itemIndicator}>
-                {null}
-              </BaseSelect.ItemIndicator>
               <BaseSelect.ItemText>{o.label}</BaseSelect.ItemText>
             </BaseSelect.Item>
           ))}
