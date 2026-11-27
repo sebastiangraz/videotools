@@ -22,13 +22,18 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  transition: background-color 150ms ease;
   border-radius: 2px;
   position: relative;
+  display: grid;
+  place-items: center;
+
+  .circle {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
   &:after {
     content: "";
     position: absolute;
-    inset: calc(3px -50%);
     width: 3.5px;
     height: 3.5px;
     background: var(--border-solid);
@@ -36,7 +41,6 @@
     border-radius: 3px;
     corner-shape: round;
     transition: opacity 150ms ease;
-    translate: -50% -50%;
     opacity: 1;
     z-index: -1;
   }
@@ -96,20 +100,15 @@
   border-radius: 99em;
 }
 
-@property --glow {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
-}
-
 .shuffling {
   --hop: 700ms;
 
   .item {
-    --turn: mod(7 * (var(--i) - var(--at)), 9);
-    background-color: color-mix(in srgb, var(--fg-secondary) var(--glow), transparent);
-    animation: shuffle calc(9 * var(--hop)) ease-in-out infinite;
-    animation-delay: calc((var(--turn) - 9) * var(--hop));
+    .circle {
+      --turn: mod(7 * (var(--i) - var(--at)), 9);
+      animation: shuffle calc(9 * var(--hop)) ease-in-out infinite;
+      animation-delay: calc((var(--turn) - 9) * var(--hop));
+    }
 
     &:hover:after {
       background-color: var(--fg-tertiary);
@@ -126,10 +125,10 @@
   0%,
   22%,
   100% {
-    --glow: 0%;
+    opacity: 0;
   }
   3%,
   9% {
-    --glow: 40%;
+    opacity: 1;
   }
 }
