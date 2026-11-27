@@ -309,8 +309,8 @@ export const Mark = () => {
         </>
       )}
       {watermark && (
-        <div className={form.horizontal}>
-          <div className={form.formGroup}>
+        <div className={cx(form.horizontal, styles.markControls)}>
+          <div className={cx(form.formGroup, styles.markSize)}>
             <span id="markSize" className={form.label}>
               Size
             </span>
@@ -357,7 +357,7 @@ export const Mark = () => {
               shuffling={shuffling}
             />
           </div>
-          <div className={form.formGroup}>
+          <div className={cx(form.formGroup, styles.markFilter)}>
             <span id="markFilter" className={form.label}>
               Filter
             </span>

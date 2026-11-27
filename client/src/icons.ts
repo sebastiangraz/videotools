@@ -165,7 +165,7 @@ const SETTINGS = {
   rimTinge: 0.42,
   rimSaturation: 2.2,
   // Label text opacity.
-  label: 0.25,
+  label: 0.48,
 };
 
 // How the cloud and sky clips look where an icon doesn't say, sizes in half

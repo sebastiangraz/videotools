@@ -3,7 +3,11 @@
   --inset: 3px;
   --item-padding: 0.5em;
 
-  display: flex;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   min-height: 2.5rem;
   padding: var(--inset);
   gap: var(--inset);
@@ -18,15 +22,17 @@
   }
 }
 
+.item,
+.active {
+  border-radius: calc(var(--radius) - var(--inset) - 1px);
+  corner-shape: superellipse(1.45);
+}
+
 .item {
-  composes: inputAccent from global;
-  flex: 1;
   appearance: none;
   margin: 0;
   padding: 0 var(--item-padding);
   border: 0;
-  border-radius: calc(var(--radius) - var(--inset) - 1px);
-  corner-shape: superellipse(1.45);
   background: none;
   font: inherit;
   font-size: var(--font-md);
@@ -34,11 +40,10 @@
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
+  transition: color 150ms ease;
 
-  &:hover {
+  &:hover,
+  &[data-pressed] {
     color: var(--fg);
   }
 
@@ -53,5 +58,23 @@
   &:focus-visible {
     outline: 1px solid var(--border);
     outline-offset: 3px;
+  }
+}
+
+:root[data-theme-invert] .item[data-pressed] {
+  color: var(--bg);
+}
+
+.active {
+  composes: inputAccent from global;
+  position: absolute;
+  grid-area: 1 / 1 / 2 / 2;
+  inset: 0;
+  z-index: -1;
+  translate: calc(var(--at) * (100% + var(--inset)));
+  transition: translate 200ms cubic-bezier(0.7, 0, 0.175, 1);
+
+  .root:not(:has([data-pressed])) & {
+    display: none;
   }
 }

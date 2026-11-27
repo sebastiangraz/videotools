@@ -167,17 +167,50 @@
   color: var(--fg);
 }
 
-.markPosition {
-  display: flex;
-  flex: none;
-  align-items: center;
-  align-self: center;
+.markControls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto 0.5rem auto auto;
+  row-gap: 0.5rem;
+  column-gap: 1.5rem;
   @media (max-width: 480px) {
-    order: -1;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 0.5rem auto auto 0.5rem auto auto;
+  }
+}
+
+.markSize,
+.markFilter,
+.markPosition {
+  display: grid;
+  grid-template-rows: subgrid;
+}
+
+.markSize {
+  grid-area: 1 / 1 / span 2;
+}
+.markFilter {
+  grid-area: 4 / 1 / span 2;
+}
+
+.markPosition {
+  grid-area: 1 / 2 / -1;
+  grid-template-columns: subgrid;
+  & > :last-child {
+    grid-row: 2 / -1;
+    align-self: stretch;
+    justify-self: end;
+    padding: 0.75rem;
+  }
+  @media (max-width: 480px) {
+    grid-area: 7 / 1 / span 2;
+    & > * {
+      width: 5rem;
+    }
     & > :last-child {
-      --gap: 1rem;
+      align-self: start;
+      justify-self: start;
       padding: 0.5rem;
-      min-height: 7rem;
     }
   }
 }

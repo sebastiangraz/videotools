@@ -32,7 +32,7 @@ const COMMAND_LINE_OPTIONS = [
 const DEFAULT_SETTINGS = { verbose: false, commandLine: false, themeInvert: false };
 
 // Stays mounted from tool to tool, so each icon morphs out of the last.
-const ToolIcon = ({ icon }: { icon: Icon }) => {
+export const ToolIcon = ({ icon }: { icon: Icon }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const playerRef = useRef<ReturnType<typeof playIcons> | null>(null);
   const [failed, setFailed] = useState(false);

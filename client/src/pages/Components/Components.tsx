@@ -6,12 +6,16 @@ import { Upload } from "@src/components/Upload/Upload";
 import { Message } from "@src/components/Message/Message";
 import { NumberField } from "@src/components/NumberField/NumberField";
 import { Select } from "@src/components/Select/Select";
-import { Slider } from "@src/components/Slider/Slider";
 import { SliderRotary } from "@src/components/SliderRotary/SliderRotary";
 import { Switch } from "@src/components/Switch/Switch";
 import { ToggleGroup } from "@src/components/ToggleGroup/ToggleGroup";
 import { ToggleGrid } from "@src/components/ToggleGrid/ToggleGrid";
 import { Tooltip } from "@src/components/Tooltip/Tooltip";
+import { Command } from "@src/components/ToolPanel/ToolPanel";
+import { ToolIcon } from "@src/Layout";
+import { ICONS } from "@src/icons";
+import { TOOLS } from "@src/tools";
+import { cliCommand } from "@src/helpers";
 import form from "@src/form.module.css";
 
 const TOGGLE_OPTIONS = [
@@ -48,6 +52,13 @@ export const Components = () => {
 
   return (
     <Page title="Components">
+      <div style={{ display: "flex", justifyContent: "space-around" }}>
+        {TOOLS.map((t) => (
+          <ToolIcon key={t.value} icon={ICONS[t.value]} />
+        ))}
+      </div>
+      <Command>{cliCommand("convert", files, { quality: slider })}</Command>
+
       <div className={form.horizontal}>
         <div className={form.switchRow}>
           <Switch id="disabled" checked={disabled} onCheckedChange={setDisabled} disabled={false} />
@@ -170,31 +181,6 @@ export const Components = () => {
             size="small"
           />
         </div>
-      </div>
-      <div className={form.formGroup}>
-        <Slider
-          label={`Slider (${slider})`}
-          value={slider}
-          onValueChange={setSlider}
-          min={0}
-          max={100}
-          step={1}
-          disabled={disabled}
-        />
-      </div>
-
-      <div className={form.formGroup}>
-        <Slider
-          label={`Centered slider (${centered.toFixed(1)})`}
-          value={centered}
-          onValueChange={setCentered}
-          min={-3}
-          max={3}
-          step={0.1}
-          disabled={disabled}
-          centered
-          pipCount={6}
-        />
       </div>
 
       <div className={form.horizontal}>

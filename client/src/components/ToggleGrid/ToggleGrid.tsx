@@ -35,8 +35,12 @@ export const ToggleGrid = <T extends string>({
         aria-label={option}
         className={styles.item}
         style={{ "--i": i } as CSSProperties}
-      />
+      >
+        <span className={styles.circle} />
+      </Toggle>
     ))}
-    <span aria-hidden="true" className={styles.active} />
+    <span aria-hidden="true" className={styles.active}>
+      <span className={styles.circle} />
+    </span>
   </BaseToggleGroup>
 );

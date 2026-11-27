@@ -1,5 +1,5 @@
 .app {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template:
     ". header ." auto
@@ -9,6 +9,7 @@
 }
 
 .frame {
+  composes: eased from global;
   grid-area: 1 / 1 / -1 / -1;
   display: grid;
   grid-template-rows: subgrid;
@@ -17,6 +18,12 @@
     content: "";
     grid-area: 1 / 2 / -1;
     border-inline: 1px solid var(--border);
+    @media (max-width: 480px) {
+      --ease-end: 8rem;
+      mask-image:
+        linear-gradient(var(--ease-in-out-stops)), linear-gradient(to top, var(--ease-in-out-stops));
+      mask-composite: intersect;
+    }
   }
   &::after {
     content: "";
@@ -74,6 +81,7 @@
   grid-area: main;
   display: flex;
   flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* One slot for the tool icons, which bleed out of it. */

@@ -32,67 +32,44 @@
   composes: input from global;
   box-sizing: border-box;
   min-width: var(--anchor-width);
-  padding: calc(3px + 1px);
+  border-radius: calc(var(--radius) + 0.5em + 1px);
+  padding: 0.5em;
+  opacity: 1;
   font-size: var(--font-md);
   color: currentColor;
   outline: none;
-  /* When the Select overlaps the trigger to align the selected item's text
-     with the trigger's ([data-side="none"]), the whole popup shifts left by
-     the difference in text offsets. Widen by twice that so it overhangs the
-     trigger evenly on both sides. */
+  transition: opacity 150ms;
+  &[data-starting-style],
+  &[data-ending-style] {
+    opacity: 0;
+  }
   &[data-side="none"] {
-    min-width: calc(var(--anchor-width) + 2 * (1em + 1px));
+    min-width: calc(var(--anchor-width) + 1em);
   }
 }
 
 .item {
-  composes: inputAccent from global;
+  composes: inputAccentSelected from global;
   display: flex;
   align-items: center;
-  gap: 0.25em;
-  padding: 0 0.75em;
-  min-height: calc(2.5rem - 2px);
-  border-radius: max(calc(var(--radius) - (3px + 1px)), 1px);
+  padding: 0 1em;
+  min-height: calc(2.5rem);
+  border-radius: var(--radius);
   corner-shape: superellipse(1.45);
   cursor: default;
   color: var(--fg-secondary);
   outline: 1px solid transparent;
   user-select: none;
+  /* selection only changes on close: hold the pill until the popup has faded out */
   transition:
     color 0.125s ease,
-    outline 0.2s ease;
+    outline 0.2s ease,
+    background 0s 150ms allow-discrete,
+    box-shadow 0s 150ms;
   &[data-highlighted] {
     color: var(--fg);
   }
   &:hover:not([data-selected]) {
     cursor: pointer;
-    .itemIndicator::before {
-      opacity: 0.2;
-    }
-  }
-}
-
-:root[data-theme-invert] .item[data-selected] {
-  .itemIndicator::before {
-    background-color: var(--bg);
-  }
-}
-
-.itemIndicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 0.75em;
-  &::before {
-    content: "";
-    width: 0.4em;
-    height: 0.4em;
-    border-radius: 50%;
-    background-color: var(--fg);
-    opacity: 0;
-    transition: opacity 0.125s ease;
-  }
-  &[data-selected]::before {
-    opacity: 1;
   }
 }
